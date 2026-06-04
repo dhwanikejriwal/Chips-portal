@@ -53,7 +53,8 @@ body {
 /* Main Layout Wrapper */
 .main-layout {
     display: flex;
-    min-height: calc(100vh - 80px);
+    height: calc(100vh - 80px);
+    overflow: hidden;
     position: relative;
 }
 
@@ -86,6 +87,8 @@ body {
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-x: hidden;
     white-space: nowrap;
+    height: 100%;
+    overflow-y: auto;
 }
 
 .sidebar.collapsed {
@@ -129,46 +132,117 @@ body {
     color: white;
 }
 
-/* Submenu details/summary */
-.sidebar details summary {
-    cursor: pointer;
-    outline: none;
-    font-weight: 600;
-    list-style: none;
+/* Sidebar details and summary */
+.sidebar details {
+    width: 100%;
 }
 
+.sidebar details summary {
+    display: block; /* Hide default list-item marker */
+    padding: 15px 25px;
+    font-size: 16px;
+    font-weight: 600;
+    color: inherit;
+    cursor: pointer;
+    outline: none;
+    transition: 0.3s;
+    position: relative;
+}
+
+.sidebar details summary:hover {
+    background: #eaf3ff;
+    color: #007bff;
+}
+
+/* Hide default marker in Safari and Chrome */
 .sidebar details summary::-webkit-details-marker {
     display: none;
 }
 
-/* Submenu list */
-.submenu {
-    margin-top: 10px;
-    margin-left: 10px;
+/* Add custom toggle indicators (chevron down / right) */
+.sidebar details summary::after {
+    content: '▼';
+    position: absolute;
+    right: 25px;
+    font-size: 10px;
+    color: #888;
+    transition: transform 0.3s;
 }
 
-.submenu li {
-    padding: 10px 15px !important;
-    margin-top: 4px;
-    font-size: 14px;
-    font-weight: 500;
-    border-left: 3px solid #007bff;
-    background: white;
+.sidebar details[open] summary::after {
+    transform: rotate(0deg);
 }
 
-.submenu li:hover {
-    background: #eef5ff !important;
-    color: #007bff !important;
+.sidebar details:not([open]) summary::after {
+    transform: rotate(-90deg);
 }
 
-.submenu li.active {
-    background: #eef5ff !important;
-    color: #007bff !important;
+/* Submenu list under details */
+.sidebar ul.submenu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar ul.submenu li.submenu-item {
+    padding: 12px 25px 12px 40px !important; /* Indented with padding */
+    font-size: 15px;
+    font-weight: 600; /* Bold weight like earlier */
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.sidebar ul.submenu li.submenu-item:hover {
+    background: #eaf3ff;
+    color: #007bff;
+}
+
+.sidebar ul.submenu li.submenu-item.active {
+    background: #007bff;
+    color: white;
+}
+
+.sidebar ul.submenu li.submenu-item.active a {
+    color: white !important;
+}
+
+.sidebar ul li.menu-item {
+    padding: 0 !important;
+}
+
+.sidebar ul li.menu-item:hover {
+    background: transparent !important;
+}
+
+/* Responsive Filter Bar styling */
+.filter-bar {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap; /* Allows wrapping on smaller screens */
+    align-items: flex-end; /* Align items to the bottom */
+    background: #f8f9fa;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 20px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.filter-group label {
+    font-size: 12px;
+    color: #666;
     font-weight: bold;
+    margin-bottom: 0;
 }
 
-.submenu li.active a {
-    color: #007bff !important;
+.filter-group-search {
+    flex: 1;
+    min-width: 220px; /* Prevent search input from squishing too small */
 }
 
 /* Content Area */
@@ -176,6 +250,8 @@ body {
     flex: 1;
     padding: 30px;
     overflow-x: auto;
+    overflow-y: auto;
+    height: 100%;
 }
 
 .content h2 {
@@ -228,11 +304,20 @@ body {
 @media(max-width: 700px) {
     .main-layout {
         flex-direction: column;
+        height: auto;
+        overflow: visible;
     }
 
     .sidebar {
         width: 100%;
         flex-shrink: 1;
+        height: auto;
+        overflow-y: visible;
+    }
+
+    .content {
+        height: auto;
+        overflow-y: visible;
     }
 
     .cards {

@@ -17,7 +17,12 @@
     <header class="header">
         <div class="logo-section">
             <button id="sidebar-toggle" class="sidebar-toggle-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
             </button>
             <img src="/static/css/images/chips_logo.jpg" alt="CHiPS Logo">
             <h1>LMS Portal</h1>
@@ -34,38 +39,7 @@
 
     <div class="main-layout">
         <!-- Sidebar -->
-        <aside class="sidebar">
-            <ul>
-                <li>
-                    <a href="/dc/dashboard">Dashboard</a>
-                </li>
-                <li class="menu-item">
-                   <details open>
-                     <summary>
-                         Request Registration
-                     </summary>
-                     <ul class="submenu">
-                         <li class="active"><a href="/lms">LMS Registration</a></li>
-                         <li><a href="#">L1 Registration</a></li>
-                         <li><a href="#">L2 Registration</a></li>
-                         <li><a href="#">NOC Registration</a></li>
-                     </ul>
-                   </details>
-                </li>
-                <li>
-                    <a href="#">Request Management</a>
-                </li>
-                <li>
-                    <a href="#">Reports</a>
-                </li>
-                <li>
-                    <a href="#">Users</a>
-                </li>
-                <li>
-                    <a href="/auth/logout">Logout</a>
-                </li>
-            </ul>
-        </aside>
+        {% include "partials/sidebar.html" %}
 
         <!-- Content -->
         <main class="content">
@@ -73,124 +47,134 @@
             <div class="container">
                 <h2>Register User</h2>
 
-        <!-- Error Placeholder -->
-        <div id="dc-form-error"></div>
+                <!-- Error Placeholder -->
+                <div id="dc-form-error"></div>
 
-        <form id="dc-registration-form" hx-post="/lms/request" hx-target="#lms-request-table-body" hx-swap="afterbegin"
-            hx-on::after-request="if(event.detail.xhr.status === 200 || event.detail.xhr.status === 201) this.reset()" autocomplete="off">
+                <form id="dc-registration-form" hx-post="/lms/request" hx-target="#lms-request-table-body"
+                    hx-swap="afterbegin"
+                    hx-on::after-request="if(event.detail.xhr.status === 200 || event.detail.xhr.status === 201) this.reset()"
+                    autocomplete="off">
 
-            <div class="row">
-                <div class="input-group">
-                    <label>First Name <span class="required">*</span></label>
-                    <input type="text" name="first_name" pattern="[A-Za-z]+" oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '')" required>
+                    <div class="row">
+                        <div class="input-group">
+                            <label>First Name <span class="required">*</span></label>
+                            <input type="text" name="first_name" pattern="[A-Za-z]+"
+                                oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '')" required>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Middle Name</label>
+                            <input type="text" name="middle_name" pattern="[A-Za-z\s]*"
+                                oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '')">
+                        </div>
+
+                        <div class="input-group">
+                            <label>Last Name <span class="required">*</span></label>
+                            <input type="text" name="last_name" pattern="[A-Za-z]+"
+                                oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '')" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-group">
+                            <label>Phone Number <span class="required">*</span></label>
+                            <input type="tel" name="phone" pattern="[0-9]{10,15}" maxlength="10"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '')" placeholder="10 digit number"
+                                required>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Email ID <span class="required">*</span></label>
+                            <input type="email" name="email" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="input-group">
+                            <label>District <span class="required">*</span></label>
+                            <input type="text" value="{{ session.get('district_name', '') }}" disabled
+                                style="background-color: #e9ecef; cursor: not-allowed;">
+                        </div>
+                    </div>
+
+                    <div class="button-container">
+                        <button type="submit" class="btn">
+                            Register
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+
+            <div class="container data-grid-container" style="margin-top: 2rem; max-width: 1100px;">
+                <h2>LMS Credentials Request History</h2>
+
+                <!-- Filter Controls -->
+                <div class="filter-bar">
+                    <div class="filter-group filter-group-search">
+                        <label>Search Operator</label>
+                        <input type="text" id="dc-search-input" placeholder="Search by name or email..."
+                            class="table-input" oninput="filterDCRequests()">
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select id="dc-status-filter" class="table-input" style="width: 150px;"
+                            onchange="filterDCRequests()">
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="assigned">Approved</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Time Period</label>
+                        <select id="dc-date-filter" class="table-input" style="width: 150px;"
+                            onchange="filterDCRequests()">
+                            <option value="all">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="month" selected>This Month</option>
+                            <option value="year">This Year</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="input-group">
-                    <label>Middle Name</label>
-                    <input type="text" name="middle_name" pattern="[A-Za-z\s]*" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '')">
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Operator Name</th>
+                                <th>Email Address</th>
+                                <th>Status</th>
+                                <th>Request Created Time</th>
+                                <th>Request Accepted Time</th>
+                                <th>Generated ID</th>
+                                <th>Password</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lms-request-table-body">
+                            {% for req in requests %}
+                            <tr data-name="{{ req.operator_first_name }} {{ req.operator_last_name }}"
+                                data-email="{{ req.operator_email }}" data-status="{{ req.status }}"
+                                data-created="{{ req.created_at }}">
+                                <td><strong>{{ req.operator_first_name }} {{ req.operator_last_name }}</strong></td>
+                                <td>{{ req.operator_email }}</td>
+                                <td>
+                                    {% if req.status == 'assigned' %}
+                                    <span class="badge badge-approved">Approved</span>
+                                    {% else %}
+                                    <span class="badge badge-pending">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ req.created_at }}</td>
+                                <td>{{ req.accepted_at if req.accepted_at else '-' }}</td>
+                                <td><code>{{ req.generated_login_id if req.generated_login_id else '-' }}</code></td>
+                                <td><code>{{ req.generated_password_raw if req.generated_password_raw else '-' }}</code>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-
-                <div class="input-group">
-                    <label>Last Name <span class="required">*</span></label>
-                    <input type="text" name="last_name" pattern="[A-Za-z]+" oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '')" required>
-                </div>
             </div>
-
-            <div class="row">
-                <div class="input-group">
-                    <label>Phone Number <span class="required">*</span></label>
-                    <input type="tel" name="phone" pattern="[0-9]{10,15}" maxlength="10"
-                        oninput="this.value = this.value.replace(/[^0-9]/g, '')" placeholder="10 digit number" required>
-                </div>
-
-                <div class="input-group">
-                    <label>Email ID <span class="required">*</span></label>
-                    <input type="email" name="email" required>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="input-group">
-                    <label>District <span class="required">*</span></label>
-                    <input type="text" value="{{ session.get('district_name', '') }}" disabled style="background-color: #e9ecef; cursor: not-allowed;">
-                </div>
-            </div>
-
-            <div class="button-container">
-                <button type="submit" class="btn">
-                    Register
-                </button>
-            </div>
-
-        </form>
-    </div>
-
-    <div class="container data-grid-container" style="margin-top: 2rem; max-width: 1100px;">
-        <h2>LMS Credentials Request History</h2>
-
-        <!-- Filter Controls -->
-        <div class="filter-bar"
-            style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-                <label style="font-size: 12px; color: #666; font-weight: bold;">Search Operator</label>
-                <input type="text" id="dc-search-input" placeholder="Search by name or email..." class="table-input"
-                    style="width: 100%;" oninput="filterDCRequests()">
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-                <label style="font-size: 12px; color: #666; font-weight: bold;">Status</label>
-                <select id="dc-status-filter" class="table-input" style="width: 150px;" onchange="filterDCRequests()">
-                    <option value="all">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="assigned">Approved</option>
-                </select>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-                <label style="font-size: 12px; color: #666; font-weight: bold;">Time Period</label>
-                <select id="dc-date-filter" class="table-input" style="width: 150px;" onchange="filterDCRequests()">
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="month" selected>This Month</option>
-                    <option value="year">This Year</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Operator Name</th>
-                        <th>Email Address</th>
-                        <th>Status</th>
-                        <th>Request Created Time</th>
-                        <th>Request Accepted Time</th>
-                        <th>Generated ID</th>
-                        <th>Password</th>
-                    </tr>
-                </thead>
-                <tbody id="lms-request-table-body">
-                    {% for req in requests %}
-                    <tr data-name="{{ req.operator_first_name }} {{ req.operator_last_name }}"
-                        data-email="{{ req.operator_email }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
-                        <td><strong>{{ req.operator_first_name }} {{ req.operator_last_name }}</strong></td>
-                        <td>{{ req.operator_email }}</td>
-                        <td>
-                            {% if req.status == 'assigned' %}
-                            <span class="badge badge-approved">Approved</span>
-                            {% else %}
-                            <span class="badge badge-pending">Pending</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ req.created_at }}</td>
-                        <td>{{ req.accepted_at if req.accepted_at else '-' }}</td>
-                        <td><code>{{ req.generated_login_id if req.generated_login_id else '-' }}</code></td>
-                        <td><code>{{ req.generated_password_raw if req.generated_password_raw else '-' }}</code></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
         </main>
     </div>
 
@@ -198,11 +182,11 @@
         // Sidebar Toggle Collapse/Expand persistence
         const sidebar = document.querySelector('.sidebar');
         const toggleBtn = document.getElementById('sidebar-toggle');
-        
+
         if (localStorage.getItem('sidebar-collapsed') === 'true') {
             sidebar.classList.add('collapsed');
         }
-        
+
         toggleBtn.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
             localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
@@ -218,7 +202,7 @@
             const yearStr = now.getFullYear().toString();
             const monthStr = (now.getMonth() + 1).toString().padStart(2, '0');
             const dayStr = now.getDate().toString().padStart(2, '0');
-            
+
             const todayPrefix = `${yearStr}-${monthStr}-${dayStr}`;
             const monthPrefix = `${yearStr}-${monthStr}`;
             const yearPrefix = yearStr;
@@ -269,12 +253,12 @@
             }
         });
 
-        
+
         document.body.addEventListener('htmx:afterOnLoad', function (evt) {
             // Check if the target of the submission was your registration form
             if (evt.detail.elt.id === 'dc-registration-form') {
                 if (evt.detail.xhr.status === 201 || evt.detail.xhr.status === 200) {
-                    
+
                     // Trigger an elegant modern popup modal
                     Swal.fire({
                         title: 'Submission Successful!',

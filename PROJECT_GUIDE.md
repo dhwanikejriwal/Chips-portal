@@ -49,13 +49,14 @@ graph TD
 *   **[app/templates/](file:///d:/project/Chips-portal/app/templates/)**: 
     *   `base.html`: Common layout wrapper importing HTMX.
     *   `auth/login.html`: White-themed login layout.
-    *   `dc/dc_dash.html`: DC overview landing page displaying dynamic counts and requests table.
-    *   `dc/lms.html`: DC LMS registration form (with numerical phone filters, alphabetical name filters, locked district field) and request history table with date filters.
-    *   `chips/chips_dash.html`: CHIPS Admin overview page showing dynamic stats cards and recent requests table.
-    *   `chips/chips_lms.html`: CHIPS Admin LMS review console containing search bars, district/date dropdown filters, pending credentials queue, and approved log logs.
+    *   `dc/dc_dash.html`: DC overview landing page displaying dynamic counts and requests table (includes `partials/sidebar.html`).
+    *   `dc/lms.html`: DC LMS registration form (with numerical phone filters, alphabetical name filters, locked district field) and request history table with date filters (includes `partials/sidebar.html`).
+    *   `chips/chips_dash.html`: CHIPS Admin overview page showing dynamic stats cards and recent requests table (includes `partials/sidebar.html`).
+    *   `chips/chips_lms.html`: CHIPS Admin LMS review console containing search bars, district/date dropdown filters, pending credentials queue, and approved log logs (includes `partials/sidebar.html`).
+    *   `partials/sidebar.html`: Unified, reusable sidebar partial that dynamically handles active links based on route rules and is shared across all dashboards.
 *   **[app/static/css/](file:///d:/project/Chips-portal/app/static/css/)**: 
     *   `common.css`: Baseline resets, headers, profiles, standard tables, generic HTML fallback styles, and badges.
-    *   `layout.css`: Persistent sidebar layouts, hamburger buttons, collapse states, grid cards, and mobile view breakpoints.
+    *   `layout.css`: Persistent sidebar layouts (fixed positioning, independent vertical scrolling on desktop, custom details/summary arrows), hamburger buttons, collapse states, grid cards, and mobile view breakpoints.
     *   `dc_dashboard.css`: Form row structures and validation styling for the DC panels.
     *   `chips_dashboard.css`: Mini-form layouts, table search inputs, and Issue button styles.
 
