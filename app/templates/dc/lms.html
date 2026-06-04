@@ -6,17 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LMS Registration</title>
     <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
     <link rel="stylesheet" href="/static/css/dc_dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
 
 <body>
 
     <header class="header">
-        <div class="logo-container">
+        <div class="logo-section">
+            <button id="sidebar-toggle" class="sidebar-toggle-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
             <img src="/static/css/images/chips_logo.jpg" alt="CHiPS Logo">
+            <h1>LMS Portal</h1>
         </div>
-        <h1>LMS Registration Portal</h1>
 
         <div class="user-profile-box">
             <div class="user-info">
@@ -27,14 +32,52 @@
         </div>
     </header>
 
-    <div class="container">
-        <h2>Register User</h2>
+    <div class="main-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <ul>
+                <li>
+                    <a href="/dc/dashboard">Dashboard</a>
+                </li>
+                <li class="menu-item">
+                   <details open>
+                     <summary>
+                         Request Registration
+                     </summary>
+                     <ul class="submenu">
+                         <li class="active"><a href="/lms">LMS Registration</a></li>
+                         <li><a href="#">L1 Registration</a></li>
+                         <li><a href="#">L2 Registration</a></li>
+                         <li><a href="#">NOC Registration</a></li>
+                     </ul>
+                   </details>
+                </li>
+                <li>
+                    <a href="#">Request Management</a>
+                </li>
+                <li>
+                    <a href="#">Reports</a>
+                </li>
+                <li>
+                    <a href="#">Users</a>
+                </li>
+                <li>
+                    <a href="/auth/logout">Logout</a>
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Content -->
+        <main class="content">
+
+            <div class="container">
+                <h2>Register User</h2>
 
         <!-- Error Placeholder -->
         <div id="dc-form-error"></div>
 
         <form id="dc-registration-form" hx-post="/lms/request" hx-target="#lms-request-table-body" hx-swap="afterbegin"
-            hx-on::after-request="if(event.detail.xhr.status === 200) this.reset()" autocomplete="off">
+            hx-on::after-request="if(event.detail.xhr.status === 200 || event.detail.xhr.status === 201) this.reset()" autocomplete="off">
 
             <div class="row">
                 <div class="input-group">
@@ -148,8 +191,23 @@
             </table>
         </div>
     </div>
+        </main>
+    </div>
 
     <script>
+        // Sidebar Toggle Collapse/Expand persistence
+        const sidebar = document.querySelector('.sidebar');
+        const toggleBtn = document.getElementById('sidebar-toggle');
+        
+        if (localStorage.getItem('sidebar-collapsed') === 'true') {
+            sidebar.classList.add('collapsed');
+        }
+        
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+        });
+
         function filterDCRequests() {
             const query = document.getElementById('dc-search-input').value.toLowerCase();
             const status = document.getElementById('dc-status-filter').value.toLowerCase();
@@ -208,6 +266,30 @@
             if (evt.detail.xhr.status >= 400) {
                 evt.detail.shouldSwap = true;
                 evt.detail.isError = false;
+            }
+        });
+
+        
+        document.body.addEventListener('htmx:afterOnLoad', function (evt) {
+            // Check if the target of the submission was your registration form
+            if (evt.detail.elt.id === 'dc-registration-form') {
+                if (evt.detail.xhr.status === 201 || evt.detail.xhr.status === 200) {
+                    
+                    // Trigger an elegant modern popup modal
+                    Swal.fire({
+                        title: 'Submission Successful!',
+                        text: 'Your LMS registration request has been submitted successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#1e3a8a', // Colors matched to your layout theme
+                        background: '#ffffff',
+                        timer: 3500,
+                        timerProgressBar: true
+                    }).then(() => {
+                        // Run your existing filter logic to keep tables updated
+                        filterDCRequests();
+                    });
+
+                }
             }
         });
     </script>

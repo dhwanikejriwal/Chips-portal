@@ -47,7 +47,7 @@ def create_app():
                     if profile.get("role") == "chips_admin":
                         redirect_url = url_for("chips_admin_dashboard")
                     else:
-                        redirect_url = url_for("lms_dashboard")
+                        redirect_url = url_for("dc_dashboard")
                     
                     return f'<script>window.location.href = "{redirect_url}\";</script>'
                 else:
@@ -60,7 +60,43 @@ def create_app():
             return '<p class="text-red-500 text-xs text-center mt-2">❌ Auth Gateway (Port 8000) Offline</p>'
         
 
-    # 3. DC Dashboard Router View
+    # 3. DC Dashboard Overview View
+    @app.route("/dc/dashboard", methods=["GET"])
+    def dc_dashboard():
+        jwt_token = session.get("access_token")
+        if not jwt_token:
+            return redirect(url_for("login_view"))
+            
+        role = session.get("role")
+        if role == "chips_admin":
+            return redirect(url_for("chips_admin_dashboard"))
+        elif role != "dc":
+            return redirect(url_for("login_view"))
+            
+        headers = {"Authorization": f"Bearer {jwt_token}"}
+        try:
+            response = requests.get("http://127.0.0.1:8000/lms/requests", headers=headers)
+            if response.status_code == 200:
+                requests_list = response.json()
+            else:
+                requests_list = []
+        except requests.exceptions.ConnectionError:
+            requests_list = []
+            
+        lms_count = len(requests_list)
+        l1_count = 0
+        l2_count = 0
+        noc_count = 0
+        
+        return render_template(
+            "dc/dc_dash.html",
+            lms_count=lms_count,
+            l1_count=l1_count,
+            l2_count=l2_count,
+            noc_count=noc_count
+        )
+
+    # 4. DC LMS Registration Router View
     @app.route("/lms", methods=["GET"])
     def lms_dashboard():
         jwt_token = session.get("access_token")
@@ -88,6 +124,44 @@ def create_app():
     # 4. Admin Dashboard Router View
     @app.route("/chips/dashboard", methods=["GET"])
     def chips_admin_dashboard():
+        jwt_token = session.get("access_token")
+        if not jwt_token:
+            return redirect(url_for("login_view"))
+            
+        role = session.get("role")
+        if role == "dc":
+            return redirect(url_for("lms_dashboard"))
+        elif role != "chips_admin":
+            return redirect(url_for("login_view"))
+            
+        headers = {"Authorization": f"Bearer {jwt_token}"}
+        try:
+            response = requests.get("http://127.0.0.1:8000/lms/requests", headers=headers)
+            if response.status_code == 200:
+                requests_list = response.json()
+            else:
+                requests_list = []
+        except requests.exceptions.ConnectionError:
+            requests_list = []
+            
+        total_count = len(requests_list)
+        pending_count = len([r for r in requests_list if r["status"] == "pending"])
+        approved_count = len([r for r in requests_list if r["status"] == "assigned"])
+        rejected_count = 0
+        recent_requests = requests_list[:10]  # Show recent 10 requests
+        
+        return render_template(
+            "chips/chips_dash.html", 
+            total_count=total_count,
+            pending_count=pending_count,
+            approved_count=approved_count,
+            rejected_count=rejected_count,
+            recent_requests=recent_requests
+        )
+
+    # 4b. Admin LMS Review Page View
+    @app.route("/chips/lms", methods=["GET"])
+    def chips_lms_view():
         jwt_token = session.get("access_token")
         if not jwt_token:
             return redirect(url_for("login_view"))

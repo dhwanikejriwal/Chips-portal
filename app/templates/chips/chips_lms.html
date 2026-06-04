@@ -5,27 +5,65 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CHIPS Admin - LMS Review Portal</title>
     <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
     <link rel="stylesheet" href="/static/css/chips_dashboard.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
 <body>
 
     <header class="header">
-        <div class="logo-container">
+        <div class="logo-section">
+            <button id="sidebar-toggle" class="sidebar-toggle-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
             <img src="/static/css/images/chips_logo.jpg" alt="CHiPS Logo">
+            <h1>CHiPS Admin Portal</h1>
         </div>
-        <h1>LMS Review Portal</h1>
 
         <div class="user-profile-box">
             <div class="user-info">
-                <span class="user-name">chips_admin</span>
+                <span class="user-name">{{ session.get('username', 'chips_admin') }}</span>
                 <span class="user-role">CHIPS Administrator</span>
             </div>
             <a href="/auth/logout" class="logout-link">Logout</a>
         </div>
     </header>
 
-    <div class="container" style="max-width: 1200px;">
+    <div class="main-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <ul>
+                <li>
+                    <a href="/chips/dashboard">Dashboard</a>
+                </li>
+                <li class="active">
+                    <a href="/chips/lms">LMS Requests</a>
+                </li>
+                <li>
+                    <a href="#">L1 Requests</a>
+                </li>
+                <li>
+                    <a href="#">L2 Requests</a>
+                </li>
+                <li>
+                    <a href="#">NOC Requests</a>
+                </li>
+                <li>
+                    <a href="#">User Management</a>
+                </li>
+                <li>
+                    <a href="#">Reports</a>
+                </li>
+                <li>
+                    <a href="/auth/logout">Logout</a>
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Content -->
+        <main class="content">
+
+            <div class="container" style="max-width: 1200px;">
         
         <!-- Unified Filter Controls -->
         <div class="filter-bar" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -124,8 +162,23 @@
         </div>
 
     </div>
+        </main>
+    </div>
 
     <script>
+        // Sidebar Toggle Collapse/Expand persistence
+        const sidebar = document.querySelector('.sidebar');
+        const toggleBtn = document.getElementById('sidebar-toggle');
+        
+        if (localStorage.getItem('sidebar-collapsed') === 'true') {
+            sidebar.classList.add('collapsed');
+        }
+        
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+        });
+
         function filterAdminQueues() {
             const query = document.getElementById('admin-search-input').value.toLowerCase();
             const district = document.getElementById('admin-district-filter').value.toLowerCase();

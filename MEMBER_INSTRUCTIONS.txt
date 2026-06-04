@@ -1,0 +1,193 @@
+========================================================================
+CHiPS Aadhaar Portal: Team File Creation & Coding Instructions
+========================================================================
+
+Each developer handles a FULL-STACK vertical page/feature lifecycle (both the DC form page and the CHIPS Admin dashboard page for that feature).
+Features to be added:
+- NOC Requests
+- Activation Requests
+- Reactivation Requests
+- Kit Process of Station ID
+
+To ensure that developers working concurrently do not break each other's code or create Git merge conflicts, follow this step-by-step structure for creating new files:
+
+========================================================================
+FAQ: UNDERSTANDING THE MODULAR PROJECT STRUCTURE
+========================================================================
+
+Q1. Why are there two __init__.py files (one in "app" and one in "backend/models")?
+------------------------------------------------------------------------
+- app/__init__.py: Marks the "app" folder as a Python package. It contains the Flask application factory (`create_app()`), initializes the Flask web server configuration, and acts as the central hub where modular Frontend Blueprints are registered.
+- backend/models/__init__.py: Exposes the modular database models package. It imports all SQLAlchemy model classes from individual sub-files (like base.py, lms.py, etc.) and aggregates them in the `__all__` list. This enables other files (like database setup or seed files) to import models cleanly (e.g., `from backend.models import User, CredentialRequest`) without having to import from the specific sub-files.
+
+Q2. Why did the single backend/models.py disappear?
+------------------------------------------------------------------------
+- Previously, all tables were inside a single `backend/models.py` file. If 3 developers worked concurrently on different features (NOC, Activation, etc.), editing this single file would lead to major Git merge conflicts.
+- Therefore, the file was refactored into a package folder: `backend/models/`.
+  - base.py: Core tables and utilities (User, District, UserRole, get_ist_time helper).
+  - lms.py: LMS-specific tables (CredentialRequest).
+  - any new feature: Create `backend/models/<your_feature>.py` (e.g. `noc.py`, `activation.py`).
+
+Q3. Why are there two lms.py files (one in backend/models and one in backend/routers)?
+------------------------------------------------------------------------
+- backend/models/lms.py defines the DATABASE LAYER (SQLAlchemy tables, columns, relations).
+- backend/routers/lms.py defines the API ROUTING LAYER (FastAPI endpoint routes, Pydantic data schemas, business logic).
+- This separation of concerns ensures database queries/schemas do not clutter endpoint validations and vice-versa.
+
+========================================================================
+STEP-BY-STEP IMPLEMENTATION WORKFLOW FOR NEW FEATURES
+========================================================================
+
+------------------------------------------------------------------------
+1. DATABASE MODELS (SQLAlchemy)
+------------------------------------------------------------------------
+Do NOT edit any existing model files. Create a brand new file for your feature's tables:
+- Location: `backend/models/<your_feature>.py`
+  (e.g., `backend/models/noc.py` or `backend/models/activation.py`)
+
+Inside your file, write your SQLAlchemy classes:
+```python
+from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship
+from backend.models.base import Base
+
+class YourNewTable(Base):
+    __tablename__ = "your_new_table_name"
+    id = Column(Integer, primary_key=True)
+    # Define columns...
+```
+
+Registering your models:
+Open `backend/models/__init__.py` and expose your classes by importing and appending them:
+```python
+from backend.models.your_feature import YourNewTable
+
+# Append your class name to __all__ list:
+__all__ = [
+    ...,
+    "YourNewTable"
+]
+```
+
+------------------------------------------------------------------------
+2. BACKEND API ENDPOINTS (FastAPI Routers)
+------------------------------------------------------------------------
+Create a dedicated router file for your feature:
+- Location: `backend/routers/<your_feature>.py`
+
+Set up your endpoints using `APIRouter()`:
+```python
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from backend.database import get_db
+
+router = APIRouter()
+
+@router.post("/your-action")
+def do_action(db: Session = Depends(get_db)):
+    # Your business logic
+    return {"message": "Success"}
+```
+
+Registering your router:
+Open `backend/main.py` and register your router at the bottom:
+```python
+from backend.routers import your_feature
+
+app.include_router(your_feature.router, prefix="/your-prefix", tags=["Your Tag"])
+```
+
+------------------------------------------------------------------------
+3. FRONTEND PROXY ENDPOINTS (Flask Blueprints)
+------------------------------------------------------------------------
+To isolate frontend routing and prevent Git merge conflicts in `app/__init__.py`, do NOT add routes directly there. Use Flask Blueprints.
+- Create a blueprint folder under `app/` (e.g. `app/blueprints/`) and create your blueprint file:
+  Location: `app/blueprints/<your_feature>.py`
+
+Template for a Flask Blueprint:
+```python
+from flask import Blueprint, render_template, request, session, redirect, url_for
+import requests
+
+your_bp = Blueprint('your_feature_name', __name__)
+
+@your_bp.route("/dc/your-page", methods=["GET"])
+def render_dc_page():
+    jwt_token = session.get("access_token")
+    if not jwt_token:
+        return redirect(url_for("login_view"))
+    # Fetch data from FastAPI backend and render template
+    return render_template("dc/your_feature/dc_view.html")
+```
+
+Registering your Blueprint:
+Open `app/__init__.py` and register your blueprint in the `create_app()` factory:
+```python
+from app.blueprints.your_feature import your_bp
+app.register_blueprint(your_bp)
+```
+
+------------------------------------------------------------------------
+4. HTML VIEW TEMPLATES & DESIGN UNIFICATION (Light Theme)
+------------------------------------------------------------------------
+Keep your HTML pages cleanly separated in dedicated subdirectories:
+- DC pages location: `app/templates/dc/<your_feature>/`
+- CHIPS Admin pages location: `app/templates/chips/<your_feature>/`
+
+To ensure the app looks premium and operates correctly, adhere to the following unified guidelines:
+
+A. UI Header, Sidebar, and Profile Box
+   - Always copy the sidebar layout structure from `app/templates/dc/dc_dash.html` or `app/templates/dc/lms.html`.
+   - Maintain the hamburger button and sidebar collapse scripts (which use `localStorage` to keep the expanded/collapsed state persistent across page transitions).
+   - Use the unified top-right user profile card layout (`.user-profile-box`) to match the Admin dashboard.
+
+B. Indian Standard Time (IST) Support
+   - All timestamps displayed in tables must represent India Standard Time (IST, UTC+5:30).
+   - Use `get_ist_time()` from `backend/models/base` when inserting records to the database.
+   - Format timestamps nicely in backend routers or model JSON representations as `YYYY-MM-DD HH:MM:SS`.
+
+C. Form Validation & Character Enforcement
+   - Name inputs: Restrict First Name, Middle Name, and Last Name fields to only allow letters (and spaces for Middle Name). Strip numbers and symbols on the fly:
+     - First Name / Last Name: `oninput="this.value = this.value.replace(/[^A-Za-z]/g, '')"`
+     - Middle Name: `oninput="this.value = this.value.replace(/[^A-Za-z ]/g, '')"`
+   - Phone inputs: Restrict to numeric digits (0-9) only. Strip non-numeric text, and enforce 10-15 digit length constraints:
+     `pattern="[0-9]{10,15}" maxlength="15" oninput="this.value = this.value.replace(/[^0-9]/g, '')"`
+   - District field: Lock the district input field visually (e.g. `<input type="text" value="{{ session.district_name }}" readonly>`) rather than using dropdown selectors. The backend already resolves the district directly from the authenticated DC's session context.
+
+D. Form State Retention on Validation Errors
+   - When an invalid submission fails backend validation (e.g., status 400 or 422), the form fields MUST NOT be reset (blanked out).
+   - Set up HTMX's after-request trigger to only reset the form upon a successful `200` response:
+     `hx-on::after-request="if(event.detail.xhr.status === 200) this.reset()"`
+
+E. Row Autocomplete Avoidance in Tables
+   - If your table features inline action forms (like assigning credentials or statuses on a row-by-row basis), use request-ID-specific unique input name attributes:
+     `<input type="text" name="input_name_{{ req.id }}">`
+   - Retrieve this dynamically in the Flask endpoint using `request.form.get(f"input_name_{request_id}")`.
+   - This prevents browser autocomplete/autofill from copying values from one row to another.
+
+F. Queue Ordering & Real-Time Filtering
+   - Queue Swapping: Set `hx-swap="afterbegin"` on the form so new requests are immediately prepended at the top of the history list.
+   - Time-Period Filters: Include a dropdown menu enabling users to filter records day-wise ("Today"), month-wise ("This Month"), or year-wise ("This Year").
+     - Set the default option to "This Month".
+     - Set a `data-created` attribute on each `<tr>` table row containing the creation timestamp.
+     - Add a client-side JavaScript filtering function that executes on dropdown change and matches the `data-created` time with current client time.
+
+------------------------------------------------------------------------
+5. PAGE-SPECIFIC STYLE SHEETS (CSS)
+------------------------------------------------------------------------
+To keep stylesheets modular and prevent style conflicts:
+- Base styles (colors, fonts, tables, badges, popups) are defined in: `app/static/css/common.css`. Do NOT add page-specific styles there.
+- Layout structures (headers, sidebars, grids, toggle states, responsive breakpoints) are defined in: `app/static/css/layout.css`.
+- Create a dedicated stylesheet for your feature:
+  Location: `app/static/css/<your_feature>.css` (e.g., `noc.css` or `activation.css`).
+- Link `common.css` and `layout.css` first in your HTML template, followed by your page-specific `<your_feature>.css`.
+
+------------------------------------------------------------------------
+6. MERGING SEQUENCE RULES
+------------------------------------------------------------------------
+When a feature is finished and ready to be merged:
+1. Merge the Backend Database models first.
+2. In the target database environment, run seeder updates or alembic migrations to apply the table structures.
+3. Merge Backend Routers.
+4. Merge Frontend Blueprints, Templates, and CSS.
+========================================================================

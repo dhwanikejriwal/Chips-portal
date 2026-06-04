@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHiPS Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/chips_dashboard.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo-section">
+            <button id="sidebar-toggle" class="sidebar-toggle-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+            <img src="/static/css/images/chips_logo.jpg" alt="CHiPS Logo">
+            <h1>CHiPS Admin Portal</h1>
+        </div>
+
+        <div class="user-profile-box">
+            <div class="user-info">
+                <span class="user-name">{{ session.get('username', 'chips_admin') }}</span>
+                <span class="user-role">CHIPS Administrator</span>
+            </div>
+            <a href="/auth/logout" class="logout-link">Logout</a>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <ul>
+                <li class="active">
+                    <a href="/chips/dashboard">Dashboard</a>
+                </li>
+                <li>
+                    <a href="/chips/lms">LMS Requests</a>
+                </li>
+                <li>
+                    <a href="#">L1 Requests</a>
+                </li>
+                <li>
+                    <a href="#">L2 Requests</a>
+                </li>
+                <li>
+                    <a href="#">NOC Requests</a>
+                </li>
+                <li>
+                    <a href="#">User Management</a>
+                </li>
+                <li>
+                    <a href="#">Reports</a>
+                </li>
+                <li>
+                    <a href="/auth/logout">Logout</a>
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Content -->
+        <main class="content">
+
+            <h2>Admin Dashboard Overview</h2>
+
+            <!-- Cards -->
+            <div class="cards">
+                <div class="card">
+                    <h3>Total Requests</h3>
+                    <span>{{ total_count }}</span>
+                </div>
+                <div class="card">
+                    <h3>Pending</h3>
+                    <span>{{ pending_count }}</span>
+                </div>
+                <div class="card">
+                    <h3>Approved</h3>
+                    <span>{{ approved_count }}</span>
+                </div>
+                <div class="card">
+                    <h3>Rejected</h3>
+                    <span>{{ rejected_count }}</span>
+                </div>
+            </div>
+
+            <!-- Requests Table -->
+            <div class="table-container">
+                <h3 style="margin-bottom: 15px;">Recent Requests Queue</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Request ID</th>
+                            <th>Operator Name</th>
+                            <th>District</th>
+                            <th>Request Type</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in recent_requests %}
+                        <tr>
+                            <td>{{ req.id }}</td>
+                            <td><strong>{{ req.operator_first_name }} {{ req.operator_last_name }}</strong></td>
+                            <td>{{ req.district_name }}</td>
+                            <td>LMS</td>
+                            <td>
+                                {% if req.status == 'assigned' %}
+                                <span class="badge badge-approved">Approved</span>
+                                {% else %}
+                                <span class="badge badge-pending">Pending</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #888;">No recent requests found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </main>
+
+    </div>
+
+    <script>
+        // Sidebar Toggle Collapse/Expand persistence
+        const sidebar = document.querySelector('.sidebar');
+        const toggleBtn = document.getElementById('sidebar-toggle');
+        
+        if (localStorage.getItem('sidebar-collapsed') === 'true') {
+            sidebar.classList.add('collapsed');
+        }
+        
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+        });
+    </script>
+</body>
+</html>
