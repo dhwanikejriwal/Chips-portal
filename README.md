@@ -8,7 +8,7 @@ The project is built using a cleanly decoupled architecture:
 *   **Flask Frontend Proxy (Port 5000)**: Serves pure HTML layouts utilizing **HTMX** for smooth dynamic page swaps without full page reloads, and modular **Vanilla CSS** + **Tailwind CSS** for premium styling.
 *   **FastAPI Backend Gateway (Port 8000)**: A high-performance RESTful API that handles all business logic, Pydantic data validation, JWT-based authentication, and direct database queries using **SQLAlchemy ORM** connected to a **PostgreSQL** database.
 
-```mermaid
+```
 graph LR
     User([Browser Client]) <-->|HTMX / HTML| Flask[Flask Proxy Server (Port 5000)]
     Flask <-->|REST API / JWT| FastAPI[FastAPI Core Server (Port 8000)]
