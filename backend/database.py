@@ -3,22 +3,22 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 import os
 
-# Step 1: Load .env file
+# Load .env file
 load_dotenv()
 
-# Step 2: Read DB URL
+# Read DB URL
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Step 3: Create engine (the actual connection)
+# Create engine
 engine = create_engine(DATABASE_URL)
 
-# Step 4: Create session factory
+# Create session factory
 SessionLocal = sessionmaker(bind=engine)
 
-# Step 5: Base class for all models
+# Base class for all models
 Base = declarative_base()
 
-# Step 6: Function every route will use
+# Dependency for FastAPI routers
 def get_db():
     db = SessionLocal()
     try:

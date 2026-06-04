@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, EmailStr
 from sqlalchemy.orm import Session
-from app.database import SessionLocal
+from backend.database import SessionLocal
 from backend.routers.auth import get_current_user, RoleChecker
-from app.models import User, CredentialRequest, RequestStatus
+from backend.models import User, CredentialRequest, RequestStatus, District
 
 router = APIRouter()
 
@@ -25,8 +25,8 @@ class LMSRequestSubmit(BaseModel):
     operator_email: EmailStr = Field(..., example="ramesh.sahu@example.com")
 
 class LMSCredentialsAssign(BaseModel):
-    generated_login_id: str = Field(..., min_length=4, example="LMS-RAIPUR-OP88")
-    generated_password_raw: str = Field(..., min_length=6, example="VideoPass2026!")
+    generated_login_id: str = Field(..., example="LMS-RAIPUR-OP88")
+    generated_password_raw: str = Field(..., example="VideoPass2026!")
 
 # =====================================================================
 # ENDPOINTS
@@ -41,11 +41,15 @@ async def submit_lms_request(
     """
     DC Submission Route: Creates a pending operator request for video credentials.
     """
-    user_role_str = str(current_user.role).split(".")[-1].lower()
+    if hasattr(current_user.role, "value"):
+        user_role_str = str(current_user.role.value).lower()
+    else:
+        user_role_str = current_user.role.name.lower()
+    print(f"DEBUG: username={current_user.username}, role={current_user.role}, user_role_str={user_role_str}")
     if user_role_str != "dc":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access Denied. Only District Commissioners can initiate LMS requests."
+            detail=f"Access Denied. Only District Commissioners can initiate LMS requests. Active User: {current_user.username}, Role: {current_user.role}, Resolved: {user_role_str}"
         )
         
     if not current_user.district_id:
@@ -103,3 +107,51 @@ async def assign_lms_credentials(
         "request_id": target_request.id,
         "status": target_request.status.value
     }
+
+@router.get("/requests")
+async def get_lms_requests(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Fetch credential requests. DCs see requests for their district, Admins see all.
+    """
+    if hasattr(current_user.role, "value"):
+        user_role_str = str(current_user.role.value).lower()
+    else:
+        user_role_str = current_user.role.name.lower()
+    
+    if user_role_str == "dc":
+        if not current_user.district_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your DC profile is not linked to a specific district."
+            )
+        requests = db.query(CredentialRequest).filter(
+            CredentialRequest.district_id == current_user.district_id
+        ).order_by(CredentialRequest.created_at.desc()).all()
+    elif user_role_str == "chips_admin":
+        requests = db.query(CredentialRequest).order_by(CredentialRequest.created_at.desc()).all()
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Invalid role."
+        )
+        
+    return [
+        {
+            "id": req.id,
+            "operator_first_name": req.operator_first_name,
+            "operator_middle_name": req.operator_middle_name,
+            "operator_last_name": req.operator_last_name,
+            "operator_phone": req.operator_phone,
+            "operator_email": req.operator_email,
+            "status": req.status.name.lower(), # "pending" or "assigned"
+            "created_at": req.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "accepted_at": req.updated_at.strftime("%Y-%m-%d %H:%M:%S") if req.status == RequestStatus.ASSIGNED else "",
+            "district_name": req.district_details.name if req.district_details else "Unknown",
+            "generated_login_id": req.generated_login_id or "",
+            "generated_password_raw": req.generated_password_raw or ""
+        }
+        for req in requests
+    ]

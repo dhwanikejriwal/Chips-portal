@@ -6,8 +6,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from app.database import SessionLocal
-from app.models import User
+from backend.database import SessionLocal
+from backend.models import User
 
 # Security Configurations (Matches your shared .env profiles)
 SECRET_KEY = "your-secret-key-here"  # In prod, fetch from os.getenv("SECRET_KEY")
@@ -69,10 +69,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 # Role-Based Access Control Guardrail Decorator-class
 class RoleChecker:
     def __init__(self, allowed_roles: list[str]):
-        self.allowed_roles = allowed_roles
+        self.allowed_roles = [r.lower() for r in allowed_roles]
 
     def __call__(self, user: User = Depends(get_current_user)):
-        if user.role not in self.allowed_roles:
+        if hasattr(user.role, "value"):
+            user_role_str = str(user.role.value).lower()
+        elif hasattr(user.role, "name"):
+            user_role_str = user.role.name.lower()
+        else:
+            user_role_str = str(user.role).split(".")[-1].lower()
+
+        if user_role_str not in self.allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied. You do not possess the required role permissions."
@@ -97,13 +104,26 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         
     # 3. Create token embedded with user authorization details
     if hasattr(user.role, "value"):
-        role_string = user.role.value
+        role_string = str(user.role.value).lower()
     elif hasattr(user.role, "name"):
-        role_string = user.role.name.lower() # Fallback if it evaluates to Enum Key
+        role_string = user.role.name.lower()
     else:
-        role_string = str(user.role).split(".")[-1].lower() # Fallback for structural strings like 'UserRole.DC'
+        role_string = str(user.role).split(".")[-1].lower()
     
     access_token = create_access_token(
         data={"sub": user.username, "role": role_string}
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/me")
+async def get_me(current_user: User = Depends(get_current_user)):
+    if hasattr(current_user.role, "value"):
+        role_string = str(current_user.role.value).lower()
+    else:
+        role_string = current_user.role.name.lower()
+    return {
+        "username": current_user.username,
+        "role": role_string,
+        "district_id": current_user.district_id,
+        "district_name": current_user.district_details.name if current_user.district_details else None
+    }

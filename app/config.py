@@ -9,10 +9,6 @@ class Config:
     # Flask Security Settings
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-fallback-key-change-in-production")
     
-    # SQLAlchemy Configuration (Psycopg 3 Driver)
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
     # =====================================================================
     # FUTURE SCALABILITY SCRIPTS (For Member 2 & Member 3)
     # Your teammates can drop their Redis/Celery/Email settings right here:

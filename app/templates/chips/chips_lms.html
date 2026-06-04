@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHIPS Admin - LMS Review Portal</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/chips_dashboard.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+
+    <header class="header">
+        <div class="logo-container">
+            <img src="/static/css/images/chips_logo.jpg" alt="CHiPS Logo">
+        </div>
+        <h1>LMS Review Portal</h1>
+
+        <div class="user-profile-box">
+            <div class="user-info">
+                <span class="user-name">chips_admin</span>
+                <span class="user-role">CHIPS Administrator</span>
+            </div>
+            <a href="/auth/logout" class="logout-link">Logout</a>
+        </div>
+    </header>
+
+    <div class="container" style="max-width: 1200px;">
+        
+        <!-- Unified Filter Controls -->
+        <div class="filter-bar" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 12px; color: #666; font-weight: bold;">Search Operator</label>
+                <input type="text" id="admin-search-input" placeholder="Search by name or email..." class="table-input" style="width: 100%;" oninput="filterAdminQueues()">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 12px; color: #666; font-weight: bold;">Filter by District</label>
+                <select id="admin-district-filter" class="table-input" style="width: 180px;" onchange="filterAdminQueues()">
+                    <option value="all">All Districts</option>
+                    <option value="Raipur">Raipur</option>
+                    <option value="Bilaspur">Bilaspur</option>
+                    <option value="Durg">Durg</option>
+                </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 12px; color: #666; font-weight: bold;">Time Period</label>
+                <select id="admin-date-filter" class="table-input" style="width: 150px;" onchange="filterAdminQueues()">
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="month" selected>This Month</option>
+                    <option value="year">This Year</option>
+                </select>
+            </div>
+        </div>
+        
+        <h2>Pending Operator Credentials Queue</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>District</th>
+                        <th>Operator Name</th>
+                        <th>Contact Mobile</th>
+                        <th>Email ID</th>
+                        <th>Status</th>
+                        <th>Created Time</th>
+                        <th>Assign Credentials Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-queue-body">
+                    {% for req in pending_requests %}
+                    <tr id="request-row-{{ req.id }}" data-district="{{ req.district_name }}" data-name="{{ req.operator_first_name }} {{ req.operator_last_name }}" data-email="{{ req.operator_email }}" data-created="{{ req.created_at }}">
+                        <td><strong>{{ req.district_name }}</strong></td>
+                        <td>{{ req.operator_first_name }} {{ req.operator_last_name }}</td>
+                        <td>{{ req.operator_phone }}</td>
+                        <td>{{ req.operator_email }}</td>
+                        <td><span class="badge badge-pending">Pending</span></td>
+                        <td>{{ req.created_at }}</td>
+                        <td>
+                            <form hx-post="/chips/assign/{{ req.id }}" hx-swap="none" autocomplete="off" style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" name="generated_login_id_{{ req.id }}" placeholder="Assign Login ID" class="table-input" autocomplete="off" required>
+                                <input type="text" name="generated_password_raw_{{ req.id }}" placeholder="Assign Password" class="table-input" autocomplete="off" required>
+                                <button type="submit" class="btn btn-sm">Issue</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <hr class="section-divider">
+
+        <h2>Approved Credentials Log History</h2>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>District</th>
+                        <th>Operator Name</th>
+                        <th>Contact Email</th>
+                        <th>Status</th>
+                        <th>Created Time</th>
+                        <th>Accepted Time</th>
+                        <th>Issued Login ID</th>
+                        <th>Issued Password</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-approved-body">
+                    {% for req in approved_requests %}
+                    <tr data-district="{{ req.district_name }}" data-name="{{ req.operator_first_name }} {{ req.operator_last_name }}" data-email="{{ req.operator_email }}" data-created="{{ req.created_at }}">
+                        <td>{{ req.district_name }}</td>
+                        <td>{{ req.operator_first_name }} {{ req.operator_last_name }}</td>
+                        <td>{{ req.operator_email }}</td>
+                        <td><span class="badge badge-approved">Approved</span></td>
+                        <td>{{ req.created_at }}</td>
+                        <td>{{ req.accepted_at }}</td>
+                        <td><code>{{ req.generated_login_id }}</code></td>
+                        <td><code>{{ req.generated_password_raw }}</code></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        function filterAdminQueues() {
+            const query = document.getElementById('admin-search-input').value.toLowerCase();
+            const district = document.getElementById('admin-district-filter').value.toLowerCase();
+            const dateFilter = document.getElementById('admin-date-filter').value;
+            
+            const now = new Date();
+            const yearStr = now.getFullYear().toString();
+            const monthStr = (now.getMonth() + 1).toString().padStart(2, '0');
+            const dayStr = now.getDate().toString().padStart(2, '0');
+            
+            const todayPrefix = `${yearStr}-${monthStr}-${dayStr}`;
+            const monthPrefix = `${yearStr}-${monthStr}`;
+            const yearPrefix = yearStr;
+
+            // Filter pending queue
+            const pendingRows = document.querySelectorAll('#admin-queue-body tr');
+            pendingRows.forEach(row => {
+                const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+                const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
+                const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+                const rowCreated = row.getAttribute('data-created') || '';
+                
+                const matchesQuery = name.includes(query) || email.includes(query);
+                const matchesDistrict = district === 'all' || rowDistrict === district;
+                
+                let matchesDate = true;
+                if (dateFilter === 'today') {
+                    matchesDate = rowCreated.startsWith(todayPrefix);
+                } else if (dateFilter === 'month') {
+                    matchesDate = rowCreated.startsWith(monthPrefix);
+                } else if (dateFilter === 'year') {
+                    matchesDate = rowCreated.startsWith(yearPrefix);
+                }
+
+                if (matchesQuery && matchesDistrict && matchesDate) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Filter approved queue
+            const approvedRows = document.querySelectorAll('#admin-approved-body tr');
+            approvedRows.forEach(row => {
+                const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+                const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
+                const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+                const rowCreated = row.getAttribute('data-created') || '';
+                
+                const matchesQuery = name.includes(query) || email.includes(query);
+                const matchesDistrict = district === 'all' || rowDistrict === district;
+                
+                let matchesDate = true;
+                if (dateFilter === 'today') {
+                    matchesDate = rowCreated.startsWith(todayPrefix);
+                } else if (dateFilter === 'month') {
+                    matchesDate = rowCreated.startsWith(monthPrefix);
+                } else if (dateFilter === 'year') {
+                    matchesDate = rowCreated.startsWith(yearPrefix);
+                }
+
+                if (matchesQuery && matchesDistrict && matchesDate) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Force reset form fields on page load/refresh
+        window.addEventListener('load', function() {
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => form.reset());
+            filterAdminQueues(); // Apply default "This Month" filter on load
+        });
+    </script>
+</body>
+</html>

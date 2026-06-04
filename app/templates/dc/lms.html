@@ -1,47 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LMS Registration</title>
-    <link rel="stylesheet" href="../static/css/style.css">
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/dc_dashboard.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
+
 <body>
 
     <header class="header">
         <div class="logo-container">
-            <img src="../static/css/images/chips_logo.jpg" alt="CHiPS Logo">
+            <img src="/static/css/images/chips_logo.jpg" alt="CHiPS Logo">
         </div>
         <h1>LMS Registration Portal</h1>
+
+        <div class="user-profile-box">
+            <div class="user-info">
+                <span class="user-name">{{ session.get('username', 'dc_user') }}</span>
+                <span class="user-role">District Coordinator ({{ session.get('district_name', '') }})</span>
+            </div>
+            <a href="/auth/logout" class="logout-link">Logout</a>
+        </div>
     </header>
 
     <div class="container">
         <h2>Register User</h2>
 
-        <form hx-post="/lms/request" hx-target="#lms-request-table-body" hx-swap="beforeend">
+        <!-- Error Placeholder -->
+        <div id="dc-form-error"></div>
+
+        <form id="dc-registration-form" hx-post="/lms/request" hx-target="#lms-request-table-body" hx-swap="afterbegin"
+            hx-on::after-request="if(event.detail.xhr.status === 200) this.reset()" autocomplete="off">
 
             <div class="row">
                 <div class="input-group">
                     <label>First Name <span class="required">*</span></label>
-                    <input type="text" name="first_name" required>
+                    <input type="text" name="first_name" pattern="[A-Za-z]+" oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '')" required>
                 </div>
 
                 <div class="input-group">
                     <label>Middle Name</label>
-                    <input type="text" name="middle_name">
+                    <input type="text" name="middle_name" pattern="[A-Za-z\s]*" oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '')">
                 </div>
 
                 <div class="input-group">
                     <label>Last Name <span class="required">*</span></label>
-                    <input type="text" name="last_name" required>
+                    <input type="text" name="last_name" pattern="[A-Za-z]+" oninput="this.value = this.value.replace(/[^a-zA-Z]/g, '')" required>
                 </div>
             </div>
 
             <div class="row">
                 <div class="input-group">
                     <label>Phone Number <span class="required">*</span></label>
-                    <input type="tel" name="phone" required>
+                    <input type="tel" name="phone" pattern="[0-9]{10,15}" maxlength="10"
+                        oninput="this.value = this.value.replace(/[^0-9]/g, '')" placeholder="10 digit number" required>
                 </div>
 
                 <div class="input-group">
@@ -50,45 +66,10 @@
                 </div>
             </div>
 
-           <div class="row">
+            <div class="row">
                 <div class="input-group">
                     <label>District <span class="required">*</span></label>
-                    <select name="district" required>
-                        <option value="">Select District</option>
-                        <option value="Balod">Balod</option>
-                        <option value="Baloda Bazar">Baloda Bazar</option>
-                        <option value="Balrampur">Balrampur</option>
-                        <option value="Bastar">Bastar</option>
-                        <option value="Bemetara">Bemetara</option>
-                        <option value="Bijapur">Bijapur</option>
-                        <option value="Bilaspur">Bilaspur</option>
-                        <option value="Dantewada">Dantewada</option>
-                        <option value="Dhamtari">Dhamtari</option>
-                        <option value="Durg">Durg</option>
-                        <option value="Gariaband">Gariaband</option>
-                        <option value="Gaurela-Pendra-Marwahi">Gaurela-Pendra-Marwahi</option>
-                        <option value="Janjgir-Champa">Janjgir-Champa</option>
-                        <option value="Jashpur">Jashpur</option>
-                        <option value="Kabirdham">Kabirdham</option>
-                        <option value="Kanker">Kanker</option>
-                        <option value="Khairagarh-Chhuikhadan-Gandai">Khairagarh-Chhuikhadan-Gandai</option>
-                        <option value="Kondagaon">Kondagaon</option>
-                        <option value="Korba">Korba</option>
-                        <option value="Koriya">Koriya</option>
-                        <option value="Mahasamund">Mahasamund</option>
-                        <option value="Manendragarh-Chirmiri-Bharatpur">Manendragarh-Chirmiri-Bharatpur</option>
-                        <option value="Mohla-Manpur-Ambagarh Chowki">Mohla-Manpur-Ambagarh Chowki</option>
-                        <option value="Mungeli">Mungeli</option>
-                        <option value="Narayanpur">Narayanpur</option>
-                        <option value="Raigarh">Raigarh</option>
-                        <option value="Raipur">Raipur</option>
-                        <option value="Rajnandgaon">Rajnandgaon</option>
-                        <option value="Sakti">Sakti</option>
-                        <option value="Sarangarh-Bilaigarh">Sarangarh-Bilaigarh</option>
-                        <option value="Sukma">Sukma</option>
-                        <option value="Surajpur">Surajpur</option>
-                        <option value="Surguja">Surguja</option>
-                    </select>
+                    <input type="text" value="{{ session.get('district_name', '') }}" disabled style="background-color: #e9ecef; cursor: not-allowed;">
                 </div>
             </div>
 
@@ -101,20 +82,135 @@
         </form>
     </div>
 
-    <div class="container data-grid-container" style="margin-top: 2rem;">
-        <h2>Request Queue</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Operator Name</th>
-                    <th>Email Address</th>
-                    <th>Lifecycle Status</th>
-                </tr>
-            </thead>
-            <tbody id="lms-request-table-body">
+    <div class="container data-grid-container" style="margin-top: 2rem; max-width: 1100px;">
+        <h2>LMS Credentials Request History</h2>
+
+        <!-- Filter Controls -->
+        <div class="filter-bar"
+            style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 12px; color: #666; font-weight: bold;">Search Operator</label>
+                <input type="text" id="dc-search-input" placeholder="Search by name or email..." class="table-input"
+                    style="width: 100%;" oninput="filterDCRequests()">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 12px; color: #666; font-weight: bold;">Status</label>
+                <select id="dc-status-filter" class="table-input" style="width: 150px;" onchange="filterDCRequests()">
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="assigned">Approved</option>
+                </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 12px; color: #666; font-weight: bold;">Time Period</label>
+                <select id="dc-date-filter" class="table-input" style="width: 150px;" onchange="filterDCRequests()">
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="month" selected>This Month</option>
+                    <option value="year">This Year</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Operator Name</th>
+                        <th>Email Address</th>
+                        <th>Status</th>
+                        <th>Request Created Time</th>
+                        <th>Request Accepted Time</th>
+                        <th>Generated ID</th>
+                        <th>Password</th>
+                    </tr>
+                </thead>
+                <tbody id="lms-request-table-body">
+                    {% for req in requests %}
+                    <tr data-name="{{ req.operator_first_name }} {{ req.operator_last_name }}"
+                        data-email="{{ req.operator_email }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
+                        <td><strong>{{ req.operator_first_name }} {{ req.operator_last_name }}</strong></td>
+                        <td>{{ req.operator_email }}</td>
+                        <td>
+                            {% if req.status == 'assigned' %}
+                            <span class="badge badge-approved">Approved</span>
+                            {% else %}
+                            <span class="badge badge-pending">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ req.created_at }}</td>
+                        <td>{{ req.accepted_at if req.accepted_at else '-' }}</td>
+                        <td><code>{{ req.generated_login_id if req.generated_login_id else '-' }}</code></td>
+                        <td><code>{{ req.generated_password_raw if req.generated_password_raw else '-' }}</code></td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
-        </table>
+            </table>
+        </div>
     </div>
 
+    <script>
+        function filterDCRequests() {
+            const query = document.getElementById('dc-search-input').value.toLowerCase();
+            const status = document.getElementById('dc-status-filter').value.toLowerCase();
+            const dateFilter = document.getElementById('dc-date-filter').value;
+            const rows = document.querySelectorAll('#lms-request-table-body tr');
+
+            const now = new Date();
+            const yearStr = now.getFullYear().toString();
+            const monthStr = (now.getMonth() + 1).toString().padStart(2, '0');
+            const dayStr = now.getDate().toString().padStart(2, '0');
+            
+            const todayPrefix = `${yearStr}-${monthStr}-${dayStr}`;
+            const monthPrefix = `${yearStr}-${monthStr}`;
+            const yearPrefix = yearStr;
+
+            rows.forEach(row => {
+                const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
+                const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+                const rowStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
+                const rowCreated = row.getAttribute('data-created') || '';
+
+                const matchesQuery = name.includes(query) || email.includes(query);
+                const matchesStatus = status === 'all' || rowStatus === status;
+
+                let matchesDate = true;
+                if (dateFilter === 'today') {
+                    matchesDate = rowCreated.startsWith(todayPrefix);
+                } else if (dateFilter === 'month') {
+                    matchesDate = rowCreated.startsWith(monthPrefix);
+                } else if (dateFilter === 'year') {
+                    matchesDate = rowCreated.startsWith(yearPrefix);
+                }
+
+                if (matchesQuery && matchesStatus && matchesDate) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Force reset form fields on page load/refresh
+        window.addEventListener('load', function () {
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => form.reset());
+            filterDCRequests(); // Apply default "This Month" filter on load
+        });
+
+        // Clear error box on successful submission
+        document.body.addEventListener('clearError', function () {
+            document.getElementById('dc-form-error').innerHTML = '';
+        });
+
+        // Allow HTMX to swap content for 400/500 errors (so we can display the validation messages)
+        document.body.addEventListener('htmx:beforeSwap', function (evt) {
+            if (evt.detail.xhr.status >= 400) {
+                evt.detail.shouldSwap = true;
+                evt.detail.isError = false;
+            }
+        });
+    </script>
 </body>
+
 </html>

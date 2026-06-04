@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, Base
+from backend.database import engine, Base
 # 1. Import your brand new router module
 from backend.routers import auth,lms
 
