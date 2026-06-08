@@ -70,8 +70,8 @@ def verify_email_exists(email: str) -> bool:
         # Connect to the mail server on Port 25
         server = smtplib.SMTP(timeout=4)
         server.connect(primary_mx, 25)
-    except (socket.timeout, ConnectionRefusedError, socket.gaierror, OSError) as e:
-        # This typically means outbound port 25 is blocked or server is down.
+    except Exception as e:
+        # This typically means outbound port 25 is blocked, server is down, or connection was refused.
         # Fallback to True (Fail-open) so local/firewalled environments aren't blocked.
         logger.info(f"SMTP Connection to {primary_mx} failed: {e}. Outbound Port 25 may be blocked. Falling back to True (Fail-open).")
         return True

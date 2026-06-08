@@ -5,6 +5,15 @@ from datetime import datetime, timedelta
 
 lms_bp = Blueprint('lms', __name__)
 
+def get_error_detail(response):
+    try:
+        data = response.json()
+        if isinstance(data, dict):
+            return data.get("detail", "Backend operational failure.")
+        return data
+    except Exception:
+        return f"Backend Server Error ({response.status_code}). Please check backend logs."
+
 # 3. DC Dashboard Overview View
 @lms_bp.route("/dc/dashboard", methods=["GET"])
 def dc_dashboard():
@@ -192,7 +201,7 @@ def process_lms_form():
             </tr>
             """, 200, {"HX-Trigger": "clearError"}
         else:
-            raw_detail = response.json().get("detail", "Backend operational failure.")
+            raw_detail = get_error_detail(response)
             if isinstance(raw_detail, list):
                 error_messages = []
                 for err in raw_detail:
@@ -241,7 +250,7 @@ def assign_credentials(request_id):
         if response.status_code == 200:
             return "", 200, {"HX-Trigger": "credentialsAssigned"}
         else:
-            error_msg = response.json().get("detail", "Backend operational failure.")
+            error_msg = get_error_detail(response)
             return f'<p class="text-red-500 text-xs mt-2">❌ {error_msg}</p>', 400
             
     except requests.exceptions.ConnectionError:
@@ -267,7 +276,7 @@ def revert_request(request_id):
         if response.status_code == 200:
             return "", 200, {"HX-Trigger": "requestReverted"}
         else:
-            error_msg = response.json().get("detail", "Backend operational failure.")
+            error_msg = get_error_detail(response)
             return f'<p class="text-red-500 text-xs mt-2">❌ {error_msg}</p>', 400
             
     except requests.exceptions.ConnectionError:
@@ -298,7 +307,7 @@ def reapply_request(request_id):
         if response.status_code == 200:
             return jsonify({"status": "success"}), 200
         else:
-            error_msg = response.json().get("detail", "Backend operational failure.")
+            error_msg = get_error_detail(response)
             return jsonify({"status": "error", "message": error_msg}), 400
             
     except requests.exceptions.ConnectionError:
