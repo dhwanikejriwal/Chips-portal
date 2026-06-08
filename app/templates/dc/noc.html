@@ -4,10 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LMS Registration</title>
+    <title>NOC Request Panel</title>
     <link rel="stylesheet" href="/static/css/common.css">
     <link rel="stylesheet" href="/static/css/layout.css">
-    <link rel="stylesheet" href="/static/css/dc/dc_lms.css">
+    <link rel="stylesheet" href="/static/css/dc/noc.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
@@ -22,20 +22,17 @@
 
         <!-- Content -->
         <main class="content">
-            <h1
-                style="text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; color: #1a202c; letter-spacing: -0.5px;">
-                LMS CREDENTIAL </h1>
+            <h1 style="text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; color: #1a202c; letter-spacing: -0.5px;">NOC</h1>
 
             <div class="container" style="max-width: 1100px;">
-                <h2>Register Operator</h2>
+                <h2>Register Operator for NOC</h2>
 
                 <!-- Error Placeholder -->
                 <div id="dc-form-error"></div>
 
-                <form id="dc-registration-form" hx-post="/lms/request" hx-target="#lms-request-table-body"
+                <form id="dc-registration-form" hx-post="/dc/noc/request" hx-target="#noc-request-table-body"
                     hx-swap="afterbegin"
-                    hx-on::before-request="Swal.fire({title: 'Verifying Details...', html: 'Running email checks, please wait...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }})"
-                    hx-on::after-request="Swal.close(); if(event.detail.xhr.status === 200 || event.detail.xhr.status === 201) this.reset()"
+                    hx-on::after-request="if(event.detail.xhr.status === 200 || event.detail.xhr.status === 201) this.reset()"
                     autocomplete="off">
 
                     <div class="row">
@@ -60,20 +57,9 @@
 
                     <div class="row">
                         <div class="input-group">
-                            <label>Mobile Number <span class="required">*</span></label>
-                            <input type="tel" name="phone" pattern="[6-9][0-9]{9}" maxlength="10"
-                                oninput="this.setCustomValidity(''); this.value = this.value.replace(/[^0-9]/g, '')"
-                                oninvalid="this.setCustomValidity('Please enter a valid 10-digit mobile number.')"
-                                placeholder="10 digit number" required>
+                            <label>Operator Unique ID <span class="required">*</span></label>
+                            <input type="text" name="operator_unique_id" required placeholder="e.g. OP-12345">
                         </div>
-
-                        <div class="input-group">
-                            <label>Email ID <span class="required">*</span></label>
-                            <input type="email" name="email" required>
-                        </div>
-                    </div>
-
-                    <div class="row">
                         <div class="input-group">
                             <label>District <span class="required">*</span></label>
                             <input type="text" value="{{ session.get('district_name', '') }}" disabled
@@ -92,9 +78,9 @@
 
             <div class="container data-grid-container" style="margin-top: 2rem; max-width: 1100px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h2 style="margin: 0;">LMS Credentials Request History</h2>
+                    <h2 style="margin: 0;">NOC Requests History</h2>
                     <button class="btn" style="width: auto; padding: 8px 16px; font-size: 14px; margin: 0;"
-                        onclick="exportTableToCSV('dc-requests-table', 'lms_request_history.csv')">Export to
+                        onclick="exportTableToCSV('dc-noc-table', 'noc_request_history.csv')">Export to
                         Excel</button>
                 </div>
 
@@ -102,7 +88,7 @@
                 <div class="filter-bar">
                     <div class="filter-group filter-group-search">
                         <label>Search Operator</label>
-                        <input type="text" id="dc-search-input" placeholder="Search by ID, name, mobile or email..."
+                        <input type="text" id="dc-search-input" placeholder="Search by ID, name, or unique ID..."
                             class="table-input" oninput="filterDCRequests()">
                     </div>
                     <div class="filter-group">
@@ -129,39 +115,35 @@
                 </div>
 
                 <div class="table-wrapper">
-                    <table class="data-table" id="dc-requests-table">
+                    <table class="data-table" id="dc-noc-table">
                         <thead>
                             <tr>
                                 <th>S.No</th>
                                 <th>Request ID</th>
+                                <th>Unique ID</th>
                                 <th>Operator Name</th>
-                                <th>Mobile No</th>
-                                <th>Email ID</th>
                                 <th>Status</th>
                                 <th>created at</th>
                                 <th>updated at</th>
                                 <th style="text-align: center;">Action</th>
                             </tr>
                         </thead>
-                        <tbody id="lms-request-table-body">
+                        <tbody id="noc-request-table-body">
                             {% for req in requests %}
-                            <tr data-id="{{ req.id }}" data-code="{{ req.request_code }}"
+                            <tr data-id="{{ req.id }}"
+                                data-code="{{ req.request_code }}"
+                                data-unique-id="{{ req.operator_unique_id }}"
                                 data-first-name="{{ req.operator_first_name }}"
                                 data-middle-name="{{ req.operator_middle_name or '' }}"
-                                data-last-name="{{ req.operator_last_name }}" data-phone="{{ req.operator_phone }}"
-                                data-email="{{ req.operator_email }}"
+                                data-last-name="{{ req.operator_last_name }}"
                                 data-name="{{ req.operator_first_name }}{% if req.operator_middle_name %} {{ req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}"
-                                data-status="{{ req.status }}" data-login-id="{{ req.generated_login_id or '' }}"
-                                data-password="{{ req.generated_password_raw or '' }}"
+                                data-status="{{ req.status }}"
                                 data-remarks='{{ req.remarks_history | tojson | safe }}'
                                 data-created="{{ req.created_at }}">
                                 <td>{{ loop.index }}</td>
                                 <td><strong>{{ req.request_code }}</strong></td>
-                                <td><strong>{{ req.operator_first_name }}{% if req.operator_middle_name %} {{
-                                        req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}</strong>
-                                </td>
-                                <td>{{ req.operator_phone }}</td>
-                                <td>{{ req.operator_email }}</td>
+                                <td>{{ req.operator_unique_id }}</td>
+                                <td><strong>{{ req.operator_first_name }}{% if req.operator_middle_name %} {{ req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}</strong></td>
                                 <td>
                                     {% if req.status == 'assigned' %}
                                     <span class="badge badge-approved">Approved</span>
@@ -176,8 +158,7 @@
                                 <td>{{ req.created_at }}</td>
                                 <td>{{ req.accepted_at if req.accepted_at else '-' }}</td>
                                 <td style="text-align: center;">
-                                    <button class="btn-details"
-                                        onclick="openDetailsModal(this.closest('tr'))">Details</button>
+                                    <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">Details</button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -193,20 +174,22 @@
         const sidebar = document.querySelector('.sidebar');
         const toggleBtn = document.getElementById('sidebar-toggle');
 
-        if (localStorage.getItem('sidebar-collapsed') === 'true') {
-            sidebar.classList.add('collapsed');
-        }
+        if (sidebar && toggleBtn) {
+            if (localStorage.getItem('sidebar-collapsed') === 'true') {
+                sidebar.classList.add('collapsed');
+            }
 
-        toggleBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('collapsed');
-            localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
-        });
+            toggleBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+            });
+        }
 
         function filterDCRequests() {
             const query = document.getElementById('dc-search-input').value.toLowerCase();
             const status = document.getElementById('dc-status-filter').value.toLowerCase();
             const dateFilter = document.getElementById('dc-date-filter').value;
-            const rows = document.querySelectorAll('#lms-request-table-body tr');
+            const rows = document.querySelectorAll('#noc-request-table-body tr');
 
             const now = new Date();
             const yearStr = now.getFullYear().toString();
@@ -220,13 +203,12 @@
             let visibleIndex = 1;
             rows.forEach(row => {
                 const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
-                const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+                const uniqueId = row.getAttribute('data-unique-id') ? row.getAttribute('data-unique-id').toLowerCase() : '';
                 const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
-                const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
                 const rowStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
                 const rowCreated = row.getAttribute('data-created') || '';
 
-                const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+                const matchesQuery = name.includes(query) || uniqueId.includes(query) || code.includes(query);
                 const matchesStatus = status === 'all' || rowStatus === status;
 
                 let matchesDate = true;
@@ -258,10 +240,11 @@
 
         // Clear error box on successful submission
         document.body.addEventListener('clearError', function () {
-            document.getElementById('dc-form-error').innerHTML = '';
+            const errDiv = document.getElementById('dc-form-error');
+            if (errDiv) errDiv.innerHTML = '';
         });
 
-        // Allow HTMX to swap content for 400/500 errors (so we can display the validation messages)
+        // Allow HTMX to swap content for 400/500 errors
         document.body.addEventListener('htmx:beforeSwap', function (evt) {
             if (evt.detail.xhr.status >= 400) {
                 evt.detail.shouldSwap = true;
@@ -269,26 +252,20 @@
             }
         });
 
-
         document.body.addEventListener('htmx:afterOnLoad', function (evt) {
-            // Check if the target of the submission was your registration form
             if (evt.detail.elt.id === 'dc-registration-form') {
                 if (evt.detail.xhr.status === 201 || evt.detail.xhr.status === 200) {
-
-                    // Trigger an elegant modern popup modal
                     Swal.fire({
                         title: 'Submission Successful!',
-                        text: 'Your LMS registration request has been submitted successfully.',
+                        text: 'Your NOC registration request has been submitted successfully.',
                         icon: 'success',
-                        confirmButtonColor: '#1e3a8a', // Colors matched to your layout theme
+                        confirmButtonColor: '#1e3a8a',
                         background: '#ffffff',
                         timer: 3500,
                         timerProgressBar: true
                     }).then(() => {
-                        // Run your existing filter logic to keep tables updated
                         filterDCRequests();
                     });
-
                 }
             }
         });
@@ -296,27 +273,24 @@
         function escapeHtml(text) {
             if (!text) return '';
             return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
         }
 
         function openDetailsModal(row) {
             const id = row.getAttribute('data-id');
             const code = row.getAttribute('data-code');
+            const uniqueId = row.getAttribute('data-unique-id');
             const firstName = row.getAttribute('data-first-name');
             const middleName = row.getAttribute('data-middle-name') || '';
             const lastName = row.getAttribute('data-last-name');
-            const phone = row.getAttribute('data-phone');
-            const email = row.getAttribute('data-email');
             const status = row.getAttribute('data-status');
-            const loginId = row.getAttribute('data-login-id') || '';
-            const password = row.getAttribute('data-password') || '';
             const remarksStr = row.getAttribute('data-remarks') || '[]';
             const created = row.getAttribute('data-created') || '';
-
+            
             let remarks = [];
             try {
                 remarks = JSON.parse(remarksStr);
@@ -389,15 +363,9 @@
                         </div>
                     </div>
                     
-                    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-                        <div style="flex: 1;">
-                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 4px;">Mobile Number *</label>
-                            <input id="edit-phone" type="tel" class="swal2-input" style="width: 100%; height: 36px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 0 8px;" value="${phone}" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
-                        </div>
-                        <div style="flex: 1;">
-                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 4px;">Email ID *</label>
-                            <input id="edit-email" type="email" class="swal2-input" style="width: 100%; height: 36px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 0 8px;" value="${email}">
-                        </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 4px;">Operator Unique ID *</label>
+                        <input id="edit-unique-id" type="text" class="swal2-input" style="width: 100%; height: 36px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 0 8px;" value="${uniqueId}">
                     </div>
                     
                     <div style="margin-bottom: 15px;">
@@ -420,19 +388,6 @@
                     statusBadge = '<span class="badge badge-pending">Pending</span>';
                 }
 
-                let credentialsHtml = '';
-                if (status === 'assigned') {
-                    credentialsHtml = `
-                    <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
-                        <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Issued Credentials</div>
-                        <div style="font-size: 13px; color: #495057; display: flex; flex-direction: column; gap: 4px;">
-                            <div><strong>Login ID:</strong> ${loginId}</div>
-                            <div><strong>Password:</strong> ${password}</div>
-                        </div>
-                    </div>
-                    `;
-                }
-
                 htmlContent = `
                 <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
@@ -445,18 +400,16 @@
                     
                     <div style="margin-bottom: 15px; font-size: 13px; color: #495057; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px;">
                         <div style="grid-column: span 2;"><strong>Operator Name:</strong> ${firstName}${middleName ? ' ' + middleName : ''} ${lastName}</div>
-                        <div><strong>Mobile Number:</strong> ${phone}</div>
-                        <div><strong>Email ID:</strong> ${email}</div>
+                        <div><strong>Unique ID:</strong> ${uniqueId}</div>
                     </div>
                     
-                    ${credentialsHtml}
                     ${timelineHtml}
                 </div>
                 `;
             }
 
             Swal.fire({
-                title: isRevert ? 'Reapply LMS Request' : 'LMS Request Details',
+                title: isRevert ? 'Reapply NOC Request' : 'NOC Request Details',
                 html: htmlContent,
                 showCancelButton: isRevert,
                 confirmButtonText: isRevert ? 'Reapply' : 'Close',
@@ -466,47 +419,40 @@
                 width: '600px',
                 preConfirm: () => {
                     if (!isRevert) return true;
-
+                    
                     const editFirstName = document.getElementById('edit-first-name').value.trim();
                     const editMiddleName = document.getElementById('edit-middle-name').value.trim();
                     const editLastName = document.getElementById('edit-last-name').value.trim();
-                    const editPhone = document.getElementById('edit-phone').value.trim();
-                    const editEmail = document.getElementById('edit-email').value.trim();
+                    const editUniqueId = document.getElementById('edit-unique-id').value.trim();
                     const editRemark = document.getElementById('edit-remark').value.trim();
-
-                    if (!editFirstName || !editLastName || !editPhone || !editEmail || !editRemark) {
+                    
+                    if (!editFirstName || !editLastName || !editUniqueId || !editRemark) {
                         Swal.showValidationMessage('Please fill all mandatory fields (marked with *) and provide a remark.');
                         return false;
                     }
-
-                    if (!/^[6-9][0-9]{9}$/.test(editPhone)) {
-                        Swal.showValidationMessage('Please enter a valid 10-digit mobile number.');
-                        return false;
-                    }
-
+                    
                     const formData = new FormData();
                     formData.append('first_name', editFirstName);
                     formData.append('middle_name', editMiddleName);
                     formData.append('last_name', editLastName);
-                    formData.append('phone', editPhone);
-                    formData.append('email', editEmail);
+                    formData.append('operator_unique_id', editUniqueId);
                     formData.append('remark', editRemark);
-
-                    return fetch(`/dc/reapply/${id}`, {
+                    
+                    return fetch(`/dc/noc/reapply/${id}`, {
                         method: 'POST',
                         body: formData
                     })
-                        .then(response => {
-                            if (!response.ok) {
-                                return response.json().then(err => {
-                                    throw new Error(err.message || 'Failed to reapply request.');
-                                });
-                            }
-                            return response.json();
-                        })
-                        .catch(error => {
-                            Swal.showValidationMessage(`Error: ${error.message}`);
-                        });
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(err => {
+                                throw new Error(err.message || 'Failed to reapply request.');
+                            });
+                        }
+                        return response.json();
+                    })
+                    .catch(error => {
+                        Swal.showValidationMessage(`Error: ${error.message}`);
+                    });
                 }
             }).then((result) => {
                 if (result.isConfirmed && isRevert) {
@@ -537,7 +483,7 @@
             const headerData = [];
             headers.forEach((th, idx) => {
                 const text = th.innerText.trim();
-                if (text !== "Assign Credentials Actions" && text !== "Actions" && text !== "Action") {
+                if (text !== "Actions" && text !== "Action") {
                     validIndices.push(idx);
                     headerData.push(`"${text.replace(/"/g, '""')}"`);
                 }

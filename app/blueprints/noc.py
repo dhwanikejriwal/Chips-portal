@@ -1,26 +1,26 @@
-# app/blueprints/lms.py
+# app/blueprints/noc.py
 from flask import Blueprint, render_template, request, session, redirect, url_for, jsonify
 import requests
 from datetime import datetime, timedelta
 
-lms_bp = Blueprint('lms', __name__)
+noc_bp = Blueprint('noc', __name__)
 
-# 3. DC Dashboard Overview View
-@lms_bp.route("/dc/dashboard", methods=["GET"])
-def dc_dashboard():
+# 1. DC NOC Page View
+@noc_bp.route("/dc/noc", methods=["GET"])
+def dc_noc_view():
     jwt_token = session.get("access_token")
     if not jwt_token:
         return redirect(url_for("login_view"))
         
     role = session.get("role")
     if role == "chips_admin":
-        return redirect(url_for("lms.chips_admin_dashboard"))
+        return redirect(url_for("noc.chips_noc_view"))
     elif role != "dc":
         return redirect(url_for("login_view"))
         
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
-        response = requests.get("http://127.0.0.1:8000/lms/requests", headers=headers)
+        response = requests.get("http://127.0.0.1:8000/noc/requests", headers=headers)
         if response.status_code == 200:
             requests_list = response.json()
         else:
@@ -28,60 +28,24 @@ def dc_dashboard():
     except requests.exceptions.ConnectionError:
         requests_list = []
         
-    lms_count = len(requests_list)
-    l1_count = 0
-    l2_count = 0
-    noc_count = 0
-    
-    return render_template(
-        "dc/dc_dash.html",
-        lms_count=lms_count,
-        l1_count=l1_count,
-        l2_count=l2_count,
-        noc_count=noc_count
-    )
+    return render_template("dc/noc.html", requests=requests_list)
 
-# 4. DC LMS Registration Router View
-@lms_bp.route("/lms", methods=["GET"])
-def lms_dashboard():
-    jwt_token = session.get("access_token")
-    if not jwt_token:
-        return redirect(url_for("login_view"))
-        
-    role = session.get("role")
-    if role == "chips_admin":
-        return redirect(url_for("lms.chips_admin_dashboard"))
-    elif role != "dc":
-        return redirect(url_for("login_view"))
-        
-    headers = {"Authorization": f"Bearer {jwt_token}"}
-    try:
-        response = requests.get("http://127.0.0.1:8000/lms/requests", headers=headers)
-        if response.status_code == 200:
-            requests_list = response.json()
-        else:
-            requests_list = []
-    except requests.exceptions.ConnectionError:
-        requests_list = []
-        
-    return render_template("dc/lms.html", requests=requests_list)
-
-# 4. Admin Dashboard Router View
-@lms_bp.route("/chips/dashboard", methods=["GET"])
-def chips_admin_dashboard():
+# 2. CHIPS Admin NOC Review View
+@noc_bp.route("/chips/noc", methods=["GET"])
+def chips_noc_view():
     jwt_token = session.get("access_token")
     if not jwt_token:
         return redirect(url_for("login_view"))
         
     role = session.get("role")
     if role == "dc":
-        return redirect(url_for("lms.lms_dashboard"))
+        return redirect(url_for("noc.dc_noc_view"))
     elif role != "chips_admin":
         return redirect(url_for("login_view"))
         
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
-        response = requests.get("http://127.0.0.1:8000/lms/requests", headers=headers)
+        response = requests.get("http://127.0.0.1:8000/noc/requests", headers=headers)
         if response.status_code == 200:
             requests_list = response.json()
         else:
@@ -89,65 +53,25 @@ def chips_admin_dashboard():
     except requests.exceptions.ConnectionError:
         requests_list = []
         
-    total_count = len(requests_list)
-    pending_count = len([r for r in requests_list if r["status"] in ["pending", "reapplied"]])
-    approved_count = len([r for r in requests_list if r["status"] in ["assigned", "revert back"]])
-    rejected_count = 0
-    recent_requests = requests_list[:10]  # Show recent 10 requests
-    
-    return render_template(
-        "chips/chips_dash.html", 
-        total_count=total_count,
-        pending_count=pending_count,
-        approved_count=approved_count,
-        rejected_count=rejected_count,
-        recent_requests=recent_requests
-    )
-
-# 4b. Admin LMS Review Page View
-@lms_bp.route("/chips/lms", methods=["GET"])
-def chips_lms_view():
-    jwt_token = session.get("access_token")
-    if not jwt_token:
-        return redirect(url_for("login_view"))
-        
-    role = session.get("role")
-    if role == "dc":
-        return redirect(url_for("lms.lms_dashboard"))
-    elif role != "chips_admin":
-        return redirect(url_for("login_view"))
-        
-    headers = {"Authorization": f"Bearer {jwt_token}"}
-    try:
-        response = requests.get("http://127.0.0.1:8000/lms/requests", headers=headers)
-        if response.status_code == 200:
-            requests_list = response.json()
-        else:
-            requests_list = []
-    except requests.exceptions.ConnectionError:
-        requests_list = []
-        
-    # Filter pending vs approved requests
     pending_requests = [r for r in requests_list if r["status"] in ["pending", "reapplied"]]
     approved_requests = [r for r in requests_list if r["status"] in ["assigned", "revert back"]]
     
     return render_template(
-        "chips/chips_lms.html", 
-        pending_requests=pending_requests, 
+        "chips/chips_noc.html",
+        pending_requests=pending_requests,
         approved_requests=approved_requests
     )
 
-# 5. Form Submission Endpoint (Proxy to FastAPI)
-@lms_bp.route("/lms/request", methods=["POST"])
-def process_lms_form():
+# 3. DC Submit NOC Form
+@noc_bp.route("/dc/noc/request", methods=["POST"])
+def process_noc_form():
     jwt_token = session.get("access_token", "")
     
     payload = {
+        "operator_unique_id": request.form.get("operator_unique_id"),
         "operator_first_name": request.form.get("first_name"),
         "operator_middle_name": request.form.get("middle_name") or None,
-        "operator_last_name": request.form.get("last_name"),
-        "operator_phone": request.form.get("phone"),
-        "operator_email": request.form.get("email")
+        "operator_last_name": request.form.get("last_name")
     }
 
     headers = {
@@ -155,7 +79,7 @@ def process_lms_form():
     }
 
     try:
-        fastapi_url = "http://127.0.0.1:8000/lms/request"
+        fastapi_url = "http://127.0.0.1:8000/noc/request"
         response = requests.post(fastapi_url, json=payload, headers=headers)
         
         if response.status_code == 201:
@@ -167,22 +91,18 @@ def process_lms_form():
             return f"""
             <tr data-id="{data.get('request_id')}"
                 data-code="{request_code}"
+                data-unique-id="{payload['operator_unique_id']}"
                 data-first-name="{payload['operator_first_name']}"
                 data-middle-name="{payload['operator_middle_name'] or ''}"
                 data-last-name="{payload['operator_last_name']}"
-                data-phone="{payload['operator_phone']}"
-                data-email="{payload['operator_email']}"
                 data-name="{full_name}"
                 data-status="pending"
-                data-login-id=""
-                data-password=""
                 data-remarks="[]"
                 data-created="{ist_time_str}">
                 <td>1</td>
                 <td><strong>{request_code}</strong></td>
+                <td>{payload['operator_unique_id']}</td>
                 <td><strong>{full_name}</strong></td>
-                <td>{payload['operator_phone']}</td>
-                <td>{payload['operator_email']}</td>
                 <td><span class="badge badge-pending">Pending</span></td>
                 <td>{ist_time_str}</td>
                 <td>-</td>
@@ -218,24 +138,21 @@ def process_lms_form():
         """
         return error_html, 500, {"HX-Retarget": "#dc-form-error"}
 
-# 6. Admin Credentials Assignment Endpoint (Proxy to FastAPI)
-@lms_bp.route("/chips/assign/<int:request_id>", methods=["POST"])
-def assign_credentials(request_id):
+# 4. CHIPS Issue NOC
+@noc_bp.route("/chips/noc/assign/<int:request_id>", methods=["POST"])
+def assign_noc_credentials(request_id):
     jwt_token = session.get("access_token", "")
     
     payload = {
-        "generated_login_id": request.form.get(f"generated_login_id_{request_id}") or request.form.get("generated_login_id"),
-        "generated_password_raw": request.form.get(f"generated_password_raw_{request_id}") or request.form.get("generated_password_raw"),
-        "remark": request.form.get(f"remark_{request_id}") or request.form.get("remark") or ""
+        "remark": request.form.get("remark")
     }
-    print(f"DEBUG assign: form={request.form}, payload={payload}")
 
     headers = {
         "Authorization": f"Bearer {jwt_token}"
     }
 
     try:
-        fastapi_url = f"http://127.0.0.1:8000/lms/assign/{request_id}"
+        fastapi_url = f"http://127.0.0.1:8000/noc/assign/{request_id}"
         response = requests.put(fastapi_url, json=payload, headers=headers)
         
         if response.status_code == 200:
@@ -247,9 +164,9 @@ def assign_credentials(request_id):
     except requests.exceptions.ConnectionError:
         return '<p class="text-red-500 text-xs mt-2">❌ Connection to backend failed</p>', 500
 
-# 7. Admin Revert Request Endpoint (Proxy to FastAPI)
-@lms_bp.route("/chips/revert/<int:request_id>", methods=["POST"])
-def revert_request(request_id):
+# 5. CHIPS Revert NOC
+@noc_bp.route("/chips/noc/revert/<int:request_id>", methods=["POST"])
+def revert_noc_request(request_id):
     jwt_token = session.get("access_token", "")
     
     payload = {
@@ -261,7 +178,7 @@ def revert_request(request_id):
     }
 
     try:
-        fastapi_url = f"http://127.0.0.1:8000/lms/revert/{request_id}"
+        fastapi_url = f"http://127.0.0.1:8000/noc/revert/{request_id}"
         response = requests.put(fastapi_url, json=payload, headers=headers)
         
         if response.status_code == 200:
@@ -273,17 +190,16 @@ def revert_request(request_id):
     except requests.exceptions.ConnectionError:
         return '<p class="text-red-500 text-xs mt-2">❌ Connection to backend failed</p>', 500
 
-# 8. DC Reapply Request Endpoint (Proxy to FastAPI)
-@lms_bp.route("/dc/reapply/<int:request_id>", methods=["POST"])
-def reapply_request(request_id):
+# 6. DC Reapply NOC
+@noc_bp.route("/dc/noc/reapply/<int:request_id>", methods=["POST"])
+def reapply_noc_request(request_id):
     jwt_token = session.get("access_token", "")
     
     payload = {
+        "operator_unique_id": request.form.get("operator_unique_id"),
         "operator_first_name": request.form.get("first_name"),
         "operator_middle_name": request.form.get("middle_name") or None,
         "operator_last_name": request.form.get("last_name"),
-        "operator_phone": request.form.get("phone"),
-        "operator_email": request.form.get("email"),
         "remark": request.form.get("remark")
     }
     
@@ -292,7 +208,7 @@ def reapply_request(request_id):
     }
 
     try:
-        fastapi_url = f"http://127.0.0.1:8000/lms/reapply/{request_id}"
+        fastapi_url = f"http://127.0.0.1:8000/noc/reapply/{request_id}"
         response = requests.put(fastapi_url, json=payload, headers=headers)
         
         if response.status_code == 200:

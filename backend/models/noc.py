@@ -1,27 +1,20 @@
-import enum
+# backend/models/noc.py
 from sqlalchemy import Column, Integer, String, Enum as SQLEnum, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
-from backend.database import Base
-from backend.models.base import get_ist_time
+from backend.models.base import Base, get_ist_time
+from backend.models.lms import RequestStatus
 
-class RequestStatus(enum.Enum):
-    PENDING = "PENDING"
-    ASSIGNED = "ASSIGNED"
-    REVERTED = "REVERTED"
-    REAPPLIED = "REAPPLIED"
-
-class CredentialRequest(Base):
-    __tablename__ = "credential_requests"
+class NocRequest(Base):
+    __tablename__ = "noc_requests"
     
-    id = Column(Integer, primary_key=True)
-    request_code = Column(String(20), unique=True, nullable=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
+    request_code = Column(String(50), unique=True, nullable=True, index=True)
     
     # Operator Information parameters
+    operator_unique_id = Column(String(100), nullable=False)
     operator_first_name = Column(String(100), nullable=False)
     operator_middle_name = Column(String(100), nullable=True)
     operator_last_name = Column(String(100), nullable=False)
-    operator_phone = Column(String(15), nullable=False)
-    operator_email = Column(String(150), nullable=False)
     
     # Tracking references
     district_id = Column(Integer, ForeignKey("districts.id"), nullable=False)
@@ -32,12 +25,10 @@ class CredentialRequest(Base):
     created_at = Column(DateTime(timezone=True), default=get_ist_time, nullable=False, index=True)
     updated_at = Column(DateTime(timezone=True), default=get_ist_time, onupdate=get_ist_time, nullable=False)
     
-    # Credentials
-    generated_login_id = Column(String(100), unique=True, nullable=True)
-    generated_password_raw = Column(String(100), nullable=True)
+    # Credentials / Details
     revert_reason = Column(String(500), nullable=True)
     remarks_history = Column(JSON, default=list, nullable=True)
     
     # Relationships
-    district_details = relationship("District", back_populates="requests")
-    submitted_by = relationship("User", back_populates="requests")
+    district = relationship("District")
+    submitted_by = relationship("User")

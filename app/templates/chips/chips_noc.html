@@ -4,10 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CHIPS Admin - LMS Review Portal</title>
+    <title>CHIPS Admin - NOC Review Portal</title>
     <link rel="stylesheet" href="/static/css/common.css">
     <link rel="stylesheet" href="/static/css/layout.css">
-    <link rel="stylesheet" href="/static/css/chips/chips_lms.css">
+    <link rel="stylesheet" href="/static/css/chips/chips_noc.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -20,11 +20,10 @@
         <!-- Sidebar -->
         {% include "partials/sidebar.html" %}
 
-        <!-- Content -->
         <main class="content">
             <h1
                 style="text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; color: #1a202c; letter-spacing: -0.5px;">
-                LMS CREDENTIAL REQUESTS</h1>
+                NOC REQUESTS</h1>
 
             <div class="container" style="max-width: 1200px;">
 
@@ -32,7 +31,7 @@
                 <div class="filter-bar">
                     <div class="filter-group filter-group-search">
                         <label>Search Operator</label>
-                        <input type="text" id="admin-search-input" placeholder="Search by ID, name, mobile or email..."
+                        <input type="text" id="admin-search-input" placeholder="Search by ID, name, or unique ID..."
                             class="table-input" oninput="filterAdminQueues()">
                     </div>
                     <div class="filter-group">
@@ -67,9 +66,9 @@
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h2 style="margin: 0;">Pending Operator Credentials Queue</h2>
+                    <h2 style="margin: 0;">Pending Operator NOC Queue</h2>
                     <button class="btn btn-sm"
-                        onclick="exportTableToCSV('admin-pending-table', 'pending_operator_credentials.csv')">Export to
+                        onclick="exportTableToCSV('admin-pending-table', 'pending_operator_noc.csv')">Export to
                         Excel</button>
                 </div>
                 <div class="table-wrapper">
@@ -79,9 +78,8 @@
                                 <th>S.No</th>
                                 <th>Request ID</th>
                                 <th>District</th>
+                                <th>Unique ID</th>
                                 <th>Operator Name</th>
-                                <th>Mobile No</th>
-                                <th>Email ID</th>
                                 <th>Status</th>
                                 <th>created at</th>
                                 <th style="text-align: center;">Action</th>
@@ -91,22 +89,19 @@
                             {% for req in pending_requests %}
                             <tr id="request-row-{{ req.id }}" data-id="{{ req.id }}"
                                 data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+                                data-unique-id="{{ req.operator_unique_id }}"
                                 data-first-name="{{ req.operator_first_name }}"
                                 data-middle-name="{{ req.operator_middle_name or '' }}"
-                                data-last-name="{{ req.operator_last_name }}" data-phone="{{ req.operator_phone }}"
-                                data-email="{{ req.operator_email }}"
+                                data-last-name="{{ req.operator_last_name }}"
                                 data-name="{{ req.operator_first_name }}{% if req.operator_middle_name %} {{ req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}"
-                                data-status="{{ req.status }}" data-login-id="{{ req.generated_login_id or '' }}"
-                                data-password="{{ req.generated_password_raw or '' }}"
-                                data-remarks='{{ req.remarks_history | tojson | safe }}'
+                                data-status="{{ req.status }}" data-remarks='{{ req.remarks_history | tojson | safe }}'
                                 data-created="{% if req.status == 'reapplied' %}{{ req.accepted_at }}{% else %}{{ req.created_at }}{% endif %}">
                                 <td>{{ loop.index }}</td>
                                 <td><strong>{{ req.request_code }}</strong></td>
                                 <td><strong>{{ req.district_name }}</strong></td>
+                                <td>{{ req.operator_unique_id }}</td>
                                 <td>{{ req.operator_first_name }}{% if req.operator_middle_name %} {{
                                     req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}</td>
-                                <td>{{ req.operator_phone }}</td>
-                                <td>{{ req.operator_email }}</td>
                                 <td>
                                     {% if req.status == 'reapplied' %}
                                     <span class="badge badge-reapplied">Reapplied</span>
@@ -124,7 +119,7 @@
                                 <td style="text-align: center;">
                                     <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
                                         <button type="button" class="btn btn-sm"
-                                            onclick="openIssueModal('{{ req.id }}', '{{ req.operator_first_name }}{% if req.operator_middle_name %} {{ req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}', '{{ req.operator_email }}')">Issue</button>
+                                            onclick="openIssueModal('{{ req.id }}', '{{ req.operator_first_name }}{% if req.operator_middle_name %} {{ req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}')">Issue</button>
                                         <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
                                             onclick="openRevertModal('{{ req.id }}', '{{ req.operator_first_name }}{% if req.operator_middle_name %} {{ req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}')">Revert</button>
                                         <button type="button" class="btn-details"
@@ -140,7 +135,7 @@
                 <hr class="section-divider">
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h2 style="margin: 0;">Credentials Log History</h2>
+                    <h2 style="margin: 0;">NOC Log History</h2>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <select id="admin-history-status-filter" class="table-input"
                             style="width: 140px; margin: 0; padding: 4px 8px; font-size: 13px;"
@@ -150,7 +145,7 @@
                             <option value="revert back">Revert Back</option>
                         </select>
                         <button class="btn btn-sm"
-                            onclick="exportTableToCSV('admin-approved-table', 'approved_operator_credentials.csv')">Export
+                            onclick="exportTableToCSV('admin-approved-table', 'approved_operator_noc.csv')">Export
                             to Excel</button>
                     </div>
                 </div>
@@ -161,9 +156,8 @@
                                 <th>S.No</th>
                                 <th>Request ID</th>
                                 <th>District</th>
+                                <th>Unique ID</th>
                                 <th>Operator Name</th>
-                                <th>Mobile No</th>
-                                <th>Email ID</th>
                                 <th>Status</th>
                                 <th>created at</th>
                                 <th>updated at</th>
@@ -173,22 +167,19 @@
                         <tbody id="admin-approved-body">
                             {% for req in approved_requests %}
                             <tr data-id="{{ req.id }}" data-district="{{ req.district_name }}"
-                                data-code="{{ req.request_code }}" data-first-name="{{ req.operator_first_name }}"
+                                data-code="{{ req.request_code }}" data-unique-id="{{ req.operator_unique_id }}"
+                                data-first-name="{{ req.operator_first_name }}"
                                 data-middle-name="{{ req.operator_middle_name or '' }}"
-                                data-last-name="{{ req.operator_last_name }}" data-phone="{{ req.operator_phone }}"
-                                data-email="{{ req.operator_email }}"
+                                data-last-name="{{ req.operator_last_name }}"
                                 data-name="{{ req.operator_first_name }}{% if req.operator_middle_name %} {{ req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}"
-                                data-status="{{ req.status }}" data-login-id="{{ req.generated_login_id or '' }}"
-                                data-password="{{ req.generated_password_raw or '' }}"
-                                data-remarks='{{ req.remarks_history | tojson | safe }}'
+                                data-status="{{ req.status }}" data-remarks='{{ req.remarks_history | tojson | safe }}'
                                 data-created="{{ req.created_at }}">
                                 <td>{{ loop.index }}</td>
                                 <td><strong>{{ req.request_code }}</strong></td>
                                 <td>{{ req.district_name }}</td>
+                                <td>{{ req.operator_unique_id }}</td>
                                 <td>{{ req.operator_first_name }}{% if req.operator_middle_name %} {{
                                     req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}</td>
-                                <td>{{ req.operator_phone }}</td>
-                                <td>{{ req.operator_email }}</td>
                                 <td>
                                     {% if req.status == 'assigned' %}
                                     <span class="badge badge-approved">Approved</span>
@@ -217,54 +208,40 @@
     </div>
 
     <script>
-        function openIssueModal(reqId, operatorName, operatorEmail) {
+        function openIssueModal(reqId, operatorName) {
             Swal.fire({
-                title: 'Assign Credentials',
+                title: 'Issue NOC',
                 html: `
                     <div style="text-align: left; padding: 0 10px;">
                         <p style="margin-bottom: 15px; font-size: 14px; color: #555;">
-                            Assigning video access credentials for operator <strong>${operatorName}</strong>.
+                            Confirm issuing NOC for operator <strong>${operatorName}</strong>.
                         </p>
                         
-                        <div style="margin-bottom: 15px;">
-                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">Assign Login ID</label>
-                            <input id="swal-login-id" type="text" class="swal2-input" style="width: 100%; height: 38px; margin: 0; font-size: 14px; box-sizing: border-box;" value="${operatorEmail}">
-                        </div>
-                        
-                        <div style="margin-bottom: 15px;">
-                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">Assign Password</label>
-                            <input id="swal-password" type="text" class="swal2-input" style="width: 100%; height: 38px; margin: 0; font-size: 14px; box-sizing: border-box;" value="Test@123">
-                        </div>
-
                         <div>
-                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">Remarks (Optional)</label>
-                            <textarea id="swal-remark" class="swal2-textarea" style="width: 100%; height: 80px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="Add remarks..."></textarea>
+                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">NOC Remarks (Mandatory) *</label>
+                            <textarea id="swal-remark" class="swal2-textarea" style="width: 100%; height: 100px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="Enter remark for issuing this NOC..."></textarea>
                         </div>
                     </div>
                 `,
                 focusConfirm: false,
                 showCancelButton: true,
-                confirmButtonText: 'Issue',
+                confirmButtonText: 'Issue NOC',
                 confirmButtonColor: '#28a745',
                 cancelButtonColor: '#6c757d',
                 preConfirm: () => {
-                    const loginId = document.getElementById('swal-login-id').value;
-                    const password = document.getElementById('swal-password').value;
-                    const remark = document.getElementById('swal-remark').value;
-                    if (!loginId || !password) {
-                        Swal.showValidationMessage('Both fields are required');
+                    const remark = document.getElementById('swal-remark').value.trim();
+                    if (!remark) {
+                        Swal.showValidationMessage('Please fill all mandatory fields (marked with *) and provide a remark.');
                         return false;
                     }
-                    return { loginId: loginId, password: password, remark: remark };
+                    return { remark: remark };
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
                     const payload = new URLSearchParams();
-                    payload.append("generated_login_id", result.value.loginId);
-                    payload.append("generated_password_raw", result.value.password);
                     payload.append("remark", result.value.remark);
 
-                    fetch(`/chips/assign/${reqId}`, {
+                    fetch(`/chips/noc/assign/${reqId}`, {
                         method: 'POST',
                         body: payload,
                         headers: {
@@ -273,8 +250,8 @@
                     }).then(response => {
                         if (response.ok) {
                             Swal.fire({
-                                title: 'Credentials Issued!',
-                                text: 'The login credentials have been assigned successfully.',
+                                title: 'NOC Issued!',
+                                text: 'The NOC request has been approved successfully.',
                                 icon: 'success',
                                 confirmButtonColor: '#28a745',
                                 background: '#ffffff',
@@ -285,10 +262,9 @@
                             });
                         } else {
                             response.json().then(data => {
-                                const errorDetail = data.detail || 'Failed to assign credentials. Please try again.';
-                                Swal.fire('Error', errorDetail, 'error');
+                                Swal.fire('Error', data.detail || 'Failed to issue NOC.', 'error');
                             }).catch(() => {
-                                Swal.fire('Error', 'Failed to assign credentials. Please try again.', 'error');
+                                Swal.fire('Error', 'Failed to issue NOC.', 'error');
                             });
                         }
                     });
@@ -302,7 +278,7 @@
                 html: `
                     <div style="text-align: left; padding: 0 10px;">
                         <p style="margin-bottom: 15px; font-size: 14px; color: #555;">
-                            Are you sure you want to revert the request for operator <strong>${operatorName}</strong> back to the District Coordinator?
+                            Are you sure you want to revert the NOC request for operator <strong>${operatorName}</strong> back to the District Coordinator?
                         </p>
                         
                         <div>
@@ -329,7 +305,7 @@
                     const payload = new URLSearchParams();
                     payload.append("revert_reason", result.value.revert_reason);
 
-                    fetch(`/chips/revert/${reqId}`, {
+                    fetch(`/chips/noc/revert/${reqId}`, {
                         method: 'POST',
                         body: payload,
                         headers: {
@@ -339,7 +315,7 @@
                         if (response.ok) {
                             Swal.fire({
                                 title: 'Request Reverted!',
-                                text: 'The operator request has been reverted to the District Coordinator.',
+                                text: 'The NOC request has been reverted to the District Coordinator.',
                                 icon: 'success',
                                 confirmButtonColor: '#dc3545',
                                 background: '#ffffff',
@@ -364,14 +340,16 @@
         const sidebar = document.querySelector('.sidebar');
         const toggleBtn = document.getElementById('sidebar-toggle');
 
-        if (localStorage.getItem('sidebar-collapsed') === 'true') {
-            sidebar.classList.add('collapsed');
-        }
+        if (sidebar && toggleBtn) {
+            if (localStorage.getItem('sidebar-collapsed') === 'true') {
+                sidebar.classList.add('collapsed');
+            }
 
-        toggleBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('collapsed');
-            localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
-        });
+            toggleBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+            });
+        }
 
         function filterAdminQueues() {
             const query = document.getElementById('admin-search-input').value.toLowerCase();
@@ -395,13 +373,12 @@
             pendingRows.forEach(row => {
                 const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
                 const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
-                const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+                const uniqueId = row.getAttribute('data-unique-id') ? row.getAttribute('data-unique-id').toLowerCase() : '';
                 const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
-                const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
                 const rowCreated = row.getAttribute('data-created') || '';
                 const rowStatus = row.getAttribute('data-status') || '';
 
-                const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+                const matchesQuery = name.includes(query) || uniqueId.includes(query) || code.includes(query);
                 const matchesDistrict = district === 'all' || rowDistrict === district;
                 const matchesPendingStatus = pendingStatusFilter === 'all' || rowStatus === pendingStatusFilter;
 
@@ -430,13 +407,12 @@
             approvedRows.forEach(row => {
                 const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
                 const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
-                const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+                const uniqueId = row.getAttribute('data-unique-id') ? row.getAttribute('data-unique-id').toLowerCase() : '';
                 const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
-                const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
                 const rowCreated = row.getAttribute('data-created') || '';
                 const rowStatus = row.getAttribute('data-status') || '';
 
-                const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+                const matchesQuery = name.includes(query) || uniqueId.includes(query) || code.includes(query);
                 const matchesDistrict = district === 'all' || rowDistrict === district;
                 const matchesHistoryStatus = historyStatusFilter === 'all' || rowStatus === historyStatusFilter;
 
@@ -473,14 +449,11 @@
         function openDetailsModal(row) {
             const id = row.getAttribute('data-id');
             const code = row.getAttribute('data-code');
+            const uniqueId = row.getAttribute('data-unique-id');
             const firstName = row.getAttribute('data-first-name');
             const middleName = row.getAttribute('data-middle-name') || '';
             const lastName = row.getAttribute('data-last-name');
-            const phone = row.getAttribute('data-phone');
-            const email = row.getAttribute('data-email');
             const status = row.getAttribute('data-status');
-            const loginId = row.getAttribute('data-login-id') || '';
-            const password = row.getAttribute('data-password') || '';
             const remarksStr = row.getAttribute('data-remarks') || '[]';
             const created = row.getAttribute('data-created') || '';
 
@@ -541,19 +514,6 @@
                 statusBadge = '<span class="badge badge-pending">Pending</span>';
             }
 
-            let credentialsHtml = '';
-            if (status === 'assigned') {
-                credentialsHtml = `
-                <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
-                    <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Issued Credentials</div>
-                    <div style="font-size: 13px; color: #495057; display: flex; flex-direction: column; gap: 4px;">
-                        <div><strong>Login ID:</strong> ${loginId}</div>
-                        <div><strong>Password:</strong> ${password}</div>
-                    </div>
-                </div>
-                `;
-            }
-
             let changeDecisionHtml = '';
             if (status === 'assigned') {
                 changeDecisionHtml = `
@@ -569,24 +529,14 @@
             } else if (status === 'revert back') {
                 changeDecisionHtml = `
                 <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; margin-top: 15px; margin-bottom: 15px;">
-                    <div style="font-weight: bold; font-size: 14px; color: #28a745; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Change Decision: Issue Credentials</div>
+                    <div style="font-weight: bold; font-size: 14px; color: #28a745; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Change Decision: Issue NOC</div>
                     
                     <div style="margin-bottom: 10px;">
-                        <label style="display: block; font-weight: 600; font-size: 12px; color: #333; margin-bottom: 4px;">Assign Login ID *</label>
-                        <input id="modal-login-id" type="text" class="swal2-input" style="width: 100%; height: 36px; margin: 0; font-size: 13px; box-sizing: border-box; padding: 0 8px;" value="${email}">
-                    </div>
-                    
-                    <div style="margin-bottom: 10px;">
-                        <label style="display: block; font-weight: 600; font-size: 12px; color: #333; margin-bottom: 4px;">Assign Password *</label>
-                        <input id="modal-password" type="text" class="swal2-input" style="width: 100%; height: 36px; margin: 0; font-size: 13px; box-sizing: border-box; padding: 0 8px;" value="Test@123">
+                        <label style="display: block; font-weight: 600; font-size: 12px; color: #333; margin-bottom: 4px;">NOC Remarks (Mandatory) *</label>
+                        <textarea id="modal-remark" class="swal2-textarea" style="width: 100%; height: 80px; margin: 0; font-size: 13px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="Provide mandatory remark/reason for issuing NOC..."></textarea>
                     </div>
 
-                    <div style="margin-bottom: 10px;">
-                        <label style="display: block; font-weight: 600; font-size: 12px; color: #333; margin-bottom: 4px;">Remarks (Mandatory) *</label>
-                        <textarea id="modal-remark" class="swal2-textarea" style="width: 100%; height: 60px; margin: 0; font-size: 13px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="Provide mandatory remark/reason for direct approval..."></textarea>
-                    </div>
-
-                    <button type="button" class="btn btn-sm" style="background-color: #28a745; width: 100%; color: white; border: none; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 13px; font-weight: 600;" onclick="submitAssignFromModal('${id}')">Issue Credentials</button>
+                    <button type="button" class="btn btn-sm" style="background-color: #28a745; width: 100%; color: white; border: none; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-size: 13px; font-weight: 600;" onclick="submitAssignFromModal('${id}')">Issue NOC</button>
                 </div>
                 `;
             }
@@ -603,18 +553,16 @@
                 
                 <div style="margin-bottom: 15px; font-size: 13px; color: #495057; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px;">
                     <div style="grid-column: span 2;"><strong>Operator Name:</strong> ${firstName}${middleName ? ' ' + middleName : ''} ${lastName}</div>
-                    <div><strong>Mobile Number:</strong> ${phone}</div>
-                    <div><strong>Email ID:</strong> ${email}</div>
+                    <div><strong>Unique ID:</strong> ${uniqueId}</div>
                 </div>
                 
-                ${credentialsHtml}
                 ${changeDecisionHtml}
                 ${timelineHtml}
             </div>
             `;
 
             Swal.fire({
-                title: 'LMS Request Details',
+                title: 'NOC Request Details',
                 html: htmlContent,
                 confirmButtonText: 'Close',
                 confirmButtonColor: '#007bff',
@@ -632,7 +580,7 @@
             const payload = new URLSearchParams();
             payload.append("revert_reason", reason);
 
-            fetch(`/chips/revert/${reqId}`, {
+            fetch(`/chips/noc/revert/${reqId}`, {
                 method: 'POST',
                 body: payload,
                 headers: {
@@ -659,19 +607,15 @@
 
         window.submitAssignFromModal = function (reqId) {
             Swal.resetValidationMessage();
-            const loginId = document.getElementById('modal-login-id').value.trim();
-            const password = document.getElementById('modal-password').value.trim();
             const remark = document.getElementById('modal-remark').value.trim();
-            if (!loginId || !password || !remark) {
+            if (!remark) {
                 Swal.showValidationMessage('Please fill all mandatory fields (marked with *) and provide a remark.');
                 return;
             }
             const payload = new URLSearchParams();
-            payload.append("generated_login_id", loginId);
-            payload.append("generated_password_raw", password);
             payload.append("remark", remark);
 
-            fetch(`/chips/assign/${reqId}`, {
+            fetch(`/chips/noc/assign/${reqId}`, {
                 method: 'POST',
                 body: payload,
                 headers: {
@@ -680,8 +624,8 @@
             }).then(response => {
                 if (response.ok) {
                     Swal.fire({
-                        title: 'Credentials Issued!',
-                        text: 'The login credentials have been assigned successfully.',
+                        title: 'NOC Issued!',
+                        text: 'The NOC request has been approved successfully.',
                         icon: 'success',
                         confirmButtonColor: '#28a745',
                         background: '#ffffff',
@@ -692,9 +636,9 @@
                     });
                 } else {
                     response.json().then(data => {
-                        Swal.showValidationMessage(data.detail || 'Failed to assign credentials.');
+                        Swal.showValidationMessage(data.detail || 'Failed to issue NOC.');
                     }).catch(() => {
-                        Swal.showValidationMessage('Failed to assign credentials.');
+                        Swal.showValidationMessage('Failed to issue NOC.');
                     });
                 }
             });
@@ -719,7 +663,7 @@
             const headerData = [];
             headers.forEach((th, idx) => {
                 const text = th.innerText.trim();
-                if (text !== "Assign Credentials Actions" && text !== "Actions" && text !== "Action") {
+                if (text !== "Actions" && text !== "Action") {
                     validIndices.push(idx);
                     headerData.push(`"${text.replace(/"/g, '""')}"`);
                 }
@@ -756,34 +700,6 @@
             link.click();
             document.body.removeChild(link);
         }
-
-        document.body.addEventListener('credentialsAssigned', function () {
-            Swal.fire({
-                title: 'Credentials Issued!',
-                text: 'The operator login credentials have been sent successfully.',
-                icon: 'success',
-                confirmButtonColor: '#1e3a8a',
-                background: '#ffffff',
-                timer: 3000,
-                timerProgressBar: true
-            }).then(() => {
-                window.location.reload();
-            });
-        });
-
-        document.body.addEventListener('requestReverted', function () {
-            Swal.fire({
-                title: 'Request Reverted!',
-                text: 'The operator request has been reverted to the District Coordinator.',
-                icon: 'success',
-                confirmButtonColor: '#dc3545',
-                background: '#ffffff',
-                timer: 3000,
-                timerProgressBar: true
-            }).then(() => {
-                window.location.reload();
-            });
-        });
     </script>
 </body>
 

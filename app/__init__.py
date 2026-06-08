@@ -66,12 +66,12 @@ def create_app():
         return redirect(url_for("login_view"))
 
     # Register modular feature blueprints
-    from app.blueprints.dc_requests import dc_requests_bp
+    from app.blueprints.noc import noc_bp
     from app.blueprints.station import station_bp
     from app.blueprints.approvals import approvals_bp
     from app.blueprints.lms import lms_bp
 
-    app.register_blueprint(dc_requests_bp)
+    app.register_blueprint(noc_bp)
     app.register_blueprint(station_bp)
     app.register_blueprint(approvals_bp)
     app.register_blueprint(lms_bp)

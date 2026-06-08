@@ -1,6 +1,6 @@
 from backend.models.base import Base, get_ist_time, UserRole, District, User
 from backend.models.lms import RequestStatus, CredentialRequest
-from backend.models.dc_requests import NocRequest, ActivationRequest, ReactivationRequest
+from backend.models.noc import NocRequest
 from backend.models.station import StationKitDetails
 from backend.models.approvals import ApprovalHistory
 
@@ -13,8 +13,6 @@ __all__ = [
     "RequestStatus",
     "CredentialRequest",
     "NocRequest",
-    "ActivationRequest",
-    "ReactivationRequest",
     "StationKitDetails",
     "ApprovalHistory",
 ]
