@@ -70,10 +70,10 @@ def create_app():
     from app.blueprints.station import station_bp
     from app.blueprints.approvals import approvals_bp
     from app.blueprints.lms import lms_bp
-
+    from app.blueprints.reactivation import reactivation_bp
     app.register_blueprint(noc_bp)
     app.register_blueprint(station_bp)
     app.register_blueprint(approvals_bp)
     app.register_blueprint(lms_bp)
-
+    app.register_blueprint(reactivation_bp)
     return app

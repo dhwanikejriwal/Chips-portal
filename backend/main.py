@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import engine, Base
 # 1. Import your brand new router module
-from backend.routers import auth, lms, noc, station, approvals
+from backend.routers import auth, lms, noc, station, approvals , reactivation
 
 app = FastAPI(
     title="CHIPS Aadhaar Workflow Platform API",
@@ -25,6 +25,7 @@ app.include_router(lms.router, prefix="/lms", tags=["LMS Video Requests"]) # Cle
 app.include_router(noc.router, prefix="/noc", tags=["NOC Requests"])
 app.include_router(station.router, prefix="/station", tags=["Station ID Processing"])
 app.include_router(approvals.router, prefix="/approvals", tags=["L1/L2 Approvals"])
+app.include_router(reactivation.router, prefix="/reactivation", tags=["Reactivation Requests"])
 
 @app.get("/")
 async def root_status_check():

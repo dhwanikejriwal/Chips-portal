@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operator Reactivation Panel</title>
+    
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/dc/reactivation.css">
+    
+    <link rel="stylesheet" href="/static/css/reactivation.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+    {% include 'partials/header.html' %}
+
+    <div class="main-layout" style="display: flex;">
+        {% include 'partials/sidebar.html' %}
+
+        <main class="content" style="flex: 1; padding: 20px; overflow-y: auto;">
+            <div class="reactivation-container">
+                <h2 class="form-title">Operator Reactivation Form</h2>
+                
+                <form id="reactivationForm" onsubmit="handleFormUpload(event);" enctype="multipart/form-data">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Training Completion Date <span class="required-star">*</span></label>
+                            <input type="date" name="training_date" required class="form-control-input">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Training Group Photo (.jpg / .png) <span class="required-star">*</span></label>
+                            <input type="file" name="training_photo" accept="image/*" required class="form-control-input">
+                        </div>
+
+                        <div class="form-group">
+                            <label>District Nodal Endorsement Letter (.pdf) <span class="required-star">*</span></label>
+                            <input type="file" name="nodal_letter" accept=".pdf" required class="form-control-input">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Office Memorandum (OM) Copy (.pdf) <span class="required-star">*</span></label>
+                            <input type="file" name="om_letter" accept=".pdf" required class="form-control-input">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label>Operator Attendance Excel Sheet (.xlsx) <span class="required-star">*</span></label>
+                            <input type="file" name="attendance_list" accept=".xlsx, .xls" required class="form-control-input">
+                        </div>
+                    </div>
+
+                    <div class="submit-btn-wrapper">
+                        <button type="submit" class="btn-submit-action">Submit Request</button>
+                    </div>
+                </form>
+
+                <hr class="section-divider">
+
+                <h3 class="history-title">Dispatched Batch Request History</h3>
+                
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Request ID</th>
+                                <th>District</th>
+                                <th>Total Operators</th>
+                                <th>Training Date</th>
+                                <th>Status</th>
+                                <th>Submitted At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requests %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td class="request-code-cell">{{ req.request_code }}</td>
+                                <td>{{ req.district_name }}</td>
+                                <td>{{ req.operator_count }} Profiles</td>
+                                <td>{{ req.training_date }}</td>
+                                <td>
+                                    {% if req.status == 'approved' %}
+                                        <span class="status-badge badge-approved">Approved</span>
+                                    {% elif req.status == 'revert back' %}
+                                        <span class="status-badge badge-reverted" title="Reason: {{ req.revert_reason }}">Reverted</span>
+                                    {% else %}
+                                        <span class="status-badge badge-pending">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td class="timestamp-cell">{{ req.submitted_at }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="empty-history-cell">
+                                    No bulk operator reactivation request batches submitted yet.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // =====================================================================
+        // SIDEBAR TOGGLE COLLAPSE SYSTEM (MATCHING LMS PAGE ACTION)
+        // =====================================================================
+        document.addEventListener("DOMContentLoaded", function() {
+            const sidebarToggle = document.getElementById("sidebar-toggle");
+            const sidebarElement = document.querySelector(".sidebar");
+            const mainLayoutElement = document.querySelector(".main-layout");
+
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    
+                    // Toggle visibility selectors matching layout.css frameworks
+                    if (sidebarElement) {
+                        sidebarElement.classList.toggle("collapsed");
+                    }
+                    if (mainLayoutElement) {
+                        mainLayoutElement.classList.toggle("sidebar-collapsed");
+                    }
+                });
+            }
+        });
+
+        // =====================================================================
+        // FORM UPLOAD PIPELINE
+        // =====================================================================
+        function handleFormUpload(event) {
+            event.preventDefault();
+
+            Swal.fire({
+                title: 'Uploading Batch Package...',
+                text: 'Processing binary streams and parsing attendance worksheet vectors.',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const form = document.getElementById('reactivationForm');
+            const formData = new FormData(form);
+
+            fetch('/dc/reactivation/submit', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                Swal.close();
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: data.message,
+                        icon: 'success',
+                        confirmButtonColor: '#007bff',
+                        allowOutsideClick: false
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.reload();
+                        }
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Submission Failed',
+                        text: data.error || 'An error occurred while uploading records.',
+                        icon: 'error',
+                        confirmButtonColor: '#dc3545'
+                    });
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                Swal.close();
+                Swal.fire({
+                    title: 'Network Interface Error',
+                    text: 'Unable to maintain pipeline synchronization with local gateway nodes.',
+                    icon: 'error',
+                    confirmButtonColor: '#dc3545'
+                });
+            });
+        }
+    </script>
+</body>
+</html>
