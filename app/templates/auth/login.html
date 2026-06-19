@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Aadhaar Operator Request Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/user/aadhaar_base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth/login.css') }}">
+{% endblock %}
+
+{% block sidebar %}{% endblock %}
+
+{% block page_wrapper %}
+<div class="login-box">
+  <div style="text-align:center;margin-bottom:32px">
+    <div
+      style="width:56px;height:56px;border-radius:50%;background:var(--color-primary-light);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+      <i class="ti ti-lock" style="font-size:28px;color:var(--color-primary)"></i>
+    </div>
+    <h2 id="login-title" style="font-size:24px;font-weight:600;margin-bottom:8px">DC &amp; Admin Login</h2>
+    <p id="login-desc" style="font-size:15px;color:var(--color-text-muted)">Secure access for DC officers and CHIPS
+      admins</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-container" style="margin-bottom: 1.5rem; width: 100%;">
+    {% for category, message in messages %}
+    <div
+      class="alert-flash {% if category == 'danger' or category == 'error' %}alert-flash-error{% else %}alert-flash-success{% endif %}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+
+
+  <form action="{{ url_for('auth.login') }}" method="POST">
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="form-label">Username</label>
+      <input type="text" name="username" placeholder="Enter your username" required autocomplete="username">
+    </div>
+    <div class="form-group" style="margin-bottom:24px">
+      <label class="form-label">Password</label>
+      <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+    </div>
+    <button type="submit" class="btn-primary" style="width:100%;padding:12px;font-size:15px">Sign In</button>
+  </form>
+
+  <p id="login-switch-link" style="text-align:center;font-size:14px;color:var(--color-text-muted);margin-top:24px">
+    Are you a candidate? <span style="color:var(--color-primary);font-weight:500;cursor:pointer"
+      onclick="showLogin('candidate')">Candidate Login</span>
+  </p>
+  <p style="text-align:center;font-size:14px;color:var(--color-text-muted);margin-top:12px">
+    New operator candidate? <a href="{{ url_for('candidate_register.eligibility') }}"
+      style="color:var(--color-primary);font-weight:500;text-decoration:none">Apply here</a>
+  </p>
+</div>
+
+<script>
+  function showLogin(mode) {
+    const title = document.getElementById('login-title');
+    const desc = document.getElementById('login-desc');
+    const switchLink = document.getElementById('login-switch-link');
+
+    if (mode === 'candidate') {
+      title.textContent = 'Candidate Login';
+      desc.textContent = 'Access your application dashboard and training logs';
+      if (switchLink) {
+        switchLink.innerHTML = `Are you a DC &amp; Admin? <span style="color:var(--color-primary);font-weight:500;cursor:pointer" onclick="showLogin('staff')">DC &amp; Admin Login</span>`;
+      }
+    } else {
+      title.textContent = 'DC & Admin Login';
+      desc.textContent = 'Secure access for DC officers and CHIPS admins';
+      if (switchLink) {
+        switchLink.innerHTML = `Are you a candidate? <span style="color:var(--color-primary);font-weight:500;cursor:pointer" onclick="showLogin('candidate')">Candidate Login</span>`;
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode') || 'staff';
+    showLogin(mode);
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+
+{% block title %}CHiPS Admin - L1 Registration Portal{% endblock %}
+
+{% block extra_css %}
+<style>
+    .container-sub-title { font-size: 16px; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+    .form-card-container { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 25px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+            <!-- Jinja2 Metric Calculations -->
+            {% set total_requests = requests|length %}
+            {% set metrics = namespace(pending=0, approved=0) %}
+            {% for req in requests %}
+                {% if req.status in ['PENDING', 'REAPPLIED'] %}
+                    {% set metrics.pending = metrics.pending + 1 %}
+                {% elif req.status == 'APPROVED' %}
+                    {% set metrics.approved = metrics.approved + 1 %}
+                {% endif %}
+            {% endfor %}
+
+            <!-- L1 Registration Control Panel Banner -->
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #3b0764 100%); border-radius: 12px; padding: 25px; color: white; display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    </div>
+                    <div>
+                        <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">L1 Registration Control Panel</h1>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Review, approve and assign L1 registrations to DC requests</p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <div style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 12px 20px; text-align: center; min-width: 100px;">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.pending }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 12px 20px; text-align: center; min-width: 100px;">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.approved }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 12px 20px; text-align: center; min-width: 100px;">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-card-container">
+                <!-- Filters for Pending Requests -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px;">
+                    <div style="flex: 1; margin-right: 20px;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">SEARCH REQUESTS</label>
+                        <input type="text" placeholder="Search by request ID, district, model..." style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+                    </div>
+                    <div style="width: 250px;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">TIME PERIOD</label>
+                        <select style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                            <option value="all_time">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="this_week">This Week</option>
+                            <option value="this_month">This Month</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                    <h2 class="container-sub-title" style="margin: 0; text-transform: none; font-size: 18px; color: #1e293b; border-bottom: none; padding-bottom: 0;">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:#f59e0b; margin-right:8px;"></span>
+                        Pending Approval Queue
+                    </h2>
+                    <a href="/auth/l1-registration/export-all" target="_blank"
+                        style="background-color: #10b981; color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: inline-block;">
+                        Export Pending to Excel
+                    </a>
+                </div>
+
+                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <table class="history-data-table" style="width: 100%; min-width: 900px; border-collapse: collapse; font-size: 13px; text-align: left;">
+                        <thead>
+                            <tr style="background-color: #f8fafc !important; color: #475569; border-bottom: 2px solid #cbd5e1;">
+                                <th style="padding: 12px 10px;">#</th>
+                                <th style="padding: 12px 10px;">REQUEST ID</th>
+                                <th style="padding: 12px 10px;">DISTRICT</th>
+                                <th style="padding: 12px 10px;">MODEL</th>
+                                <th style="padding: 12px 10px;">STATUS</th>
+                                <th style="padding: 12px 10px;">SUBMITTED AT</th>
+                                <th style="padding: 12px 10px; text-align: center;">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set pending_count = 0 %}
+                            {% for req in requests %}
+                                {% if req.status in ['PENDING', 'REAPPLIED'] %}
+                                    {% set pending_count = pending_count + 1 %}
+                                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                                        <td style="padding: 12px 10px;">{{ loop.index }}</td>
+                                        <td style="padding: 12px 10px; font-weight:700; color:#2563eb;">{{ req.request_code }}</td>
+                                        <td style="padding: 12px 10px;">{{ req.district_name }}</td>
+                                        <td style="padding: 12px 10px;">{{ req.model_type }}</td>
+                                        <td style="padding: 12px 10px;">
+                                            {% if req.status == 'REAPPLIED' %}
+                                                <span style="background: #f3e8ff; color: #7e22ce; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">REAPPLIED</span>
+                                            {% else %}
+                                                <span style="background: #fef3c7; color: #b45309; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">PENDING</span>
+                                            {% endif %}
+                                        </td>
+                                        <td style="padding: 12px 10px;">{{ req.submitted_at }}</td>
+                                        <td style="padding: 12px 10px; text-align: center;">
+                                            <div style="display:flex; gap:6px; justify-content:center;">
+                                                <button type="button" onclick="approveL1Request('{{ req.request_code }}')"
+                                                    style="background-color: #10b981; color: white; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                                    Approve
+                                                </button>
+                                                <button type="button" onclick="revertL1Request('{{ req.request_code }}')"
+                                                    style="background-color: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                                    Revert
+                                                </button>
+                                                <button type="button" onclick="openL1DetailsModal('{{ req.request_code }}')"
+                                                    style="background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                                    Details
+                                                </button>
+                                                <a href="/auth/l1-registration/export/{{ req.request_code }}" target="_blank"
+                                                    style="background-color: #10b981; color: white; text-decoration: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-block;">
+                                                    Export Excel
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                            {% if pending_count == 0 %}
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: #94a3b8; padding: 40px; font-style: italic;">
+                                        No pending L1 registration requests in queue.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="form-card-container">
+                <!-- Filters for History -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; gap: 20px;">
+                    <div style="flex: 2;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">SEARCH HISTORY</label>
+                        <input type="text" placeholder="Search by request ID, district, model..." style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+                    </div>
+                    <div style="flex: 1; min-width: 180px;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">FILTER BY STATUS</label>
+                        <select style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                            <option value="all_statuses">All Statuses</option>
+                            <option value="approved">Approved</option>
+                            <option value="reverted">Reverted</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 180px;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">TIME PERIOD</label>
+                        <select style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                            <option value="all_time">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="this_week">This Week</option>
+                            <option value="this_month">This Month</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                    <h2 class="container-sub-title" style="margin: 0; text-transform: none; font-size: 18px; color: #1e293b; border-bottom: none; padding-bottom: 0;">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:#10b981; margin-right:8px;"></span>
+                        L1 Registration Log History
+                    </h2>
+                </div>
+                
+                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <table class="history-data-table" style="width: 100%; min-width: 900px; border-collapse: collapse; font-size: 13px; text-align: left;">
+                        <thead>
+                            <tr style="background-color: #f8fafc !important; color: #475569; border-bottom: 2px solid #cbd5e1;">
+                                <th style="padding: 12px 10px;">#</th>
+                                <th style="padding: 12px 10px;">REQUEST ID</th>
+                                <th style="padding: 12px 10px;">DISTRICT</th>
+                                <th style="padding: 12px 10px;">MODEL</th>
+                                <th style="padding: 12px 10px;">STATUS</th>
+                                <th style="padding: 12px 10px;">SUBMITTED AT</th>
+                                <th style="padding: 12px 10px; text-align: center;">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set history_count = 0 %}
+                            {% for req in requests %}
+                                {% if req.status not in ['PENDING', 'REAPPLIED'] %}
+                                    {% set history_count = history_count + 1 %}
+                                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                                        <td style="padding: 12px 10px;">{{ loop.index }}</td>
+                                        <td style="padding: 12px 10px; font-weight:700; color:#475569;">{{ req.request_code }}</td>
+                                        <td style="padding: 12px 10px;">{{ req.district_name }}</td>
+                                        <td style="padding: 12px 10px;">{{ req.model_type }}</td>
+                                        <td style="padding: 12px 10px;">
+                                            {% if req.status == 'APPROVED' %}
+                                                <span style="background: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">APPROVED</span>
+                                            {% else %}
+                                                <span style="background: #fee2e2; color: #b91c1c; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">REVERTED</span>
+                                            {% endif %}
+                                        </td>
+                                        <td style="padding: 12px 10px;">{{ req.submitted_at }}</td>
+                                        <td style="padding: 12px 10px; text-align: center;">
+                                                <button type="button" onclick="openL1DetailsModal('{{ req.request_code }}')"
+                                                    style="background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                                    Details
+                                                </button>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                            {% if history_count == 0 %}
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: #94a3b8; padding: 40px; font-style: italic;">
+                                        No historical L1 registration logs found.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+    <script src="{{ url_for('static', filename='js/chips_l1_registration.js') }}"></script>
+{% endblock %}

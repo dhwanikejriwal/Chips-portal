@@ -1,0 +1,1011 @@
+{% extends 'base.html' %}
+
+{% block title %}L2 Registration Requests — CHIPS Admin{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+<style>
+        * { font-family: 'Inter', sans-serif; }
+
+        /* ── Admin banner ── */
+        .admin-banner {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #3730a3 100%);
+            border-radius: 16px;
+            padding: 22px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .admin-banner::before {
+            content: '';
+            position: absolute; right: -20px; top: -30px;
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+        }
+        .admin-banner-left { display: flex; align-items: center; gap: 16px; }
+        .admin-banner-icon {
+            width: 48px; height: 48px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .admin-banner h2 { font-size: 20px; font-weight: 800; color: #fff; margin: 0 0 3px; }
+        .admin-banner p  { font-size: 13px; color: rgba(255,255,255,0.65); margin: 0; }
+        .admin-banner-stats {
+            display: flex; gap: 24px;
+        }
+        .admin-stat {
+            text-align: center;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .admin-stat-num { font-size: 22px; font-weight: 800; color: #fff; line-height: 1; }
+        .admin-stat-lbl { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 3px; }
+
+        /* ── Filter bar ── */
+        .filter-bar {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;
+            margin-bottom: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
+        .filter-group-search { flex: 2.5; }
+        .filter-group label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .filter-input {
+            height: 36px; padding: 0 10px;
+            border: 1.5px solid #e2e8f0; border-radius: 8px;
+            font-size: 13px; color: #334155;
+            outline: none; background: #fff; font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s;
+        }
+        .filter-input:focus { border-color: #6366f1; }
+
+        /* ── Export Button ── */
+        .oa-btn-export {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            background: #16a34a;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.18s;
+            white-space: nowrap;
+        }
+        .oa-btn-export:hover { background: #15803d; }
+        .oa-btn-export svg { width: 14px; height: 14px; }
+
+        /* ── Section headers ── */
+        .sec-header {
+            display: flex; align-items: center; gap: 10px;
+            margin: 24px 0 12px;
+        }
+        .sec-dot { width: 10px; height: 10px; border-radius: 3px; }
+        .sec-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; }
+        .sec-count {
+            background: #f1f5f9; color: #475569;
+            font-size: 12px; font-weight: 700;
+            padding: 2px 9px; border-radius: 20px;
+            margin-left: auto;
+        }
+
+        /* ── Table ── */
+        .sid-table-wrapper {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow-x: auto;
+            overflow-y: visible;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            margin-bottom: 28px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .sid-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
+        .sid-table thead tr { background: #f8fafc; }
+        .sid-table th {
+            text-align: left; padding: 11px 13px;
+            font-size: 10px; font-weight: 700; color: #64748b;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            border-bottom: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+        .sid-table td {
+            padding: 12px 13px; color: #334155;
+            border-bottom: 1px solid #f1f5f9; vertical-align: middle;
+            white-space: nowrap;
+        }
+        .sid-table tbody tr:last-child td { border-bottom: none; }
+        .sid-table tbody tr:hover td { background: #fafafe; }
+
+        /* ── Badges ── */
+        .sid-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 9px; border-radius: 20px;
+            font-size: 11px; font-weight: 700;
+        }
+        .sid-badge::before { content:''; width:5px; height:5px; border-radius:50%; }
+        .sid-badge-pending, .sid-badge-sent_to_chips { background:#fef9c3; color:#854d0e; }
+        .sid-badge-pending::before, .sid-badge-sent_to_chips::before { background:#f59e0b; }
+        
+        .sid-badge-sent_to_uidai { background:#e0f2fe; color:#0369a1; }
+        .sid-badge-sent_to_uidai::before { background:#0ea5e9; }
+        
+        .sid-badge-approved { background:#dcfce7; color:#166534; }
+        .sid-badge-approved::before { background:#16a34a; }
+        
+        .sid-badge-reverted { background:#fee2e2; color:#991b1b; }
+        .sid-badge-reverted::before { background:#dc2626; }
+        
+        .sid-badge-rejected { background:#ffedd5; color:#c2410c; }
+        .sid-badge-rejected::before { background:#ea580c; }
+
+        .sid-badge-reapplied { background:#ede9fe; color:#5b21b6; }
+        .sid-badge-reapplied::before { background:#7c3aed; }
+
+        /* ── Action buttons ── */
+        .action-group { display: flex; gap: 5px; flex-wrap: nowrap; align-items: center; }
+        
+        .btn-issue {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 6px 12px;
+            background: #4f46e5; color: #fff;
+            border: none; border-radius: 7px;
+            font-size: 12px; font-weight: 700;
+            cursor: pointer; font-family: 'Inter',sans-serif;
+            transition: background 0.15s;
+        }
+        .btn-issue:hover { background: #4338ca; }
+
+        .btn-approve {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 6px 12px;
+            background: #16a34a; color: #fff;
+            border: none; border-radius: 7px;
+            font-size: 12px; font-weight: 700;
+            cursor: pointer; font-family: 'Inter',sans-serif;
+            transition: background 0.15s;
+        }
+        .btn-approve:hover { background: #15803d; }
+        
+        .btn-revert {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 5px 12px;
+            background: #fff; color: #dc2626;
+            border: 1.5px solid #fca5a5; border-radius: 7px;
+            font-size: 12px; font-weight: 700;
+            cursor: pointer; font-family: 'Inter',sans-serif;
+            transition: all 0.15s;
+        }
+        .btn-revert:hover { background: #fee2e2; border-color: #dc2626; }
+        
+        .btn-details {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 5px 12px;
+            background: #f8fafc; color: #334155;
+            border: 1.5px solid #e2e8f0; border-radius: 7px;
+            font-size: 12px; font-weight: 600;
+            cursor: pointer; font-family: 'Inter',sans-serif;
+            transition: all 0.15s;
+        }
+        .btn-details:hover { border-color: #6366f1; color: #4f46e5; background: #f5f3ff; }
+
+        /* ── Empty ── */
+        .empty-state { padding:36px 20px; text-align:center; color:#94a3b8; }
+        .empty-state-icon { font-size:32px; margin-bottom:8px; }
+        .empty-state p { font-size:13px; margin:0; }
+
+        /* ══ RESPONSIVE ══════════════════════════════════════════════ */
+        @media (max-width: 1100px) {
+            .admin-banner {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+            .admin-banner-stats {
+                width: 100%;
+                justify-content: flex-start;
+                gap: 10px;
+            }
+            .admin-stat { padding: 8px 14px; }
+        }
+</style>
+{% endblock %}
+
+{% block content %}
+
+            <!-- Gradient Admin Banner -->
+            <div class="admin-banner">
+                <div class="admin-banner-left">
+                    <div class="admin-banner-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <div>
+                        <h2>Admin Control Dashboard</h2>
+                        <p>Manage and process incoming L2 Registration requests, forward to UIDAI, and track approvals.</p>
+                    </div>
+                </div>
+                <div class="admin-banner-stats">
+                    <div class="admin-stat">
+                        <div class="admin-stat-num">{{ requests | selectattr('status', 'in', ['sent_to_chips', 'reapplied']) | list | length }}</div>
+                        <div class="admin-stat-lbl">Pending Queue</div>
+                    </div>
+                    <div class="admin-stat">
+                        <div class="admin-stat-num">{{ requests | selectattr('status', 'equalto', 'sent_to_uidai') | list | length }}</div>
+                        <div class="admin-stat-lbl">Sent to UIDAI</div>
+                    </div>
+                    <div class="admin-stat">
+                        <div class="admin-stat-num">{{ requests | selectattr('status', 'in', ['approved', 'rejected', 'reverted']) | list | length }}</div>
+                        <div class="admin-stat-lbl">Processed Log</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════
+                 SECTION 1 — PENDING L2 REGISTRATION QUEUE
+            ═══════════════════════════════════════════════════════ -->
+            <div class="sec-header">
+                <div class="sec-dot" style="background:#f59e0b;"></div>
+                <h3 class="sec-title">Pending L2 Registration Queue</h3>
+                <span class="sec-count" id="pending-count">–</span>
+                <button class="oa-btn-export" onclick="exportSection('pending')" style="margin-left: 14px;">
+                    <svg viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Export to Excel
+                </button>
+            </div>
+
+            <!-- Pending Section Filter -->
+            <div class="filter-bar">
+                <div class="filter-group filter-group-search">
+                    <label>Search Request</label>
+                    <input type="text" id="pending-search" placeholder="Search by operator, station ID, request ID..."
+                        class="filter-input" oninput="filterSection('pending')">
+                </div>
+                <div class="filter-group">
+                    <label>Filter by District</label>
+                    <select id="pending-district" class="filter-input" onchange="filterSection('pending')">
+                        <option value="all">All Districts</option>
+                        {% for d in ['Balod','Baloda Bazar-Bhatapara','Balrampur-Ramanujganj','Bastar','Bemetara','Bijapur','Bilaspur','Dantewada','Dhamtari','Durg','Gariaband','Gaurela-Pendra-Marwahi','Janjgir-Champa','Jashpur','Kabirdham','Kanker','Khairagarh-Chhuikhadan-Gandai','Kondagaon','Korba','Koriya','Mahasamund','Manendragarh-Chirmiri-Bharatpur','Mohla-Manpur-Ambagarh Chowki','Mungeli','Narayanpur','Raigarh','Raipur','Rajnandgaon','Sakti','Sarangarh-Bilaigarh','Sukma','Surajpur','Surguja']
+                        %}
+                        <option value="{{ d }}">{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Time Period</label>
+                    <select id="pending-date" class="filter-input" onchange="filterSection('pending')">
+                        <option value="all" selected>All Time</option>
+                        <option value="today">Today</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sid-table-wrapper">
+                <table class="sid-table" id="pending-requests-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">S.No</th>
+                            <th>Request ID</th>
+                            <th>District</th>
+                            <th>Operator Name & ID</th>
+                            <th>New Station ID</th>
+                            <th>Client Version & Type</th>
+                            <th>Status</th>
+                            <th>Submitted At</th>
+                            <th style="width: 280px; text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pending-table-body">
+                        {% set ns_pending = namespace(count=1) %}
+                        {% for r in requests if r.status == 'sent_to_chips' or r.status == 'reapplied' %}
+                        <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
+                            data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
+                            data-new-station-id="{{ r.new_station_id }}"
+                            data-district="{{ r.district_name or 'Raipur' }}"
+                            data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}"
+                            data-status="{{ r.status }}">
+                            <td>{{ ns_pending.count }}</td>
+                            <td><strong>{{ r.request_no or '—' }}</strong></td>
+                            <td>{{ r.district_name or '—' }}</td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ r.operator_name }}</div>
+                                <div style="font-size: 11px; color: #64748b;">ID: {{ r.operator_id }}</div>
+                            </td>
+                            <td><strong>{{ r.new_station_id }}</strong></td>
+                            <td>{{ r.client_version }} ({{ r.client_type }})</td>
+                            <td>
+                                <span class="sid-badge sid-badge-{{ r.status }}">
+                                    {{ r.status | replace('_', ' ') | capitalize }}
+                                </span>
+                            </td>
+                            <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+                            <td>
+                                <div class="action-group" style="justify-content: center;">
+                                    <button type="button" class="btn-issue"
+                                        onclick="showSendToUidaiModal('{{ r.id }}', '{{ r.request_no }}')">Send to UIDAI</button>
+                                    <button type="button" class="btn-revert"
+                                        onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">Revert</button>
+                                    <button type="button" class="btn-details"
+                                        onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">Details</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% set ns_pending.count = ns_pending.count + 1 %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div id="pending-empty-msg" class="empty-state" style="display:none;">
+                    <div class="empty-state-icon">📥</div>
+                    <p>No incoming pending requests match your filter.</p>
+                </div>
+            </div>
+
+
+            <!-- ═══════════════════════════════════════════════════════
+                 SECTION 2 — SENT TO UIDAI QUEUE
+            ═══════════════════════════════════════════════════════ -->
+            <div class="sec-header">
+                <div class="sec-dot" style="background:#0088cc;"></div>
+                <h3 class="sec-title">Sent to UIDAI Queue</h3>
+                <span class="sec-count" id="uidai-count">–</span>
+                <button class="oa-btn-export" onclick="exportSection('uidai')" style="margin-left: 14px;">
+                    <svg viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Export to Excel
+                </button>
+            </div>
+
+            <!-- UIDAI Section Filter -->
+            <div class="filter-bar">
+                <div class="filter-group filter-group-search">
+                    <label>Search Request</label>
+                    <input type="text" id="uidai-search" placeholder="Search by operator, station ID, request ID..."
+                        class="filter-input" oninput="filterSection('uidai')">
+                </div>
+                <div class="filter-group">
+                    <label>Filter by District</label>
+                    <select id="uidai-district" class="filter-input" onchange="filterSection('uidai')">
+                        <option value="all">All Districts</option>
+                        {% for d in ['Balod','Baloda Bazar-Bhatapara','Balrampur-Ramanujganj','Bastar','Bemetara','Bijapur','Bilaspur','Dantewada','Dhamtari','Durg','Gariaband','Gaurela-Pendra-Marwahi','Janjgir-Champa','Jashpur','Kabirdham','Kanker','Khairagarh-Chhuikhadan-Gandai','Kondagaon','Korba','Koriya','Mahasamund','Manendragarh-Chirmiri-Bharatpur','Mohla-Manpur-Ambagarh Chowki','Mungeli','Narayanpur','Raigarh','Raipur','Rajnandgaon','Sakti','Sarangarh-Bilaigarh','Sukma','Surajpur','Surguja']
+                        %}
+                        <option value="{{ d }}">{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Time Period</label>
+                    <select id="uidai-date" class="filter-input" onchange="filterSection('uidai')">
+                        <option value="all" selected>All Time</option>
+                        <option value="today">Today</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sid-table-wrapper">
+                <table class="sid-table" id="uidai-requests-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">S.No</th>
+                            <th>Request ID</th>
+                            <th>District</th>
+                            <th>Operator Name & ID</th>
+                            <th>New Station ID</th>
+                            <th>Client Version & Type</th>
+                            <th>Status</th>
+                            <th>Submitted At</th>
+                            <th style="width: 300px; text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="uidai-table-body">
+                        {% set ns_uidai = namespace(count=1) %}
+                        {% for r in requests if r.status == 'sent_to_uidai' %}
+                        <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
+                            data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
+                            data-new-station-id="{{ r.new_station_id }}"
+                            data-district="{{ r.district_name or 'Raipur' }}"
+                            data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}"
+                            data-status="{{ r.status }}">
+                            <td>{{ ns_uidai.count }}</td>
+                            <td><strong>{{ r.request_no or '—' }}</strong></td>
+                            <td>{{ r.district_name or '—' }}</td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ r.operator_name }}</div>
+                                <div style="font-size: 11px; color: #64748b;">ID: {{ r.operator_id }}</div>
+                            </td>
+                            <td><strong>{{ r.new_station_id }}</strong></td>
+                            <td>{{ r.client_version }} ({{ r.client_type }})</td>
+                            <td>
+                                <span class="sid-badge sid-badge-{{ r.status }}">
+                                    {{ r.status | replace('_', ' ') | capitalize }}
+                                </span>
+                            </td>
+                            <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+                            <td>
+                                <div class="action-group" style="justify-content: center;">
+                                    <button type="button" class="btn-approve"
+                                        onclick="showUidaiApproveModal('{{ r.id }}', '{{ r.request_no }}')">UIDAI Approved</button>
+                                    <button type="button" class="btn-revert"
+                                        onclick="showUidaiRejectModal('{{ r.id }}', '{{ r.request_no }}')">UIDAI Rejected</button>
+                                    <button type="button" class="btn-details"
+                                        onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">Details</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% set ns_uidai.count = ns_uidai.count + 1 %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div id="uidai-empty-msg" class="empty-state" style="display:none;">
+                    <div class="empty-state-icon">📡</div>
+                    <p>No requests sent to UIDAI match your filter.</p>
+                </div>
+            </div>
+
+
+            <!-- ═══════════════════════════════════════════════════════
+                 SECTION 3 — PROCESSED LOG HISTORY
+            ═══════════════════════════════════════════════════════ -->
+            <div class="sec-header">
+                <div class="sec-dot" style="background:#16a34a;"></div>
+                <h3 class="sec-title">Processed Log History</h3>
+                <span class="sec-count" id="creds-count">–</span>
+                <button class="oa-btn-export" onclick="exportSection('credentials')" style="margin-left: 14px;">
+                    <svg viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Export to Excel
+                </button>
+            </div>
+
+            <!-- Credentials Section Filter -->
+            <div class="filter-bar">
+                <div class="filter-group filter-group-search">
+                    <label>Search Request</label>
+                    <input type="text" id="creds-search" placeholder="Search by operator, station ID, request ID..."
+                        class="filter-input" oninput="filterSection('credentials')">
+                </div>
+                <div class="filter-group">
+                    <label>Filter by District</label>
+                    <select id="creds-district" class="filter-input" onchange="filterSection('credentials')">
+                        <option value="all">All Districts</option>
+                        {% for d in ['Balod','Baloda Bazar-Bhatapara','Balrampur-Ramanujganj','Bastar','Bemetara','Bijapur','Bilaspur','Dantewada','Dhamtari','Durg','Gariaband','Gaurela-Pendra-Marwahi','Janjgir-Champa','Jashpur','Kabirdham','Kanker','Khairagarh-Chhuikhadan-Gandai','Kondagaon','Korba','Koriya','Mahasamund','Manendragarh-Chirmiri-Bharatpur','Mohla-Manpur-Ambagarh Chowki','Mungeli','Narayanpur','Raigarh','Raipur','Rajnandgaon','Sakti','Sarangarh-Bilaigarh','Sukma','Surajpur','Surguja']
+                        %}
+                        <option value="{{ d }}">{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Filter by Status</label>
+                    <select id="creds-status" class="filter-input" onchange="filterSection('credentials')">
+                        <option value="all">All Statuses</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="reverted">Reverted</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Time Period</label>
+                    <select id="creds-date" class="filter-input" onchange="filterSection('credentials')">
+                        <option value="all" selected>All Time</option>
+                        <option value="today">Today</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sid-table-wrapper">
+                <table class="sid-table" id="approved-requests-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">S.No</th>
+                            <th>Request ID</th>
+                            <th>District</th>
+                            <th>Operator Name & ID</th>
+                            <th>New Station ID</th>
+                            <th>Client Version & Type</th>
+                            <th>Status</th>
+                            <th>Submitted At</th>
+                            <th style="width: 100px; text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="approved-table-body">
+                        {% set ns_creds = namespace(count=1) %}
+                        {% for r in requests if r.status == 'approved' or r.status == 'rejected' or r.status == 'reverted' %}
+                        <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
+                            data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
+                            data-new-station-id="{{ r.new_station_id }}"
+                            data-district="{{ r.district_name or 'Raipur' }}" data-status="{{ r.status }}"
+                            data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
+                            <td>{{ ns_creds.count }}</td>
+                            <td><strong>{{ r.request_no or '—' }}</strong></td>
+                            <td>{{ r.district_name or '—' }}</td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ r.operator_name }}</div>
+                                <div style="font-size: 11px; color: #64748b;">ID: {{ r.operator_id }}</div>
+                            </td>
+                            <td><strong>{{ r.new_station_id }}</strong></td>
+                            <td>{{ r.client_version }} ({{ r.client_type }})</td>
+                            <td>
+                                <span class="sid-badge sid-badge-{{ r.status }}">
+                                    {{ r.status | replace('_', ' ') | capitalize }}
+                                </span>
+                            </td>
+                            <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+                            <td>
+                                <div class="action-group" style="justify-content: center;">
+                                    <button type="button" class="btn-details"
+                                        onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">Details</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% set ns_creds.count = ns_creds.count + 1 %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div id="approved-empty-msg" class="empty-state" style="display:none;">
+                    <div class="empty-state-icon">📜</div>
+                    <p>No historical logs match your filter.</p>
+                </div>
+            </div>
+
+<script>
+        const currentReviewerId = "{{ session.get('user_id') or '' }}";
+
+        // Date Period Prefixes helper
+        function getDatePrefixes() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = (now.getMonth() + 1).toString().padStart(2, '0');
+            const d = now.getDate().toString().padStart(2, '0');
+            return {
+                today: `${y}-${m}-${d}`,
+                month: `${y}-${m}`,
+                year: `${y}`
+            };
+        }
+
+        // Collect visible row IDs from a tbody
+        function getVisibleIds(tbodyId) {
+            const rows = document.querySelectorAll(`#${tbodyId} tr`);
+            const ids = [];
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    ids.push(row.getAttribute('data-id'));
+                }
+            });
+            return ids.filter(Boolean);
+        }
+
+        // Generic per-section filter
+        function filterSection(section) {
+            const prefixes = getDatePrefixes();
+            let config;
+
+            if (section === 'pending') {
+                config = {
+                    tbodyId: 'pending-table-body',
+                    tableId: 'pending-requests-table',
+                    emptyId: 'pending-empty-msg',
+                    query: (document.getElementById('pending-search') || {}).value || '',
+                    district: (document.getElementById('pending-district') || {}).value || 'all',
+                    dateFilt: (document.getElementById('pending-date') || {}).value || 'all',
+                    statusFilt: 'all',
+                    countId: 'pending-count'
+                };
+            } else if (section === 'uidai') {
+                config = {
+                    tbodyId: 'uidai-table-body',
+                    tableId: 'uidai-requests-table',
+                    emptyId: 'uidai-empty-msg',
+                    query: (document.getElementById('uidai-search') || {}).value || '',
+                    district: (document.getElementById('uidai-district') || {}).value || 'all',
+                    dateFilt: (document.getElementById('uidai-date') || {}).value || 'all',
+                    statusFilt: 'all',
+                    countId: 'uidai-count'
+                };
+            } else if (section === 'credentials') {
+                config = {
+                    tbodyId: 'approved-table-body',
+                    tableId: 'approved-requests-table',
+                    emptyId: 'approved-empty-msg',
+                    query: (document.getElementById('creds-search') || {}).value || '',
+                    district: (document.getElementById('creds-district') || {}).value || 'all',
+                    dateFilt: (document.getElementById('creds-date') || {}).value || 'all',
+                    statusFilt: (document.getElementById('creds-status') || {}).value || 'all',
+                    countId: 'creds-count'
+                };
+            } else {
+                return;
+            }
+
+            const rows = document.querySelectorAll(`#${config.tbodyId} tr`);
+            const q = config.query.toLowerCase().trim();
+            const dist = config.district.toLowerCase();
+            let visibleIndex = 1;
+
+            rows.forEach(row => {
+                const name = (row.getAttribute('data-operator-name') || '').toLowerCase();
+                const opId = (row.getAttribute('data-operator-id') || '').toLowerCase();
+                const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+                const stationId = (row.getAttribute('data-new-station-id') || '').toLowerCase();
+                const rowDist = (row.getAttribute('data-district') || '').toLowerCase();
+                const created = row.getAttribute('data-created') || '';
+                const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+
+                const matchQuery = !q || name.includes(q) || opId.includes(q) || reqNo.includes(q) || stationId.includes(q);
+                const matchDistrict = dist === 'all' || rowDist.includes(dist);
+                const matchStatus = config.statusFilt === 'all' || rowStatus === config.statusFilt;
+
+                let matchDate = true;
+                if (config.dateFilt === 'today') matchDate = created.startsWith(prefixes.today);
+                else if (config.dateFilt === 'month') matchDate = created.startsWith(prefixes.month);
+                else if (config.dateFilt === 'year') matchDate = created.startsWith(prefixes.year);
+
+                if (matchQuery && matchDistrict && matchDate && matchStatus) {
+                    row.style.display = '';
+                    if (row.cells[0]) row.cells[0].innerText = visibleIndex++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const tableEl = document.getElementById(config.tableId);
+            const emptyEl = document.getElementById(config.emptyId);
+            const countEl = document.getElementById(config.countId);
+
+            if (visibleIndex === 1) {
+                if (tableEl) tableEl.style.display = 'none';
+                if (emptyEl) emptyEl.style.display = 'block';
+            } else {
+                if (tableEl) tableEl.style.display = '';
+                if (emptyEl) emptyEl.style.display = 'none';
+            }
+            if (countEl) countEl.textContent = visibleIndex - 1;
+        }
+
+        // Export — passes filtered IDs as query param
+        function exportSection(section) {
+            let tbodyId, exportUrl;
+
+            if (section === 'pending') {
+                tbodyId = 'pending-table-body';
+                exportUrl = '/auth/chips/l2-registration/export-excel/pending';
+            } else if (section === 'uidai') {
+                tbodyId = 'uidai-table-body';
+                exportUrl = '/auth/chips/l2-registration/export-excel';
+            } else if (section === 'credentials') {
+                tbodyId = 'approved-table-body';
+                exportUrl = '/auth/chips/l2-registration/export-excel/credentials';
+            } else {
+                return;
+            }
+
+            // If we have filtered rows, export only those
+            const ids = getVisibleIds(tbodyId);
+            if (ids.length > 0) {
+                exportUrl += '?ids=' + ids.join(',');
+            }
+
+            window.location.href = exportUrl;
+        }
+
+        // Apply all filters on page load
+        window.addEventListener('load', () => {
+            filterSection('pending');
+            filterSection('uidai');
+            filterSection('credentials');
+        });
+
+        // Form submit helper
+        function submitDynamicForm(action, fields) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = action;
+            Object.entries(fields).forEach(([name, value]) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                form.appendChild(input);
+            });
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // Send to UIDAI modal
+        function showSendToUidaiModal(requestId, requestNo) {
+            Swal.fire({
+                title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">Send to UIDAI</span>`,
+                html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Forwarding Request: <strong>${requestNo}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">NOTES FOR UIDAI (OPTIONAL)</label>
+                    <textarea id="uidai-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Add any contextual notes for UIDAI..."></textarea>
+                </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Send to UIDAI',
+                confirmButtonColor: '#4f46e5',
+                cancelButtonText: 'Cancel',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const notes = document.getElementById('uidai-remarks-area').value.trim();
+                    submitDynamicForm(`/auth/chips/l2-registration/${requestId}/send-to-uidai`, {
+                        reviewed_by: currentReviewerId,
+                        uidai_remarks: notes,
+                    });
+                }
+            });
+        }
+
+        // Revert modal
+        function showRevertModal(requestId, requestNo) {
+            Swal.fire({
+                title: `<span style="color:#dc2626; font-family:'Inter',sans-serif; font-weight:800;">Revert Request</span>`,
+                html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Reverting Request: <strong>${requestNo}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">REVERT REASON (MANDATORY) *</label>
+                    <textarea id="revert-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter reason for reverting..."></textarea>
+                </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Revert',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#dc2626',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const reason = document.getElementById('revert-remarks-area').value.trim();
+                    if (!reason) {
+                        Swal.showValidationMessage('Please enter a reason.');
+                        return false;
+                    }
+                    submitDynamicForm(`/auth/chips/l2-registration/${requestId}/revert`, {
+                        reviewed_by: currentReviewerId,
+                        revert_reason: reason,
+                    });
+                }
+            });
+        }
+
+        // UIDAI Approve modal
+        function showUidaiApproveModal(requestId, requestNo) {
+            Swal.fire({
+                title: `<span style="color:#16a34a; font-family:'Inter',sans-serif; font-weight:800;">UIDAI Approve Request</span>`,
+                html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Approving Request: <strong>${requestNo}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">APPROVAL REMARKS (OPTIONAL)</label>
+                    <textarea id="approve-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Add any approval remarks..."></textarea>
+                </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Approve Activation',
+                confirmButtonColor: '#16a34a',
+                cancelButtonText: 'Cancel',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const remarks = document.getElementById('approve-remarks-area').value.trim();
+                    submitDynamicForm(`/auth/chips/l2-registration/${requestId}/uidai-approve`, {
+                        reviewed_by: currentReviewerId,
+                        uidai_remarks: remarks,
+                    });
+                }
+            });
+        }
+
+        // UIDAI Reject modal
+        function showUidaiRejectModal(requestId, requestNo) {
+            Swal.fire({
+                title: `<span style="color:#dc2626; font-family:'Inter',sans-serif; font-weight:800;">UIDAI Reject Request</span>`,
+                html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Rejecting Request: <strong>${requestNo}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#c2410c;">REJECTION REMARKS (MANDATORY) *</label>
+                    <textarea id="reject-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter UIDAI rejection remarks..."></textarea>
+                </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Submit Rejection',
+                confirmButtonColor: '#dc2626',
+                cancelButtonText: 'Cancel',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const remarks = document.getElementById('reject-remarks-area').value.trim();
+                    if (!remarks) {
+                        Swal.showValidationMessage('Please enter UIDAI remarks.');
+                        return false;
+                    }
+                    submitDynamicForm(`/auth/chips/l2-registration/${requestId}/uidai-reject`, {
+                        reviewed_by: currentReviewerId,
+                        uidai_remarks: remarks,
+                    });
+                }
+            });
+        }
+
+        // Escape HTML helper
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function buildRemarksHtml(remarks) {
+            if (remarks.length === 0) {
+                return `<div style="margin-top: 15px; font-style: italic; color: #94a3b8; font-size: 13px; text-align: center;">No remarks history available.</div>`;
+            }
+            let html = `<div style="margin-top:15px;border-top:1px solid #e2e8f0;padding-top:12px;">
+                <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#1e293b;text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Remarks & Conversation</div>
+                <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px;">`;
+            remarks.forEach(item => {
+                const isChips = item.author_role === 'CHIPS_ADMIN' || item.author_role === 'chips';
+                const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
+                const bg = isChips ? '#f1f5f9' : '#eff6ff';
+                const border = isChips ? '#e2e8f0' : '#dbeafe';
+                const color = isChips ? '#475569' : '#1e40af';
+                html += `<div style="background:${bg};border:1px solid ${border};padding:10px 12px;border-radius:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <span style="font-size:12px;font-weight:700;color:${color};">${sender}</span>
+                        <span style="font-size:11px;color:#94a3b8;">${item.created_at}</span>
+                    </div>
+                    <div style="font-size:13px;color:#334155;line-height:1.4;text-align:left;">${escapeHtml(item.remark)}</div>
+                </div>`;
+            });
+            html += `</div></div>`;
+            return html;
+        }
+
+        function showChipsDetailsModal(requestId, requestNo, status) {
+            // Helpers
+            function escapeHtml(text) {
+                if (!text) return '';
+                return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            function statusConfig(status) {
+                const s = (status || '').toLowerCase();
+                const map = {
+                    sent_to_chips:  { label: 'Sent to CHiPS',  bg: '#dbeafe', color: '#1d4ed8' },
+                    pending:        { label: 'Pending',         bg: '#fef9c3', color: '#a16207' },
+                    sent_to_uidai:  { label: 'Sent to UIDAI',  bg: '#ede9fe', color: '#6d28d9' },
+                    approved:       { label: 'Approved',        bg: '#dcfce7', color: '#15803d' },
+                    rejected:       { label: 'Rejected',        bg: '#fee2e2', color: '#dc2626' },
+                    reverted:       { label: 'Reverted',        bg: '#ffedd5', color: '#c2410c' },
+                };
+                return map[s] || { label: status.replace(/_/g,' ').toUpperCase(), bg:'#f1f5f9', color:'#475569' };
+            }
+
+            function infoCell(label, value) {
+                const v = (value && value !== 'null' && value !== 'undefined') ? escapeHtml(String(value)) : '<span style="color:#cbd5e1;">—</span>';
+                return `
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">${label}</div>
+                    <div style="font-size:13px;font-weight:600;color:#0f172a;word-break:break-word;">${v}</div>
+                </div>`;
+            }
+
+            function sectionHead(title) {
+                return `<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">${title}</div>`;
+            }
+
+            // Show loading skeleton immediately
+            Swal.fire({
+                html: `<div style="padding:40px;text-align:center;font-family:'Inter',sans-serif;">
+                    <div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+                    <div style="color:#94a3b8;font-size:14px;">Fetching request details…</div>
+                    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+                </div>`,
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                width: '680px',
+                padding: '0',
+                background: '#fff',
+                customClass: { popup: 'oa-detail-popup' },
+            });
+
+            fetch(`/auth/chips/l2-registration/${requestId}/detail-json`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to fetch details');
+                    return res.json();
+                })
+                .then(data => {
+                    const sc = statusConfig(data.status || status);
+                    const remarksHtml = buildRemarksHtml(data.remarks_history || []);
+
+                    const html = `
+                    <div style="font-family:'Inter',sans-serif;text-align:left;">
+                        <!-- ── Gradient Header ── -->
+                        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#4f46e5 100%);padding:22px 24px 18px;position:relative;overflow:hidden;">
+                            <div style="position:absolute;right:-20px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+                            <div style="position:absolute;right:60px;bottom:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.04);"></div>
+                            <div style="display:flex;align-items:center;gap:14px;position:relative;">
+                                <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    </svg>
+                                </div>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:18px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:3px;">${escapeHtml(data.operator_name || '—')}</div>
+                                    <div style="font-size:12px;color:rgba(255,255,255,0.65);">Request <strong style="color:rgba(255,255,255,0.9);">${requestNo}</strong> &nbsp;·&nbsp; Submitted ${data.submitted_at || '—'}</div>
+                                </div>
+                                <div style="background:${sc.bg};color:${sc.color};font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${sc.label}</div>
+                            </div>
+                        </div>
+
+                        <!-- ── Body ── -->
+                        <div style="padding:20px 22px 22px;">
+                            ${sectionHead('Personal & Operator Details')}
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                                ${infoCell('Operator Name', data.operator_name)}
+                                ${infoCell('Operator ID', data.operator_id)}
+                                ${infoCell('Client Version & Type', `${data.client_version} (${data.client_type})`)}
+                                ${infoCell('Unique ID & Block', `${data.unique_id} (Block: ${data.block})`)}
+                            </div>
+
+                            ${sectionHead('Work & Location Details')}
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                                ${infoCell('Station & Machine ID', `${data.new_station_id} / ${data.new_machine_id}`)}
+                                ${infoCell('EA & Registrar Code', `${data.ea_code} / ${data.reg_code}`)}
+                                ${infoCell('Old Station & Machine', `${data.old_station_id || '—'} / ${data.old_machine_id || '—'}`)}
+                                ${infoCell('District', data.district_name)}
+                            </div>
+
+                            <div style="margin-bottom:12px;">
+                                ${infoCell('Govt Premises Address', data.address_of_govt_premises)}
+                            </div>
+
+                            ${data.reason_for_l2_registration ? `
+                            <div style="margin-bottom:12px;">
+                                ${infoCell('Reason for L2 Registration', data.reason_for_l2_registration)}
+                            </div>` : ''}
+
+                            ${data.tech_center_remarks ? `
+                            <div style="margin-bottom:12px;">
+                                ${infoCell('Tech Center Remarks', data.tech_center_remarks)}
+                            </div>` : ''}
+
+                            ${sectionHead('Remarks & Conversation')}
+                            ${remarksHtml}
+                        </div>
+                    </div>`;
+
+                    Swal.fire({
+                        html,
+                        showConfirmButton: true,
+                        confirmButtonText: 'Close',
+                        confirmButtonColor: '#4f46e5',
+                        width: '680px',
+                        padding: '0',
+                        background: '#fff',
+                        customClass: { popup: 'oa-detail-popup' },
+                    });
+                })
+                .catch(err => {
+                    Swal.fire({ title: 'Error', text: `Failed to fetch details: ${err.message}`, icon: 'error' });
+                });
+        }
+</script>
+{% endblock %}

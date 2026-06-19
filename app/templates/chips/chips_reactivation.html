@@ -1,0 +1,845 @@
+{% extends 'base.html' %}
+
+{% block title %}CHIPS Admin - Reactivation Control Panel{% endblock %}
+
+{% block extra_css %}
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chips/chips_reactivation.css') }}">
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}
+
+{% block content %}
+<div class="main-layout">
+    <main class="content" style="flex: 1; padding: 25px; overflow-y: auto; background-color: #f8fafc;">
+        <!-- Jinja2 Metric Calculations -->
+        {% set total_requests = requests|length %}
+        {% set metrics = namespace(pending=0, approved=0, sent_to_uidai=0) %}
+        {% for req in requests %}
+        {% set status_lower = req.status|lower %}
+        {% if 'uidai' in status_lower %}
+        {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
+        {% elif status_lower == 'pending' %}
+        {% set metrics.pending = metrics.pending + 1 %}
+        {% elif status_lower in ['approved', 'reviewed', 'assigned', 'activated'] %}
+        {% set metrics.approved = metrics.approved + 1 %}
+        {% endif %}
+        {% endfor %}
+
+        <!-- Reactivation Control Panel Banner -->
+        <div class="chips-reactivation-banner">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div
+                    style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">Reactivation Control Panel
+                    </h1>
+                    <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Review, approve and assign operator
+                        reactivation requests</p>
+                </div>
+            </div>
+            <div class="chips-banner-metrics">
+                <div class="chips-metric-card">
+                    <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.pending
+                        }}</div>
+                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending
+                        Review</div>
+                </div>
+                <div class="chips-metric-card">
+                    <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                        metrics.sent_to_uidai }}</div>
+                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to
+                        UIDAI</div>
+                </div>
+                <div class="chips-metric-card">
+                    <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                        metrics.approved }}</div>
+                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
+                    </div>
+                </div>
+                <div class="chips-metric-card">
+                    <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests
+                        }}</div>
+                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
+                        Requests</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-card-container"
+            style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 25px;">
+            <!-- Filters for Pending Requests -->
+            <div class="chips-filter-bar">
+                <div style="flex: 2;">
+                    <label
+                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">SEARCH
+                        REQUESTS</label>
+                    <input type="text" id="admin-search-input" oninput="filterAdminQueues()"
+                        placeholder="Search by Request ID or District..."
+                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+                </div>
+                <div style="flex: 1; min-width: 180px;">
+                    <label
+                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">FILTER
+                        BY DISTRICT</label>
+                    <select id="admin-district-filter" onchange="filterAdminQueues()"
+                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                        <option value="all">All Districts</option>
+                        <option value="Raipur">Raipur</option>
+                        <option value="Bilaspur">Bilaspur</option>
+                        <option value="Durg">Durg</option>
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 180px;">
+                    <label
+                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">QUEUE
+                        STATUS</label>
+                    <select id="admin-pending-status-filter" onchange="filterAdminQueues()"
+                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                        <option value="all">All Statuses</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="REAPPLIED">Reapplied</option>
+                        <option value="SENT_TO_UIDAI">Sent to UIDAI</option>
+                        <option value="REVIEWED">Reviewed</option>
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 180px;">
+                    <label
+                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">TIME
+                        PERIOD</label>
+                    <select id="admin-date-filter" onchange="filterAdminQueues()"
+                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                        <option value="all">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="month" selected>This Month</option>
+                        <option value="year">This Year</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="chips-table-header-bar">
+                <h2
+                    style="font-size: 16px; font-weight: 600; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-inbox text-blue-500"></i>
+                    Pending Reactivation Requests
+                </h2>
+                <div>
+                    <a href="/auth/reactivation/export-all" target="_blank" class="btn btn-sm"
+                        style="background-color: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-decoration: none; display: inline-block; margin-right: 8px;">
+                        Export All Pending (Excel)
+                    </a>
+                    <button class="btn btn-sm"
+                        style="background-color: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+                        onclick="exportTableToCSV('admin-pending-table', 'incoming_reactivation_batches.csv')">Export
+                        CSV List</button>
+                </div>
+            </div>
+
+            <!-- PRIMARY INCOMING WORKSPACE QUEUE TABLE -->
+            <div class="table-wrapper" style="overflow-x: auto; background: white; border-radius: 6px;">
+                <table class="data-table" id="admin-pending-table"
+                    style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                            <th style="padding: 12px 10px;">S.No</th>
+                            <th style="padding: 12px 10px;">Operator Name</th>
+                            <th style="padding: 12px 10px;">Mobile Number</th>
+                            <th style="padding: 12px 10px;">Request ID</th>
+                            <th style="padding: 12px 10px;">District</th>
+                            <th style="padding: 12px 10px;">Training Date</th>
+                            <th style="padding: 12px 10px;">Status</th>
+                            <th style="padding: 12px 10px;">Submitted At</th>
+                            <th style="text-align: center; padding: 12px 10px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-queue-body">
+                        {% set pending_count = namespace(val=0) %}
+                        {% for op in all_operators %}
+                        {% set op_status_lower = (op.status|lower) %}
+                        {% if op_status_lower in ['pending', 'reapplied'] %}
+                        {% set pending_count.val = pending_count.val + 1 %}
+                        <tr id="request-row-{{ op.request_code }}-{{ loop.index }}"
+                            data-district="{{ op.district_name }}" data-code="{{ op.request_code }}"
+                            data-status="{{ op.status }}" data-created="{{ op.submitted_at }}">
+                            <td>{{ pending_count.val }}</td>
+                            <td><strong>{{ op.operator_name }}</strong></td>
+                            <td>{{ op.operator_mobile }}</td>
+                            <td><span style="font-weight: 700; color: #007bff;">{{ op.request_code }}</span></td>
+                            <td>{{ op.district_name }}</td>
+                            <td>{{ op.training_date }}</td>
+                            <td>
+                                {% if op_status_lower == 'reapplied' %}
+                                <span class="badge"
+                                    style="background-color: #ede9fe; color: #6d28d9; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block;">Reapplied</span>
+                                {% else %}
+                                <span class="badge badge-pending">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ op.submitted_at }}</td>
+                            <td style="text-align: center;">
+                                <div style="display: flex; justify-content: center; gap: 10px; align-items: center;">
+                                    <button type="button" class="btn btn-sm"
+                                        style="background-color: #0284c7; padding: 6px 14px; white-space: nowrap;"
+                                        onclick="loadAndReviewIndividualOperators('{{ op.request_code }}', this.closest('tr'))">
+                                        Details
+                                    </button>
+
+                                    <button type="button" class="btn btn-sm"
+                                        style="background-color: #0284c7; padding: 6px 14px; white-space: nowrap;"
+                                        onclick="dispatchBatchToUidaiPipeline('{{ op.request_code }}')">
+                                        Sent to UIDAI
+                                    </button>
+
+                                    <button type="button" class="btn btn-sm"
+                                        style="background-color: #dc3545; padding: 6px 14px; white-space: nowrap;"
+                                        onclick="processBatchRevertModal('{{ op.request_code }}')">Revert Batch</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SENT TO UIDAI QUEUE TABLE -->
+        <div class="form-card-container"
+            style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 25px;">
+            <div class="chips-table-header-bar">
+                <h2
+                    style="font-size: 16px; font-weight: 600; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-paper-plane text-blue-500"></i>
+                    Sent to UIDAI Queue
+                </h2>
+                <div>
+                    <a href="/auth/chips/reactivation/export-uidai" target="_blank" class="btn btn-sm"
+                        style="background-color: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-decoration: none; display: inline-block; margin-right: 8px;">
+                        Export Sent to UIDAI (Excel)
+                    </a>
+                    <button class="btn btn-sm"
+                        style="background-color: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+                        onclick="exportTableToCSV('admin-uidai-table', 'uidai_reactivation_operators.csv')">Export CSV
+                        List</button>
+                </div>
+            </div>
+
+            <div class="table-wrapper" style="overflow-x: auto; background: white; border-radius: 6px;">
+                <table class="data-table" id="admin-uidai-table"
+                    style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                            <th style="padding: 12px 10px;">S.No</th>
+                            <th style="padding: 12px 10px;">Operator Name</th>
+                            <th style="padding: 12px 10px;">Mobile Number</th>
+                            <th style="padding: 12px 10px;">Request ID</th>
+                            <th style="padding: 12px 10px;">District</th>
+                            <th style="padding: 12px 10px;">Training Date</th>
+                            <th style="padding: 12px 10px;">Status</th>
+                            <th style="padding: 12px 10px;">Submitted At</th>
+                            <th style="text-align: center; padding: 12px 10px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-uidai-body">
+                        {% set uidai_count = namespace(val=0) %}
+                        {% for op in all_operators %}
+                        {% set op_status_lower = (op.status|lower) %}
+                        {% if 'uidai' in op_status_lower %}
+                        {% set uidai_count.val = uidai_count.val + 1 %}
+                        <tr data-district="{{ op.district_name }}" data-code="{{ op.request_code }}"
+                            data-status="{{ op.status }}" data-created="{{ op.submitted_at }}">
+                            <td>{{ uidai_count.val }}</td>
+                            <td><strong>{{ op.operator_name }}</strong></td>
+                            <td>{{ op.operator_mobile }}</td>
+                            <td><span style="font-weight: 700; color: #007bff;">{{ op.request_code }}</span></td>
+                            <td>{{ op.district_name }}</td>
+                            <td>{{ op.training_date }}</td>
+                            <td>
+                                <span class="badge"
+                                    style="background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block;">Sent
+                                    to UIDAI</span>
+                            </td>
+                            <td>{{ op.submitted_at }}</td>
+                            <td style="text-align: center;">
+                                <div style="display: flex; justify-content: center; gap: 10px; align-items: center;">
+                                    <button type="button" class="btn btn-sm"
+                                        style="background-color: #0284c7; padding: 6px 14px; white-space: nowrap;"
+                                        onclick="loadAndReviewIndividualOperators('{{ op.request_code }}', this.closest('tr'))">
+                                        Review Batch
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- HISTORICAL AUDIT LOGS DISPLAY QUEUE TABLE -->
+        <div class="form-card-container"
+            style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 25px;">
+            <!-- Filters for History -->
+            <div
+                style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; gap: 20px;">
+                <div style="flex: 2;">
+                    <label
+                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">SEARCH
+                        HISTORY</label>
+                    <!-- Reusing the same search input logic as it was shared before -->
+                    <input type="text" id="admin-search-input-dummy"
+                        oninput="document.getElementById('admin-search-input').value = this.value; filterAdminQueues()"
+                        placeholder="Search by Request ID..."
+                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+                </div>
+                <div style="flex: 1; min-width: 180px;">
+                    <label
+                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">FILTER
+                        BY STATUS</label>
+                    <select id="admin-history-status-filter" onchange="filterAdminQueues()"
+                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                        <option value="all">All Statuses</option>
+                        <option value="REVIEWED">Approved/Active</option>
+                        <option value="REVERTED">Reverted Back</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="chips-table-header-bar">
+                <h2 style="margin: 0; font-size: 18px; font-weight: 600; color: #1a202c;">
+                    <span
+                        style="display:inline-block; width:8px; height:8px; border-radius:2px; background:#10b981; margin-right:8px;"></span>
+                    Reactivation Log History
+                </h2>
+                <button class="btn btn-sm"
+                    style="background-color: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+                    onclick="exportTableToCSV('admin-approved-table', 'reactivation_historical_logs.csv')">Export
+                    History</button>
+            </div>
+
+            <div class="table-wrapper" style="overflow-x: auto; background: white; border-radius: 6px;">
+                <table class="data-table" id="admin-approved-table"
+                    style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                            <th style="padding: 12px 10px;">S.No</th>
+                            <th style="padding: 12px 10px;">Operator Name</th>
+                            <th style="padding: 12px 10px;">Mobile Number</th>
+                            <th style="padding: 12px 10px;">Request ID</th>
+                            <th style="padding: 12px 10px;">District</th>
+                            <th style="padding: 12px 10px;">Training Date</th>
+                            <th style="padding: 12px 10px;">Status</th>
+                            <th style="padding: 12px 10px;">Submitted At</th>
+                            <th style="text-align: center; padding: 12px 10px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-approved-body">
+                        {% set hist_count = namespace(val=0) %}
+                        {% for op in all_operators %}
+                        {% set op_status_lower = (op.status|lower) %}
+                        {% if op_status_lower not in ['pending', 'reapplied', 'uidai', 'sent to uidai', 'sent_to_uidai']
+                        %}
+                        {% set hist_count.val = hist_count.val + 1 %}
+                        <tr data-district="{{ op.district_name }}" data-code="{{ op.request_code }}"
+                            data-status="{{ op.status }}" data-created="{{ op.submitted_at }}">
+                            <td>{{ hist_count.val }}</td>
+                            <td><strong>{{ op.operator_name }}</strong></td>
+                            <td>{{ op.operator_mobile }}</td>
+                            <td><strong>{{ op.request_code }}</strong></td>
+                            <td>{{ op.district_name }}</td>
+                            <td>{{ op.training_date }}</td>
+                            <td>
+                                {% if op.status in ['ASSIGNED', 'APPROVED', 'REVIEWED', 'ACTIVE', 'ACTIVATED'] %}
+                                <span class="badge"
+                                    style="background-color: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block;">Reviewed</span>
+                                {% elif op.status in ['REVERTED', 'REVERT BACK'] %}
+                                <span class="badge badge-reverted">Revert Back</span>
+                                {% else %}
+                                <span class="badge">{{ op.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ op.submitted_at }}</td>
+                            <td style="text-align: center;">
+                                <div style="display: flex; justify-content: center; gap: 10px; align-items: center;">
+                                    <button type="button" class="btn btn-sm"
+                                        style="background-color: #0284c7; padding: 6px 14px;"
+                                        onclick="loadAndReviewIndividualOperators('{{ op.request_code }}', this.closest('tr'))">
+                                        Details
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <!-- End History form-card-container -->
+        </div>
+
+    </main>
+</div>
+
+<!-- CORE EXECUTION PANEL SCRIPT AGENTS -->
+<script>
+    function filterAdminQueues() {
+        const query = document.getElementById('admin-search-input').value.toLowerCase();
+        const district = document.getElementById('admin-district-filter').value.toLowerCase();
+        const pendingStatusFilter = document.getElementById('admin-pending-status-filter').value.toUpperCase();
+        const dateFilter = document.getElementById('admin-date-filter').value;
+        const historyStatusFilter = document.getElementById('admin-history-status-filter').value.toUpperCase();
+
+        const now = new Date();
+        const todayPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const yearPrefix = now.getFullYear().toString();
+
+        let pendingIndex = 1;
+        document.querySelectorAll('#admin-queue-body tr').forEach(row => {
+            const rowDistrict = (row.getAttribute('data-district') || '').toLowerCase();
+            const code = (row.getAttribute('data-code') || '').toLowerCase();
+            const rowCreated = row.getAttribute('data-created') || '';
+            let rowStatus = (row.getAttribute('data-status') || 'PENDING').toUpperCase().replace(/ /g, '_');
+
+            const matchesQuery = code.includes(query) || rowDistrict.includes(query) || (row.innerText || '').toLowerCase().includes(query);
+            const matchesDistrict = district === 'all' || rowDistrict === district;
+
+            if (['ASSIGNED', 'APPROVED', 'REVIEWED', 'ACTIVE', 'ACTIVATED'].includes(rowStatus)) { rowStatus = 'REVIEWED'; }
+            const matchesPendingStatus = pendingStatusFilter === 'ALL' || rowStatus === pendingStatusFilter;
+
+            let matchesDate = true;
+            if (dateFilter === 'today') matchesDate = rowCreated.startsWith(todayPrefix);
+            else if (dateFilter === 'month') matchesDate = rowCreated.startsWith(monthPrefix);
+            else if (dateFilter === 'year') matchesDate = rowCreated.startsWith(yearPrefix);
+
+            // Show in top pending queue if not finalized or sent out completely
+            const isPendingOrActive = ['PENDING', 'REAPPLIED'].includes(rowStatus);
+
+            if (matchesQuery && matchesDistrict && matchesDate && matchesPendingStatus && isPendingOrActive) {
+                row.style.display = '';
+                if (row.cells[0]) row.cells[0].innerText = pendingIndex++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        let uidaiIndex = 1;
+        document.querySelectorAll('#admin-uidai-body tr').forEach(row => {
+            const rowDistrict = (row.getAttribute('data-district') || '').toLowerCase();
+            const code = (row.getAttribute('data-code') || '').toLowerCase();
+            const rowCreated = row.getAttribute('data-created') || '';
+            let rowStatus = (row.getAttribute('data-status') || 'PENDING').toUpperCase().replace(/ /g, '_');
+
+            const matchesQuery = code.includes(query) || rowDistrict.includes(query) || (row.innerText || '').toLowerCase().includes(query);
+            const matchesDistrict = district === 'all' || rowDistrict === district;
+
+            let matchesDate = true;
+            if (dateFilter === 'today') matchesDate = rowCreated.startsWith(todayPrefix);
+            else if (dateFilter === 'month') matchesDate = rowCreated.startsWith(monthPrefix);
+            else if (dateFilter === 'year') matchesDate = rowCreated.startsWith(yearPrefix);
+
+            const isUidai = rowStatus === 'SENT_TO_UIDAI';
+
+            if (matchesQuery && matchesDistrict && matchesDate && isUidai) {
+                row.style.display = '';
+                if (row.cells[0]) row.cells[0].innerText = uidaiIndex++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        let approvedIndex = 1;
+        document.querySelectorAll('#admin-approved-body tr').forEach(row => {
+            const rowDistrict = (row.getAttribute('data-district') || '').toLowerCase();
+            const code = (row.getAttribute('data-code') || '').toLowerCase();
+            const rowCreated = row.getAttribute('data-created') || '';
+            let rowStatus = (row.getAttribute('data-status') || 'PENDING').toUpperCase().replace(/ /g, '_');
+
+            const matchesQuery = code.includes(query) || rowDistrict.includes(query) || (row.innerText || '').toLowerCase().includes(query);
+            const matchesDistrict = district === 'all' || rowDistrict === district;
+
+            if (['ASSIGNED', 'APPROVED', 'REVIEWED', 'ACTIVE', 'ACTIVATED'].includes(rowStatus)) { rowStatus = 'REVIEWED'; }
+
+            // For reverted statuses that might have spaces
+            if (rowStatus === 'REVERT_BACK') { rowStatus = 'REVERTED'; }
+
+            const matchesHistoryStatus = historyStatusFilter === 'ALL' || rowStatus === historyStatusFilter;
+
+            let matchesDate = true;
+            if (dateFilter === 'today') matchesDate = rowCreated.startsWith(todayPrefix);
+            else if (dateFilter === 'month') matchesDate = rowCreated.startsWith(monthPrefix);
+            else if (dateFilter === 'year') matchesDate = rowCreated.startsWith(yearPrefix);
+
+            // Archive table shows finalized historical entries
+            const isHistorical = ['REVIEWED', 'REVERTED'].includes(rowStatus);
+
+            if (matchesQuery && matchesDistrict && matchesDate && matchesHistoryStatus && isHistorical) {
+                row.style.display = '';
+                if (row.cells[0]) row.cells[0].innerText = approvedIndex++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function loadAndReviewIndividualOperators(requestCode, rowElement, isReadOnly = false) {
+        Swal.fire({
+            title: `Loading Records for Batch ${requestCode}...`,
+            text: 'Extracting operator rows from database references.',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        // Clean direct proxy endpoint map pattern
+        fetch(`/auth/dc/reactivation/operators/${requestCode}`)
+            .then(res => {
+                if (!res.ok) throw new Error("Failed to extract target profile array rows.");
+                return res.json();
+            })
+            .then(payload => {
+                Swal.close();
+
+                const operators = payload.operators || [];
+                const timelineLogs = payload.timeline_logs || [];
+
+                const district = rowElement.getAttribute('data-district');
+                const trainingDate = rowElement.getAttribute('data-training-date');
+                const batchStatus = (rowElement.getAttribute('data-status') || 'PENDING').toUpperCase().replace(/ /g, '_');
+
+                let tableRowsHtml = '';
+                operators.forEach((op, index) => {
+                    let statusBadgeHtml = '';
+                    let actionsHtml = '';
+
+                    let reasonHtml = op.status === 'REVERTED' ? `<span style="color:#b91c1c; font-weight:600;">${escapeHtml(op.reject_reason)}</span>` : '<span style="color:#94a3b8; font-style:italic;">—</span>';
+
+                    if (op.status === 'ACTIVATED' || op.status === 'ACTIVE') {
+                        statusBadgeHtml = `<span style="background-color: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Active</span>`;
+                    } else if (op.status === 'REVERTED') {
+                        statusBadgeHtml = `<span style="background-color: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block; white-space: nowrap;">Reverted</span>`;
+                    } else if (op.status === 'SENT_TO_UIDAI') {
+                        statusBadgeHtml = `<span style="background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Sent to UIDAI</span>`;
+                    } else {
+                        statusBadgeHtml = `<span style="background-color: #e2e8f0; color: #475569; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Pending</span>`;
+                    }
+
+                    if (!isReadOnly) {
+                        let actionButtonsHtml = '';
+                        if (batchStatus === 'PENDING' || batchStatus === 'REAPPLIED') {
+                            if (op.status !== 'SENT_TO_UIDAI') {
+                                actionButtonsHtml += `
+                                        <button class="action-toggle-btn btn-send-uidai-op" 
+                                                onclick="executeIndividualUidai('${op.id}', '${requestCode}', this)"
+                                                style="background-color: #0284c7; color: #ffffff; border: none; padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+                                            Sent to UIDAI
+                                        </button>
+                                    `;
+                            }
+                            if (op.status !== 'REVERTED') {
+                                actionButtonsHtml += `
+                                        <button class="action-toggle-btn btn-revert-op" 
+                                                onclick="executeIndividualReversion('${op.id}', '${requestCode}', this)" 
+                                                style="background-color: #dc2626; color: #ffffff; border: none; padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+                                            Revert
+                                        </button>
+                                    `;
+                            }
+                        } else if (batchStatus === 'SENT_TO_UIDAI') {
+                            if (op.status !== 'ACTIVATED' && op.status !== 'ACTIVE') {
+                                actionButtonsHtml += `
+                                        <button class="action-toggle-btn btn-activate-op" 
+                                                onclick="executeIndividualActivation('${op.id}', '${requestCode}', this)"
+                                                style="background-color: #10b981; color: #ffffff; border: none; padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+                                            Activate
+                                        </button>
+                                    `;
+                            }
+                            if (op.status !== 'REVERTED') {
+                                actionButtonsHtml += `
+                                        <button class="action-toggle-btn btn-revert-op" 
+                                                onclick="executeIndividualReversion('${op.id}', '${requestCode}', this)" 
+                                                style="background-color: #dc2626; color: #ffffff; border: none; padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+                                            Revert
+                                        </button>
+                                    `;
+                            }
+                        }
+
+                        actionsHtml = `
+                                <td class="action-cell" style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0; text-align:center;">
+                                    <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
+                                        ${actionButtonsHtml}
+                                    </div>
+                                </td>`;
+                    }
+
+                    tableRowsHtml += `
+                            <tr style="transition: background-color 0.2s ease;">
+                                <td style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0; color: #64748b;">${index + 1}</td>
+                                <td style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0; color: #1e293b;"><strong>${escapeHtml(op.operator_name)}</strong></td>
+                                <td style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0; color: #475569;">${escapeHtml(op.operator_mobile) || 'N/A'}</td>
+                                <td class="status-cell" style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0;">${statusBadgeHtml}</td>
+                                <td class="reason-cell" style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0;">${reasonHtml}</td>
+                                ${actionsHtml}
+                            </tr>`;
+                });
+
+                let docsDownloadHtml = `
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px;">
+                            <div style="font-weight: 700; color: #1e293b; font-size: 14px; text-transform: uppercase;">Uploaded Documents</div>
+                            <a href="/auth/dc/reactivation/export/${requestCode}" class="btn btn-sm" style="background-color: #2563eb; color: white; text-decoration: none; padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">
+                                 Download Operators Excel
+                            </a>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                <span style="font-weight: 600; color: #475569; font-size: 13px;"> Group Training Photo</span>
+                                <div style="display: flex; gap: 12px; align-items: center;">
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/training_photo" target="_blank" style="text-decoration: none; font-size: 14px;">👁️ View</a>
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/training_photo" download style="text-decoration: none; font-size: 14px; color: #10b981;">⬇️ Download</a>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                <span style="font-weight: 600; color: #475569; font-size: 13px;"> District Nodal Letter</span>
+                                <div style="display: flex; gap: 12px; align-items: center;">
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/nodal_letter" target="_blank" style="text-decoration: none; font-size: 14px;">👁️ View</a>
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/nodal_letter" download style="text-decoration: none; font-size: 14px; color: #10b981;">⬇️ Download</a>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                <span style="font-weight: 600; color: #475569; font-size: 13px;"> Office Memorandum (OM)</span>
+                                <div style="display: flex; gap: 12px; align-items: center;">
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/om_letter" target="_blank" style="text-decoration: none; font-size: 14px;">👁️ View</a>
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/om_letter" download style="text-decoration: none; font-size: 14px; color: #10b981;">⬇️ Download</a>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                <span style="font-weight: 600; color: #475569; font-size: 13px;"> Operator Attendance</span>
+                                <div style="display: flex; gap: 12px; align-items: center;">
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/attendance_list" target="_blank" style="text-decoration: none; font-size: 14px;">👁️ View</a>
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/attendance_list" download style="text-decoration: none; font-size: 14px; color: #10b981;">⬇️ Download</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+
+                let timelineHtml = '';
+                if (timelineLogs && timelineLogs.length > 0) {
+                    timelineHtml = `
+                            <div style="margin-top: 30px; margin-bottom: 20px;">
+                                <h4 style="font-size: 15px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">Reactivation Log Timeline</h4>
+                                <div style="display: flex; flex-direction: column; gap: 12px; max-height: 250px; overflow-y: auto; padding-right: 10px;">
+                                    ${timelineLogs.map(log => {
+                        const dateObj = new Date(log.timestamp.replace(' ', 'T'));
+                        const formattedTime = dateObj.toLocaleDateString('en-GB') + ' ' + dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                        const isDC = log.sender_role === 'DC';
+
+                        return `
+                                            <div style="background: ${isDC ? '#f8fafc' : '#eff6ff'}; border-left: 4px solid ${isDC ? '#94a3b8' : '#3b82f6'}; padding: 12px 16px; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; text-align: left;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                    <span style="font-weight: 700; font-size: 12px; color: ${isDC ? '#475569' : '#1d4ed8'};">${isDC ? 'DC Panel' : 'CHiPS Admin'}</span>
+                                                    <span style="font-size: 11px; color: #64748b; font-weight: 600;">${formattedTime}</span>
+                                                </div>
+                                                <div style="font-size: 13px; color: #334155; margin-top: 4px;">
+                                                    ${escapeHtml(log.message)}
+                                                </div>
+                                            </div>
+                                        `;
+                    }).join('')}
+                                </div>
+                            </div>
+                        `;
+                } else {
+                    timelineHtml = `
+                            <div style="margin-top: 30px; margin-bottom: 20px;">
+                                <h4 style="font-size: 15px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">Reactivation Log Timeline</h4>
+                                <div style="text-align: center; color: #94a3b8; font-size: 13px; padding: 20px;">No timeline logs available for this batch.</div>
+                            </div>
+                        `;
+                }
+
+                let htmlContent = `
+                    <div style="text-align: left; max-height: 75vh; overflow-y: auto; padding-right: 5px;">
+                        <p style="font-size: 13px; color: #64748b; margin-bottom: 15px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                            District: <strong style="color: #1e293b;">${district}</strong> | Training Completion: <strong style="color: #1e293b;">${trainingDate}</strong>
+                        </p>
+                        ${docsDownloadHtml}
+                        
+                        <div style="font-weight: 700; font-size: 14px; color: #1e293b; margin-bottom: 8px;">List of Operators</div>
+                        <div style="overflow-x:auto; width:100%; border:1px solid #e2e8f0; border-radius:6px;">
+                            <table style="width: 100%; min-width:650px; border-collapse: collapse; font-size: 13px;">
+                                <thead style="background-color: #f1f5f9;">
+                                    <tr>
+                                        <th style="padding:10px;">S.No</th>
+                                        <th style="padding:10px;">Operator Name</th>
+                                        <th style="padding:10px;">Mobile Number</th>
+                                        <th style="padding:10px;">Status</th>
+                                        <th style="padding:10px;">Remarks / Revert Reason</th>
+                                        ${!isReadOnly ? '<th style="text-align:center; padding:10px;">Action Override</th>' : ''}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRowsHtml || `<tr><td colspan="${!isReadOnly ? '6' : '5'}" style="text-align:center; padding: 20px; color:#64748b;">No profiles linked.</td></tr>`}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        ${timelineHtml}
+                        
+                        ${!isReadOnly ? `
+                        <div style="margin-top:25px; border-top:1px dashed #e2e8f0; padding-top:15px;">
+                            <button type="button" class="btn" style="background-color:#10b981; color:#ffffff; width:100%; border:none; padding:10px; border-radius:6px; font-weight:600; cursor:pointer;" onclick="finalizeBatchCloseout('${requestCode}')">
+                                Finalize Batch Review & Complete Reactivation
+                            </button>
+                        </div>` : ''}
+                    </div>`;
+
+                Swal.fire({
+                    title: `Operators List`,
+                    html: htmlContent,
+                    width: '95vw',
+                    showConfirmButton: true,
+                    confirmButtonText: 'Close Window',
+                    confirmButtonColor: '#475569'
+                });
+            })
+            .catch(err => {
+                Swal.fire('Data Pipeline Drop', err.message, 'error');
+            });
+    }
+
+    // Action routes bound directly to standardized backend configurations
+    window.executeIndividualActivation = function (operatorId, requestCode, buttonEl) {
+        buttonEl.disabled = true;
+        fetch(`/auth/reactivation/operator/${operatorId}/activate`, { method: 'POST' })
+            .then(res => res.json())
+            .then(() => {
+                const tr = buttonEl.closest('tr');
+                tr.querySelector('.status-cell').innerHTML = `<span style="background-color: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">ACTIVE</span>`;
+                buttonEl.parentElement.innerHTML = '<span style="color: #64748b; font-size: 12px; font-style: italic;">Processed</span>';
+            });
+    };
+
+    window.executeIndividualUidai = function (operatorId, requestCode, buttonEl) {
+        buttonEl.disabled = true;
+        fetch(`/auth/reactivation/operator/${operatorId}/send-to-uidai`, { method: 'POST' })
+            .then(res => res.json())
+            .then(() => {
+                const tr = buttonEl.closest('tr');
+                tr.querySelector('.status-cell').innerHTML = `<span style="background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Sent to UIDAI</span>`;
+                buttonEl.parentElement.innerHTML = '<span style="color: #64748b; font-size: 12px; font-style: italic;">Processed</span>';
+            });
+    };
+
+    window.executeIndividualReversion = function (operatorId, requestCode, buttonEl) {
+        Swal.fire({
+            title: 'Revert Operator Profile',
+            input: 'textarea',
+            inputPlaceholder: 'Type reversion parameter details here...',
+            showCancelButton: true,
+            confirmButtonText: 'Confirm Revert',
+            confirmButtonColor: '#dc2626'
+        }).then((result) => {
+            if (result.isConfirmed && result.value.trim()) {
+                const payload = new URLSearchParams();
+                payload.append('reason', result.value.trim());
+                fetch(`/auth/reactivation/operator/${operatorId}/revert`, { method: 'POST', body: payload })
+                    .then(() => {
+                        // Re-open the main operators list modal
+                        setTimeout(() => {
+                            const mainRow = document.querySelector(`tr[data-code="${requestCode}"]`);
+                            if (mainRow) {
+                                loadAndReviewIndividualOperators(requestCode, mainRow, false);
+                            } else {
+                                window.location.reload();
+                            }
+                        }, 100);
+                    });
+            }
+        });
+    };
+
+    window.finalizeBatchCloseout = function (requestCode) {
+        fetch(`/auth/reactivation/requests/${requestCode}/finalize`, { method: 'POST' })
+            .then(res => {
+                if (!res.ok) throw new Error('Server request failed');
+                return res.json();
+            })
+            .then(() => Swal.fire('Completed', 'Batch processing finalized successfully.', 'success').then(() => window.location.reload()))
+            .catch(err => Swal.fire('Error', err.message, 'error'));
+    };
+
+    function processBatchRevertModal(requestCode) {
+        Swal.fire({
+            title: 'Revert Entire Batch Package',
+            input: 'textarea',
+            inputPlaceholder: 'Type package reversion reasons here...',
+            showCancelButton: true,
+            confirmButtonText: 'Send back to DC',
+            confirmButtonColor: '#dc3545'
+        }).then((result) => {
+            if (result.isConfirmed && result.value.trim()) {
+                const payload = new URLSearchParams();
+                payload.append('revert_reason', result.value.trim());
+                fetch(`/auth/reactivation/requests/${requestCode}/revert`, { method: 'POST', body: payload })
+                    .then(() => window.location.reload());
+            }
+        });
+    }
+
+    function dispatchBatchToUidaiPipeline(requestCode) {
+        Swal.fire({
+            title: 'Forward to UIDAI?',
+            text: 'Are you sure you want to forward this batch to UIDAI?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Confirm & Send',
+            confirmButtonColor: '#2563eb'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const payload = new URLSearchParams();
+                payload.append('remarks', 'Sent to UIDAI');
+                fetch(`/auth/reactivation/requests/${requestCode}/send-to-uidai`, { method: 'POST', body: payload })
+                    .then(() => window.location.reload());
+            }
+        });
+    }
+
+    function exportTableToCSV(tableID, filename = 'export.csv') {
+        const table = document.getElementById(tableID);
+        if (!table) return;
+        const rows = [];
+        table.querySelectorAll('tr').forEach(row => {
+            if (row.style.display !== 'none') {
+                const cols = row.querySelectorAll('td, th');
+                rows.push(Array.from(cols).map(c => `"${c.innerText.trim().replace(/"/g, '""')}"`).join(','));
+            }
+        });
+        const blob = new Blob(["\uFEFF" + rows.join("\n")], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    window.addEventListener('load', function () { filterAdminQueues(); });
+</script>
+{% endblock %}

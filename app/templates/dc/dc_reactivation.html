@@ -1,0 +1,675 @@
+{% extends 'base.html' %}
+{% block title %}Operator Reactivation Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_reactivation.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    {% set total_requests = requests|length %}
+    {% set metrics = namespace(pending=0, approved=0, reverted=0, sent_to_uidai=0) %}
+    {% for req in requests %}
+    {% set req_status_normalized = req.status|lower|replace('_',' ') %}
+    {% if 'uidai' in req_status_normalized %}
+    {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
+    {% elif req_status_normalized == 'pending' %}
+    {% set metrics.pending = metrics.pending + 1 %}
+    {% elif req_status_normalized in ['approved', 'reviewed', 'assigned', 'activated'] %}
+    {% set metrics.approved = metrics.approved + 1 %}
+    {% else %}
+    {% set metrics.reverted = metrics.reverted + 1 %}
+    {% endif %}
+    {% endfor %}
+
+    <div id="view-reactivation-dashboard-panel">
+        <div class="dashboard-header-bar">
+            <div>
+                <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b;">Operator Reactivation
+                    Dashboard
+                </h1>
+                <p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b;">Manage and submit reactivation batches
+                </p>
+            </div>
+            <button type="button" onclick="switchReactivationView('app')"
+                style="background-color: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); transition: all 0.2s;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                New Reactivation Batch
+            </button>
+        </div>
+
+        <div class="metrics-grid">
+            <div
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 15px;">
+                <div style="background: #f1f5f9; color: #475569; padding: 12px; border-radius: 8px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <div style="font-size: 20px; font-weight: 700; color: #1e293b;">{{ total_requests }}</div>
+                    <div style="font-size: 13px; color: #64748b;">Total Batches</div>
+                </div>
+            </div>
+            <div
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 15px;">
+                <div style="background: #fef3c7; color: #d97706; padding: 12px; border-radius: 8px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <div style="font-size: 20px; font-weight: 700; color: #1e293b;">{{ metrics.pending }}</div>
+                    <div style="font-size: 13px; color: #64748b;">Pending</div>
+                </div>
+            </div>
+            <div
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 15px;">
+                <div style="background: #e0f2fe; color: #0284c7; padding: 12px; border-radius: 8px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </div>
+                <div>
+                    <div style="font-size: 20px; font-weight: 700; color: #1e293b;">{{ metrics.sent_to_uidai }}</div>
+                    <div style="font-size: 13px; color: #64748b;">Sent to UIDAI</div>
+                </div>
+            </div>
+            <div
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 15px;">
+                <div style="background: #d1fae5; color: #059669; padding: 12px; border-radius: 8px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <div style="font-size: 20px; font-weight: 700; color: #1e293b;">{{ metrics.approved }}</div>
+                    <div style="font-size: 13px; color: #64748b;">Approved</div>
+                </div>
+            </div>
+            <div
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 15px;">
+                <div style="background: #fee2e2; color: #dc2626; padding: 12px; border-radius: 8px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <div>
+                    <div style="font-size: 20px; font-weight: 700; color: #1e293b;">{{ metrics.reverted }}</div>
+                    <div style="font-size: 13px; color: #64748b;">Reverted</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-workspace-application-panel" style="display: none;">
+        <div style="margin-bottom: 20px;">
+            <button type="button" onclick="switchReactivationView('dashboard')"
+                style="background: none; border: none; color: #64748b; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 0;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                Back to Dashboard
+            </button>
+        </div>
+        <div class="step-navigation-bar">
+            <div class="step-node active" id="node-step-1">
+                <div class="step-circle">1</div> Operator Details
+            </div>
+            <div class="step-node" id="node-step-2">
+                <div class="step-circle">2</div> Upload Documents
+            </div>
+        </div>
+
+        <form id="reactivationForm" onsubmit="handleFormSubmissionPipeline(event);" enctype="multipart/form-data">
+
+            <div id="section-operator-form-view">
+                <div class="form-card-container">
+                    <h2 class="container-sub-title">1. Personal & Contact Details</h2>
+
+                    <div class="form-grid-3x">
+                        <div class="input-group">
+                            <label>Name as per Aadhaar <span class="required-star">*</span></label>
+                            <input type="text" id="op_name" class="form-control-input" placeholder="Enter Name"
+                                oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '').replace(/^\s+/g, '');">
+                            <div id="err_op_name" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Mobile Number <span class="required-star">*</span></label>
+                            <input type="text" id="op_mobile" class="form-control-input"
+                                placeholder="10-digit Mobile Number" maxlength="10"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/^\s+/g, '');">
+                            <div id="err_op_mobile" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Primary Email ID <span class="required-star">*</span></label>
+                            <input type="email" id="op_email" class="form-control-input" placeholder="Enter Email ID">
+                            <div id="err_op_email" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2x">
+                        <div class="input-group">
+                            <label>Aadhaar Number <span class="required-star">*</span></label>
+                            <div class="aadhaar-input-wrapper"
+                                style="position: relative; display: flex; align-items: center; width: 100%;">
+                                <span class="aadhaar-mask-prefix"
+                                    style="position: absolute; left: 12px; color: #475569; font-family: monospace; font-size: 14px; font-weight: 700; pointer-events: none; letter-spacing: 1px; top: 50%; transform: translateY(-50%);">
+                                    XXXX-XXXX-
+                                </span>
+                                <input type="text" id="op_aadhaar" class="form-control-input" placeholder="0000"
+                                    maxlength="4"
+                                    style="padding-left: 110px !important; font-family: monospace; font-size: 14px; font-weight: 600; letter-spacing: 1px; width: 100%; height: 38px; box-sizing: border-box;"
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                            </div>
+                            <div id="err_op_aadhaar" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="container-sub-title">2. Work & Certification Details</h2>
+
+                    <div class="form-grid-4x">
+                        <div class="input-group">
+                            <label>Role <span class="required-star">*</span></label>
+                            <select id="op_role" class="form-control-input"
+                                style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
+                                <option value="" disabled selected>Select Role</option>
+                                <option value="Supervisor">Supervisor</option>
+                                <option value="Operator">Operator</option>
+                            </select>
+                            <div id="err_op_role" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Registrar Code <span class="required-star">*</span></label>
+                            <input type="text" id="op_reg" class="form-control-input" value="986"
+                                placeholder="Enter Registrar Code"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                            <div id="err_op_reg" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>EA Code <span class="required-star">*</span></label>
+                            <select id="op_ea" class="form-control-input"
+                                style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
+                                <option value="" disabled selected>Select EA Code</option>
+                                <option value="2084">2084</option>
+                                <option value="4082">4082</option>
+                            </select>
+                            <div id="err_op_ea" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>User Code <span class="required-star">*</span></label>
+                            <input type="text" id="op_user" class="form-control-input" placeholder="Enter User Code">
+                            <div id="err_op_user" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2x" style="margin-top: 15px;">
+                        <div class="input-group">
+                            <label>LMS Certificate ID <span class="required-star">*</span></label>
+                            <input type="text" id="op_lms_id" class="form-control-input"
+                                placeholder="Enter LMS Certificate ID">
+                            <div id="err_op_lms_id" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>NSEIT Certificate Number <span class="required-star">*</span></label>
+                            <input type="text" id="op_cert" class="form-control-input"
+                                placeholder="Enter Certificate Number">
+                            <div id="err_op_cert" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3x" style="margin-top: 15px;">
+                        <div class="input-group">
+                            <label>NSEIT Certification Date <span class="required-star">*</span></label>
+                            <input type="date" id="op_cert_date" class="form-control-input">
+                            <div id="err_op_cert_date" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Model <span class="required-star">*</span></label>
+                            <select id="op_model" class="form-control-input"
+                                style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
+                                <option value="" disabled selected>Select Model</option>
+                                <option value="ECMP">ECMP</option>
+                                <option value="UCL">UCL</option>
+                                <option value="VLE">VLE</option>
+                            </select>
+                            <div id="err_op_model" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Remarks</label>
+                            <input type="text" id="op_remarks" class="form-control-input"
+                                placeholder="Optional notes...">
+                            <div id="err_op_remarks" class="error-msg"
+                                style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-actions-end" style="margin-top: 15px;">
+                        <button type="button" class="btn btn-secondary" onclick="clearFormInputs();">Clear
+                            Fields</button>
+                        <button type="button" class="btn btn-primary" onclick="addOperatorRecordToExcelLog();">+ Add
+                            Operator To List</button>
+                    </div>
+                </div>
+
+                <div class="form-card-container">
+                    <h2 class="container-sub-title">Operators Detail</h2>
+                    <div class="excel-preview-container"
+                        style="width: 100%; overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 6px;">
+                        <table class="excel-table" id="excel-tracking-table"
+                            style="width: 100%; border-collapse: collapse; min-width: 1400px;">
+                            <thead>
+                                <tr style="background-color: #f8fafc; color: #334155;">
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">S.No</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">Role</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Name as per
+                                        Aadhaar</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">Registrar Code</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">EA Code</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">User Code</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">NSEIT Certificate Number</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">LMS Certificate ID</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">Mobile</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Primary
+                                        E-MAIL
+                                        ID</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">Aadhaar Number</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">Certification Date</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">Remarks</th>
+                                    <th style="padding: 10px; border: 1px solid #cbd5e1;">Model</th>
+                                    <th
+                                        style="background-color:#ef4444 !important; color:white; text-align:center; padding:10px;">
+                                        Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="excel-log-body">
+                                <tr id="empty-state-row">
+                                    <td colspan="15"
+                                        style="text-align: center; color: #94a3b8; padding: 30px; font-style: italic;">
+                                        No operator entries added to the tracking index matrix yet. Use the data form
+                                        container inputs above.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex-actions-end" style="margin-top: 15px;">
+                        <button type="button" class="btn btn-wizard-next" onclick="navigateWizardStep(2);"
+                            id="next-step-trigger-btn" disabled>
+                            Next Step (Upload Documents) →
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-documents-upload-view" style="display: none;">
+                <div class="form-card-container">
+
+                    <div
+                        style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 25px; max-width: 350px;">
+                        <label
+                            style="display: block; font-weight: 600; font-size: 13px; color: #475569; margin-bottom: 6px;">
+                            Training Completion Date <span class="required-star">*</span>
+                        </label>
+                        <input type="date" id="doc_training_date" name="training_date" class="form-control-input">
+                    </div>
+
+                    <h2 class="container-sub-title"
+                        style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+                        Upload Supporting Verification Records
+                    </h2>
+
+                    <div class="document-upload-grid">
+                        <div class="document-upload-box">
+                            <label>Training Photo (.jpg / .png) <span class="required-star">*</span></label>
+                            <input type="file" name="training_photo" accept="image/jpeg,image/png">
+                        </div>
+                        <div class="document-upload-box">
+                            <label>District Nodal Endorsement Letter (.pdf) <span class="required-star">*</span></label>
+                            <input type="file" name="nodal_letter" accept=".pdf">
+                        </div>
+                        <div class="document-upload-box">
+                            <label>Office Memorandum (OM) Copy (.pdf) <span class="required-star">*</span></label>
+                            <input type="file" name="om_letter" accept=".pdf">
+                        </div>
+                        <div class="document-upload-box">
+                            <label>Operator Attendance Excel Sheet (.xlsx) <span class="required-star">*</span></label>
+                            <input type="file" name="attendance_list" accept=".xlsx">
+                        </div>
+                    </div>
+
+                    <div class="flex-actions-between" style="margin-top: 20px;">
+                        <button type="button" class="btn btn-secondary" onclick="navigateWizardStep(1);">← Back to
+                            Operators</button>
+                        <button type="submit" class="btn btn-primary" style="padding: 12px 30px; font-size: 14px;">
+                            Submit Verification Request
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div id="view-workspace-history-panel" style="display: none;">
+        <div class="form-card-container">
+            <div class="history-filter-bar">
+                <div style="flex: 2;">
+                    <label
+                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">SEARCH
+                        REQUEST ID</label>
+                    <input type="text" id="filter-search-id" oninput="applyHistoryPanelFiltersPipeline()"
+                        placeholder="e.g. RP-R0012"
+                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+                </div>
+                <div style="flex: 1.5; min-width: 140px;">
+                    <label
+                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">FILTER
+                        BY STATUS</label>
+                    <select id="filter-status" onchange="applyHistoryPanelFiltersPipeline()"
+                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                        <option value="ALL">All Statuses</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="SENT_TO_UIDAI">Sent to UIDAI</option>
+                        <option value="REVIEWED">Reviewed</option>
+                        <option value="REVERTED">Reverted</option>
+                    </select>
+                </div>
+                <div style="flex: 1.5; min-width: 140px;">
+                    <label
+                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">FROM
+                        DATE</label>
+                    <input type="date" id="filter-date-from" onchange="applyHistoryPanelFiltersPipeline()"
+                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+                </div>
+                <div style="flex: 1.5; min-width: 140px;">
+                    <label
+                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">TO
+                        DATE</label>
+                    <input type="date" id="filter-date-to" onchange="applyHistoryPanelFiltersPipeline()"
+                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+                </div>
+                <div style="flex: 1; min-width: 100px;">
+                    <button type="button" onclick="resetHistoryPanelFilters()"
+                        style="width: 100%; padding: 10px 14px; background: #64748b; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">
+                        Reset
+                    </button>
+                </div>
+            </div>
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                <h2 class="container-sub-title"
+                    style="margin: 0; text-transform: none; font-size: 18px; color: #1e293b; border-bottom: none; padding-bottom: 0;">
+                    <span
+                        style="display:inline-block; width:8px; height:8px; border-radius:2px; background:#10b981; margin-right:8px;"></span>
+                    Reactivation Request History
+                </h2>
+                <a href="/auth/reactivation/export-all" target="_blank" class="btn btn-sm"
+                    style="background-color: #3b82f6; color: white; text-decoration: none; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    Export Pending Operators (Excel)
+                </a>
+            </div>
+
+            <div style="display: flex; gap: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px;">
+                <button type="button" class="main-view-tab active-view" onclick="switchMainView('batches', this)"
+                    style="background: none; border: none; padding: 10px 15px; font-weight: 700; font-size: 15px; color: #2563eb; border-bottom: 3px solid #2563eb; margin-bottom: -2px; cursor: pointer; transition: 0.2s;">
+                    Reactivation Batches
+                </button>
+                <button type="button" class="main-view-tab" onclick="switchMainView('activated', this)"
+                    style="background: none; border: none; padding: 10px 15px; font-weight: 600; font-size: 15px; color: #64748b; border-bottom: 3px solid transparent; margin-bottom: -2px; cursor: pointer; transition: 0.2s;">
+                    Activated Operators
+                </button>
+            </div>
+
+            <div id="view-batches-container">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+                    <input type="text" id="global-op-search" placeholder="Search operator within batches..."
+                        onkeyup="applyHistoryPanelFiltersPipeline()"
+                        style="padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 13px; width: 250px; outline: none;">
+                </div>
+                <div id="history-cards-container">
+                    {% if requests %}
+                    {% for req in requests %}
+                    {% set req_status_normalized = req.status|lower|replace('_',' ') %}
+                    <div class="history-data-row request-card" data-request-id="{{ req.request_code | upper }}"
+                        data-status="{% if 'uidai' in req_status_normalized %}SENT_TO_UIDAI{% elif req_status_normalized == 'pending' %}PENDING{% elif req_status_normalized in ['approved', 'reviewed', 'assigned', 'activated'] %}REVIEWED{% else %}REVERTED{% endif %}"
+                        data-training-date="{{ req.training_date }}"
+                        style="border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+
+                        <div class="batch-card-header-wrapper">
+                            <div class="batch-card-header">
+                                <div>
+                                    <span class="row-index-counter" style="display: none;">{{ loop.index }}</span>
+                                    <span
+                                        style="font-weight: 700; font-size: 15px; color: #1e293b; margin-right: 15px;">Request
+                                        ID: <span style="color: #2563eb;">{{ req.request_code }}</span></span>
+                                    <span
+                                        style="font-size: 13px; color: #64748b; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Total
+                                        Operators: {{ req.operator_count }}</span>
+                                </div>
+                                <div style="display: flex; gap: 15px; align-items: center;">
+                                    <span style="font-size: 12px; color: #64748b;">Submitted At: <strong
+                                            style="color: #334155;">{{ req.created_at or "—" }}</strong></span>
+                                    <span style="font-size: 12px; color: #64748b;">Updated At: <strong
+                                            style="color: #334155;">{{ req.updated_at or "—" }}</strong></span>
+
+                                    {% if req.status|lower not in ['pending', 'approved', 'reviewed', 'assigned',
+                                    'activated'] and 'uidai' not in req.status|lower and 'reapplied' not in
+                                    req.status|lower
+                                    %}
+                                    <button type="button"
+                                        onclick="reapplyReactivatedBatch('{{ req.request_code }}', '{{ req.training_date }}')"
+                                        style="background-color: #f59e0b; color: white; border: none; padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">
+                                        Reapply Batch
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="padding: 10px 20px;" id="opContainer-{{ req.request_code }}">
+                            {% if req.operators and req.operators|length > 0 %}
+                            {% for op in req.operators %}
+                            {% set op_status_lower = op.status|lower %}
+                            <div class="op-row-item op-row-{{ req.request_code }} {% if op_status_lower in ['active', 'activated', 'reviewed', 'approved'] %}op-reviewed{% else %}op-other{% endif %}"
+                                data-name="{{ op.operator_name | lower }}">
+                                <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
+                                    <span style="color: #64748b; font-size: 13px; font-weight: 600; min-width: 20px;">{{
+                                        loop.index }}.</span>
+                                    <span style="font-size: 14px; font-weight: 600; color: #334155;">{{ op.operator_name
+                                        }}</span>
+                                    <span style="font-size: 12px; color: #94a3b8;">({{ op.operator_mobile }})</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <div
+                                        style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                        <span style="color: #64748b;">Status:</span>
+                                        {% if 'uidai' in op_status_lower %}
+                                        <span style="color: #0284c7;">{{ op.status|upper }}</span>
+                                        {% elif op_status_lower in ['active', 'activated'] %}
+                                        <span style="color: #059669;">{{ op.status|upper }}</span>
+                                        {% elif op_status_lower in ['reverted', 'revert back'] %}
+                                        <span style="color: #dc2626;">{{ op.status|upper }}</span>
+                                        {% elif op_status_lower in ['reapplied'] %}
+                                        <span style="color: #6d28d9;">{{ op.status|upper }}</span>
+                                        {% else %}
+                                        <span style="color: #d97706;">{{ op.status|upper }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <button type="button"
+                                        onclick='window.currentViewingOperators = {{ req.operators | tojson | safe }}; window.currentViewingRequestCode = "{{ req.request_code }}"; openIndividualOperatorDetailCard({{ loop.index0 }})'
+                                        style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">
+                                        Details
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div
+                                style="padding: 15px; text-align: center; color: #94a3b8; font-size: 13px; font-style: italic;">
+                                No operators found for this batch.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div id="history-fallback-empty-row"
+                        style="text-align: center; color: #94a3b8; padding: 40px; font-style: italic; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        No structural batch activation applications found linked to this District context.
+                    </div>
+                    {% endif %}
+
+                    <div id="history-no-match-fallback"
+                        style="display: none; text-align: center; color: #94a3b8; padding: 40px; font-style: italic; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        No matching historical submission logs balance out with your current filter selections.
+                    </div>
+                </div>
+            </div>
+            <div id="view-activated-container" style="display: none;">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f8fafc; padding: 10px 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <span style="font-size: 14px; font-weight: 600; color: #334155;">All Approved & Activated
+                        Operators</span>
+                    <input type="text" id="flat-op-search" placeholder="Search activated operators..."
+                        onkeyup="filterFlatActivatedOperators()"
+                        style="padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 13px; width: 250px; outline: none;">
+                </div>
+
+                <div class="table-responsive" style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                    <table class="table table-hover"
+                        style="margin-bottom: 0; background: white; width: 100%; border-collapse: collapse;">
+                        <thead style="background: #f1f5f9;">
+                            <tr>
+                                <th
+                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                                    S.No</th>
+                                <th
+                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                                    Operator Name</th>
+                                <th
+                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                                    Mobile Number</th>
+                                <th
+                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                                    Status</th>
+                                <th
+                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                                    Request ID</th>
+                                <th
+                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+                                    Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="flat-activated-tbody">
+                            {% if activated_operators %}
+                            {% for op in activated_operators %}
+                            <tr class="flat-op-row" data-name="{{ op.operator_name | lower }}"
+                                style="border-bottom: 1px solid #e2e8f0;">
+                                <td
+                                    style="padding: 12px 15px; vertical-align: middle; font-size: 13px; color: #64748b; font-weight: 600;">
+                                    {{ loop.index }}</td>
+                                <td
+                                    style="padding: 12px 15px; vertical-align: middle; font-size: 14px; font-weight: 600; color: #334155;">
+                                    {{ op.operator_name }}</td>
+                                <td
+                                    style="padding: 12px 15px; vertical-align: middle; font-size: 13px; color: #475569;">
+                                    {{
+                                    op.operator_mobile }}</td>
+                                <td style="padding: 12px 15px; vertical-align: middle;">
+                                    {% set op_status_lower = op.status|lower %}
+                                    {% if op_status_lower in ['active', 'activated'] %}
+                                    <span
+                                        style="color: #059669; font-weight: 600; font-size: 12px; background: #d1fae5; padding: 4px 10px; border-radius: 6px;">{{
+                                        op.status|upper }}</span>
+                                    {% else %}
+                                    <span
+                                        style="color: #0284c7; font-weight: 600; font-size: 12px; background: #e0f2fe; padding: 4px 10px; border-radius: 6px;">{{
+                                        op.status|upper }}</span>
+                                    {% endif %}
+                                </td>
+                                <td
+                                    style="padding: 12px 15px; vertical-align: middle; font-size: 13px; color: #2563eb; font-weight: 600;">
+                                    {{ op.request_code }}</td>
+                                <td style="padding: 12px 15px; vertical-align: middle; text-align: center;">
+                                    <button type="button"
+                                        onclick='window.currentViewingOperators = [{{ op | tojson | safe }}]; window.currentViewingRequestCode = "{{ op.request_code }}"; openIndividualOperatorDetailCard(0)'
+                                        style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.2s;">
+                                        View Profile
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="6"
+                                    style="padding: 30px; text-align: center; color: #94a3b8; font-style: italic; border-bottom: 1px solid #e2e8f0;">
+                                    No activated operators found.
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const rawBackendPayload = {% if requests %}{ { requests | tojson | safe } } {% else %} []{% endif %};
+    window.historyRequestsPayload = Array.isArray(rawBackendPayload) ? rawBackendPayload.map(req => ({
+        request_code: String(req.request_code || ''),
+        submitted_at: String(req.created_at || '—'),
+        status: String(req.status || 'PENDING').toUpperCase().replace(" ", "_"),
+        revert_reason: String(req.reject_reason || req.revert_reason || 'None')
+    })) : [];
+</script>
+<script src="{{ url_for('static', filename='js/dc_reactivation.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,958 @@
+{% extends 'base.html' %}
+
+{% block title %}Station ID Admin — CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+<style>
+    /* ── Admin banner ── */
+    .admin-banner {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #3730a3 100%);
+        border-radius: 16px;
+        padding: 22px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .admin-banner::before {
+        content: '';
+        position: absolute;
+        right: -20px;
+        top: -30px;
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .admin-banner-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .admin-banner-icon {
+        width: 48px;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .admin-banner h2 {
+        font-size: 20px;
+        font-weight: 800;
+        color: #fff;
+        margin: 0 0 3px;
+    }
+
+    .admin-banner p {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.65);
+        margin: 0;
+    }
+
+    .admin-banner-stats {
+        display: flex;
+        gap: 24px;
+    }
+
+    .admin-stat {
+        text-align: center;
+        padding: 10px 20px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .admin-stat-num {
+        font-size: 22px;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1;
+    }
+
+    .admin-stat-lbl {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.65);
+        margin-top: 3px;
+    }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 12px 16px;
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        min-width: 140px;
+    }
+
+    .filter-group-search {
+        flex: 2.5;
+    }
+
+    .filter-group label {
+        font-size: 10px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .filter-input {
+        height: 36px;
+        padding: 0 10px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #334155;
+        outline: none;
+        background: #fff;
+        font-family: inherit;
+        transition: border-color 0.2s;
+    }
+
+    .filter-input:focus {
+        border-color: #6366f1;
+    }
+
+    /* ── Section headers ── */
+    .sec-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 24px 0 12px;
+    }
+
+    .sec-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+    }
+
+    .sec-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0;
+    }
+
+    .sec-count {
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 2px 9px;
+        border-radius: 20px;
+        margin-left: auto;
+    }
+
+    /* ── Table ── */
+    .sid-table-wrapper {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow-x: auto;
+        overflow-y: visible;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        margin-bottom: 28px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .sid-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        min-width: 900px;
+    }
+
+    .sid-table thead tr {
+        background: #f8fafc;
+    }
+
+    .sid-table th {
+        text-align: left;
+        padding: 11px 13px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+
+    .sid-table td {
+        padding: 12px 13px;
+        color: #334155;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .sid-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .sid-table tbody tr:hover td {
+        background: #fafafe;
+    }
+
+    /* ── Badges ── */
+    .sid-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 9px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .sid-badge::before {
+        content: '';
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+    }
+
+    .sid-badge-sent_to_chips {
+        background: #fef9c3;
+        color: #854d0e;
+    }
+
+    .sid-badge-sent_to_chips::before {
+        background: #f59e0b;
+    }
+
+    .sid-badge-approved {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .sid-badge-approved::before {
+        background: #16a34a;
+    }
+
+    .sid-badge-reverted {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .sid-badge-reverted::before {
+        background: #dc2626;
+    }
+
+    .sid-badge-reapplied {
+        background: #ede9fe;
+        color: #5b21b6;
+    }
+
+    .sid-badge-reapplied::before {
+        background: #7c3aed;
+    }
+
+    /* ── Action buttons ── */
+    .action-group {
+        display: flex;
+        gap: 5px;
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+
+    .btn-approve {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background: #16a34a;
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s;
+    }
+
+    .btn-approve:hover {
+        background: #15803d;
+    }
+
+    .btn-revert {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background: #fff;
+        color: #dc2626;
+        border: 1.5px solid #fca5a5;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        transition: all 0.15s;
+    }
+
+    .btn-revert:hover {
+        background: #fee2e2;
+        border-color: #dc2626;
+    }
+
+    .btn-details {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background: #f8fafc;
+        color: #334155;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+        transition: all 0.15s;
+    }
+
+    .btn-details:hover {
+        border-color: #6366f1;
+        color: #4f46e5;
+        background: #f5f3ff;
+    }
+
+    /* ── Empty ── */
+    .empty-state {
+        padding: 36px 20px;
+        text-align: center;
+        color: #94a3b8;
+    }
+
+    .empty-state-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+    }
+
+    .empty-state p {
+        font-size: 13px;
+        margin: 0;
+    }
+
+    /* ── Reapplied chip ── */
+    .reapplied-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        background: #ede9fe;
+        color: #6d28d9;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 5px;
+        margin-left: 5px;
+    }
+
+    @media (max-width: 1100px) {
+        .admin-banner {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .admin-banner-stats {
+            width: 100%;
+            justify-content: flex-start;
+            gap: 10px;
+        }
+
+        .admin-stat {
+            padding: 8px 14px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .admin-banner {
+            padding: 16px 18px;
+            border-radius: 10px;
+        }
+
+        .admin-banner h2 {
+            font-size: 16px;
+        }
+
+        .admin-banner p {
+            font-size: 12px;
+        }
+
+        .filter-bar {
+            padding: 10px 12px;
+        }
+
+        .filter-group {
+            min-width: 120px;
+        }
+
+        .sec-title {
+            font-size: 14px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Admin Banner -->
+<div class="admin-banner">
+    <div class="admin-banner-left">
+        <div class="admin-banner-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+        </div>
+        <div>
+            <h2>Station ID Control Panel</h2>
+            <p>Review, approve and assign Station IDs to DC requests</p>
+        </div>
+    </div>
+    <div class="admin-banner-stats">
+        <div class="admin-stat">
+            <div class="admin-stat-num">{{ requests | selectattr('status', 'in', ['sent_to_chips', 'reapplied']) | list | length }}</div>
+            <div class="admin-stat-lbl">Pending Review</div>
+        </div>
+        <div class="admin-stat">
+            <div class="admin-stat-num">{{ requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
+            <div class="admin-stat-lbl">Approved</div>
+        </div>
+        <div class="admin-stat">
+            <div class="admin-stat-num">{{ requests | length }}</div>
+            <div class="admin-stat-lbl">Total Requests</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ SECTION 1: PENDING ═══════════════ -->
+<div class="filter-bar">
+    <div class="filter-group filter-group-search">
+        <label>Search Requests</label>
+        <input type="text" id="pending-search" class="filter-input" placeholder="Search by request ID, district, model…" oninput="filterSection('pending')">
+    </div>
+    <div class="filter-group">
+        <label>Time Period</label>
+        <select id="pending-date" class="filter-input" onchange="filterSection('pending')">
+            <option value="all" selected>All Time</option>
+            <option value="today">Today</option>
+            <option value="month">This Month</option>
+            <option value="year">This Year</option>
+        </select>
+    </div>
+</div>
+
+<div class="sec-header">
+    <div class="sec-dot" style="background:#f59e0b;"></div>
+    <h3 class="sec-title">Pending Approval Queue</h3>
+    <span class="sec-count" id="pending-count">–</span>
+</div>
+
+<div class="sid-table-wrapper">
+    <table class="sid-table" id="pending-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Request ID</th>
+                <th>District</th>
+                <th>Model</th>
+                <th>User Type</th>
+                <th># Kits</th>
+                <th>Status</th>
+                <th>Submitted At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="pending-tbody">
+            {% set ns = namespace(count=1) %}
+            {% for r in requests if r.status in ['sent_to_chips', 'reapplied'] %}
+            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-district="{{ r.district_name or '' }}" data-model="{{ r.model }}" data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}" data-status="{{ r.status }}" data-created="{{ r.submitted_at or '' }}">
+                <td style="color:#94a3b8;font-size:12px;">{{ ns.count }}</td>
+                <td>
+                    <strong style="color:#4f46e5;">{{ r.request_no or '—' }}</strong>
+                    {% if r.status == 'reapplied' %}
+                    <span class="reapplied-chip">↩ Reapplied</span>
+                    {% endif %}
+                </td>
+                <td>{{ r.district_name or '—' }}</td>
+                <td>
+                    <span style="font-weight:700;{% if r.model == 'ECMP' %}color:#1d4ed8;{% else %}color:#16a34a;{% endif %}">{{ r.model }}</span>
+                </td>
+                <td>
+                    {% if r.user_type == 'new_user' %}New User
+                    {% elif r.user_type == 'machine_id' %}Machine ID
+                    {% else %}<span style="color:#9333ea;">Custom</span>{% endif %}
+                </td>
+                <td><strong>{{ r.number_of_kits }}</strong></td>
+                <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize }}</span></td>
+                <td style="color:#64748b;font-size:12px;">{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
+                <td>
+                    <div class="action-group">
+                        <button class="btn-approve" onclick="showApproveModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.model }}', '{{ r.number_of_kits }}')">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                            Approve
+                        </button>
+                        <button class="btn-revert" onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-3.5" /></svg>
+                            Revert
+                        </button>
+                        <button class="btn-details" onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                            Details
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% set ns.count = ns.count + 1 %}
+            {% endfor %}
+        </tbody>
+    </table>
+    <div id="pending-empty-msg" class="empty-state" style="display:none;">
+        <div class="empty-state-icon">✅</div>
+        <p>No pending requests — all caught up!</p>
+    </div>
+</div>
+
+<!-- ═══════════════ SECTION 2: LOG HISTORY ═══════════════ -->
+<div class="filter-bar">
+    <div class="filter-group filter-group-search">
+        <label>Search History</label>
+        <input type="text" id="log-search" class="filter-input" placeholder="Search by request ID, district, model…" oninput="filterSection('log')">
+    </div>
+    <div class="filter-group">
+        <label>Filter by Status</label>
+        <select id="log-status" class="filter-input" onchange="filterSection('log')">
+            <option value="all">All Statuses</option>
+            <option value="approved">Approved</option>
+            <option value="reverted">Reverted</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Time Period</label>
+        <select id="log-date" class="filter-input" onchange="filterSection('log')">
+            <option value="all" selected>All Time</option>
+            <option value="today">Today</option>
+            <option value="month">This Month</option>
+            <option value="year">This Year</option>
+        </select>
+    </div>
+</div>
+
+<div class="sec-header">
+    <div class="sec-dot" style="background:#16a34a;"></div>
+    <h3 class="sec-title">Station ID Log History</h3>
+    <span class="sec-count" id="log-count">–</span>
+</div>
+
+<div class="sid-table-wrapper">
+    <table class="sid-table" id="log-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Request ID</th>
+                <th>District</th>
+                <th>Model</th>
+                <th>User Type</th>
+                <th># Kits</th>
+                <th>Station ID Assigned</th>
+                <th>Status</th>
+                <th>Submitted</th>
+                <th>Reviewed</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="log-tbody">
+            {% set ns2 = namespace(count=1) %}
+            {% for r in requests if r.status in ['approved', 'reverted'] %}
+            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-district="{{ r.district_name or '' }}" data-model="{{ r.model }}" data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}" data-status="{{ r.status }}" data-created="{{ r.submitted_at or '' }}" data-station-id="{{ r.station_id_inserted or '' }}">
+                <td style="color:#94a3b8;font-size:12px;">{{ ns2.count }}</td>
+                <td><strong style="color:#4f46e5;">{{ r.request_no or '—' }}</strong></td>
+                <td>{{ r.district_name or '—' }}</td>
+                <td><span style="font-weight:700;{% if r.model == 'ECMP' %}color:#1d4ed8;{% else %}color:#16a34a;{% endif %}">{{ r.model }}</span></td>
+                <td>
+                    {% if r.user_type == 'new_user' %}New User
+                    {% elif r.user_type == 'machine_id' %}Machine ID
+                    {% else %}<span style="color:#9333ea;">Custom</span>{% endif %}
+                </td>
+                <td><strong>{{ r.number_of_kits }}</strong></td>
+                <td>
+                    {% if r.station_id_inserted %}
+                        {% for sid in r.station_id_inserted.split(',') %}
+                        <span style="font-family:monospace;font-weight:700;color:#15803d;background:#f0fdf4;padding:3px 8px;border-radius:5px;font-size:12px;display:inline-block;margin:2px;">{{ sid.strip() }}</span>
+                        {% endfor %}
+                    {% else %}<span style="color:#94a3b8;">—</span>{% endif %}
+                </td>
+                <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize }}</span></td>
+                <td style="color:#64748b;font-size:11px;">{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
+                <td style="color:#64748b;font-size:11px;">{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
+                <td>
+                    <button class="btn-details" onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                        Details
+                    </button>
+                </td>
+            </tr>
+            {% set ns2.count = ns2.count + 1 %}
+            {% endfor %}
+        </tbody>
+    </table>
+    <div id="log-empty-msg" class="empty-state" style="display:none;">
+        <div class="empty-state-icon">📋</div>
+        <p>No log history matches your filter.</p>
+    </div>
+</div>
+
+<script>
+    const currentReviewerId = "{{ session.get('user_id') or '' }}";
+
+    function escapeHtml(t) {
+        if (!t) return '';
+        return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function getDatePrefixes() {
+        const now = new Date(), y = now.getFullYear(),
+            m = (now.getMonth() + 1).toString().padStart(2, '0'),
+            d = now.getDate().toString().padStart(2, '0');
+        return { today: `${y}-${m}-${d}`, month: `${y}-${m}`, year: `${y}` };
+    }
+
+    window.filterSection = function(sec) {
+        const p = getDatePrefixes();
+        const q = (document.getElementById(`${sec}-search`).value || '').toLowerCase().trim();
+        const dateFilt = document.getElementById(`${sec}-date`).value;
+        const statusEl = document.getElementById(`${sec}-status`);
+        const statusFilt = statusEl ? statusEl.value : 'all';
+
+        const rows = document.querySelectorAll(`#${sec}-tbody tr[data-id]`);
+        let visible = 0, idx = 1;
+        rows.forEach(row => {
+            const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase();
+            const model = (row.getAttribute('data-model') || '').toLowerCase();
+            const rowSt = (row.getAttribute('data-status') || '').toLowerCase();
+            const created = row.getAttribute('data-created') || '';
+            const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q);
+            const matchSt = statusFilt === 'all' || rowSt === statusFilt;
+            let matchDate = true;
+            if (dateFilt === 'today') matchDate = created.startsWith(p.today);
+            else if (dateFilt === 'month') matchDate = created.startsWith(p.month);
+            else if (dateFilt === 'year') matchDate = created.startsWith(p.year);
+            const show = matchQ && matchSt && matchDate;
+            row.style.display = show ? '' : 'none';
+            if (show) { if (row.cells[0]) row.cells[0].innerText = idx++; visible++; }
+        });
+        const tbl = document.getElementById(`${sec}-table`);
+        const emg = document.getElementById(`${sec}-empty-msg`);
+        const cnt = document.getElementById(`${sec}-count`);
+        if (tbl) tbl.style.display = (visible === 0 && rows.length > 0) ? 'none' : '';
+        if (emg) emg.style.display = visible === 0 ? 'block' : 'none';
+        if (cnt) cnt.textContent = visible;
+    }
+
+    window.addEventListener('load', () => { filterSection('pending'); filterSection('log'); });
+
+    function submitDynamicForm(action, fields) {
+        const form = document.createElement('form');
+        form.method = 'POST'; form.action = action;
+        Object.entries(fields).forEach(([name, value]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden'; input.name = name; input.value = value;
+            form.appendChild(input);
+        });
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    // ── Approve Modal ───────────────────────────────────────────────
+    window.showApproveModal = function(requestId, requestNo, model, kits) {
+        const numKits = parseInt(kits) || 1;
+        let stationInputsHtml = '';
+        if (numKits <= 1) {
+            stationInputsHtml = `
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                        Station ID to Assign <span style="color:#ef4444;">*</span>
+                        <span style="font-size:10px;text-transform:none;font-weight:400;color:#94a3b8;"> (the actual ID string)</span>
+                    </div>
+                    <input id="swal-station-id-0" class="swal-station-id-input" type="text"
+                        style="width:100%;height:44px;padding:0 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;font-weight:700;letter-spacing:1.5px;font-family:monospace;outline:none;box-sizing:border-box;"
+                        placeholder="e.g. ECMP/RJN/2024/001" autofocus>
+                </div>`;
+        } else {
+            stationInputsHtml = `<div style="margin-bottom:16px;">
+                <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                    Station IDs to Assign <span style="color:#ef4444;">*</span>
+                </div>
+                <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px;">`;
+            for (let i = 0; i < numKits; i++) {
+                stationInputsHtml += `
+                    <div>
+                        <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;">Kit ${i + 1} Station ID:</div>
+                        <input id="swal-station-id-${i}" class="swal-station-id-input" type="text"
+                            style="width:100%;height:38px;padding:0 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;font-family:monospace;outline:none;box-sizing:border-box;"
+                            placeholder="e.g. ECMP/RJN/2024/${String(i+1).padStart(3, '0')}" ${i === 0 ? 'autofocus' : ''}>
+                    </div>`;
+            }
+            stationInputsHtml += `</div></div>`;
+        }
+
+        Swal.fire({
+            title: `<div style="text-align:left;font-size:18px;">Approve Request</div>`,
+            html: `
+                <div style="text-align:left;">
+                    <div style="background:#f8fafc;border-radius:10px;padding:12px 16px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div><div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">Request ID</div>
+                            <div style="font-weight:700;color:#4f46e5;margin-top:2px;">${requestNo}</div></div>
+                        <div><div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">Model / Kits</div>
+                            <div style="font-weight:600;color:#0f172a;margin-top:2px;">${model} · ${kits} kit(s)</div></div>
+                    </div>
+                    ${stationInputsHtml}
+                    <div>
+                        <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                            Admin Remarks <span style="font-size:10px;text-transform:none;font-weight:400;color:#94a3b8;">(optional)</span>
+                        </div>
+                        <textarea id="swal-chips-remarks"
+                            style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;min-height:70px;outline:none;box-sizing:border-box;"
+                            placeholder="Add any notes about this approval…"></textarea>
+                    </div>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: '✓ Approve & Assign Station ID',
+            confirmButtonColor: '#16a34a',
+            cancelButtonText: 'Cancel',
+            cancelButtonColor: '#64748b',
+            width: '520px',
+            focusConfirm: false,
+            preConfirm: () => {
+                const inputs = document.querySelectorAll('.swal-station-id-input');
+                const values = [];
+                let valid = true;
+                inputs.forEach((input, index) => {
+                    const val = input.value.trim();
+                    if (!val) {
+                        Swal.showValidationMessage(`Please enter the Station ID for Kit ${index + 1}.`);
+                        valid = false;
+                    }
+                    values.push(val);
+                });
+                if (!valid) return false;
+                return { station_id_value: values.join(', '), chips_remarks: document.getElementById('swal-chips-remarks').value.trim() };
+            }
+        }).then(result => {
+            if (result.isConfirmed) {
+                submitDynamicForm(`/auth/chips/station-id/${requestId}/approve`, {
+                    reviewed_by: currentReviewerId,
+                    station_id_value: result.value.station_id_value,
+                    chips_remarks: result.value.chips_remarks,
+                });
+            }
+        });
+    }
+
+    // ── Revert Modal ────────────────────────────────────────────────
+    window.showRevertModal = function(requestId, requestNo) {
+        Swal.fire({
+            title: `<div style="text-align:left;font-size:18px;color:#dc2626;">Revert Request</div>`,
+            html: `<div style="text-align:left;">
+                <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#c2410c;">
+                    Request <strong>${requestNo}</strong> will be sent back to the DC with your remark.
+                </div>
+                <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                    Revert Reason <span style="color:#ef4444;">*</span>
+                </div>
+                <textarea id="swal-revert-reason"
+                    style="width:100%;padding:10px 14px;border:1.5px solid #fca5a5;border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;min-height:90px;outline:none;box-sizing:border-box;"
+                    placeholder="Clearly explain why this request is being reverted so the DC can correct it…" autofocus></textarea>
+            </div>`,
+            showCancelButton: true,
+            confirmButtonText: '↩ Revert Request',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Cancel',
+            cancelButtonColor: '#64748b',
+            width: '500px',
+            focusConfirm: false,
+            preConfirm: () => {
+                const reason = document.getElementById('swal-revert-reason').value.trim();
+                if (!reason) { Swal.showValidationMessage('Please enter a revert reason.'); return false; }
+                return reason;
+            }
+        }).then(result => {
+            if (result.isConfirmed) {
+                submitDynamicForm(`/auth/chips/station-id/${requestId}/revert`, {
+                    reviewed_by: currentReviewerId,
+                    revert_reason: result.value,
+                });
+            }
+        });
+    }
+
+    // ── Details Modal ───────────────────────────────────────────────
+    window.showDetailsModal = function(requestId, requestNo, status) {
+        function statusConfig(status) {
+            const s = (status || '').toLowerCase();
+            const map = {
+                sent_to_chips:  { label: 'Sent to CHiPS',  bg: '#dbeafe', color: '#1d4ed8' },
+                pending:        { label: 'Pending',         bg: '#fef9c3', color: '#a16207' },
+                sent_to_uidai:  { label: 'Sent to UIDAI',  bg: '#ede9fe', color: '#6d28d9' },
+                approved:       { label: 'Approved',        bg: '#dcfce7', color: '#15803d' },
+                rejected:       { label: 'Rejected',        bg: '#fee2e2', color: '#dc2626' },
+                reverted:       { label: 'Reverted',        bg: '#ffedd5', color: '#c2410c' },
+            };
+            return map[s] || { label: status.replace(/_/g,' ').toUpperCase(), bg:'#f1f5f9', color:'#475569' };
+        }
+
+        function infoCell(label, value) {
+            const v = (value && value !== 'null' && value !== 'undefined') ? escapeHtml(String(value)) : '<span style="color:#cbd5e1;">—</span>';
+            return `
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
+                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">${label}</div>
+                <div style="font-size:13px;font-weight:600;color:#0f172a;word-break:break-word;">${v}</div>
+            </div>`;
+        }
+
+        function sectionHead(title) {
+            return `<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">${title}</div>`;
+        }
+
+        function buildRemarksHtml(remarks) {
+            if (!remarks || remarks.length === 0) {
+                return `<div style="text-align:center;padding:14px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or conversation history yet.</div>`;
+            }
+            let html = `<div style="display:flex;flex-direction:column;gap:8px;max-height:180px;overflow-y:auto;padding-right:4px;">`;
+            remarks.forEach(item => {
+                const isAdmin = item.author_role === 'CHIPS_ADMIN' || item.author_role === 'chips_admin';
+                const sender  = isAdmin ? 'CHiPS Admin' : 'District Coordinator';
+                const bg      = isAdmin ? '#f1f5f9' : '#eff6ff';
+                const border  = isAdmin ? '#e2e8f0' : '#bfdbfe';
+                const nameCol = isAdmin ? '#0f172a' : '#1d4ed8';
+                html += `
+                <div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:10px 13px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                        <span style="font-size:12px;font-weight:700;color:${nameCol};">${sender}</span>
+                        <span style="font-size:10px;color:#94a3b8;white-space:nowrap;">${item.created_at}</span>
+                    </div>
+                    <div style="font-size:13px;color:#334155;line-height:1.5;">${escapeHtml(item.remark)}</div>
+                </div>`;
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        Swal.fire({
+            html: `<div style="padding:40px;text-align:center;">
+                <div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+                <div style="color:#94a3b8;font-size:14px;">Fetching request details…</div>
+            </div>`,
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            width: '680px',
+            padding: '0',
+            background: '#fff',
+            customClass: { popup: 'oa-detail-popup' },
+        });
+
+        fetch(`/auth/chips/station-id/${requestId}/detail-json`)
+            .then(res => { if (!res.ok) throw new Error('Failed'); return res.json(); })
+            .then(data => {
+                const sc = statusConfig(data.status || status);
+                const remarksHtml = buildRemarksHtml(data.remarks_history || []);
+                const userTypeLabel = data.user_type === 'new_user' ? 'New User'
+                    : data.user_type === 'machine_id' ? 'Machine ID'
+                        : `Custom — ${escapeHtml(data.user_type_custom_reason || '')}`;
+
+                const html = `
+                <div style="text-align:left;">
+                    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#4f46e5 100%);padding:22px 24px 18px;position:relative;overflow:hidden;">
+                        <div style="position:absolute;right:-20px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+                        <div style="position:absolute;right:60px;bottom:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.04);"></div>
+                        <div style="display:flex;align-items:center;gap:14px;position:relative;">
+                            <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                                    <line x1="7" y1="2" x2="7" y2="22"></line>
+                                    <line x1="17" y1="2" x2="17" y2="22"></line>
+                                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                                    <line x1="2" y1="7" x2="7" y2="7"></line>
+                                    <line x1="2" y1="17" x2="7" y2="17"></line>
+                                    <line x1="17" y1="17" x2="22" y2="17"></line>
+                                    <line x1="17" y1="7" x2="22" y2="7"></line>
+                                </svg>
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:18px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:3px;">Station ID Request</div>
+                                <div style="font-size:12px;color:rgba(255,255,255,0.65);">Request <strong style="color:rgba(255,255,255,0.9);">${requestNo}</strong> &nbsp;·&nbsp; Submitted ${data.submitted_at || '—'}</div>
+                            </div>
+                            <div style="background:${sc.bg};color:${sc.color};font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${sc.label}</div>
+                        </div>
+                    </div>
+
+                    <div style="padding:20px 22px 22px;">
+                        ${sectionHead('Request Metadata')}
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                            ${infoCell('District', data.district_name)}
+                            ${infoCell('Model', data.model)}
+                            ${infoCell('User Type', userTypeLabel)}
+                            ${infoCell('Number of Kits', data.number_of_kits)}
+                        </div>
+
+                        ${data.station_id_inserted ? `
+                        <div style="margin-bottom:14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:10px;padding:14px;text-align:center;">
+                            <div style="font-size:10px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Station ID(s) Assigned ✓</div>
+                            <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;">
+                                ${data.station_id_inserted.split(',').map(sid => `
+                                    <div style="font-family:monospace;font-size:18px;font-weight:800;color:#15803d;background:#fff;border:1px solid #bbf7d0;padding:4px 10px;border-radius:6px;">
+                                        ${escapeHtml(sid.trim())}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>` : ''}
+
+                        ${sectionHead('Remarks & Conversation')}
+                        ${remarksHtml}
+                    </div>
+                </div>`;
+
+                Swal.fire({
+                    html,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Close',
+                    confirmButtonColor: '#4f46e5',
+                    width: '680px',
+                    padding: '0',
+                    background: '#fff',
+                    customClass: { popup: 'oa-detail-popup' },
+                });
+            })
+            .catch(err => {
+                Swal.fire({ icon: 'error', title: 'Error', text: `Failed to load details: ${err.message}` });
+            });
+    }
+</script>
+{% endblock %}

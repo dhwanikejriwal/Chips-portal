@@ -1,0 +1,593 @@
+{% extends 'base.html' %}
+
+{% block title %}Station ID Dashboard — CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+<style>
+    /* ── Dashboard Header ── */
+    .dash-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 24px;
+        gap: 16px;
+    }
+    .dash-title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 4px; }
+    .dash-subtitle { font-size: 13px; color: #64748b; }
+    .btn-new-request {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 22px;
+        background: linear-gradient(135deg, #4f46e5, #6366f1);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 14px; font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        font-family: inherit;
+        box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+    .btn-new-request:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.45); }
+
+    /* ── Stats row ── */
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-bottom: 24px;
+    }
+    .stat-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .stat-icon {
+        width: 40px; height: 40px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .stat-num { font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1; }
+    .stat-lbl { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px 18px;
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .filter-group {
+        display: flex; flex-direction: column; gap: 5px;
+        flex: 1; min-width: 160px;
+    }
+    .filter-group-search { flex: 2.5; }
+    .filter-group label {
+        font-size: 11px; font-weight: 700; color: #64748b;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .filter-input {
+        height: 38px; padding: 0 12px;
+        border: 1.5px solid #e2e8f0; border-radius: 8px;
+        font-size: 13px; color: #334155;
+        outline: none; background: #fff; font-family: inherit;
+        transition: border-color 0.2s;
+    }
+    .filter-input:focus { border-color: #6366f1; }
+
+    /* ── Section heading ── */
+    .section-heading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 28px 0 14px;
+    }
+    .section-heading-dot {
+        width: 10px; height: 10px; border-radius: 3px;
+    }
+    .section-heading h3 {
+        font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;
+    }
+    .section-heading .section-count {
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 12px; font-weight: 700;
+        padding: 2px 9px; border-radius: 20px;
+        margin-left: auto;
+    }
+
+    /* ── Table ── */
+    .sid-table-wrapper {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow-x: auto;
+        overflow-y: visible;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        -webkit-overflow-scrolling: touch;
+    }
+    .sid-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+        min-width: 820px;
+    }
+    .sid-table thead tr { background: #f8fafc; }
+    .sid-table th {
+        text-align: left;
+        padding: 11px 14px;
+        font-size: 11px; font-weight: 700;
+        color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    .sid-table td {
+        padding: 13px 14px;
+        color: #334155;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .sid-table tbody tr:last-child td { border-bottom: none; }
+    .sid-table tbody tr:hover td { background: #fafafe; }
+
+    /* ── Status badges ── */
+    .sid-badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 4px 10px; border-radius: 20px;
+        font-size: 12px; font-weight: 700;
+    }
+    .sid-badge::before {
+        content: '';
+        width: 6px; height: 6px; border-radius: 50%;
+    }
+    .sid-badge-sent_to_chips { background:#fef9c3; color:#854d0e; }
+    .sid-badge-sent_to_chips::before { background:#f59e0b; }
+    .sid-badge-approved { background:#dcfce7; color:#166534; }
+    .sid-badge-approved::before { background:#16a34a; }
+    .sid-badge-reverted { background:#fee2e2; color:#991b1b; }
+    .sid-badge-reverted::before { background:#dc2626; }
+    .sid-badge-reapplied { background:#ede9fe; color:#5b21b6; }
+    .sid-badge-reapplied::before { background:#7c3aed; }
+
+    /* ── Action button ── */
+    .btn-details {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 6px 14px;
+        background: #f8fafc;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 7px;
+        font-size: 12px; font-weight: 600;
+        color: #334155; cursor: pointer;
+        font-family: inherit;
+        transition: all 0.15s;
+    }
+    .btn-details:hover { border-color: #6366f1; color: #4f46e5; background: #f5f3ff; }
+
+    /* ── Empty states ── */
+    .empty-state {
+        padding: 40px 20px;
+        text-align: center;
+        color: #94a3b8;
+    }
+    .empty-state-icon {
+        font-size: 36px; margin-bottom: 10px;
+    }
+    .empty-state p { font-size: 13px; margin: 0; }
+
+    /* ── Reverted indicator ── */
+    .reverted-indicator {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 11px; font-weight: 600; color: #dc2626;
+        background: #fff5f5; border: 1px solid #fecaca;
+        padding: 2px 7px; border-radius: 5px; margin-top: 3px;
+    }
+
+    @media (max-width: 1100px) {
+        .stats-row { grid-template-columns: repeat(2, 1fr); }
+        .btn-new-request { padding: 9px 16px; font-size: 13px; }
+    }
+    @media (max-width: 768px) {
+        .dash-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+        .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .filter-bar { padding: 10px 12px; gap: 8px; }
+        .filter-group { min-width: 120px; }
+        .section-heading h3 { font-size: 14px; }
+    }
+    @media (max-width: 520px) {
+        .stats-row { grid-template-columns: 1fr 1fr; }
+        .stat-num { font-size: 18px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="dash-header">
+    <div>
+        <h2 class="dash-title">Station ID Dashboard</h2>
+        <p class="dash-subtitle">Manage and track your Station ID requests</p>
+    </div>
+    <a href="/auth/dc/station-id/new" class="btn-new-request">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Request
+    </a>
+</div>
+
+<!-- Stats -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#eff6ff;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <div>
+            <div class="stat-num" id="stat-total">{{ requests | length }}</div>
+            <div class="stat-lbl">Total Requests</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fef9c3;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#f59e0b;" id="stat-pending">{{ requests | selectattr('status', 'in', ['sent_to_chips', 'reapplied']) | list | length }}</div>
+            <div class="stat-lbl">Pending</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#dcfce7;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#16a34a;" id="stat-approved">{{ requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
+            <div class="stat-lbl">Approved</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fee2e2;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#dc2626;" id="stat-reverted">{{ requests | selectattr('status', 'equalto', 'reverted') | list | length }}</div>
+            <div class="stat-lbl">Reverted</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <div class="filter-group filter-group-search">
+        <label>Search Request</label>
+        <input type="text" id="sid-search" class="filter-input" placeholder="Search by request ID, district, model…" oninput="filterAllTables()">
+    </div>
+    <div class="filter-group">
+        <label>Time Period</label>
+        <select id="sid-date-filter" class="filter-input" onchange="filterAllTables()">
+            <option value="all" selected>All Time</option>
+            <option value="today">Today</option>
+            <option value="month">This Month</option>
+            <option value="year">This Year</option>
+        </select>
+    </div>
+</div>
+
+<!-- Pending Section -->
+<div class="section-heading">
+    <div class="section-heading-dot" style="background:#f59e0b;"></div>
+    <h3>Pending Station ID Requests</h3>
+    <span class="section-count" id="pending-count">–</span>
+</div>
+<div class="sid-table-wrapper" style="margin-bottom: 28px;">
+    <table class="sid-table" id="pending-table">
+        <thead>
+            <tr>
+                <th style="width: 50px;">S.No</th>
+                <th>Request ID</th>
+                <th>District</th>
+                <th>Model</th>
+                <th>User Type</th>
+                <th>Number of Kits</th>
+                <th>Status</th>
+                <th>Submitted At</th>
+                <th style="text-align: center;">Action</th>
+            </tr>
+        </thead>
+        <tbody id="pending-tbody">
+            {% set ns_p = namespace(count=1) %}
+            {% for r in requests if r.status in ['sent_to_chips', 'reapplied'] %}
+            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}" data-model="{{ r.model }}" data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}" data-status="{{ r.status }}" data-created="{{ r.submitted_at }}" data-remarks='{{ r.remarks_history | tojson | safe }}'>
+                <td>{{ ns_p.count }}</td>
+                <td><strong>{{ r.request_no }}</strong></td>
+                <td>{{ r.district_name }}</td>
+                <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
+                <td>
+                    {{ r.user_type | replace('_', ' ') | capitalize }}
+                    {% if r.user_type == 'custom' and r.user_type_custom_reason %}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;" title="{{ r.user_type_custom_reason }}">Reason: {{ r.user_type_custom_reason[:30] }}…</div>
+                    {% endif %}
+                </td>
+                <td><strong>{{ r.number_of_kits }}</strong></td>
+                <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize }}</span></td>
+                <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
+                <td style="text-align: center;">
+                    <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">Details</button>
+                </td>
+            </tr>
+            {% set ns_p.count = ns_p.count + 1 %}
+            {% endfor %}
+        </tbody>
+    </table>
+    <div id="pending-empty-msg" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">📥</div>
+        <p>No pending request records found matching current scope.</p>
+    </div>
+</div>
+
+<!-- History Section -->
+<div class="section-heading">
+    <div class="section-heading-dot" style="background:#16a34a;"></div>
+    <h3>Processed Log History</h3>
+    <span class="section-count" id="log-count">–</span>
+</div>
+<div class="sid-table-wrapper">
+    <table class="sid-table" id="log-table">
+        <thead>
+            <tr>
+                <th style="width: 50px;">S.No</th>
+                <th>Request ID</th>
+                <th>District</th>
+                <th>Model</th>
+                <th>User Type</th>
+                <th>Number of Kits</th>
+                <th>Status</th>
+                <th>Assigned ID</th>
+                <th>Processed At</th>
+                <th style="text-align: center;">Action</th>
+            </tr>
+        </thead>
+        <tbody id="log-tbody">
+            {% set ns_l = namespace(count=1) %}
+            {% for r in requests if r.status in ['approved', 'reverted'] %}
+            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}" data-model="{{ r.model }}" data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}" data-status="{{ r.status }}" data-created="{{ r.submitted_at }}" data-remarks='{{ r.remarks_history | tojson | safe }}'>
+                <td>{{ ns_l.count }}</td>
+                <td>
+                    <strong>{{ r.request_no }}</strong>
+                    {% if r.status == 'reverted' %}
+                    <br><span class="reverted-indicator">⚠ Reverted</span>
+                    {% endif %}
+                </td>
+                <td>{{ r.district_name }}</td>
+                <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
+                <td>{{ r.user_type | replace('_', ' ') | capitalize }}</td>
+                <td><strong>{{ r.number_of_kits }}</strong></td>
+                <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize }}</span></td>
+                <td><strong style="color:#16a34a;">{{ r.assigned_station_id or '—' }}</strong></td>
+                <td>{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
+                <td style="text-align: center;">
+                    <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">Details</button>
+                </td>
+            </tr>
+            {% set ns_l.count = ns_l.count + 1 %}
+            {% endfor %}
+        </tbody>
+    </table>
+    <div id="log-empty-msg" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">📜</div>
+        <p>No historical request logs found matching current scope.</p>
+    </div>
+</div>
+
+<script>
+    // Date Period Prefixes helper
+    function getDatePrefixes() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = (now.getMonth() + 1).toString().padStart(2, '0');
+        const d = now.getDate().toString().padStart(2, '0');
+        return {
+            today: `${y}-${m}-${d}`,
+            month: `${y}-${m}`,
+            year: `${y}`
+        };
+    }
+
+    // Modal remarks parser
+    function buildRemarksHtml(remarks) {
+        if (!remarks || remarks.length === 0) return '';
+        let html = `<div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:12px;">
+            <div style="font-weight:700; font-size:12px; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Remarks & Conversation</div>
+            <div style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">`;
+        remarks.forEach(r => {
+            const isChips = r.author_role === 'CHIPS_ADMIN' || r.author_role === 'chips';
+            const sender  = isChips ? 'CHiPS Admin' : 'District Coordinator';
+            const bg      = isChips ? '#f1f5f9' : '#eff6ff';
+            const border  = isChips ? '#e2e8f0' : '#dbeafe';
+            const color   = isChips ? '#475569' : '#1e40af';
+            html += `<div style="background:${bg}; border:1px solid ${border}; padding:10px 12px; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
+                    <span style="font-weight:700; color:${color};">${sender}</span>
+                    <span style="color:#94a3b8;">${r.created_at}</span>
+                </div>
+                <div style="font-size:13px; color:#334155; line-height:1.4;">${r.remark}</div>
+            </div>`;
+        });
+        html += `</div></div>`;
+        return html;
+    }
+
+    // Details/Reapply modal popup
+    function openDetailsModal(row) {
+        const id         = row.getAttribute('data-id');
+        const reqNo      = row.getAttribute('data-request-no');
+        const dist       = row.getAttribute('data-district');
+        const model      = row.getAttribute('data-model');
+        const userType   = row.getAttribute('data-user-type');
+        const customR    = row.getAttribute('data-custom-reason');
+        const kits       = row.getAttribute('data-kits');
+        const status     = row.getAttribute('data-status');
+        const remarksStr = row.getAttribute('data-remarks') || '[]';
+
+        let remarks = [];
+        try { remarks = JSON.parse(remarksStr); } catch(e){}
+
+        const isReverted = status === 'reverted';
+        const remarksHtml = buildRemarksHtml(remarks);
+
+        const infoHtml = `
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; text-align:left;">
+                <div style="background:#f8fafc; border-radius:8px; padding:10px 12px;">
+                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">Request ID</div>
+                    <div style="font-weight:700; color:#4f46e5; font-size:14px; margin-top:2px;">${reqNo}</div>
+                </div>
+                <div style="background:#f8fafc; border-radius:8px; padding:10px 12px;">
+                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">District</div>
+                    <div style="font-weight:600; color:#0f172a; font-size:13px; margin-top:2px;">${dist}</div>
+                </div>
+                <div style="background:#f8fafc; border-radius:8px; padding:10px 12px;">
+                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">Model Selection</div>
+                    <div style="font-weight:700; color:#0f172a; font-size:13px; margin-top:2px;">${model}</div>
+                </div>
+                <div style="background:#f8fafc; border-radius:8px; padding:10px 12px;">
+                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">Number of Kits</div>
+                    <div style="font-weight:700; color:#0f172a; font-size:13px; margin-top:2px;">${kits} Kit(s)</div>
+                </div>
+                <div style="grid-column: 1/-1; background:#f8fafc; border-radius:8px; padding:10px 12px;">
+                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">User Type purpose</div>
+                    <div style="font-weight:600; color:#0f172a; font-size:13px; margin-top:2px;">
+                        ${userType.replace('_',' ').toUpperCase()}
+                        ${userType==='custom'? `<div style="font-size:12px; font-weight:400; color:#475569; margin-top:4px; border-left:2px solid #cbd5e1; padding-left:8px;">${customR}</div>` : ''}
+                    </div>
+                </div>
+            </div>`;
+
+        const reapplyFormHtml = `
+            <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:12px; color:#c2410c; text-align:left;">
+                <strong>⚠ Action Required:</strong> Update details below and click resubmit to send corrected request back.
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; text-align:left;">
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:5px;">Model *</div>
+                    <select id="ra-model" style="width:100%; height:38px; border:1.5px solid #e2e8f0; border-radius:8px; padding:0 8px; font-size:13px; outline:none; background:#fff;">
+                        <option value="ECMP" ${model==='ECMP'?'selected':''}>ECMP (In House)</option>
+                        <option value="UCL" ${model==='UCL'?'selected':''}>UCL (External)</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:5px;">User Type *</div>
+                    <select id="ra-user-type" onchange="toggleRaCustom(this.value,'${customR}')" style="width:100%; height:38px; border:1.5px solid #e2e8f0; border-radius:8px; padding:0 8px; font-size:13px; outline:none; background:#fff;">
+                        <option value="new_user" ${userType==='new_user'?'selected':''}>New User</option>
+                        <option value="machine_id" ${userType==='machine_id'?'selected':''}>Machine ID</option>
+                        <option value="custom" ${userType==='custom'?'selected':''}>Custom Reason</option>
+                    </select>
+                </div>
+            </div>
+            <div style="text-align:left; margin-bottom:12px;">
+                <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:5px;">Number of Kits *</div>
+                <input id="ra-kits" type="number" value="${kits}" min="1" max="999" style="width:100%; height:38px; border:1.5px solid #e2e8f0; border-radius:8px; padding:0 10px; font-size:13px; outline:none;">
+            </div>
+            <div id="ra-custom-wrapper" style="margin-bottom:12px; display:${userType==='custom'?'block':'none'}; text-align:left;">
+                <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:6px;">Custom Reason *</div>
+                <textarea id="ra-custom-reason" style="width:100%; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; min-height:70px; outline:none;" placeholder="Specify your reason...">${userType==='custom'?customR:''}</textarea>
+            </div>
+            <div style="text-align:left;">
+                <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:6px;">Correction Notes * <span style="text-transform:none; font-size:10px; font-weight:400; color:#94a3b8;">(Mandatory — describe what was corrected)</span></div>
+                <textarea id="ra-remark" style="width:100%; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; min-height:75px; outline:none;" placeholder="Explain what changes you made to address the revert reason..."></textarea>
+            </div>`;
+
+        Swal.fire({
+            title: isReverted ? `<span style="color:#dc2626; font-family:inherit; font-weight:800;">Reapply Request</span>` : `<span style="font-family:inherit; font-weight:800;">Station ID Request</span>`,
+            html: `<div style="text-align:left;">${isReverted ? reapplyFormHtml : infoHtml}${remarksHtml}</div>`,
+            showCancelButton: isReverted,
+            confirmButtonText: isReverted ? '↩ Resubmit to CHiPS' : 'Close',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#4f46e5',
+            cancelButtonColor: '#64748b',
+            width: '600px',
+            focusConfirm: false,
+            preConfirm: () => {
+                if (!isReverted) return true;
+                const model    = document.getElementById('ra-model').value;
+                const userType = document.getElementById('ra-user-type').value;
+                const kits     = document.getElementById('ra-kits').value;
+                const remark   = document.getElementById('ra-remark').value.trim();
+                const customTa = document.getElementById('ra-custom-reason');
+                const customR  = customTa ? customTa.value.trim() : '';
+
+                if (!kits || parseInt(kits) < 1) { Swal.showValidationMessage('Enter a valid number of kits.'); return false; }
+                if (!remark) { Swal.showValidationMessage('Correction notes are mandatory.'); return false; }
+                if (userType === 'custom' && !customR) { Swal.showValidationMessage('Please specify the custom reason.'); return false; }
+
+                const fd = new FormData();
+                fd.append('model', model);
+                fd.append('user_type', userType);
+                fd.append('user_type_custom_reason', customR);
+                fd.append('number_of_kits', kits);
+                fd.append('reapply_remark', remark);
+                return fetch(`/auth/dc/station-id/${id}/reapply-json`, { method:'POST', body:fd })
+                    .then(res => { if (!res.ok) throw new Error('Submission failed.'); return res.json(); })
+                    .catch(err => Swal.showValidationMessage(`Error: ${err.message}`));
+            }
+        }).then(result => {
+            if (result.isConfirmed && isReverted) {
+                Swal.fire({ icon:'success', title:'Reapplied!', text:'Your corrected request has been sent back to CHiPS Admin.', confirmButtonColor:'#4f46e5' })
+                    .then(() => window.location.reload());
+            }
+        });
+    }
+
+    function toggleRaCustom(val, def) {
+        const w = document.getElementById('ra-custom-wrapper');
+        const t = document.getElementById('ra-custom-reason');
+        w.style.display = val === 'custom' ? 'block' : 'none';
+        if (val === 'custom' && !t.value) t.value = def || '';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        window.filterAllTables = function() {
+            const q  = (document.getElementById('sid-search').value||'').toLowerCase().trim();
+            const df = document.getElementById('sid-date-filter').value;
+            const p  = getDatePrefixes();
+            ['pending','log'].forEach(sec => {
+                const rows = document.querySelectorAll(`#${sec}-tbody tr[data-id]`);
+                let visible = 0;
+                rows.forEach(row => {
+                    const reqNo   = (row.getAttribute('data-request-no')||'').toLowerCase();
+                    const dist    = (row.getAttribute('data-district')||'').toLowerCase();
+                    const model   = (row.getAttribute('data-model')||'').toLowerCase();
+                    const created = row.getAttribute('data-created')||'';
+                    const matchQ  = !q || reqNo.includes(q)||dist.includes(q)||model.includes(q);
+                    let matchDate = true;
+                    if (df==='today') matchDate = created.startsWith(p.today);
+                    else if (df==='month') matchDate = created.startsWith(p.month);
+                    else if (df==='year')  matchDate = created.startsWith(p.year);
+                    const show = matchQ && matchDate;
+                    row.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+                const tbl = document.getElementById(`${sec}-table`);
+                const emg = document.getElementById(`${sec}-empty-msg`);
+                const cnt = document.getElementById(`${sec}-count`);
+                if (tbl) tbl.style.display = (visible===0 && rows.length>0) ? 'none' : '';
+                if (emg) emg.style.display = (visible===0) ? 'block' : 'none';
+                if (cnt) cnt.textContent = visible;
+            });
+        };
+        window.filterAllTables();
+    });
+</script>
+{% endblock %}
