@@ -373,15 +373,31 @@ def chips_serve_file(request_id, doc_type):
 )
 def chips_send_to_uidai(request_id):
     jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Session expired."}), 401
+
     headers = {"Authorization": f"Bearer {jwt_token}"}
     form_data = {
         "reviewed_by": session.get("user_id"),
         "uidai_remarks": request.form.get("uidai_remarks", ""),
     }
-    requests.patch(
-        f"{backend_url()}/{request_id}/send-to-uidai", data=form_data, headers=headers
-    )
-    return redirect(url_for("operator_activation.chips_all_requests"))
+
+    try:
+        resp = requests.patch(
+            f"{backend_url()}/{request_id}/send-to-uidai",
+            data=form_data,
+            headers=headers,
+        )
+        if resp.status_code in (200, 201):
+            return jsonify({"status": "success", "message": "Sent to UIDAI successfully."})
+        else:
+            try:
+                detail = resp.json().get("detail", "Backend validation error.")
+            except Exception:
+                detail = resp.text or "Unknown backend error."
+            return jsonify({"status": "error", "message": str(detail)}), resp.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({"status": "error", "message": "Backend service is offline."}), 503
 
 
 @operator_activation_bp.route(

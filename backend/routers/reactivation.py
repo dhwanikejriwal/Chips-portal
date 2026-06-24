@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 from backend.database import SessionLocal
 from backend.routers.auth import get_current_user
 from backend.models import User, District
+from backend.models.base import to_name
 
 # 🌟 CONNECTED: Pulling from your exact, unchanged model class baseline definitions
 from backend.models.reactivation import (
@@ -116,7 +117,7 @@ async def submit_operator_reactivation(
             db.query(ReactivationDocument).filter(ReactivationDocument.request_code == req_code).delete()
         else:
             # 🌟 CONNECTED: Queries target district_table configuration formats dynamically
-            district = db.execute(text("SELECT district_name FROM district_table WHERE district_code = :d_code"), {"d_code": str(current_user.district_id)}).fetchone()
+            district = db.query(District).filter(District.district_code == str(current_user.district_id)).first()
             district_name = district.district_name if district else "Unknown"
             req_code = generate_dynamic_request_code(db, str(current_user.district_id), district_name)
     
@@ -165,13 +166,15 @@ async def submit_operator_reactivation(
             db.add(ReactivationRemarkHistory(
                 request_code=req_code,
                 remark_history="Reapplied by DC",
-                sender_role="DC"
+                sender_role="DC",
+                status_after="REAPPLIED"
             ))
         else:
             db.add(ReactivationRemarkHistory(
                 request_code=req_code,
                 remark_history="Submitted by DC",
-                sender_role="DC"
+                sender_role="DC",
+                status_after="PENDING"
             ))
             
         db.commit()
@@ -190,27 +193,24 @@ async def get_reactivation_requests(
 ):
     user_role_str = get_user_role_str(current_user)
     
-    # 🌟 CONNECTED: Joint queries target district_table configuration schemas natively
-    base_query = """
-        SELECT r.id, r.request_code, r.operator_count, r.training_date, CAST(r.status AS TEXT) as raw_status, r.created_at, r.reject_reason, d.district_name as dist_name
-        FROM operator_reactivation_requests r LEFT JOIN district_table d ON r.district_id = d.district_code
-    """
+    query = db.query(OperatorReactivationRequest, District.district_name)\
+              .outerjoin(District, OperatorReactivationRequest.district_id == District.district_code)
     if user_role_str == "dc":
-        query_exec = db.execute(text(base_query + " WHERE r.district_id = :d_id ORDER BY r.created_at DESC"), {"d_id": str(current_user.district_id)})
-    else:
-        query_exec = db.execute(text(base_query + " ORDER BY r.created_at DESC"))
+        query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
+    
+    requests = query.order_by(OperatorReactivationRequest.created_at.desc()).all()
         
     compiled_list = []
-    for row in query_exec.fetchall():
+    for req, dist_name in requests:
         compiled_list.append({
-            "id": row.id,
-            "request_code": row.request_code,
-            "operator_count": row.operator_count,
-            "training_date": str(row.training_date) if row.training_date else "",
-            "status": str(row.raw_status or "PENDING").upper().replace(" ", "_").strip(),
-            "submitted_at": str(row.created_at)[:19],
-            "district_name": row.dist_name or "Raipur",
-            "revert_reason": row.reject_reason or ""
+            "id": req.id,
+            "request_code": req.request_code,
+            "operator_count": req.operator_count,
+            "training_date": str(req.training_date) if req.training_date else "",
+            "status": to_name(req.status_code, casing="upper").replace(" ", "_").strip(),
+            "submitted_at": str(req.created_at)[:19] if req.created_at else "",
+            "district_name": dist_name or "Raipur",
+            "revert_reason": req.reject_reason or ""
         })
     return compiled_list
 
@@ -222,19 +222,16 @@ async def get_reactivation_requests_with_operators(
 ):
     user_role_str = get_user_role_str(current_user)
     
-    # 🌟 CONNECTED: Join matching updated target district identifiers
-    base_query = """
-        SELECT r.id, r.request_code, r.operator_count, r.training_date, CAST(r.status AS TEXT) as raw_status, r.created_at, r.updated_at, r.reject_reason, d.district_name as dist_name
-        FROM operator_reactivation_requests r LEFT JOIN district_table d ON r.district_id = d.district_code
-    """
+    query = db.query(OperatorReactivationRequest, District.district_name)\
+              .outerjoin(District, OperatorReactivationRequest.district_id == District.district_code)
     if user_role_str == "dc":
-        query_exec = db.execute(text(base_query + " WHERE r.district_id = :d_id ORDER BY r.created_at DESC"), {"d_id": str(current_user.district_id)})
-    else:
-        query_exec = db.execute(text(base_query + " ORDER BY r.created_at DESC"))
+        query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
+    
+    requests = query.order_by(OperatorReactivationRequest.created_at.desc()).all()
         
     compiled_list = []
-    for row in query_exec.fetchall():
-        operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_code == row.request_code).all()
+    for req, dist_name in requests:
+        operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_code == req.request_code).all()
         ops_data = [
             {
                 "id": op.id,
@@ -257,27 +254,28 @@ async def get_reactivation_requests_with_operators(
         ]
         
         # 🌟 CONNECTED: Order matching your model 'timestamp' attribute mapping definitions
-        remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_code == row.request_code).order_by(ReactivationRemarkHistory.timestamp.desc()).all()
+        remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_code == req.request_code).order_by(ReactivationRemarkHistory.timestamp.desc()).all()
         timeline_logs = [
             {
                 "id": rm.id,
                 "message": rm.remark_history,
                 "sender_role": rm.sender_role,
-                "timestamp": str(rm.timestamp)[:19] if rm.timestamp else ""
+                "timestamp": str(rm.timestamp)[:19] if rm.timestamp else "",
+                "status_after": rm.status_after,
             }
             for rm in remarks_hist
         ]
         
         compiled_list.append({
-            "id": row.id,
-            "request_code": row.request_code,
-            "operator_count": row.operator_count,
-            "training_date": str(row.training_date) if row.training_date else "",
-            "status": str(row.raw_status or "PENDING").upper().replace(" ", "_").strip(),
-            "submitted_at": str(row.created_at)[:19] if row.created_at else "",
-            "updated_at": str(row.updated_at)[:19] if row.updated_at else "",
-            "district_name": row.dist_name or "Raipur",
-            "revert_reason": row.reject_reason or "",
+            "id": req.id,
+            "request_code": req.request_code,
+            "operator_count": req.operator_count,
+            "training_date": str(req.training_date) if req.training_date else "",
+            "status": to_name(req.status_code, casing="upper").replace(" ", "_").strip(),
+            "submitted_at": str(req.created_at)[:19] if req.created_at else "",
+            "updated_at": str(req.updated_at)[:19] if req.updated_at else "",
+            "district_name": dist_name or "Raipur",
+            "revert_reason": req.reject_reason or "",
             "operators": ops_data,
             "timeline_logs": timeline_logs
         })
@@ -314,7 +312,8 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
             "id": rm.id,
             "message": rm.remark_history,
             "sender_role": rm.sender_role,
-            "timestamp": str(rm.timestamp)[:19] if rm.timestamp else ""
+            "timestamp": str(rm.timestamp)[:19] if rm.timestamp else "",
+            "status_after": rm.status_after,
         }
         for rm in remarks_hist
     ]
@@ -333,7 +332,8 @@ async def activate_individual_operator(operator_id: int, db: Session = Depends(g
         db.add(ReactivationRemarkHistory(
             request_code=op.request_code,
             remark_history=f"Operator '{op.operator_name}' Activated",
-            sender_role="CHIPS_ADMIN"
+            sender_role="CHIPS_ADMIN",
+            status_after=op.parent_request.status if op.parent_request else None
         ))
         db.commit()
     return {"success": True}
@@ -347,7 +347,8 @@ async def send_to_uidai_individual_operator(operator_id: int, db: Session = Depe
         db.add(ReactivationRemarkHistory(
             request_code=op.request_code,
             remark_history=f"Operator '{op.operator_name}' Sent to UIDAI",
-            sender_role="CHIPS_ADMIN"
+            sender_role="CHIPS_ADMIN",
+            status_after=op.parent_request.status if op.parent_request else None
         ))
         db.commit()
     return {"success": True}
@@ -362,7 +363,8 @@ async def revert_individual_operator(operator_id: int, reason: str = Form(...), 
         db.add(ReactivationRemarkHistory(
             request_code=op.request_code,
             remark_history=f"Operator '{op.operator_name}' Reverted. Reason: {reason}",
-            sender_role="CHIPS_ADMIN"
+            sender_role="CHIPS_ADMIN",
+            status_after=op.parent_request.status if op.parent_request else None
         ))
         db.commit()
     return {"success": True}
@@ -410,7 +412,8 @@ async def update_and_reapply_operator(
     db.add(ReactivationRemarkHistory(
         request_code=op.request_code,
         remark_history=f"Operator '{op.operator_name}' Reapplied and Details Updated",
-        sender_role="DC"
+        sender_role="DC",
+        status_after=req.status if req else "REAPPLIED"
     ))
 
     db.commit()
@@ -464,7 +467,7 @@ async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(
     if req: 
         req.status = "SENT_TO_UIDAI"
     db.query(ReactivationOperator).filter(ReactivationOperator.request_code == request_code).update({"status": "SENT_TO_UIDAI"})
-    db.add(ReactivationRemarkHistory(request_code=request_code, remark_history=remarks, sender_role="CHIPS"))
+    db.add(ReactivationRemarkHistory(request_code=request_code, remark_history=remarks, sender_role="CHIPS", status_after="SENT_TO_UIDAI"))
     db.commit()
     return {"success": True}
 

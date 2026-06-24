@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Candidate, CandidateLogin, DCRemark
+from backend.utils.exporter import generate_excel_export
 
 router = APIRouter(prefix="/selection", tags=["selection"])
 
@@ -75,6 +76,70 @@ def get_dc_candidates(district_code: str | None = None, db: Session = Depends(ge
             "updated_at": c.updated_at.strftime("%Y-%m-%d %H:%M:%S") if c.updated_at else (c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else "")
         })
     return result
+
+@router.get("/export-excel")
+def export_candidates_excel(ids: str = None, db: Session = Depends(get_db)):
+    query = db.query(Candidate)
+    if ids:
+        id_list = [int(x) for x in ids.split(",") if x.isdigit()]
+        query = query.filter(Candidate.r_id.in_(id_list))
+    candidates = query.all()
+
+    export_data = []
+    for idx, c in enumerate(candidates):
+        district_name = c.district_rel.district_name if c.district_rel else "Unknown"
+
+        login_id = ""
+        password_raw = ""
+        if c.status == "Approved" and c.login:
+            login_id = c.login.user_id
+            password_raw = "Test@123"
+
+        export_data.append({
+            "s_no": idx + 1,
+            "request_code": c.request_code,
+            "district_name": district_name,
+            "name": c.name,
+            "mobile": c.mobile,
+            "email": c.email,
+            "qualification": c.qualification,
+            "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "",
+            "aadhaar": c.aadhaar or "",
+            "address": c.address or "",
+            "pincode": c.pincode or "",
+            "is_existing_operator": "Yes" if c.is_existing_operator else "No",
+            "lms_id": c.lms_id or "",
+            "nseit_id": c.nseit_id or "",
+            "status": c.status,
+            "generated_login_id": login_id,
+            "generated_password_raw": password_raw,
+            "submitted_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else "",
+            "updated_at": (c.updated_at or c.created_at).strftime("%Y-%m-%d %H:%M:%S") if (c.updated_at or c.created_at) else "",
+        })
+
+    column_mappings = {
+        "s_no": "S.No",
+        "request_code": "Request Code",
+        "district_name": "District",
+        "name": "Candidate Name",
+        "mobile": "Mobile No",
+        "email": "Email ID",
+        "qualification": "Qualification",
+        "dob": "Date of Birth",
+        "aadhaar": "Aadhaar Number",
+        "address": "Address",
+        "pincode": "Pincode",
+        "is_existing_operator": "Is Existing Operator",
+        "lms_id": "LMS ID",
+        "nseit_id": "NSEIT ID",
+        "status": "Status",
+        "generated_login_id": "Generated Login ID",
+        "generated_password_raw": "Generated Password",
+        "submitted_at": "Submitted At",
+        "updated_at": "Updated At",
+    }
+
+    return generate_excel_export(export_data, column_mappings, "candidate_requests")
 
 @router.post("/approve-candidate/{r_id}")
 def approve_candidate(r_id: int, payload: CandidateApproveRequest, db: Session = Depends(get_db)):

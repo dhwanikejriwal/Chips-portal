@@ -56,11 +56,81 @@ function revertL1Request(requestCode) {
     });
 }
 
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function getStatusBadgeHtml(status) {
+    const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+    let badgeClass = 'badge-pending';
+    let label = 'Pending';
+    if (s.includes('approve')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+    else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
+    else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
+    else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
+    else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
+    return `<span class="badge ${badgeClass}">${label}</span>`;
+}
+
+function buildRemarksHtml(remarks) {
+    if (!remarks || remarks.length === 0) {
+        return `<div style="text-align:center;padding:20px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or action history logged yet.</div>`;
+    }
+    let html = `<div class="remarks-timeline">
+        <div class="timeline-title">Audit Action History Log</div>
+        <div class="timeline-track">`;
+    remarks.forEach(r => {
+        const isChips = r.user_role !== 'dc';
+        const sender  = isChips ? 'CHiPS Admin' : 'District Coordinator';
+        const senderClass = isChips ? 'chips' : 'dc';
+
+        const action = r.action || '';
+        let statusBadgeHtmlInline = '';
+        let markerClass = 'marker-pending';
+        if (action) {
+            statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(action);
+            const aLower = action.toLowerCase();
+            if (aLower.includes('approve')) markerClass = 'marker-approved';
+            else if (aLower.includes('revert') || aLower.includes('reject')) markerClass = 'marker-reverted';
+            else if (aLower.includes('forward') || aLower.includes('uidai')) markerClass = 'marker-forwarded';
+            else if (aLower.includes('reappl')) markerClass = 'marker-reapplied';
+        }
+
+        const stepLabel = 'L1 Registration';
+
+        html += `
+            <div class="timeline-item ${senderClass}">
+                <div class="timeline-marker ${markerClass}"></div>
+                <div class="timeline-content">
+                    <div class="timeline-section-row">
+                        <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
+                    </div>
+                    <div class="timeline-by-row">
+                        <span class="timeline-by">By: <strong>${sender}</strong></span>
+                        <span class="timeline-time">${r.timestamp || ''}</span>
+                    </div>
+                    <div class="timeline-body">${escapeHtml(r.remark)}</div>
+                </div>
+            </div>
+        `;
+    });
+    html += `</div></div>`;
+    return html;
+}
+
 function openL1DetailsModal(requestCode) {
     Swal.fire({
-        title: `Fetching Request Details...`,
+        html: `<div style="padding:40px;text-align:center;font-family:'Inter',sans-serif;">
+            <div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+            <div style="color:#94a3b8;font-size:14px;">Fetching request details…</div>
+            <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+        </div>`,
+        showConfirmButton: false,
         allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
+        width: '600px',
+        padding: '0',
+        background: '#fff'
     });
 
     fetch(`/auth/l1-registration/requests/${requestCode}`)
@@ -69,75 +139,127 @@ function openL1DetailsModal(requestCode) {
         return res.json();
     })
     .then(data => {
-        Swal.close();
+        window.showL1Details(data, 'details');
+    })
+    .catch(err => Swal.fire('Error', err.message, 'error'));
+}
 
-        let statusStyle = "background: #fef3c7; color: #b45309;";
-        if (data.status === 'APPROVED') statusStyle = "background: #d1fae5; color: #065f46;";
-        else if (data.status === 'REVERTED') statusStyle = "background: #fee2e2; color: #b91c1c;";
-        else if (data.status === 'REAPPLIED') statusStyle = "background: #f3e8ff; color: #7e22ce;";
+window.showL1Details = function (data, activeView) {
+    const displayStatus = data.status || '';
+    const statusBadge = getStatusBadgeHtml(displayStatus);
+    const remarksHtml = buildRemarksHtml(data.remarks || []);
 
-        const htmlContent = `
-            <div style="text-align: left; font-size: 14px; color: #334155; font-family: sans-serif;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
-                    <span style="font-weight: 600;">Request: ${data.request_code}</span>
-                    <span style="${statusStyle} padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 11px;">${data.status}</span>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
-                    <div><strong>Station ID:</strong> ${data.station_id}</div>
-                    <div><strong>Machine ID:</strong> ${data.machine_id}</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
-                    <div><strong>Operator Name:</strong> ${data.operator_name || 'N/A'}</div>
-                    <div><strong>Operator ID:</strong> ${data.operator_id || 'N/A'}</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
-                    <div><strong>Model Type:</strong> ${data.model_type}</div>
-                    <div><strong>Software Version:</strong> ${data.software_version}</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
-                    <div><strong>UV ID:</strong> ${data.uv_id}</div>
-                    <div>
-                        <strong>UV Password:</strong>
-                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-                            <input type="password" id="chips_uv_password_display" value="${data.uv_password}" readonly style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 8px; font-size: 13px; color: #334155; width: 100%;" />
-                            <button type="button" onclick="togglePasswordVisibility('chips_uv_password_display', this)" style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #64748b;">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                ${data.remarks && data.remarks.length > 0 ? `
-                <div style="margin-top: 15px;">
-                    <strong style="display: block; margin-bottom: 8px;">Remarks History:</strong>
-                    <div style="max-height: 150px; overflow-y: auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
-                        ${data.remarks.map(r => `
-                            <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0;">
-                                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px;">
-                                    <span style="font-weight: bold; color: ${r.user_role === 'dc' ? '#2563eb' : '#059669'};">${r.user_role === 'dc' ? 'District Coordinator' : 'CHIPS Admin'}</span> - ${r.timestamp}
-                                </div>
-                                <div style="font-size: 13px; color: #334155;">
-                                    <strong style="color: #475569;">[${r.action}]</strong> ${r.remark}
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                ` : ''}
+    if (activeView === 'details') {
+        function infoCell(label, value) {
+            const v = (value && value !== 'null' && value !== 'undefined') ? escapeHtml(String(value)) : '<span style="color:#cbd5e1;">—</span>';
+            return `
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
+                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">${label}</div>
+                <div style="font-size:13px;font-weight:600;color:#0f172a;word-break:break-word;">${v}</div>
+            </div>`;
+        }
+
+        function sectionHead(title) {
+            return `<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">${title}</div>`;
+        }
+
+        let htmlContent = `
+        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                <span style="font-size: 14px; color: #666;">Request: <strong>${data.request_code}</strong></span>
+                <span>${statusBadge}</span>
             </div>
+            <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                Submitted At: <strong>${data.submitted_at || '—'}</strong>
+            </div>
+
+            ${sectionHead('L1 Registration Specs')}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                ${infoCell('Station ID', data.station_id)}
+                ${infoCell('Machine ID', data.machine_id)}
+                ${infoCell('Model Type', data.model_type)}
+                ${infoCell('Software Version', data.software_version)}
+            </div>
+
+            ${sectionHead('Operator Details')}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                ${infoCell('Operator Name', data.operator_name)}
+                ${infoCell('Operator ID', data.operator_id)}
+            </div>
+
+            ${sectionHead('UV Credentials')}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                ${infoCell('UV ID', data.uv_id)}
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">UV Password</div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
+                        <input type="password" id="chips_uv_password_display" value="${escapeHtml(data.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: #0f172a; width: 100%; outline: none;" />
+                        <button type="button" onclick="togglePasswordVisibility('chips_uv_password_display', this)" style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #64748b;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View Remarks Button -->
+            <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
+            </div>
+        </div>
         `;
 
         Swal.fire({
-            title: `L1 Request Details`,
+            title: `<span style="font-family:inherit; font-weight:800;">L1 Registration Request Details</span>`,
             html: htmlContent,
-            width: '600px',
+            showCancelButton: false,
+            showConfirmButton: true,
             confirmButtonText: 'Close',
-            confirmButtonColor: '#475569'
+            customClass: {
+                confirmButton: 'swal-btn-close'
+            },
+            width: '600px',
+            focusConfirm: false,
+            didOpen: () => {
+                document.getElementById('btn-show-remarks').onclick = () => {
+                    window.showL1Details(data, 'remarks');
+                };
+            }
         });
-    })
-    .catch(err => Swal.fire('Error', err.message, 'error'));
+    }
+    else if (activeView === 'remarks') {
+        let htmlContent = `
+        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                <span style="font-size: 14px; color: #666;">Request: <strong>${data.request_code}</strong></span>
+                <span>${statusBadge}</span>
+            </div>
+            ${remarksHtml}
+        </div>
+        `;
+
+        Swal.fire({
+            title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+            html: htmlContent,
+            showCancelButton: false,
+            showConfirmButton: true,
+            confirmButtonText: 'Close',
+            showDenyButton: true,
+            denyButtonText: 'Back',
+            customClass: {
+                confirmButton: 'swal-btn-close',
+                denyButton: 'swal-btn-back'
+            },
+            width: '600px',
+            focusConfirm: false
+        }).then((result) => {
+            if (result.isDenied) {
+                window.showL1Details(data, 'details');
+            }
+        });
+    }
 }
 
 function togglePasswordVisibility(inputId, btn) {
@@ -149,4 +271,26 @@ function togglePasswordVisibility(inputId, btn) {
         input.type = "password";
         btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
     }
+}
+
+// Export helper function to fetch Excel stream from backend
+function exportTableToExcel(tableID, filename = 'export.xlsx') {
+    const table = document.getElementById(tableID);
+    if (!table) return;
+
+    const bodyRows = table.querySelectorAll('tbody tr');
+    const ids = [];
+    bodyRows.forEach(row => {
+        if (row.style.display !== 'none' && row.cells.length > 1) {
+            const id = row.getAttribute('data-id');
+            if (id) ids.push(id);
+        }
+    });
+
+    if (ids.length === 0) {
+        Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#3085d6' });
+        return;
+    }
+
+    window.location.href = `/l1-registration/export-v2?ids=${ids.join(',')}`;
 }

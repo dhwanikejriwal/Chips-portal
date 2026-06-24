@@ -1,5 +1,5 @@
 import requests
-from flask import Blueprint, render_template, redirect, url_for, request, session, flash, current_app
+from flask import Blueprint, render_template, redirect, url_for, request, session, flash, current_app, Response
 
 lms_manage_bp = Blueprint("lms_manage", __name__)
 
@@ -134,3 +134,24 @@ def revert_lms(r_id):
             return response.json(), response.status_code
     except requests.exceptions.RequestException:
         return {"detail": "Error connecting to backend API server."}, 500
+
+@lms_manage_bp.route("/lms-manage/export", methods=["GET"])
+def export_lms_proxy():
+    if "access_token" not in session or session.get("role") not in ["DC", "EDM", "Admin"]:
+        return "Unauthorized", 401
+    ids = request.args.get("ids", "")
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/lms_manage/export-excel"
+    try:
+        response = requests.get(backend_url, params={"ids": ids}, stream=True)
+        if response.status_code == 200:
+            return Response(
+                response.iter_content(chunk_size=4096),
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={
+                    "Content-Disposition": response.headers.get("Content-Disposition", "attachment; filename=lms_requests.xlsx"),
+                    "Cache-Control": "no-cache"
+                }
+            )
+        return f"Export failed. Backend status: {response.status_code}", response.status_code
+    except Exception as e:
+        return f"Connection error: {str(e)}", 500

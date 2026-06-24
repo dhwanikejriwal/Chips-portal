@@ -1,4 +1,3 @@
-# backend/models/operator_activation.py
 from sqlalchemy import (
     Column,
     Integer,
@@ -9,7 +8,8 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
-from backend.models.base import Base, get_ist_time
+from sqlalchemy.ext.hybrid import hybrid_property
+from backend.models.base import Base, get_ist_time, to_code, to_name, get_status_expression
 
 
 class OperatorActivationRequest(Base):
@@ -34,7 +34,21 @@ class OperatorActivationRequest(Base):
     nseit_certification_date = Column(DateTime, nullable=True)
     nseit_certificate_expiry_date = Column(DateTime, nullable=True)
     pincode = Column(String(10), nullable=True)
-    status = Column(String(20), nullable=False, default="sent_to_chips", index=True)
+    
+    status_code = Column(String(2), nullable=False, default="SC", index=True)
+
+    @hybrid_property
+    def status(self) -> str:
+        return to_name(self.status_code, casing="lower")
+
+    @status.setter
+    def status(self, value: str):
+        self.status_code = to_code(value)
+
+    @status.expression
+    def status(cls):
+        return get_status_expression(cls.status_code, casing="lower")
+        
     remark_to_uidai = Column(Text, nullable=True)
     submitted_at = Column(DateTime, nullable=False, default=get_ist_time, index=True)
     reviewed_at = Column(DateTime, nullable=True)
@@ -102,6 +116,26 @@ class OperatorActivationRemark(Base):
     author_id = Column(Integer, ForeignKey("user_login_table.id"), nullable=False)
     author_role = Column(String(20), nullable=False)  # 'dc' or 'chips_admin'
     remark = Column(Text, nullable=False)
+    
+    status_after_code = Column(String(2), nullable=True)
+
+    @hybrid_property
+    def status_after(self) -> str | None:
+        if self.status_after_code is None:
+            return None
+        return to_name(self.status_after_code, casing="lower")
+
+    @status_after.setter
+    def status_after(self, value: str | None):
+        if value is None:
+            self.status_after_code = None
+        else:
+            self.status_after_code = to_code(value)
+
+    @status_after.expression
+    def status_after(cls):
+        return get_status_expression(cls.status_after_code, casing="lower")
+        
     created_at = Column(DateTime, nullable=False, default=get_ist_time)
 
     request = relationship("OperatorActivationRequest", back_populates="remarks")

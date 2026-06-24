@@ -15,7 +15,8 @@
 import enum
 from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, TEXT
 from sqlalchemy.orm import relationship
-from backend.models.base import Base, get_ist_now
+from sqlalchemy.ext.hybrid import hybrid_property
+from backend.models.base import Base, get_ist_now, to_code, to_name, get_status_expression
 
 class OperatorReactivationRequest(Base):
     __tablename__ = "operator_reactivation_requests"
@@ -27,8 +28,20 @@ class OperatorReactivationRequest(Base):
     operator_count = Column(Integer, nullable=False)
     training_date = Column(Date, nullable=False)
     
-    # Standard string tracking completely removes space character constraints
-    status = Column(String(50), default="PENDING", nullable=False, index=True)
+    status_code = Column(String(2), default="PE", nullable=False, index=True)
+
+    @hybrid_property
+    def status(self) -> str:
+        return to_name(self.status_code, casing="upper")
+
+    @status.setter
+    def status(self, value: str):
+        self.status_code = to_code(value)
+
+    @status.expression
+    def status(cls):
+        return get_status_expression(cls.status_code, casing="upper")
+        
     created_at = Column(DateTime(timezone=True), default=get_ist_now, nullable=False, index=True)
     updated_at = Column(DateTime(timezone=True), default=get_ist_now, onupdate=get_ist_now, nullable=False)
     reject_reason = Column(String(500), nullable=True)
@@ -49,7 +62,6 @@ class ReactivationOperator(Base):
     user_code = Column(String(50), nullable=True)
     certificate_number = Column(String(100), nullable=True)
     
-    # LMS Certificate ID explicitly added to model class schema structure
     lms_certificate_id = Column(String(100), nullable=True)
     
     operator_mobile = Column(String(20), nullable=False)
@@ -58,7 +70,21 @@ class ReactivationOperator(Base):
     certification_date = Column(Date, nullable=True)
     remarks = Column(String(250), nullable=True)
     model_type = Column(String(50), nullable=True)
-    status = Column(String(50), default="PENDING", nullable=False)
+    
+    status_code = Column(String(2), default="PE", nullable=False)
+
+    @hybrid_property
+    def status(self) -> str:
+        return to_name(self.status_code, casing="upper")
+
+    @status.setter
+    def status(self, value: str):
+        self.status_code = to_code(value)
+
+    @status.expression
+    def status(cls):
+        return get_status_expression(cls.status_code, casing="upper")
+        
     reject_reason = Column(String(500), nullable=True)
 
     parent_request = relationship("OperatorReactivationRequest", back_populates="operators")
@@ -71,6 +97,26 @@ class ReactivationRemarkHistory(Base):
     request_code = Column(String(50), ForeignKey("operator_reactivation_requests.request_code", ondelete="CASCADE"), nullable=False, index=True)
     remark_history = Column(TEXT, nullable=False)
     sender_role = Column(String(50), nullable=False)
+    
+    status_after_code = Column(String(2), nullable=True)
+
+    @hybrid_property
+    def status_after(self) -> str | None:
+        if self.status_after_code is None:
+            return None
+        return to_name(self.status_after_code, casing="upper")
+
+    @status_after.setter
+    def status_after(self, value: str | None):
+        if value is None:
+            self.status_after_code = None
+        else:
+            self.status_after_code = to_code(value)
+
+    @status_after.expression
+    def status_after(cls):
+        return get_status_expression(cls.status_after_code, casing="upper")
+        
     timestamp = Column(DateTime(timezone=True), default=get_ist_now, nullable=False)
 
     parent_request = relationship("OperatorReactivationRequest", back_populates="remarks")

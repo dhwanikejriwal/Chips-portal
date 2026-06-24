@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Blueprint, render_template, url_for, request, flash, current_app
+from flask import Blueprint, render_template, url_for, request, flash, current_app, session, redirect
 from werkzeug.utils import secure_filename
 
 candidate_register_bp = Blueprint("candidate_register", __name__)
@@ -140,13 +140,19 @@ def register():
             reg_response = requests.post(register_url, json=payload)
             if reg_response.status_code == 200:
                 data = reg_response.json()
-                return render_template(
-                    "user/reg_success.html",
-                    request_code=data["request_code"]
-                )
+                session["reg_success_code"] = data["request_code"]
+                return redirect(url_for("candidate_register.register_success"))
             else:
                 flash(get_backend_error(reg_response), "danger")
         except requests.exceptions.RequestException:
             flash("Error connecting to backend API server for registration.", "danger")
 
     return render_template("user/register.html", districts=districts)
+
+
+@candidate_register_bp.route("/register/success", methods=["GET"])
+def register_success():
+    request_code = session.pop("reg_success_code", None)
+    if not request_code:
+        return redirect("/")
+    return render_template("user/reg_success.html", request_code=request_code)

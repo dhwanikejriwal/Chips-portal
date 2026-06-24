@@ -3,227 +3,337 @@
 {% block title %}NSEIT Certificate Verification - DC/EDM Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_lms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% endblock %}
 
 {% block content %}
-<h1
-    style="text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; color: #1a202c; letter-spacing: -0.5px;">
-    NSEIT CERTIFICATE VERIFICATION
-</h1>
-
-<div class="container" style="max-width: 1200px; margin: 0 auto;">
-
-    <!-- Unified Filter Controls -->
-    <div class="filter-bar"
-        style="display: flex; gap: 15px; align-items: flex-end; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap;">
-        <div class="filter-group filter-group-search" style="display: flex; flex-direction: column; gap: 5px;">
-            <label style="font-size: 13px; font-weight: 600; color: #4a5568;">Search Candidate</label>
-            <input type="text" id="admin-search-input" placeholder="Search by code, name, mobile or email..."
-                class="table-input" style="width: 250px;" oninput="filterAdminQueues()">
-        </div>
-        <!-- Hidden input to align javascript filters for district coordinate views -->
-        <input type="hidden" id="admin-district-filter" value="all">
-        <div class="filter-group" style="display: flex; flex-direction: column; gap: 5px;">
-            <label style="font-size: 13px; font-weight: 600; color: #4a5568;">Time Period</label>
-            <select id="admin-date-filter" class="table-input" style="width: 150px;" onchange="filterAdminQueues()">
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="month" selected>This Month</option>
-            </select>
-        </div>
+<div class="dash-header">
+    <div>
+        <h2 class="dash-title">NSEIT CERTIFICATE VERIFICATION</h2>
+        <p class="dash-subtitle">Verify and manage candidate NSEIT certificates</p>
     </div>
-
-    <!-- Pending Queue Table Section -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #2d3748;">Pending NSEIT Verification Requests
-        </h2>
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <select id="admin-pending-status-filter" class="table-input"
-                style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="reapplied">Reapplied</option>
-            </select>
-            <button class="btn btn-sm"
-                onclick="exportTableToCSV('admin-pending-table', 'pending_nseit_requests.csv')">Export to Excel</button>
-        </div>
-    </div>
-    <div class="table-wrapper"
-        style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-        <table class="data-table" id="admin-pending-table"
-            style="width: 100%; border-collapse: collapse; text-align: left;">
-            <thead style="background: #edf2f7; border-bottom: 1px solid #e2e8f0;">
-                <tr>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">S.No</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Request Code</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">District</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Candidate Name
-                    </th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Mobile No</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Email ID</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Status</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Submitted At</th>
-                    <th
-                        style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568; text-align: center;">
-                        Action</th>
-                </tr>
-            </thead>
-            <tbody id="admin-queue-body">
-                {% for req in pending_requests %}
-                <tr id="request-row-{{ req.r_id }}" data-id="{{ req.r_id }}" data-district="{{ req.district_name }}"
-                    data-code="{{ req.request_code }}" data-name="{{ req.name }}" data-phone="{{ req.mobile }}"
-                    data-email="{{ req.email }}" data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
-                    data-aadhaar="{{ req.aadhaar }}" data-address="{{ req.address or '' }}"
-                    data-pincode="{{ req.pincode or '' }}"
-                    data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
-                    data-photo="{{ req.photo_upload or '' }}" data-lms-id="{{ req.lms_id or '' }}"
-                    data-nseit-id="{{ req.nseit_certificate_id or '' }}"
-                    data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-marksheet="{{ req.marksheet_upload }}"
-                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.nseit_status }}"
-                    data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
-                    style="border-bottom: 1px solid #edf2f7;">
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ req.request_code }}</strong></td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.district_name }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.name }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;">
-                        {% if req.nseit_status == 'Reapplied' %}
-                        <span class="badge badge-reapplied"
-                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>
-                        {% else %}
-                        <span class="badge badge-pending"
-                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>
-                        {% endif %}
-                    </td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
-                    <td style="padding: 12px 15px; text-align: center;">
-                        <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
-                            <button type="button" class="btn btn-sm" style="background-color: #007bff; color: white;"
-                                onclick="openForwardModal('{{ req.r_id }}', '{{ req.name }}')">Forward</button>
-                            <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
-                                onclick="openRevertModal('{{ req.r_id }}', '{{ req.name }}')">Revert</button>
-                            <button type="button" class="btn-details"
-                                onclick="openDetailsModal(this.closest('tr'))">Details</button>
-                        </div>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="9" style="padding: 30px; text-align: center; color: #718096; font-size: 14px;">No
-                        pending NSEIT verification requests found.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
-
-    <!-- Log History Table Section -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #2d3748;">NSEIT Verification History Log</h2>
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <select id="admin-history-status-filter" class="table-input"
-                style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
-                <option value="all">All Status</option>
-                <option value="approved">Approved</option>
-                <option value="forwarded">Forwarded</option>
-                <option value="forwarded again">Forwarded Again</option>
-                <option value="reverted">Reverted</option>
-                <option value="reverted by chips">Reverted by CHiPS</option>
-            </select>
-            <button class="btn btn-sm"
-                onclick="exportTableToCSV('admin-approved-table', 'nseit_verification_history_log.csv')">Export to
-                Excel</button>
-        </div>
-    </div>
-    <div class="table-wrapper"
-        style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-        <table class="data-table" id="admin-approved-table"
-            style="width: 100%; border-collapse: collapse; text-align: left;">
-            <thead style="background: #edf2f7; border-bottom: 1px solid #e2e8f0;">
-                <tr>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">S.No</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Request Code</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">District</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Candidate Name
-                    </th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Mobile No</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Email ID</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Status</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Submitted At</th>
-                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Updated At</th>
-                    <th
-                        style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568; text-align: center;">
-                        Action</th>
-                </tr>
-            </thead>
-            <tbody id="admin-approved-body">
-                {% for req in processed_requests %}
-                <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
-                    data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
-                    data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
-                    data-aadhaar="{{ req.aadhaar }}" data-lms-id="{{ req.lms_id or '' }}"
-                    data-nseit-id="{{ req.nseit_certificate_id or '' }}"
-                    data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-address="{{ req.address or '' }}"
-                    data-pincode="{{ req.pincode or '' }}"
-                    data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
-                    data-photo="{{ req.photo_upload or '' }}" data-marksheet="{{ req.marksheet_upload }}"
-                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.nseit_status }}"
-                    data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
-                    data-updated="{{ req.updated_at or req.created_at }}" style="border-bottom: 1px solid #edf2f7;">
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ req.request_code }}</strong></td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.district_name }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.name }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;">
-                        {% if req.nseit_status == 'Approved' %}
-                        <span class="badge badge-approved"
-                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>
-                        {% elif req.nseit_status == 'Forwarded' %}
-                        <span class="badge badge-forwarded"
-                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>
-                        {% elif req.nseit_status == 'Forwarded Again' %}
-                        <span class="badge badge-forwarded-again"
-                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded
-                            Again</span>
-                        {% elif req.nseit_status == 'Reverted by CHiPS' %}
-                        <span class="badge badge-reverted"
-                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted by
-                            CHiPS</span>
-                        {% else %}
-                        <span class="badge badge-reverted"
-                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted</span>
-                        {% endif %}
-                    </td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
-                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.updated_at or req.created_at }}</td>
-                    <td style="padding: 12px 15px; text-align: center;">
-                        <button type="button" class="btn-details"
-                            onclick="openDetailsModal(this.closest('tr'))">Details</button>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="10" style="padding: 30px; text-align: center; color: #718096; font-size: 14px;">No
-                        processed NSEIT verification history logs found.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
 </div>
 
+
+{% set total_requests = pending_requests | length + processed_requests | length %}
+{% set pending_count = pending_requests | selectattr('nseit_status', 'equalto', 'Pending') | list | length %}
+{% set reapplied_count = pending_requests | selectattr('nseit_status', 'equalto', 'Reapplied') | list | length %}
+{% set approved_count = processed_requests | selectattr('nseit_status', 'equalto', 'Approved') | list | length %}
+{% set forwarded_count = processed_requests | selectattr('nseit_status', 'equalto', 'Forwarded') | list | length %}
+{% set forwarded_again_count = processed_requests | selectattr('nseit_status', 'equalto', 'Forwarded Again') | list |
+length %}
+{% set reverted_count = processed_requests | selectattr('nseit_status', 'equalto', 'Reverted') | list | length %}
+{% set reverted_by_chips_count = processed_requests | selectattr('nseit_status', 'equalto', 'Reverted by CHiPS') | list
+| length %}
+
+<!-- Stats Row -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#eff6ff;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+                <path
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" id="stat-total">{{ total_requests }}</div>
+            <div class="stat-lbl">Total Requests</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fef9c3;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#f59e0b;" id="stat-pending">{{ pending_count }}</div>
+            <div class="stat-lbl">Pending</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#ffedd5;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#ea580c;" id="stat-reapplied">{{ reapplied_count }}</div>
+            <div class="stat-lbl">Reapplied</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#dcfce7;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2">
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#16a34a;" id="stat-approved">{{ approved_count }}</div>
+            <div class="stat-lbl">Approved</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#e0f2fe;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#0284c7;" id="stat-forwarded">{{ forwarded_count }}</div>
+            <div class="stat-lbl">Forwarded</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#f0f9ff;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#0369a1;" id="stat-forwarded-again">{{ forwarded_again_count }}</div>
+            <div class="stat-lbl">Forwarded Again</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fee2e2;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#dc2626;" id="stat-reverted">{{ reverted_count }}</div>
+            <div class="stat-lbl">Reverted</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fce7f3;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#db2777" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#db2777;" id="stat-reverted-by-chips">{{ reverted_by_chips_count }}</div>
+            <div class="stat-lbl">Reverted by CHiPS</div>
+        </div>
+    </div>
+</div>
+
+<!-- Unified Filter Controls -->
+<div class="filter-bar">
+    <div class="filter-group filter-group-search">
+        <label>Search Candidate</label>
+        <input type="text" id="admin-search-input" placeholder="Search by code, name, mobile or email..."
+            class="filter-input" oninput="filterAdminQueues()">
+    </div>
+    <!-- Hidden input to align javascript filters for district coordinate views -->
+    <input type="hidden" id="admin-district-filter" value="all">
+    <div class="filter-group">
+        <label>Time Period</label>
+        <select id="admin-date-filter" class="filter-input" onchange="filterAdminQueues()">
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month" selected>This Month</option>
+        </select>
+    </div>
+    <div class="filter-group-button" style="flex: 0 0 auto;">
+        <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Clear Filters
+        </button>
+    </div>
+</div>
+
+<!-- Pending Queue Table Section -->
+<div class="section-heading">
+    <div class="section-heading-dot" style="background:#f59e0b;"></div>
+    <h3>Pending NSEIT Verification Requests</h3>
+    <span class="section-count" id="pending-count">–</span>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <select id="admin-pending-status-filter" class="filter-input"
+            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="reapplied">Reapplied</option>
+        </select>
+        <button class="btn btn-sm"
+            onclick="exportTableToExcel('admin-pending-table', 'pending_nseit_requests.xlsx')">Export to Excel</button>
+    </div>
+</div>
+<div class="sid-table-wrapper">
+    <table class="sid-table" id="admin-pending-table">
+        <thead>
+            <tr>
+                <th>S.No</th>
+                <th>Request Code</th>
+                <th>District</th>
+                <th>Candidate Name</th>
+                <th>Mobile No</th>
+                <th>Email ID</th>
+                <th>Status</th>
+                <th>Submitted At</th>
+                <th style="text-align: center;">Action</th>
+            </tr>
+        </thead>
+        <tbody id="admin-queue-body">
+            {% for req in pending_requests %}
+            <tr id="request-row-{{ req.r_id }}" data-id="{{ req.r_id }}" data-district="{{ req.district_name }}"
+                data-code="{{ req.request_code }}" data-name="{{ req.name }}" data-phone="{{ req.mobile }}"
+                data-email="{{ req.email }}" data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
+                data-aadhaar="{{ req.aadhaar }}" data-address="{{ req.address or '' }}"
+                data-pincode="{{ req.pincode or '' }}"
+                data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+                data-photo="{{ req.photo_upload or '' }}" data-lms-id="{{ req.lms_id or '' }}"
+                data-nseit-id="{{ req.nseit_certificate_id or '' }}"
+                data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-marksheet="{{ req.marksheet_upload }}"
+                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.nseit_status }}"
+                data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}">
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ req.request_code }}</strong></td>
+                <td>{{ req.district_name }}</td>
+                <td>{{ req.name }}</td>
+                <td>{{ req.mobile }}</td>
+                <td>{{ req.email }}</td>
+                <td>
+                    {% if req.nseit_status == 'Reapplied' %}
+                    <span class="badge badge-reapplied">Reapplied</span>
+                    {% else %}
+                    <span class="badge badge-pending">Pending</span>
+                    {% endif %}
+                </td>
+                <td>{{ req.created_at }}</td>
+                <td style="text-align: center;">
+                    <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                        <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                            onclick="openForwardModal('{{ req.r_id }}', '{{ req.name }}')">Approve</button>
+                        <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                            onclick="openRevertModal('{{ req.r_id }}', '{{ req.name }}')">Revert</button>
+                        <button type="button" class="btn-details"
+                            onclick="openDetailsModal(this.closest('tr'))">Details</button>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="9" style="padding: 30px; text-align: center; color: #718096; font-size: 14px;">No
+                    pending NSEIT verification requests found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
+
+<!-- Log History Table Section -->
+<div class="section-heading">
+    <div class="section-heading-dot" style="background:#16a34a;"></div>
+    <h3>NSEIT Verification History Log</h3>
+    <span class="section-count" id="approved-count">–</span>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <select id="admin-history-status-filter" class="filter-input"
+            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
+            <option value="all">All Statuses</option>
+            <option value="approved">Approved</option>
+            <option value="forwarded">Forwarded</option>
+            <option value="forwarded again">Forwarded Again</option>
+            <option value="reverted">Reverted</option>
+            <option value="reverted by chips">Reverted by CHiPS</option>
+        </select>
+        <button class="btn btn-sm"
+            onclick="exportTableToExcel('admin-approved-table', 'nseit_verification_history_log.xlsx')">Export to
+            Excel</button>
+    </div>
+</div>
+<div class="sid-table-wrapper">
+    <table class="sid-table" id="admin-approved-table">
+        <thead>
+            <tr>
+                <th>S.No</th>
+                <th>Request Code</th>
+                <th>District</th>
+                <th>Candidate Name</th>
+                <th>Mobile No</th>
+                <th>Email ID</th>
+                <th>Status</th>
+                <th>Submitted At</th>
+                <th>Updated At</th>
+                <th style="text-align: center;">Action</th>
+            </tr>
+        </thead>
+        <tbody id="admin-approved-body">
+            {% for req in processed_requests %}
+            <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+                data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+                data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+                data-lms-id="{{ req.lms_id or '' }}" data-nseit-id="{{ req.nseit_certificate_id or '' }}"
+                data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-address="{{ req.address or '' }}"
+                data-pincode="{{ req.pincode or '' }}"
+                data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+                data-photo="{{ req.photo_upload or '' }}" data-marksheet="{{ req.marksheet_upload }}"
+                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.nseit_status }}"
+                data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+                data-updated="{{ req.updated_at or req.created_at }}">
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ req.request_code }}</strong></td>
+                <td>{{ req.district_name }}</td>
+                <td>{{ req.name }}</td>
+                <td>{{ req.mobile }}</td>
+                <td>{{ req.email }}</td>
+                <td>
+                    {% if req.nseit_status == 'Approved' %}
+                    <span class="badge badge-approved">Approved</span>
+                    {% elif req.nseit_status == 'Forwarded' %}
+                    <span class="badge badge-forwarded">Forwarded</span>
+                    {% elif req.nseit_status == 'Forwarded Again' %}
+                    <span class="badge badge-forwarded-again">Forwarded Again</span>
+                    {% elif req.nseit_status == 'Reverted by CHiPS' %}
+                    <span class="badge badge-reverted-by-chips">Reverted by CHiPS</span>
+                    {% else %}
+                    <span class="badge badge-reverted">Reverted</span>
+                    {% endif %}
+                </td>
+                <td>{{ req.created_at }}</td>
+                <td>{{ req.updated_at or req.created_at }}</td>
+                <td style="text-align: center;">
+                    <button type="button" class="btn-details"
+                        onclick="openDetailsModal(this.closest('tr'))">Details</button>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="10" style="padding: 30px; text-align: center; color: #718096; font-size: 14px;">No
+                    processed NSEIT verification history logs found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+
 <script>
+    function clearAllFilters() {
+        document.getElementById('admin-search-input').value = '';
+        document.getElementById('admin-date-filter').value = 'month';
+        const pendingFilter = document.getElementById('admin-pending-status-filter');
+        if (pendingFilter) pendingFilter.value = 'all';
+        const historyFilter = document.getElementById('admin-history-status-filter');
+        if (historyFilter) historyFilter.value = 'all';
+        filterAdminQueues();
+    }
+
     // Search and filters logic
     function filterAdminQueues() {
         const searchVal = document.getElementById('admin-search-input').value.toLowerCase().trim();
@@ -281,6 +391,11 @@
                 row.style.display = 'none';
             }
         });
+
+        const pendingCountEl = document.getElementById('pending-count');
+        if (pendingCountEl) pendingCountEl.textContent = pendingIdx - 1;
+        const approvedCountEl = document.getElementById('approved-count');
+        if (approvedCountEl) approvedCountEl.textContent = approvedIdx - 1;
     }
 
     function checkDateMatch(dateStr, filterVal) {
@@ -312,17 +427,17 @@
     // Modal forms submission triggers
     function openForwardModal(r_id, name) {
         Swal.fire({
-            title: 'Forward NSEIT Request',
+            title: 'Approve NSEIT Request',
             html: `
                 <div style="text-align: left;">
-                    <p>Verify details and forward candidate <strong>${name}</strong>'s request to CHiPS:</p>
-                    <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Forward Remarks (Mandatory)</label>
+                    <p>Verify details and approve candidate <strong>${name}</strong>'s request:</p>
+                    <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Approval Remarks (Mandatory)</label>
                     <textarea id="swal-remark" class="swal2-textarea" placeholder="Enter remarks..." style="margin: 0; width: 100%; box-sizing: border-box; height: 100px;"></textarea>
                 </div>
             `,
             showCancelButton: true,
-            confirmButtonText: 'Verify & Forward',
-            confirmButtonColor: '#007bff',
+            confirmButtonText: 'Approve',
+            confirmButtonColor: '#28a745',
             preConfirm: () => {
                 const remark = document.getElementById('swal-remark').value.trim();
                 if (!remark) {
@@ -342,10 +457,10 @@
                 }).then(response => {
                     if (response.ok) {
                         Swal.fire({
-                            title: 'Forwarded!',
-                            text: 'NSEIT Certificate verification request successfully forwarded.',
+                            title: 'Approved!',
+                            text: 'NSEIT Certificate verification request successfully approved.',
                             icon: 'success',
-                            confirmButtonColor: '#007bff',
+                            confirmButtonColor: '#28a745',
                             timer: 2000,
                             timerProgressBar: true
                         }).then(() => {
@@ -421,6 +536,228 @@
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
+    }    // Zoom photo in a custom overlay without closing the SweetAlert details modal
+    function zoomPhoto(url) {
+        viewDocument('Profile Photo', url);
+    }
+
+    // Custom inline document viewer matching the user's mockup window
+    function viewDocument(title, fileUrl) {
+        if (!fileUrl) return;
+
+        // Determine extension
+        const extension = fileUrl.split('.').pop().toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.zIndex = '99999';
+
+        // Create modal container
+        const modal = document.createElement('div');
+        modal.style.width = '90%';
+        modal.style.maxWidth = '800px';
+        modal.style.height = '85vh';
+        modal.style.maxHeight = '700px';
+        modal.style.backgroundColor = 'white';
+        modal.style.borderRadius = '12px';
+        modal.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.overflow = 'hidden';
+        modal.style.animation = 'swal2-show 0.3s ease-out';
+
+        // Create header
+        const header = document.createElement('div');
+        header.style.backgroundColor = '#1e3a8a'; // Dark Navy Blue
+        header.style.padding = '12px 20px';
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.color = 'white';
+
+        const headerTitle = document.createElement('span');
+        headerTitle.innerText = title;
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.fontSize = '16px';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        closeBtn.style.border = 'none';
+        closeBtn.style.width = '32px';
+        closeBtn.style.height = '32px';
+        closeBtn.style.borderRadius = '50%';
+        closeBtn.style.display = 'flex';
+        closeBtn.style.alignItems = 'center';
+        closeBtn.style.justifyContent = 'center';
+        closeBtn.style.cursor = 'pointer';
+        closeBtn.style.color = 'white';
+        closeBtn.style.transition = 'background 0.2s';
+        closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+        closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        closeBtn.onclick = () => document.body.removeChild(overlay);
+        closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+        header.appendChild(headerTitle);
+        header.appendChild(closeBtn);
+
+        // Create body
+        const body = document.createElement('div');
+        body.style.flex = '1';
+        body.style.padding = '20px';
+        body.style.backgroundColor = '#f8fafc';
+        body.style.display = 'flex';
+        body.style.justifyContent = 'center';
+        body.style.alignItems = 'center';
+        body.style.overflow = 'hidden';
+
+        if (isImage) {
+            const img = document.createElement('img');
+            img.src = fileUrl;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = '4px';
+            body.appendChild(img);
+        } else {
+            const iframe = document.createElement('iframe');
+            iframe.src = fileUrl;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.style.borderRadius = '4px';
+            body.appendChild(iframe);
+        }
+
+        // Create footer
+        const footer = document.createElement('div');
+        footer.style.padding = '12px 20px';
+        footer.style.borderTop = '1px solid #edf2f7';
+        footer.style.display = 'flex';
+        footer.style.justifyContent = 'flex-end';
+        footer.style.alignItems = 'center';
+        footer.style.gap = '12px';
+        footer.style.backgroundColor = 'white';
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = fileUrl;
+        const fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1) || 'document';
+        downloadLink.download = fileName;
+        downloadLink.style.display = 'inline-flex';
+        downloadLink.style.alignItems = 'center';
+        downloadLink.style.gap = '6px';
+        downloadLink.style.padding = '8px 16px';
+        downloadLink.style.borderRadius = '8px';
+        downloadLink.style.backgroundColor = '#ecfdf5';
+        downloadLink.style.color = '#10b981';
+        downloadLink.style.fontWeight = '600';
+        downloadLink.style.fontSize = '14px';
+        downloadLink.style.textDecoration = 'none';
+        downloadLink.style.cursor = 'pointer';
+        downloadLink.style.transition = 'background-color 0.2s';
+        downloadLink.onmouseenter = () => downloadLink.style.backgroundColor = '#d1fae5';
+        downloadLink.onmouseleave = () => downloadLink.style.backgroundColor = '#ecfdf5';
+        downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
+
+        const closeBtnFooter = document.createElement('button');
+        closeBtnFooter.type = 'button';
+        closeBtnFooter.style.padding = '8px 24px';
+        closeBtnFooter.style.borderRadius = '8px';
+        closeBtnFooter.style.backgroundColor = '#4f46e5';
+        closeBtnFooter.style.color = 'white';
+        closeBtnFooter.style.fontWeight = '600';
+        closeBtnFooter.style.fontSize = '14px';
+        closeBtnFooter.style.border = 'none';
+        closeBtnFooter.style.cursor = 'pointer';
+        closeBtnFooter.style.transition = 'background-color 0.2s';
+        closeBtnFooter.onmouseenter = () => closeBtnFooter.style.backgroundColor = '#4338ca';
+        closeBtnFooter.onmouseleave = () => closeBtnFooter.style.backgroundColor = '#4f46e5';
+        closeBtnFooter.onclick = () => document.body.removeChild(overlay);
+        closeBtnFooter.innerText = 'Close';
+
+        footer.appendChild(downloadLink);
+        footer.appendChild(closeBtnFooter);
+
+        modal.appendChild(header);
+        modal.appendChild(body);
+        modal.appendChild(footer);
+        overlay.appendChild(modal);
+
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        };
+
+        document.body.appendChild(overlay);
+    }
+
+    // Helper to build a document preview card matching the mockup design
+    function buildDocumentCard(title, fileUrl, defaultName) {
+        if (!fileUrl) return '';
+
+        // Determine file extension
+        const extension = fileUrl.split('.').pop().toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
+
+        let previewHtml = '';
+        let previewButtonHtml = '';
+
+        if (isImage) {
+            previewHtml = `<img src="${fileUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}')">`;
+            previewButtonHtml = `
+                <button type="button" onclick="viewDocument('${title}', '${fileUrl}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            `;
+        } else {
+            // Render document icon
+            previewHtml = `
+                <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}')">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+            `;
+            // For PDF or other documents, preview opens inline in custom overlay modal
+            previewButtonHtml = `
+                <button type="button" onclick="viewDocument('${title}', '${fileUrl}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            `;
+        }
+
+        // Extract filename for subtitle
+        const fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1) || defaultName;
+        const shortFileName = fileName.length > 22 ? fileName.substring(0, 19) + '...' : fileName;
+
+        return `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="height: 100px; width: 100%; background: #f8fafc; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #edf2f7;">
+                    ${previewHtml}
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
+                    <div style="text-align: left; overflow: hidden; flex-grow: 1;">
+                        <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
+                        <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${fileName}">${shortFileName}</div>
+                    </div>
+                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                        ${previewButtonHtml}
+                        <a href="${fileUrl}" download="${fileName}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background-color: #ecfdf5; color: #10b981; text-decoration: none; cursor: pointer; transition: background-color 0.2s;" title="Download">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
 
@@ -440,195 +777,326 @@
     }
 
     // Details popup
-    function openDetailsModal(row) {
-        const id = row.getAttribute('data-id');
-        const code = row.getAttribute('data-code');
-        const name = row.getAttribute('data-name');
-        const phone = row.getAttribute('data-phone');
-        const email = row.getAttribute('data-email');
-        const qualification = row.getAttribute('data-qualification');
-        const dob = row.getAttribute('data-dob');
-        const aadhaar = row.getAttribute('data-aadhaar');
-        const address = row.getAttribute('data-address') || '';
-        const pincode = row.getAttribute('data-pincode') || '';
-        const isOperator = row.getAttribute('data-is-operator') || 'No';
-        const photo = row.getAttribute('data-photo') || '';
-        const lmsId = row.getAttribute('data-lms-id') || '';
-        const nseitId = row.getAttribute('data-nseit-id') || '';
-        const examUniqueCode = row.getAttribute('data-exam-unique-code') || '';
-        const marksheet = row.getAttribute('data-marksheet');
-        const tenthMarksheet = row.getAttribute('data-tenth-marksheet') || '';
-        const status = row.getAttribute('data-status');
-        const remarksStr = row.getAttribute('data-remarks') || '[]';
-        const created = row.getAttribute('data-created') || '';
-
-        let remarks = [];
-        try {
-            remarks = JSON.parse(remarksStr);
-        } catch (e) {
-            console.error("Error parsing remarks:", e);
-        }
-
-        let timelineHtml = '';
-        if (remarks.length > 0) {
-            timelineHtml += '<div class="remarks-timeline"><div class="timeline-title">Audit Action History Log</div><div class="timeline-track">';
-            remarks.forEach(item => {
-                const sender = (item.sender_role === 'CHIPS') ? 'CHIPS Admin' :
-                    (item.sender_role === 'DC') ? 'District Coordinator' :
-                        (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
-                const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
-                const statusAfter = item.status_after || '';
-                const statusBadgeClassInline = {
-                    'Approved': 'badge-approved',
-                    'Forwarded': 'badge-forwarded',
-                    'Forwarded Again': 'badge-forwarded-again',
-                    'Reapplied': 'badge-reapplied',
-                    'Reverted': 'badge-reverted',
-                    'Reverted by CHiPS': 'badge-reverted-by-chips',
-                    'Pending': 'badge-pending'
-                }[statusAfter] || 'badge-pending';
-
-                const statusBadgeInline = statusAfter
-                    ? '<span class="badge ' + statusBadgeClassInline + '" style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;">' + statusAfter + '</span>'
-                    : '';
-                const stepLabel = 'NSEIT Certificate';
-                timelineHtml += '<div class="timeline-item ' + senderClass + '">';
-                timelineHtml += '<div class="timeline-marker"></div>';
-                timelineHtml += '<div class="timeline-content">';
-                timelineHtml += '<div class="timeline-section-row"><span class="timeline-step-label">' + stepLabel + '</span>' + (statusAfter ? (' ' + statusBadgeInline) : '') + '</div>';
-                timelineHtml += '<div class="timeline-by-row"><span class="timeline-by">By: <strong>' + sender + '</strong>' + (item.sender_username ? ' (' + item.sender_username + ')' : '') + '</span><span class="timeline-time">' + item.created_at + '</span></div>';
-                timelineHtml += '<div class="timeline-body">' + escapeHtml(item.remark) + '</div>';
-                timelineHtml += '</div>';
-                timelineHtml += '</div>';
-            });
-            timelineHtml += '</div></div>';
-        } else {
-            timelineHtml += '<div style="margin-top: 15px; font-style: italic; color: #888; text-align: left; font-size: 13px;">No remarks history/actions logged yet.</div>';
-        }
-
+    window.showCandidateDetails = function (d, activeView, showRemarks = true) {
         let statusBadge = '';
-        if (status === 'Approved') {
+        if (d.status === 'Approved') {
             statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>';
-        } else if (status === 'Forwarded') {
+        } else if (d.status === 'Forwarded') {
             statusBadge = '<span class="badge badge-forwarded" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>';
-        } else if (status === 'Forwarded Again') {
+        } else if (d.status === 'Forwarded Again') {
             statusBadge = '<span class="badge badge-forwarded-again" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded Again</span>';
-        } else if (status === 'Reapplied') {
+        } else if (d.status === 'Reapplied') {
             statusBadge = '<span class="badge badge-reapplied" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>';
-        } else if (status === 'Reverted') {
+        } else if (d.status === 'Reverted') {
             statusBadge = '<span class="badge badge-reverted" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted</span>';
         } else {
             statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
         }
 
-        const maskedAadhaar = aadhaar ? `XXXX XXXX ${aadhaar.slice(-4)}` : 'N/A';
+        const maskedAadhaar = d.aadhaar ? `XXXX XXXX ${d.aadhaar.slice(-4)}` : 'N/A';
 
-        let htmlContent = `
-        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                <span style="font-size: 14px; color: #666;">Request: <strong>${code}</strong></span>
-                <span>${statusBadge}</span>
+        if (activeView === 'details') {
+            let htmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
+                    <span>${statusBadge}</span>
+                </div>
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                    Submitted At: <strong>${d.created}</strong>
+                </div>
+
+                ${d.photo ? `<div style="text-align:center;margin-bottom:14px;"><img src="${d.photo}" alt="Profile Photo" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;cursor:pointer;" onclick="zoomPhoto('${d.photo}')"></div>` : ''}
+
+                <!-- Personal Information Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Personal Information</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Candidate Name</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.name}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Date of Birth</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.dob}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Mobile Number</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.phone}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Email ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.email}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Aadhaar Card</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${maskedAadhaar}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Existing Aadhaar Operator</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.isOperator}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Address Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Address</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Full Address</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.address || 'N/A'}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Pincode</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.pincode || 'N/A'}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">District</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.district}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Qualification & Certification Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Qualification &amp; Certification</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Qualification</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.qualification}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">LMS Credential ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.lmsId || 'None'}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certificate ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.nseitId || 'None'}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Candidate Unique ID (Exam ID)</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.examUniqueCode || 'None'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View Documents and View Remarks Buttons -->
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Documents</button>
+                    <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
+                </div>
             </div>
-            <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
-                Submitted At: <strong>${created}</strong>
+            `;
+
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">NSEIT Verification Details</span>`,
+                html: htmlContent,
+                showCancelButton: false, // NO Cancel button
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                customClass: {
+                    confirmButton: 'swal-btn-close'
+                },
+                width: '600px',
+                focusConfirm: false,
+                didOpen: () => {
+                    document.getElementById('btn-show-docs').onclick = () => {
+                        window.showCandidateDetails(d, 'documents', showRemarks);
+                    };
+                    document.getElementById('btn-show-remarks').onclick = () => {
+                        window.showCandidateDetails(d, 'remarks', showRemarks);
+                    };
+                }
+            });
+        }
+        else if (activeView === 'documents') {
+            let htmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
+                    <span>${statusBadge}</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
+                    ${buildDocumentCard('Profile Photo', d.photo, 'profile_photo.jpg')}
+                    ${buildDocumentCard('Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf')}
+                    ${d.tenthMarksheet ? buildDocumentCard('10th Marksheet', d.tenthMarksheet, '10th_marksheet.pdf') : ''}
+                </div>
             </div>
+            `;
 
-            ${photo ? `<div style="text-align:center;margin-bottom:14px;"><img src="${photo}" alt="Profile Photo" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;"></div>` : ''}
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Uploaded Documents</span>`,
+                html: htmlContent,
+                showCancelButton: false, // NO Cancel button
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                showDenyButton: true,
+                denyButtonText: 'Back',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false
+            }).then((result) => {
+                if (result.isDenied) {
+                    window.showCandidateDetails(d, 'details', showRemarks);
+                }
+            });
+        }
+        else if (activeView === 'remarks') {
+            let remarks = [];
+            try {
+                remarks = JSON.parse(d.remarksStr);
+            } catch (e) {
+                console.error("Error parsing remarks:", e);
+            }
 
-            <div style="margin-bottom:4px;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#718096;">Personal Information</div>
-            <div style="margin-bottom:15px;font-size:13px;color:#495057;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 20px;border-bottom:1px solid #eee;padding-bottom:14px;">
-                <div style="grid-column:1/-1;"><strong>Candidate Name:</strong> ${name}</div>
-                <div><strong>Date of Birth:</strong> ${dob}</div>
-                <div><strong>Mobile Number:</strong> ${phone}</div>
-                <div><strong>Email ID:</strong> ${email}</div>
-                <div><strong>Aadhaar Card:</strong> ${maskedAadhaar}</div>
-                <div><strong>Existing Aadhaar Operator:</strong> ${isOperator}</div>
+            function getStatusBadgeHtml(status) {
+                const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+                let badgeClass = 'badge-pending';
+                let label = 'Pending';
+
+                if (s.includes('approve')) {
+                    badgeClass = 'badge-approved';
+                    label = 'Approved';
+                } else if (s.includes('revert')) {
+                    badgeClass = 'badge-reverted';
+                    label = 'Reverted';
+                } else if (s.includes('forward') || s.includes('uidai')) {
+                    badgeClass = 'badge-forwarded';
+                    label = s.includes('again') ? 'Forwarded Again' : 'Forwarded';
+                } else if (s.includes('reappl')) {
+                    badgeClass = 'badge-reapplied';
+                    label = 'Reapplied';
+                } else if (s.includes('reject')) {
+                    badgeClass = 'badge-reverted';
+                    label = 'Rejected';
+                }
+                return `<span class="badge ${badgeClass}">${label}</span>`;
+            }
+
+            let timelineHtml = '';
+            if (showRemarks && remarks.length > 0) {
+                timelineHtml += '<div class="remarks-timeline"><div class="timeline-title">Audit Action History Log</div><div class="timeline-track">';
+                remarks.forEach(item => {
+                    const sender = (item.sender_role === 'CHIPS') ? 'CHIPS Admin' :
+                        (item.sender_role === 'DC') ? 'District Coordinator' :
+                            (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
+                    const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
+                    const statusAfter = item.status_after || '';
+
+                    let statusBadgeInline = '';
+                    let markerClass = 'marker-pending';
+                    if (statusAfter) {
+                        statusBadgeInline = getStatusBadgeHtml(statusAfter);
+                        const sLower = statusAfter.toLowerCase();
+                        if (sLower.includes('approve')) markerClass = 'marker-approved';
+                        else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                        else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                        else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+                    }
+
+                    const stepLabel = 'NSEIT Certificate';
+                    const username = item.sender_username || '';
+                    const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
+                    timelineHtml += '<div class="timeline-item ' + senderClass + '">';
+                    timelineHtml += '<div class="timeline-marker ' + markerClass + '"></div>';
+                    timelineHtml += '<div class="timeline-content">';
+                    timelineHtml += '<div class="timeline-section-row"><span class="timeline-step-label">' + stepLabel + '</span>' + (statusAfter ? (' ' + statusBadgeInline) : '') + '</div>';
+                    timelineHtml += '<div class="timeline-by-row"><span class="timeline-by">By: <strong>' + sender + '</strong>' + (hasUsername ? ' (' + escapeHtml(username) + ')' : '') + '</span><span class="timeline-time">' + item.created_at + '</span></div>';
+                    timelineHtml += '<div class="timeline-body">' + escapeHtml(item.remark) + '</div>';
+                    timelineHtml += '</div>';
+                    timelineHtml += '</div>';
+                });
+                timelineHtml += '</div></div>';
+            } else if (showRemarks) {
+                timelineHtml += '<div style="margin-top: 15px; font-style: italic; color: #888; text-align: center; font-size: 13px;">No remarks history/actions logged yet.</div>';
+            }
+
+            const headerStatusBadge = getStatusBadgeHtml(d.status);
+
+            let htmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
+                    <span>${headerStatusBadge}</span>
+                </div>
+                ${timelineHtml}
             </div>
+            `;
 
-            <div style="margin-bottom:4px;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#718096;">Address</div>
-            <div style="margin-bottom:15px;font-size:13px;color:#495057;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 20px;border-bottom:1px solid #eee;padding-bottom:14px;">
-                <div style="grid-column:1/-1;"><strong>Full Address:</strong> ${address || 'N/A'}</div>
-                <div><strong>Pincode:</strong> ${pincode || 'N/A'}</div>
-                <div><strong>District:</strong> ${row.getAttribute('data-district')}</div>
-            </div>
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+                html: htmlContent,
+                showCancelButton: false, // NO Cancel button
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                showDenyButton: true,
+                denyButtonText: 'Back',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false
+            }).then((result) => {
+                if (result.isDenied) {
+                    window.showCandidateDetails(d, 'details', showRemarks);
+                }
+            });
+        }
+    };
 
-            <div style="margin-bottom:4px;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#718096;">Qualification &amp; Documents</div>
-            <div style="margin-bottom:14px;font-size:13px;color:#495057;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 20px;border-bottom:1px solid #eee;padding-bottom:14px;">
-                <div><strong>Qualification:</strong> ${qualification}</div>
-                <div><strong>LMS Credential ID:</strong> ${lmsId || 'None'}</div>
-                <div><strong>NSEIT Certificate ID:</strong> ${nseitId || 'None'}</div>
-                <div><strong>Candidate Unique ID (Exam ID):</strong> ${examUniqueCode || 'None'}</div>
-            </div>
-
-            <div style="margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-                <a href="${marksheet}" target="_blank" class="btn btn-sm" style="background-color:#007bff;color:white;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-weight:500;">
-                    <span>📁</span> Qualification Marksheet
-                </a>
-                ${tenthMarksheet ? `<a href="${tenthMarksheet}" target="_blank" class="btn btn-sm" style="background-color:#6c757d;color:white;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-weight:500;"><span>📄</span> 10th Marksheet</a>` : ''}
-            </div>
-
-            ${timelineHtml}
-        </div>
-        `;
-
-        Swal.fire({
-            title: 'NSEIT Verification Details',
-            html: htmlContent,
-            confirmButtonText: 'Close',
-            confirmButtonColor: '#007bff',
-            width: '600px'
-        });
+    function openDetailsModal(row) {
+        const d = {
+            id: row.getAttribute('data-id'),
+            code: row.getAttribute('data-code'),
+            name: row.getAttribute('data-name'),
+            phone: row.getAttribute('data-phone'),
+            email: row.getAttribute('data-email'),
+            qualification: row.getAttribute('data-qualification'),
+            dob: row.getAttribute('data-dob'),
+            aadhaar: row.getAttribute('data-aadhaar'),
+            address: row.getAttribute('data-address') || '',
+            pincode: row.getAttribute('data-pincode') || '',
+            isOperator: row.getAttribute('data-is-operator') || 'No',
+            photo: row.getAttribute('data-photo') || '',
+            lmsId: row.getAttribute('data-lms-id') || '',
+            nseitId: row.getAttribute('data-nseit-id') || '',
+            examUniqueCode: row.getAttribute('data-exam-unique-code') || '',
+            marksheet: row.getAttribute('data-marksheet'),
+            tenthMarksheet: row.getAttribute('data-tenth-marksheet') || '',
+            status: row.getAttribute('data-status'),
+            remarksStr: row.getAttribute('data-remarks') || '[]',
+            created: row.getAttribute('data-created') || '',
+            district: row.getAttribute('data-district') || ''
+        };
+        window.showCandidateDetails(d, 'details', true);
     }
 
-    // Export helper function to CSV file format
-    function exportTableToCSV(tableID, filename = 'export.csv') {
+    // Export helper function to fetch Excel stream from backend
+    function exportTableToExcel(tableID, filename = 'export.xlsx') {
         const table = document.getElementById(tableID);
         if (!table) return;
 
-        const rows = [];
-        const headerRow = table.querySelector('thead tr');
-        const headers = headerRow ? headerRow.querySelectorAll('th') : [];
-
-        const validIndices = [];
-        const headerData = [];
-        headers.forEach((th, idx) => {
-            const text = th.innerText.trim();
-            if (text !== "Actions" && text !== "Action") {
-                validIndices.push(idx);
-                headerData.push(`"${text.replace(/"/g, '""')}"`);
-            }
-        });
-        rows.push(headerData.join(','));
-
         const bodyRows = table.querySelectorAll('tbody tr');
+        const ids = [];
         bodyRows.forEach(row => {
             if (row.style.display !== 'none' && row.cells.length > 1) {
-                const rowData = [];
-                const cells = row.querySelectorAll('td');
-                validIndices.forEach(idx => {
-                    if (cells[idx]) {
-                        let text = cells[idx].innerText.trim();
-                        text = text.replace(/\s+/g, ' ');
-                        rowData.push(`"${text.replace(/"/g, '""')}"`);
-                    } else {
-                        rowData.push('""');
-                    }
-                });
-                rows.push(rowData.join(','));
+                const id = row.getAttribute('data-id');
+                if (id) ids.push(id);
             }
         });
 
-        const csvContent = "\uFEFF" + rows.join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        if (ids.length === 0) {
+            Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#3085d6' });
+            return;
+        }
 
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        window.location.href = `/nseit-manage/export?ids=${ids.join(',')}`;
     }
 
     document.addEventListener("DOMContentLoaded", function () {

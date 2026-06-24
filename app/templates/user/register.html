@@ -139,11 +139,11 @@
 
                 <div class="form-group">
                     <label for="pincode" class="form-label">Pincode *</label>
-                    <input type="text" id="pincode" name="pincode" class="form-input" placeholder="6-digit pincode"
-                        pattern="[0-9]{6}" maxlength="6" required>
+                    <input type="text" id="pincode" name="pincode" class="form-input" placeholder="e.g. 492001"
+                        pattern="49[0-9]{4}" maxlength="6" required>
                     <div id="pincode_error"
                         style="color: #e53e3e; font-size: 13px; font-weight: 500; margin-top: 6px; display: none;">
-                        Pincode must be exactly 6 digits.</div>
+                        Pincode must be exactly 6 digits and start with 49 (Chhattisgarh region).</div>
                 </div>
 
                 <div class="form-group">
@@ -324,10 +324,24 @@
         document.getElementById('tenthMarksheetText').textContent = name;
     });
 
+    /* 🌟 REPLACE THE EVENT LISTENER WITH THIS RE-EVALUATION LOGIC: */
     document.getElementById('pincode').addEventListener('input', function () {
         this.value = this.value.replace(/\D/g, '');
         const errDiv = document.getElementById('pincode_error');
-        if (this.value.length > 0 && this.value.length < 6) { errDiv.style.display = 'block'; } else { errDiv.style.display = 'none'; }
+
+        if (this.value.length > 0) {
+            if (!this.value.startsWith('49')) {
+                errDiv.textContent = 'Pincode must strictly start with 49 (Chhattisgarh region).';
+                errDiv.style.display = 'block';
+            } else if (this.value.length < 6) {
+                errDiv.textContent = 'Pincode must be exactly 6 digits.';
+                errDiv.style.display = 'block';
+            } else {
+                errDiv.style.display = 'none';
+            }
+        } else {
+            errDiv.style.display = 'none';
+        }
     });
 
     const daySel = document.getElementById('dob_day');
@@ -405,7 +419,7 @@
             const qualVal = document.getElementById('qualification').value;
 
             const pincodeVal = document.getElementById('pincode').value;
-            const isPincodeValid = pincodeVal.length === 6;
+            const isPincodeValid = pincodeVal.length === 6 && pincodeVal.startsWith('49');
 
             const isPhotoOk = validateFileSize('photo', 'photo_error', 'Profile photo');
             const isTenthOk = validateFileSize('tenth_marksheet', 'tenth_marksheet_error', '10th marksheet');

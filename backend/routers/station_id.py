@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.station_id import StationIDRequest, StationIDRemark
+from backend.utils.exporter import generate_excel_export
 
 router = APIRouter()
 
@@ -18,6 +19,8 @@ def _remarks_list(remarks):
             "author_role": rm.author_role.upper(),
             "remark": rm.remark,
             "created_at": _fmt(rm.created_at),
+            "status_after": rm.status_after,
+            "sender_username": rm.author.username if rm.author else "",
         }
         for rm in remarks
     ]
@@ -183,6 +186,7 @@ def approve_station_request(
             author_id=reviewed_by,
             author_role="chips_admin",
             remark=chips_remarks.strip(),
+            status_after="approved",
         )
         db.add(remark)
 
@@ -213,6 +217,7 @@ def revert_station_request(
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=revert_reason.strip(),
+        status_after="reverted",
     )
     db.add(remark)
     db.commit()
@@ -252,8 +257,50 @@ def reapply_station_request(
         author_id=dc_id,
         author_role="dc",
         remark=reapply_remark.strip(),
+        status_after="reapplied",
     )
     db.add(remark)
     db.commit()
 
     return {"message": "Request reapplied successfully.", "request_id": r.id}
+
+
+@router.get("/export-excel")
+def export_station_id_excel(ids: str = None, db: Session = Depends(get_db)):
+    query = db.query(StationIDRequest)
+    if ids:
+        id_list = [int(x) for x in ids.split(",") if x.isdigit()]
+        query = query.filter(StationIDRequest.id.in_(id_list))
+    records = query.all()
+
+    export_data = []
+    for idx, r in enumerate(records):
+        dist_name = r.district.district_name if r.district else f"District {r.district_id}"
+        user_type_display = r.user_type_custom_reason if r.user_type == "custom" and r.user_type_custom_reason else str(r.user_type).replace("_", " ").title()
+        export_data.append({
+            "s_no": idx + 1,
+            "request_no": r.request_no or f"SID-REQ-{r.id}",
+            "district_name": dist_name,
+            "model": str(r.model).strip().upper(),
+            "user_type": user_type_display,
+            "number_of_kits": r.number_of_kits,
+            "status": str(r.status or "sent_to_chips").replace("_", " ").title(),
+            "assigned_station_id": r.station_id_inserted or "",
+            "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
+            "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else "",
+        })
+
+    column_mappings = {
+        "s_no": "S.No",
+        "request_no": "Request No",
+        "district_name": "District",
+        "model": "Device Model",
+        "user_type": "User Type",
+        "number_of_kits": "Number of Kits",
+        "status": "Status",
+        "assigned_station_id": "Assigned Station ID",
+        "submitted_at": "Submitted At",
+        "reviewed_at": "Reviewed At",
+    }
+
+    return generate_excel_export(export_data, column_mappings, "station_id_requests")

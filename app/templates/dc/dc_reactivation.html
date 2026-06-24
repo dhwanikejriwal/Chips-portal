@@ -2,20 +2,22 @@
 {% block title %}Operator Reactivation Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_reactivation.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 {% endblock %}
 
 {% block content %}
 <div class="container">
 
     {% set total_requests = requests|length %}
-    {% set metrics = namespace(pending=0, approved=0, reverted=0, sent_to_uidai=0) %}
+    {% set metrics = namespace(pending=0, approved=0, reverted=0, sent_to_uidai=0, reapplied=0) %}
     {% for req in requests %}
     {% set req_status_normalized = req.status|lower|replace('_',' ') %}
     {% if 'uidai' in req_status_normalized %}
     {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
     {% elif req_status_normalized == 'pending' %}
     {% set metrics.pending = metrics.pending + 1 %}
+    {% elif req_status_normalized == 'reapplied' %}
+    {% set metrics.reapplied = metrics.reapplied + 1 %}
     {% elif req_status_normalized in ['approved', 'reviewed', 'assigned', 'activated'] %}
     {% set metrics.approved = metrics.approved + 1 %}
     {% else %}
@@ -24,30 +26,21 @@
     {% endfor %}
 
     <div id="view-reactivation-dashboard-panel">
-        <div class="dashboard-header-bar">
+        <div class="dash-header">
             <div>
-                <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1e293b;">Operator Reactivation
-                    Dashboard
-                </h1>
-                <p style="margin: 4px 0 0 0; font-size: 14px; color: #64748b;">Manage and submit reactivation batches
-                </p>
+                <h2 class="dash-title">Operator Reactivation Dashboard</h2>
+                <p class="dash-subtitle">Manage and submit reactivation batches</p>
             </div>
-            <button type="button" onclick="switchReactivationView('app')"
-                style="background-color: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); transition: all 0.2s;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                New Reactivation Batch
+            <button type="button" onclick="switchReactivationView('app')" class="btn-new-request">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                New Request
             </button>
         </div>
 
-        <div class="metrics-grid">
-            <div
-                style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 15px;">
-                <div style="background: #f1f5f9; color: #475569; padding: 12px; border-radius: 8px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        <div class="stats-row-6">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #eff6ff; color: #3b82f6;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                         <polyline points="14 2 14 8 20 8"></polyline>
@@ -57,56 +50,65 @@
                     </svg>
                 </div>
                 <div>
-                    <div style="font-size: 20px; font-weight: 700; color: #1e293b;">{{ total_requests }}</div>
-                    <div style="font-size: 13px; color: #64748b;">Total Batches</div>
+                    <div class="stat-num">{{ total_requests }}</div>
+                    <div class="stat-lbl">Total Batches</div>
                 </div>
             </div>
-            <div
-                style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 15px;">
-                <div style="background: #fef3c7; color: #d97706; padding: 12px; border-radius: 8px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #fef3c7; color: #d97706;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
                         <polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
                 </div>
                 <div>
-                    <div style="font-size: 20px; font-weight: 700; color: #1e293b;">{{ metrics.pending }}</div>
-                    <div style="font-size: 13px; color: #64748b;">Pending</div>
+                    <div class="stat-num">{{ metrics.pending }}</div>
+                    <div class="stat-lbl">Pending</div>
                 </div>
             </div>
-            <div
-                style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 15px;">
-                <div style="background: #e0f2fe; color: #0284c7; padding: 12px; border-radius: 8px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #ffedd5; color: #c2410c;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 4v6h-6"></path>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="stat-num">{{ metrics.reapplied }}</div>
+                    <div class="stat-lbl">Reapplied</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #e0f2fe; color: #0284c7;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <line x1="22" y1="2" x2="11" y2="13"></line>
                         <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                     </svg>
                 </div>
                 <div>
-                    <div style="font-size: 20px; font-weight: 700; color: #1e293b;">{{ metrics.sent_to_uidai }}</div>
-                    <div style="font-size: 13px; color: #64748b;">Sent to UIDAI</div>
+                    <div class="stat-num">{{ metrics.sent_to_uidai }}</div>
+                    <div class="stat-lbl">Sent to UIDAI</div>
                 </div>
             </div>
-            <div
-                style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 15px;">
-                <div style="background: #d1fae5; color: #059669; padding: 12px; border-radius: 8px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #d1fae5; color: #059669;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                         <polyline points="22 4 12 14.01 9 11.01"></polyline>
                     </svg>
                 </div>
                 <div>
-                    <div style="font-size: 20px; font-weight: 700; color: #1e293b;">{{ metrics.approved }}</div>
-                    <div style="font-size: 13px; color: #64748b;">Approved</div>
+                    <div class="stat-num">{{ metrics.approved }}</div>
+                    <div class="stat-lbl">Approved</div>
                 </div>
             </div>
-            <div
-                style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 15px;">
-                <div style="background: #fee2e2; color: #dc2626; padding: 12px; border-radius: 8px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #fee2e2; color: #dc2626;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
                         <line x1="15" y1="9" x2="9" y2="15"></line>
@@ -114,8 +116,8 @@
                     </svg>
                 </div>
                 <div>
-                    <div style="font-size: 20px; font-weight: 700; color: #1e293b;">{{ metrics.reverted }}</div>
-                    <div style="font-size: 13px; color: #64748b;">Reverted</div>
+                    <div class="stat-num">{{ metrics.reverted }}</div>
+                    <div class="stat-lbl">Reverted</div>
                 </div>
             </div>
         </div>
@@ -133,16 +135,21 @@
                 Back to Dashboard
             </button>
         </div>
-        <div class="step-navigation-bar">
-            <div class="step-node active" id="node-step-1">
-                <div class="step-circle">1</div> Operator Details
+        <h2>Submit Operator Reactivation Request</h2>
+        <div class="oa-stepper">
+            <div class="oa-step active" id="node-step-1">
+                <span class="oa-step-num">1</span>
+                <span class="oa-step-text">Operator Details</span>
             </div>
-            <div class="step-node" id="node-step-2">
-                <div class="step-circle">2</div> Upload Documents
+            <div class="oa-step-divider" id="step-divider-1"></div>
+            <div class="oa-step" id="node-step-2">
+                <span class="oa-step-num">2</span>
+                <span class="oa-step-text">Upload Documents</span>
             </div>
         </div>
 
         <form id="reactivationForm" onsubmit="handleFormSubmissionPipeline(event);" enctype="multipart/form-data">
+            <input type="hidden" id="dc_district_name" value="{{ session.get('district_name', '') }}">
 
             <div id="section-operator-form-view">
                 <div class="form-card-container">
@@ -152,7 +159,7 @@
                         <div class="input-group">
                             <label>Name as per Aadhaar <span class="required-star">*</span></label>
                             <input type="text" id="op_name" class="form-control-input" placeholder="Enter Name"
-                                oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '').replace(/^\s+/g, '');">
+                                oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, '').replace(/^\s+/g, ''); autoFillUserCode();">
                             <div id="err_op_name" class="error-msg"
                                 style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
                             </div>
@@ -202,8 +209,8 @@
                             <label>Role <span class="required-star">*</span></label>
                             <select id="op_role" class="form-control-input"
                                 style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
-                                <option value="" disabled selected>Select Role</option>
-                                <option value="Supervisor">Supervisor</option>
+                                <option value="" disabled>Select Role</option>
+                                <option value="Supervisor" selected>Supervisor</option>
                                 <option value="Operator">Operator</option>
                             </select>
                             <div id="err_op_role" class="error-msg"
@@ -212,16 +219,15 @@
                         </div>
                         <div class="input-group">
                             <label>Registrar Code <span class="required-star">*</span></label>
-                            <input type="text" id="op_reg" class="form-control-input" value="986"
-                                placeholder="Enter Registrar Code"
-                                oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                            <input type="text" id="op_reg" class="form-control-input" value="986" readonly
+                                style="background-color: #f8fafc; color: #64748b; cursor: not-allowed;">
                             <div id="err_op_reg" class="error-msg"
                                 style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
                             </div>
                         </div>
                         <div class="input-group">
                             <label>EA Code <span class="required-star">*</span></label>
-                            <select id="op_ea" class="form-control-input"
+                            <select id="op_ea" class="form-control-input" onchange="autoFillUserCode();"
                                 style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
                                 <option value="" disabled selected>Select EA Code</option>
                                 <option value="2084">2084</option>
@@ -233,7 +239,10 @@
                         </div>
                         <div class="input-group">
                             <label>User Code <span class="required-star">*</span></label>
-                            <input type="text" id="op_user" class="form-control-input" placeholder="Enter User Code">
+                            <input type="text" id="user_code" name="user_code" required
+                                class="form-control-input" placeholder="Auto-generated: EACode_Name_DistrictCode"
+                                oninput="this.dataset.userEdited = 'true';">
+                            <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Auto-filled — you may edit if needed</span>
                             <div id="err_op_user" class="error-msg"
                                 style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
                             </div>
@@ -291,15 +300,21 @@
                     </div>
 
                     <div class="flex-actions-end" style="margin-top: 15px;">
-                        <button type="button" class="btn btn-secondary" onclick="clearFormInputs();">Clear
-                            Fields</button>
-                        <button type="button" class="btn btn-primary" onclick="addOperatorRecordToExcelLog();">+ Add
-                            Operator To List</button>
+                        <button type="button" class="btn btn-secondary" onclick="clearFormInputs();"
+                            style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                            Clear Fields
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="addOperatorRecordToExcelLog();"
+                            style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                            + Add Operator To List
+                        </button>
                     </div>
                 </div>
 
                 <div class="form-card-container">
-                    <h2 class="container-sub-title">Operators Detail</h2>
+                    <div style="margin-bottom: 15px;">
+                        <h2 class="container-sub-title" style="margin: 0;">Operators Detail</h2>
+                    </div>
                     <div class="excel-preview-container"
                         style="width: 100%; overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 6px;">
                         <table class="excel-table" id="excel-tracking-table"
@@ -339,10 +354,19 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="flex-actions-end" style="margin-top: 15px;">
-                        <button type="button" class="btn btn-wizard-next" onclick="navigateWizardStep(2);"
-                            id="next-step-trigger-btn" disabled>
-                            Next Step (Upload Documents) →
+                    <div class="flex-actions-between">
+                        <button type="button" class="btn btn-cancel" onclick="switchReactivationView('dashboard');"
+                            style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="navigateWizardStep(2);"
+                            id="next-step-trigger-btn" disabled
+                            style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                            Next Step →
                         </button>
                     </div>
                 </div>
@@ -365,31 +389,51 @@
                         Upload Supporting Verification Records
                     </h2>
 
-                    <div class="document-upload-grid">
-                        <div class="document-upload-box">
-                            <label>Training Photo (.jpg / .png) <span class="required-star">*</span></label>
-                            <input type="file" name="training_photo" accept="image/jpeg,image/png">
+                    <div class="oa-docs-grid">
+                        <div class="oa-doc-card">
+                            <label class="oa-doc-label">Training Photo <span class="required-star">*</span></label>
+                            <input type="file" name="training_photo" accept="image/jpeg,image/png" class="oa-file-input" required>
+                            <span class="oa-doc-helper">JPG, PNG (Max. 2MB)</span>
                         </div>
-                        <div class="document-upload-box">
-                            <label>District Nodal Endorsement Letter (.pdf) <span class="required-star">*</span></label>
-                            <input type="file" name="nodal_letter" accept=".pdf">
+                        <div class="oa-doc-card">
+                            <label class="oa-doc-label">District Nodal Endorsement Letter <span class="required-star">*</span></label>
+                            <input type="file" name="nodal_letter" accept=".pdf" class="oa-file-input" required>
+                            <span class="oa-doc-helper">PDF (Max. 2MB)</span>
                         </div>
-                        <div class="document-upload-box">
-                            <label>Office Memorandum (OM) Copy (.pdf) <span class="required-star">*</span></label>
-                            <input type="file" name="om_letter" accept=".pdf">
+                        <div class="oa-doc-card">
+                            <label class="oa-doc-label">Office Memorandum (OM) Copy <span class="required-star">*</span></label>
+                            <input type="file" name="om_letter" accept=".pdf" class="oa-file-input" required>
+                            <span class="oa-doc-helper">PDF (Max. 2MB)</span>
                         </div>
-                        <div class="document-upload-box">
-                            <label>Operator Attendance Excel Sheet (.xlsx) <span class="required-star">*</span></label>
-                            <input type="file" name="attendance_list" accept=".xlsx">
+                        <div class="oa-doc-card">
+                            <label class="oa-doc-label">Operator Attendance Excel Sheet <span class="required-star">*</span></label>
+                            <input type="file" name="attendance_list" accept=".xlsx" class="oa-file-input" required>
+                            <span class="oa-doc-helper">XLSX, XLS (Max. 5MB)</span>
                         </div>
                     </div>
 
                     <div class="flex-actions-between" style="margin-top: 20px;">
-                        <button type="button" class="btn btn-secondary" onclick="navigateWizardStep(1);">← Back to
-                            Operators</button>
-                        <button type="submit" class="btn btn-primary" style="padding: 12px 30px; font-size: 14px;">
-                            Submit Verification Request
+                        <button type="button" class="btn btn-cancel" onclick="navigateWizardStep(1);"
+                            style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                            ← Back
                         </button>
+                        <div style="display: flex; gap: 12px;">
+                            <button type="button" class="btn btn-cancel" onclick="switchReactivationView('dashboard');"
+                                style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary"
+                                style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                Submit Request
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -398,21 +442,15 @@
 
     <div id="view-workspace-history-panel" style="display: none;">
         <div class="form-card-container">
-            <div class="history-filter-bar">
-                <div style="flex: 2;">
-                    <label
-                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">SEARCH
-                        REQUEST ID</label>
-                    <input type="text" id="filter-search-id" oninput="applyHistoryPanelFiltersPipeline()"
-                        placeholder="e.g. RP-R0012"
-                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+            <div class="filter-bar" style="margin-bottom: 20px;">
+                <div class="filter-group filter-group-search">
+                    <label>Search Operator</label>
+                    <input type="text" id="filter-search-operator" class="filter-input" oninput="applyHistoryPanelFiltersPipeline()"
+                        placeholder="Search by operator name, mobile or request ID...">
                 </div>
-                <div style="flex: 1.5; min-width: 140px;">
-                    <label
-                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">FILTER
-                        BY STATUS</label>
-                    <select id="filter-status" onchange="applyHistoryPanelFiltersPipeline()"
-                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                <div class="filter-group">
+                    <label>Filter By Status</label>
+                    <select id="filter-status" class="filter-input" onchange="applyHistoryPanelFiltersPipeline()">
                         <option value="ALL">All Statuses</option>
                         <option value="PENDING">Pending</option>
                         <option value="SENT_TO_UIDAI">Sent to UIDAI</option>
@@ -420,44 +458,35 @@
                         <option value="REVERTED">Reverted</option>
                     </select>
                 </div>
-                <div style="flex: 1.5; min-width: 140px;">
-                    <label
-                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">FROM
-                        DATE</label>
-                    <input type="date" id="filter-date-from" onchange="applyHistoryPanelFiltersPipeline()"
-                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+                <div class="filter-group">
+                    <label>Time Period</label>
+                    <select id="filter-date-period" class="filter-input" onchange="applyHistoryPanelFiltersPipeline()">
+                        <option value="all">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month" selected>This Month</option>
+                    </select>
                 </div>
-                <div style="flex: 1.5; min-width: 140px;">
-                    <label
-                        style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">TO
-                        DATE</label>
-                    <input type="date" id="filter-date-to" onchange="applyHistoryPanelFiltersPipeline()"
-                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
-                </div>
-                <div style="flex: 1; min-width: 100px;">
-                    <button type="button" onclick="resetHistoryPanelFilters()"
-                        style="width: 100%; padding: 10px 14px; background: #64748b; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">
-                        Reset
+                <div class="filter-group-button" style="flex: 0 0 auto;">
+                    <button type="button" class="btn-clear-filters" onclick="resetHistoryPanelFilters()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        Clear Filters
                     </button>
                 </div>
             </div>
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
-                <h2 class="container-sub-title"
-                    style="margin: 0; text-transform: none; font-size: 18px; color: #1e293b; border-bottom: none; padding-bottom: 0;">
-                    <span
-                        style="display:inline-block; width:8px; height:8px; border-radius:2px; background:#10b981; margin-right:8px;"></span>
-                    Reactivation Request History
-                </h2>
+            <div class="section-heading">
+                <div class="section-heading-dot" style="background:#f59e0b;"></div>
+                <h3>Reactivation Request History</h3>
+                <span class="section-count" id="batches-count">–</span>
                 <a href="/auth/reactivation/export-all" target="_blank" class="btn btn-sm"
-                    style="background-color: #3b82f6; color: white; text-decoration: none; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    style="background-color: var(--dc-primary); color: white; text-decoration: none; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-left: auto;">
                     Export Pending Operators (Excel)
                 </a>
             </div>
 
             <div style="display: flex; gap: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px;">
                 <button type="button" class="main-view-tab active-view" onclick="switchMainView('batches', this)"
-                    style="background: none; border: none; padding: 10px 15px; font-weight: 700; font-size: 15px; color: #2563eb; border-bottom: 3px solid #2563eb; margin-bottom: -2px; cursor: pointer; transition: 0.2s;">
+                    style="background: none; border: none; padding: 10px 15px; font-weight: 700; font-size: 15px; color: #007bff; border-bottom: 3px solid #007bff; margin-bottom: -2px; cursor: pointer; transition: 0.2s;">
                     Reactivation Batches
                 </button>
                 <button type="button" class="main-view-tab" onclick="switchMainView('activated', this)"
@@ -467,11 +496,6 @@
             </div>
 
             <div id="view-batches-container">
-                <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
-                    <input type="text" id="global-op-search" placeholder="Search operator within batches..."
-                        onkeyup="applyHistoryPanelFiltersPipeline()"
-                        style="padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 13px; width: 250px; outline: none;">
-                </div>
                 <div id="history-cards-container">
                     {% if requests %}
                     {% for req in requests %}
@@ -479,6 +503,7 @@
                     <div class="history-data-row request-card" data-request-id="{{ req.request_code | upper }}"
                         data-status="{% if 'uidai' in req_status_normalized %}SENT_TO_UIDAI{% elif req_status_normalized == 'pending' %}PENDING{% elif req_status_normalized in ['approved', 'reviewed', 'assigned', 'activated'] %}REVIEWED{% else %}REVERTED{% endif %}"
                         data-training-date="{{ req.training_date }}"
+                        data-created="{{ req.created_at }}"
                         style="border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
 
                         <div class="batch-card-header-wrapper">
@@ -517,7 +542,7 @@
                             {% for op in req.operators %}
                             {% set op_status_lower = op.status|lower %}
                             <div class="op-row-item op-row-{{ req.request_code }} {% if op_status_lower in ['active', 'activated', 'reviewed', 'approved'] %}op-reviewed{% else %}op-other{% endif %}"
-                                data-name="{{ op.operator_name | lower }}">
+                                data-name="{{ op.operator_name | lower }}" data-mobile="{{ op.operator_mobile }}">
                                 <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
                                     <span style="color: #64748b; font-size: 13px; font-weight: 600; min-width: 20px;">{{
                                         loop.index }}.</span>
@@ -530,15 +555,15 @@
                                         style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
                                         <span style="color: #64748b;">Status:</span>
                                         {% if 'uidai' in op_status_lower %}
-                                        <span style="color: #0284c7;">{{ op.status|upper }}</span>
+                                        <span class="badge badge-forwarded">Sent to uidai</span>
                                         {% elif op_status_lower in ['active', 'activated'] %}
-                                        <span style="color: #059669;">{{ op.status|upper }}</span>
+                                        <span class="badge badge-approved">Approved</span>
                                         {% elif op_status_lower in ['reverted', 'revert back'] %}
-                                        <span style="color: #dc2626;">{{ op.status|upper }}</span>
+                                        <span class="badge badge-reverted">Reverted</span>
                                         {% elif op_status_lower in ['reapplied'] %}
-                                        <span style="color: #6d28d9;">{{ op.status|upper }}</span>
+                                        <span class="badge badge-reapplied">Reapplied</span>
                                         {% else %}
-                                        <span style="color: #d97706;">{{ op.status|upper }}</span>
+                                        <span class="badge badge-pending">Sent to chips</span>
                                         {% endif %}
                                     </div>
                                     <button type="button"
@@ -576,70 +601,49 @@
                     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f8fafc; padding: 10px 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
                     <span style="font-size: 14px; font-weight: 600; color: #334155;">All Approved & Activated
                         Operators</span>
-                    <input type="text" id="flat-op-search" placeholder="Search activated operators..."
-                        onkeyup="filterFlatActivatedOperators()"
-                        style="padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 13px; width: 250px; outline: none;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="text" id="flat-op-search" placeholder="Search activated operators..."
+                            onkeyup="filterFlatActivatedOperators()"
+                            style="padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 13px; width: 250px; outline: none;">
+                        <button type="button" class="btn btn-sm" onclick="exportTableToExcel('flat-activated-table', 'activated_operators.xlsx')">Export to Excel</button>
+                    </div>
                 </div>
 
-                <div class="table-responsive" style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-                    <table class="table table-hover"
-                        style="margin-bottom: 0; background: white; width: 100%; border-collapse: collapse;">
-                        <thead style="background: #f1f5f9;">
+                <div class="sid-table-wrapper">
+                    <table class="sid-table" id="flat-activated-table">
+                        <thead>
                             <tr>
-                                <th
-                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left;">
-                                    S.No</th>
-                                <th
-                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left;">
-                                    Operator Name</th>
-                                <th
-                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left;">
-                                    Mobile Number</th>
-                                <th
-                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left;">
-                                    Status</th>
-                                <th
-                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: left;">
-                                    Request ID</th>
-                                <th
-                                    style="font-size: 12px; font-weight: 700; color: #475569; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; text-align: center;">
-                                    Action</th>
+                                <th>S.No</th>
+                                <th>Operator Name</th>
+                                <th>Mobile Number</th>
+                                <th>Status</th>
+                                <th>Request ID</th>
+                                <th style="text-align: center;">Action</th>
                             </tr>
                         </thead>
                         <tbody id="flat-activated-tbody">
                             {% if activated_operators %}
                             {% for op in activated_operators %}
-                            <tr class="flat-op-row" data-name="{{ op.operator_name | lower }}"
-                                style="border-bottom: 1px solid #e2e8f0;">
-                                <td
-                                    style="padding: 12px 15px; vertical-align: middle; font-size: 13px; color: #64748b; font-weight: 600;">
-                                    {{ loop.index }}</td>
-                                <td
-                                    style="padding: 12px 15px; vertical-align: middle; font-size: 14px; font-weight: 600; color: #334155;">
-                                    {{ op.operator_name }}</td>
-                                <td
-                                    style="padding: 12px 15px; vertical-align: middle; font-size: 13px; color: #475569;">
-                                    {{
-                                    op.operator_mobile }}</td>
-                                <td style="padding: 12px 15px; vertical-align: middle;">
+                            <tr class="flat-op-row" data-name="{{ op.operator_name | lower }}">
+                                <td>{{ loop.index }}</td>
+                                <td>{{ op.operator_name }}</td>
+                                <td>{{ op.operator_mobile }}</td>
+                                <td>
                                     {% set op_status_lower = op.status|lower %}
                                     {% if op_status_lower in ['active', 'activated'] %}
-                                    <span
-                                        style="color: #059669; font-weight: 600; font-size: 12px; background: #d1fae5; padding: 4px 10px; border-radius: 6px;">{{
-                                        op.status|upper }}</span>
+                                    <span class="badge badge-approved">Activated</span>
+                                    {% elif op_status_lower in ['reverted', 'revert back'] %}
+                                    <span class="badge badge-reverted">Reverted</span>
+                                    {% elif op_status_lower in ['reapplied'] %}
+                                    <span class="badge badge-reapplied">Reapplied</span>
                                     {% else %}
-                                    <span
-                                        style="color: #0284c7; font-weight: 600; font-size: 12px; background: #e0f2fe; padding: 4px 10px; border-radius: 6px;">{{
-                                        op.status|upper }}</span>
+                                    <span class="badge badge-pending">Pending</span>
                                     {% endif %}
                                 </td>
-                                <td
-                                    style="padding: 12px 15px; vertical-align: middle; font-size: 13px; color: #2563eb; font-weight: 600;">
-                                    {{ op.request_code }}</td>
-                                <td style="padding: 12px 15px; vertical-align: middle; text-align: center;">
-                                    <button type="button"
-                                        onclick='window.currentViewingOperators = [{{ op | tojson | safe }}]; window.currentViewingRequestCode = "{{ op.request_code }}"; openIndividualOperatorDetailCard(0)'
-                                        style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.2s;">
+                                <td><strong>{{ op.request_code }}</strong></td>
+                                <td style="text-align: center;">
+                                    <button type="button" class="btn-details"
+                                        onclick='window.currentViewingOperators = [{{ op | tojson | safe }}]; window.currentViewingRequestCode = "{{ op.request_code }}"; openIndividualOperatorDetailCard(0)'>
                                         View Profile
                                     </button>
                                 </td>
@@ -647,8 +651,7 @@
                             {% endfor %}
                             {% else %}
                             <tr>
-                                <td colspan="6"
-                                    style="padding: 30px; text-align: center; color: #94a3b8; font-style: italic; border-bottom: 1px solid #e2e8f0;">
+                                <td colspan="6" style="text-align: center; color: #94a3b8; padding: 30px; font-style: italic;">
                                     No activated operators found.
                                 </td>
                             </tr>
@@ -663,7 +666,7 @@
 </div>
 
 <script>
-    const rawBackendPayload = {% if requests %}{ { requests | tojson | safe } } {% else %} []{% endif %};
+    const rawBackendPayload = {% if requests %}{{ requests | tojson | safe }}{% else %}[]{% endif %};
     window.historyRequestsPayload = Array.isArray(rawBackendPayload) ? rawBackendPayload.map(req => ({
         request_code: String(req.request_code || ''),
         submitted_at: String(req.created_at || '—'),

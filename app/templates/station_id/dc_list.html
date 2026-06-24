@@ -3,217 +3,7 @@
 {% block title %}Station ID Dashboard — CHiPS Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
-<style>
-    /* ── Dashboard Header ── */
-    .dash-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 24px;
-        gap: 16px;
-    }
-    .dash-title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 4px; }
-    .dash-subtitle { font-size: 13px; color: #64748b; }
-    .btn-new-request {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 11px 22px;
-        background: linear-gradient(135deg, #4f46e5, #6366f1);
-        color: #fff;
-        border: none;
-        border-radius: 10px;
-        font-size: 14px; font-weight: 700;
-        cursor: pointer;
-        text-decoration: none;
-        font-family: inherit;
-        box-shadow: 0 4px 14px rgba(99,102,241,0.35);
-        transition: all 0.2s;
-        white-space: nowrap;
-    }
-    .btn-new-request:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.45); }
-
-    /* ── Stats row ── */
-    .stats-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 14px;
-        margin-bottom: 24px;
-    }
-    .stat-card {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 16px 20px;
-        display: flex;
-        align-items: center;
-        gap: 14px;
-    }
-    .stat-icon {
-        width: 40px; height: 40px;
-        border-radius: 10px;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0;
-    }
-    .stat-num { font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1; }
-    .stat-lbl { font-size: 12px; color: #64748b; margin-top: 2px; }
-
-    /* ── Filter bar ── */
-    .filter-bar {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 14px 18px;
-        display: flex;
-        gap: 12px;
-        align-items: flex-end;
-        flex-wrap: wrap;
-        margin-bottom: 24px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    }
-    .filter-group {
-        display: flex; flex-direction: column; gap: 5px;
-        flex: 1; min-width: 160px;
-    }
-    .filter-group-search { flex: 2.5; }
-    .filter-group label {
-        font-size: 11px; font-weight: 700; color: #64748b;
-        text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    .filter-input {
-        height: 38px; padding: 0 12px;
-        border: 1.5px solid #e2e8f0; border-radius: 8px;
-        font-size: 13px; color: #334155;
-        outline: none; background: #fff; font-family: inherit;
-        transition: border-color 0.2s;
-    }
-    .filter-input:focus { border-color: #6366f1; }
-
-    /* ── Section heading ── */
-    .section-heading {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 28px 0 14px;
-    }
-    .section-heading-dot {
-        width: 10px; height: 10px; border-radius: 3px;
-    }
-    .section-heading h3 {
-        font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;
-    }
-    .section-heading .section-count {
-        background: #f1f5f9;
-        color: #475569;
-        font-size: 12px; font-weight: 700;
-        padding: 2px 9px; border-radius: 20px;
-        margin-left: auto;
-    }
-
-    /* ── Table ── */
-    .sid-table-wrapper {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        overflow-x: auto;
-        overflow-y: visible;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-        -webkit-overflow-scrolling: touch;
-    }
-    .sid-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13.5px;
-        min-width: 820px;
-    }
-    .sid-table thead tr { background: #f8fafc; }
-    .sid-table th {
-        text-align: left;
-        padding: 11px 14px;
-        font-size: 11px; font-weight: 700;
-        color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
-        border-bottom: 1px solid #e2e8f0;
-        white-space: nowrap;
-    }
-    .sid-table td {
-        padding: 13px 14px;
-        color: #334155;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-        white-space: nowrap;
-    }
-    .sid-table tbody tr:last-child td { border-bottom: none; }
-    .sid-table tbody tr:hover td { background: #fafafe; }
-
-    /* ── Status badges ── */
-    .sid-badge {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 4px 10px; border-radius: 20px;
-        font-size: 12px; font-weight: 700;
-    }
-    .sid-badge::before {
-        content: '';
-        width: 6px; height: 6px; border-radius: 50%;
-    }
-    .sid-badge-sent_to_chips { background:#fef9c3; color:#854d0e; }
-    .sid-badge-sent_to_chips::before { background:#f59e0b; }
-    .sid-badge-approved { background:#dcfce7; color:#166534; }
-    .sid-badge-approved::before { background:#16a34a; }
-    .sid-badge-reverted { background:#fee2e2; color:#991b1b; }
-    .sid-badge-reverted::before { background:#dc2626; }
-    .sid-badge-reapplied { background:#ede9fe; color:#5b21b6; }
-    .sid-badge-reapplied::before { background:#7c3aed; }
-
-    /* ── Action button ── */
-    .btn-details {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 6px 14px;
-        background: #f8fafc;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 7px;
-        font-size: 12px; font-weight: 600;
-        color: #334155; cursor: pointer;
-        font-family: inherit;
-        transition: all 0.15s;
-    }
-    .btn-details:hover { border-color: #6366f1; color: #4f46e5; background: #f5f3ff; }
-
-    /* ── Empty states ── */
-    .empty-state {
-        padding: 40px 20px;
-        text-align: center;
-        color: #94a3b8;
-    }
-    .empty-state-icon {
-        font-size: 36px; margin-bottom: 10px;
-    }
-    .empty-state p { font-size: 13px; margin: 0; }
-
-    /* ── Reverted indicator ── */
-    .reverted-indicator {
-        display: inline-flex; align-items: center; gap: 4px;
-        font-size: 11px; font-weight: 600; color: #dc2626;
-        background: #fff5f5; border: 1px solid #fecaca;
-        padding: 2px 7px; border-radius: 5px; margin-top: 3px;
-    }
-
-    @media (max-width: 1100px) {
-        .stats-row { grid-template-columns: repeat(2, 1fr); }
-        .btn-new-request { padding: 9px 16px; font-size: 13px; }
-    }
-    @media (max-width: 768px) {
-        .dash-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-        .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .filter-bar { padding: 10px 12px; gap: 8px; }
-        .filter-group { min-width: 120px; }
-        .section-heading h3 { font-size: 14px; }
-    }
-    @media (max-width: 520px) {
-        .stats-row { grid-template-columns: 1fr 1fr; }
-        .stat-num { font-size: 18px; }
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -229,45 +19,60 @@
     </a>
 </div>
 
-<!-- Stats -->
-<div class="stats-row">
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#eff6ff;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    {% set total_requests = requests | length %}
+    {% set sent_to_chips_count = requests | selectattr('status', 'equalto', 'sent_to_chips') | list | length %}
+    {% set reapplied_count = requests | selectattr('status', 'equalto', 'reapplied') | list | length %}
+    {% set approved_count = requests | selectattr('status', 'equalto', 'approved') | list | length %}
+    {% set reverted_count = requests | selectattr('status', 'equalto', 'reverted') | list | length %}
+
+    <!-- Stats -->
+    <div class="stats-row-5">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#eff6ff;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <div>
+                <div class="stat-num" id="stat-total">{{ total_requests }}</div>
+                <div class="stat-lbl">Total Requests</div>
+            </div>
         </div>
-        <div>
-            <div class="stat-num" id="stat-total">{{ requests | length }}</div>
-            <div class="stat-lbl">Total Requests</div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fef9c3;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div>
+                <div class="stat-num" style="color:#f59e0b;" id="stat-sent-to-chips">{{ sent_to_chips_count }}</div>
+                <div class="stat-lbl">Sent to CHiPS</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#ffedd5;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div>
+                <div class="stat-num" style="color:#ea580c;" id="stat-reapplied">{{ reapplied_count }}</div>
+                <div class="stat-lbl">Reapplied</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#dcfce7;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div>
+                <div class="stat-num" style="color:#16a34a;" id="stat-approved">{{ approved_count }}</div>
+                <div class="stat-lbl">Approved</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fee2e2;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </div>
+            <div>
+                <div class="stat-num" style="color:#dc2626;" id="stat-reverted">{{ reverted_count }}</div>
+                <div class="stat-lbl">Reverted</div>
+            </div>
         </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fef9c3;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#f59e0b;" id="stat-pending">{{ requests | selectattr('status', 'in', ['sent_to_chips', 'reapplied']) | list | length }}</div>
-            <div class="stat-lbl">Pending</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#dcfce7;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#16a34a;" id="stat-approved">{{ requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
-            <div class="stat-lbl">Approved</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fee2e2;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#dc2626;" id="stat-reverted">{{ requests | selectattr('status', 'equalto', 'reverted') | list | length }}</div>
-            <div class="stat-lbl">Reverted</div>
-        </div>
-    </div>
-</div>
 
 <!-- Filter Bar -->
 <div class="filter-bar">
@@ -278,11 +83,17 @@
     <div class="filter-group">
         <label>Time Period</label>
         <select id="sid-date-filter" class="filter-input" onchange="filterAllTables()">
-            <option value="all" selected>All Time</option>
+            <option value="all">All Time</option>
             <option value="today">Today</option>
-            <option value="month">This Month</option>
-            <option value="year">This Year</option>
+            <option value="week">This Week</option>
+            <option value="month" selected>This Month</option>
         </select>
+    </div>
+    <div class="filter-group-button" style="flex: 0 0 auto;">
+        <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            Clear Filters
+        </button>
     </div>
 </div>
 
@@ -291,6 +102,14 @@
     <div class="section-heading-dot" style="background:#f59e0b;"></div>
     <h3>Pending Station ID Requests</h3>
     <span class="section-count" id="pending-count">–</span>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <select id="pending-status-filter" class="filter-input" style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
+            <option value="all">All Statuses</option>
+            <option value="sent_to_chips">Sent to CHiPS</option>
+            <option value="reapplied">Reapplied</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.xlsx')">Export to Excel</button>
+    </div>
 </div>
 <div class="sid-table-wrapper" style="margin-bottom: 28px;">
     <table class="sid-table" id="pending-table">
@@ -343,6 +162,14 @@
     <div class="section-heading-dot" style="background:#16a34a;"></div>
     <h3>Processed Log History</h3>
     <span class="section-count" id="log-count">–</span>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <select id="log-status-filter" class="filter-input" style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
+            <option value="all">All Statuses</option>
+            <option value="approved">Approved</option>
+            <option value="reverted">Reverted</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportTableToExcel('log-table', 'processed_station_id_history.xlsx')">Export to Excel</button>
+    </div>
 </div>
 <div class="sid-table-wrapper">
     <table class="sid-table" id="log-table">
@@ -407,147 +234,270 @@
     }
 
     // Modal remarks parser
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function getStatusBadgeHtml(status) {
+        const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+        let badgeClass = 'badge-pending';
+        let label = 'Pending';
+        if (s.includes('approve')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+        else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
+        else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
+        else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
+        else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
+        return `<span class="badge ${badgeClass}">${label}</span>`;
+    }
+
+    // Modal remarks parser
     function buildRemarksHtml(remarks) {
         if (!remarks || remarks.length === 0) return '';
-        let html = `<div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:12px;">
-            <div style="font-weight:700; font-size:12px; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Remarks & Conversation</div>
-            <div style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">`;
+        let html = `<div class="remarks-timeline">
+            <div class="timeline-title">Audit Action History Log</div>
+            <div class="timeline-track">`;
         remarks.forEach(r => {
             const isChips = r.author_role === 'CHIPS_ADMIN' || r.author_role === 'chips';
             const sender  = isChips ? 'CHiPS Admin' : 'District Coordinator';
-            const bg      = isChips ? '#f1f5f9' : '#eff6ff';
-            const border  = isChips ? '#e2e8f0' : '#dbeafe';
-            const color   = isChips ? '#475569' : '#1e40af';
-            html += `<div style="background:${bg}; border:1px solid ${border}; padding:10px 12px; border-radius:8px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px;">
-                    <span style="font-weight:700; color:${color};">${sender}</span>
-                    <span style="color:#94a3b8;">${r.created_at}</span>
+            const senderClass = isChips ? 'chips' : 'dc';
+            
+            const statusAfter = r.status_after || '';
+            let statusBadgeHtmlInline = '';
+            let markerClass = 'marker-pending';
+            if (statusAfter) {
+                statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
+                const sLower = statusAfter.toLowerCase();
+                if (sLower.includes('approve')) markerClass = 'marker-approved';
+                else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+            }
+
+            const stepLabel = 'Station ID Request';
+            const username = r.sender_username || '';
+            const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
+            html += `
+                <div class="timeline-item ${senderClass}">
+                    <div class="timeline-marker ${markerClass}"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-section-row">
+                            <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
+                        </div>
+                        <div class="timeline-by-row">
+                            <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
+                            <span class="timeline-time">${r.created_at}</span>
+                        </div>
+                        <div class="timeline-body">${escapeHtml(r.remark)}</div>
+                    </div>
                 </div>
-                <div style="font-size:13px; color:#334155; line-height:1.4;">${r.remark}</div>
-            </div>`;
+            `;
         });
         html += `</div></div>`;
         return html;
     }
 
     // Details/Reapply modal popup
-    function openDetailsModal(row) {
-        const id         = row.getAttribute('data-id');
-        const reqNo      = row.getAttribute('data-request-no');
-        const dist       = row.getAttribute('data-district');
-        const model      = row.getAttribute('data-model');
-        const userType   = row.getAttribute('data-user-type');
-        const customR    = row.getAttribute('data-custom-reason');
-        const kits       = row.getAttribute('data-kits');
-        const status     = row.getAttribute('data-status');
-        const remarksStr = row.getAttribute('data-remarks') || '[]';
-
-        let remarks = [];
-        try { remarks = JSON.parse(remarksStr); } catch(e){}
-
-        const isReverted = status === 'reverted';
-        const remarksHtml = buildRemarksHtml(remarks);
+    window.showStationIdDetails = function (d, activeView) {
+        const isReverted = d.status === 'reverted';
+        
+        const statusBadge = getStatusBadgeHtml(d.status);
 
         const infoHtml = `
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; text-align:left;">
-                <div style="background:#f8fafc; border-radius:8px; padding:10px 12px;">
-                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">Request ID</div>
-                    <div style="font-weight:700; color:#4f46e5; font-size:14px; margin-top:2px;">${reqNo}</div>
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request ID: <strong>${d.reqNo}</strong></span>
+                    <span>${statusBadge}</span>
                 </div>
-                <div style="background:#f8fafc; border-radius:8px; padding:10px 12px;">
-                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">District</div>
-                    <div style="font-weight:600; color:#0f172a; font-size:13px; margin-top:2px;">${dist}</div>
-                </div>
-                <div style="background:#f8fafc; border-radius:8px; padding:10px 12px;">
-                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">Model Selection</div>
-                    <div style="font-weight:700; color:#0f172a; font-size:13px; margin-top:2px;">${model}</div>
-                </div>
-                <div style="background:#f8fafc; border-radius:8px; padding:10px 12px;">
-                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">Number of Kits</div>
-                    <div style="font-weight:700; color:#0f172a; font-size:13px; margin-top:2px;">${kits} Kit(s)</div>
-                </div>
-                <div style="grid-column: 1/-1; background:#f8fafc; border-radius:8px; padding:10px 12px;">
-                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">User Type purpose</div>
-                    <div style="font-weight:600; color:#0f172a; font-size:13px; margin-top:2px;">
-                        ${userType.replace('_',' ').toUpperCase()}
-                        ${userType==='custom'? `<div style="font-size:12px; font-weight:400; color:#475569; margin-top:4px; border-left:2px solid #cbd5e1; padding-left:8px;">${customR}</div>` : ''}
+                
+                <!-- Station ID Specifications Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Station ID Specifications</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">District Name</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.dist}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Model Selection</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.model}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Number of Kits</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.kits} Kit(s)</div>
+                        </div>
                     </div>
+                </div>
+
+                <!-- User Purpose & Details Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">User Purpose &amp; Details</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">User Type Purpose</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.userType.replace('_', ' ').toUpperCase()}</div>
+                        </div>
+                        ${d.userType === 'custom' ? `
+                        <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Custom Reason</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.customR}</div>
+                        </div>` : ''}
+                    </div>
+                </div>
+
+                <!-- View Remarks Button -->
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
                 </div>
             </div>`;
 
         const reapplyFormHtml = `
-            <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:12px; color:#c2410c; text-align:left;">
-                <strong>⚠ Action Required:</strong> Update details below and click resubmit to send corrected request back.
-            </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; text-align:left;">
-                <div>
-                    <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:5px;">Model *</div>
-                    <select id="ra-model" style="width:100%; height:38px; border:1.5px solid #e2e8f0; border-radius:8px; padding:0 8px; font-size:13px; outline:none; background:#fff;">
-                        <option value="ECMP" ${model==='ECMP'?'selected':''}>ECMP (In House)</option>
-                        <option value="UCL" ${model==='UCL'?'selected':''}>UCL (External)</option>
-                    </select>
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:12px; color:#c2410c; text-align:left;">
+                    <strong>⚠ Action Required:</strong> Update details below and click resubmit to send corrected request back.
                 </div>
-                <div>
-                    <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:5px;">User Type *</div>
-                    <select id="ra-user-type" onchange="toggleRaCustom(this.value,'${customR}')" style="width:100%; height:38px; border:1.5px solid #e2e8f0; border-radius:8px; padding:0 8px; font-size:13px; outline:none; background:#fff;">
-                        <option value="new_user" ${userType==='new_user'?'selected':''}>New User</option>
-                        <option value="machine_id" ${userType==='machine_id'?'selected':''}>Machine ID</option>
-                        <option value="custom" ${userType==='custom'?'selected':''}>Custom Reason</option>
-                    </select>
+                <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Modify Specifications</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; text-align:left;">
+                        <div>
+                            <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:5px;">Model *</div>
+                            <select id="ra-model" style="width:100%; height:38px; border:1.5px solid #e2e8f0; border-radius:8px; padding:0 8px; font-size:13px; outline:none; background:#fff;">
+                                <option value="ECMP" ${d.model==='ECMP'?'selected':''}>ECMP (In House)</option>
+                                <option value="UCL" ${d.model==='UCL'?'selected':''}>UCL (External)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:5px;">User Type *</div>
+                            <select id="ra-user-type" onchange="toggleRaCustom(this.value,'${d.customR}')" style="width:100%; height:38px; border:1.5px solid #e2e8f0; border-radius:8px; padding:0 8px; font-size:13px; outline:none; background:#fff;">
+                                <option value="new_user" ${d.userType==='new_user'?'selected':''}>New User</option>
+                                <option value="machine_id" ${d.userType==='machine_id'?'selected':''}>Machine ID</option>
+                                <option value="custom" ${d.userType==='custom'?'selected':''}>Custom Reason</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="text-align:left; margin-bottom:12px;">
+                        <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:5px;">Number of Kits *</div>
+                        <input id="ra-kits" type="number" value="${d.kits}" min="1" max="999" style="width:100%; height:38px; border:1.5px solid #e2e8f0; border-radius:8px; padding:0 10px; font-size:13px; outline:none; box-sizing: border-box;">
+                    </div>
+                    <div id="ra-custom-wrapper" style="margin-bottom:12px; display:${d.userType==='custom'?'block':'none'}; text-align:left;">
+                        <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:6px;">Custom Reason *</div>
+                        <textarea id="ra-custom-reason" style="width:100%; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; min-height:70px; outline:none; box-sizing: border-box;" placeholder="Specify your reason...">${d.userType==='custom'?d.customR:''}</textarea>
+                    </div>
                 </div>
-            </div>
-            <div style="text-align:left; margin-bottom:12px;">
-                <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:5px;">Number of Kits *</div>
-                <input id="ra-kits" type="number" value="${kits}" min="1" max="999" style="width:100%; height:38px; border:1.5px solid #e2e8f0; border-radius:8px; padding:0 10px; font-size:13px; outline:none;">
-            </div>
-            <div id="ra-custom-wrapper" style="margin-bottom:12px; display:${userType==='custom'?'block':'none'}; text-align:left;">
-                <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:6px;">Custom Reason *</div>
-                <textarea id="ra-custom-reason" style="width:100%; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; min-height:70px; outline:none;" placeholder="Specify your reason...">${userType==='custom'?customR:''}</textarea>
-            </div>
-            <div style="text-align:left;">
-                <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:6px;">Correction Notes * <span style="text-transform:none; font-size:10px; font-weight:400; color:#94a3b8;">(Mandatory — describe what was corrected)</span></div>
-                <textarea id="ra-remark" style="width:100%; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; min-height:75px; outline:none;" placeholder="Explain what changes you made to address the revert reason..."></textarea>
+                
+                <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Reapply Correction Notes</div>
+                    <div style="text-align:left;">
+                        <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:6px;">Correction Notes * <span style="text-transform:none; font-size:10px; font-weight:400; color:#94a3b8;">(Mandatory — describe what was corrected)</span></div>
+                        <textarea id="ra-remark" style="width:100%; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; min-height:75px; outline:none; box-sizing: border-box;" placeholder="Explain what changes you made to address the revert reason..."></textarea>
+                    </div>
+                </div>
+                
+                <!-- View Remarks Button for Reapply Modal -->
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Audit History Log</button>
+                </div>
             </div>`;
 
-        Swal.fire({
-            title: isReverted ? `<span style="color:#dc2626; font-family:inherit; font-weight:800;">Reapply Request</span>` : `<span style="font-family:inherit; font-weight:800;">Station ID Request</span>`,
-            html: `<div style="text-align:left;">${isReverted ? reapplyFormHtml : infoHtml}${remarksHtml}</div>`,
-            showCancelButton: isReverted,
-            confirmButtonText: isReverted ? '↩ Resubmit to CHiPS' : 'Close',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#4f46e5',
-            cancelButtonColor: '#64748b',
-            width: '600px',
-            focusConfirm: false,
-            preConfirm: () => {
-                if (!isReverted) return true;
-                const model    = document.getElementById('ra-model').value;
-                const userType = document.getElementById('ra-user-type').value;
-                const kits     = document.getElementById('ra-kits').value;
-                const remark   = document.getElementById('ra-remark').value.trim();
-                const customTa = document.getElementById('ra-custom-reason');
-                const customR  = customTa ? customTa.value.trim() : '';
+        if (activeView === 'details') {
+            Swal.fire({
+                title: isReverted ? `<span style="color:#dc2626; font-family:inherit; font-weight:800;">Reapply Request</span>` : `<span style="font-family:inherit; font-weight:800;">Station ID Request Details</span>`,
+                html: isReverted ? reapplyFormHtml : infoHtml,
+                showCancelButton: false, // NO Cancel button
+                confirmButtonText: isReverted ? 'Resubmit to CHiPS' : 'Close',
+                customClass: {
+                    confirmButton: 'swal-btn-close'
+                },
+                width: '600px',
+                focusConfirm: false,
+                didOpen: () => {
+                    const btnRemarks = document.getElementById('btn-show-remarks');
+                    if (btnRemarks) {
+                        btnRemarks.onclick = () => {
+                            window.showStationIdDetails(d, 'remarks');
+                        };
+                    }
+                },
+                preConfirm: () => {
+                    if (!isReverted) return true;
+                    const model    = document.getElementById('ra-model').value;
+                    const userType = document.getElementById('ra-user-type').value;
+                    const kits     = document.getElementById('ra-kits').value;
+                    const remark   = document.getElementById('ra-remark').value.trim();
+                    const customTa = document.getElementById('ra-custom-reason');
+                    const customR  = customTa ? customTa.value.trim() : '';
 
-                if (!kits || parseInt(kits) < 1) { Swal.showValidationMessage('Enter a valid number of kits.'); return false; }
-                if (!remark) { Swal.showValidationMessage('Correction notes are mandatory.'); return false; }
-                if (userType === 'custom' && !customR) { Swal.showValidationMessage('Please specify the custom reason.'); return false; }
+                    if (!kits || parseInt(kits) < 1) { Swal.showValidationMessage('Enter a valid number of kits.'); return false; }
+                    if (!remark) { Swal.showValidationMessage('Correction notes are mandatory.'); return false; }
+                    if (userType === 'custom' && !customR) { Swal.showValidationMessage('Please specify the custom reason.'); return false; }
 
-                const fd = new FormData();
-                fd.append('model', model);
-                fd.append('user_type', userType);
-                fd.append('user_type_custom_reason', customR);
-                fd.append('number_of_kits', kits);
-                fd.append('reapply_remark', remark);
-                return fetch(`/auth/dc/station-id/${id}/reapply-json`, { method:'POST', body:fd })
-                    .then(res => { if (!res.ok) throw new Error('Submission failed.'); return res.json(); })
-                    .catch(err => Swal.showValidationMessage(`Error: ${err.message}`));
-            }
-        }).then(result => {
-            if (result.isConfirmed && isReverted) {
-                Swal.fire({ icon:'success', title:'Reapplied!', text:'Your corrected request has been sent back to CHiPS Admin.', confirmButtonColor:'#4f46e5' })
-                    .then(() => window.location.reload());
-            }
-        });
+                    const fd = new FormData();
+                    fd.append('model', model);
+                    fd.append('user_type', userType);
+                    fd.append('user_type_custom_reason', customR);
+                    fd.append('number_of_kits', kits);
+                    fd.append('reapply_remark', remark);
+                    return fetch(`/auth/dc/station-id/${d.id}/reapply-json`, { method:'POST', body:fd })
+                        .then(res => { if (!res.ok) throw new Error('Submission failed.'); return res.json(); })
+                        .catch(err => Swal.showValidationMessage(`Error: ${err.message}`));
+                }
+            }).then(result => {
+                if (result.isConfirmed && isReverted) {
+                    Swal.fire({ icon:'success', title:'Reapplied!', text:'Your corrected request has been sent back to CHiPS Admin.', customClass:{ confirmButton: 'swal-btn-close' } })
+                        .then(() => window.location.reload());
+                }
+            });
+        }
+        else if (activeView === 'remarks') {
+            let remarks = [];
+            try { remarks = JSON.parse(d.remarksStr); } catch(e){}
+            const remarksHtml = buildRemarksHtml(remarks);
+
+            const timelineHtmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request ID: <strong>${d.reqNo}</strong></span>
+                    <span>${statusBadge}</span>
+                </div>
+                ${remarksHtml || '<div style="margin-top: 15px; font-style: italic; color: #888; text-align: center; font-size: 13px;">No remarks history/actions logged yet.</div>'}
+            </div>`;
+
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+                html: timelineHtmlContent,
+                showCancelButton: false, // NO Cancel button
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                showDenyButton: true,
+                denyButtonText: 'Back',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false
+            }).then((result) => {
+                if (result.isDenied) {
+                    window.showStationIdDetails(d, 'details');
+                }
+            });
+        }
+    };
+
+    function openDetailsModal(row) {
+        const d = {
+            id: row.getAttribute('data-id'),
+            reqNo: row.getAttribute('data-request-no'),
+            dist: row.getAttribute('data-district'),
+            model: row.getAttribute('data-model'),
+            userType: row.getAttribute('data-user-type'),
+            customR: row.getAttribute('data-custom-reason'),
+            kits: row.getAttribute('data-kits'),
+            status: row.getAttribute('data-status'),
+            remarksStr: row.getAttribute('data-remarks') || '[]'
+        };
+        window.showStationIdDetails(d, 'details');
     }
 
     function toggleRaCustom(val, def) {
@@ -562,20 +512,44 @@
             const q  = (document.getElementById('sid-search').value||'').toLowerCase().trim();
             const df = document.getElementById('sid-date-filter').value;
             const p  = getDatePrefixes();
+            const now = new Date();
             ['pending','log'].forEach(sec => {
+                const sf = document.getElementById(`${sec}-status-filter`).value;
                 const rows = document.querySelectorAll(`#${sec}-tbody tr[data-id]`);
                 let visible = 0;
                 rows.forEach(row => {
                     const reqNo   = (row.getAttribute('data-request-no')||'').toLowerCase();
                     const dist    = (row.getAttribute('data-district')||'').toLowerCase();
                     const model   = (row.getAttribute('data-model')||'').toLowerCase();
+                    const status  = (row.getAttribute('data-status')||'').toLowerCase();
                     const created = row.getAttribute('data-created')||'';
+                    
                     const matchQ  = !q || reqNo.includes(q)||dist.includes(q)||model.includes(q);
+                    const matchStatus = (sf === 'all') || (status === sf);
+                    
                     let matchDate = true;
-                    if (df==='today') matchDate = created.startsWith(p.today);
-                    else if (df==='month') matchDate = created.startsWith(p.month);
-                    else if (df==='year')  matchDate = created.startsWith(p.year);
-                    const show = matchQ && matchDate;
+                    if (df==='today') {
+                        matchDate = created.startsWith(p.today);
+                    } else if (df==='week') {
+                        if (!created) {
+                            matchDate = false;
+                        } else {
+                            const rowDate = new Date(created.replace(' ', 'T'));
+                            const startOfWeek = new Date(now);
+                            const day = startOfWeek.getDay();
+                            startOfWeek.setDate(now.getDate() - day);
+                            startOfWeek.setHours(0, 0, 0, 0);
+
+                            const endOfWeek = new Date(startOfWeek);
+                            endOfWeek.setDate(startOfWeek.getDate() + 6);
+                            endOfWeek.setHours(23, 59, 59, 999);
+
+                            matchDate = rowDate >= startOfWeek && rowDate <= endOfWeek;
+                        }
+                    } else if (df==='month') {
+                        matchDate = created.startsWith(p.month);
+                    }
+                    const show = matchQ && matchStatus && matchDate;
                     row.style.display = show ? '' : 'none';
                     if (show) visible++;
                 });
@@ -587,7 +561,38 @@
                 if (cnt) cnt.textContent = visible;
             });
         };
+
+        window.clearAllFilters = function() {
+            document.getElementById('sid-search').value = '';
+            document.getElementById('pending-status-filter').value = 'all';
+            document.getElementById('log-status-filter').value = 'all';
+            document.getElementById('sid-date-filter').value = 'month';
+            filterAllTables();
+        };
+
         window.filterAllTables();
     });
+
+    // Export helper function to fetch Excel stream from backend
+    function exportTableToExcel(tableID, filename = 'export.xlsx') {
+        const table = document.getElementById(tableID);
+        if (!table) return;
+
+        const bodyRows = table.querySelectorAll('tbody tr');
+        const ids = [];
+        bodyRows.forEach(row => {
+            if (row.style.display !== 'none' && row.cells.length > 1) {
+                const id = row.getAttribute('data-id');
+                if (id) ids.push(id);
+            }
+        });
+
+        if (ids.length === 0) {
+            Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#3085d6' });
+            return;
+        }
+
+        window.location.href = `/station-id/export?ids=${ids.join(',')}`;
+    }
 </script>
 {% endblock %}

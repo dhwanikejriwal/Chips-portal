@@ -121,3 +121,26 @@ def proxy_export_l1_excel_all():
         return f"Excel export failed. Backend status: {file_response.status_code}", file_response.status_code
     except Exception as excel_err:
         return f"Excel compilation failure: {str(excel_err)}", 500
+
+
+@l1_bp.route("/l1-registration/export-v2", methods=["GET"])
+def proxy_export_l1_excel_v2():
+    if not session.get("access_token"):
+        return "Unauthorized", 401
+    ids = request.args.get("ids", "")
+    FASTAPI_L1_URL = "http://127.0.0.1:8000/l1-registration"
+    from flask import Response
+    try:
+        file_response = requests.get(f"{FASTAPI_L1_URL}/export-excel-v2", params={"ids": ids}, stream=True, timeout=20)
+        if file_response.status_code == 200:
+            return Response(
+                file_response.iter_content(chunk_size=4096),
+                content_type=file_response.headers.get("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                headers={
+                    "Content-Disposition": file_response.headers.get("Content-Disposition", "attachment; filename=l1_registration_requests.xlsx"),
+                    "Cache-Control": "no-cache"
+                }
+            )
+        return f"Excel export failed. Backend status: {file_response.status_code}", file_response.status_code
+    except Exception as excel_err:
+        return f"Excel compilation failure: {str(excel_err)}", 500

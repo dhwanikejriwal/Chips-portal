@@ -1,5 +1,6 @@
 from backend.models.base import Base
 from backend.models.master_user_role import MasterUserRole
+from backend.models.master_status import MasterStatus
 from backend.models.district import District
 from backend.models.user_login import UserLogin, UserLogin as User
 from backend.models.candidate import Candidate, CandidateLogin
@@ -24,6 +25,7 @@ from backend.models.station_id import StationIDRequest, StationIDRemark
 __all__ = [
     "Base",
     "MasterUserRole",
+    "MasterStatus",
     "District",
     "UserLogin",
     "User",
@@ -40,4 +42,11 @@ __all__ = [
     "ReactivationOperator",
     "ReactivationRemarkHistory",
     "ReactivationDocument",
+    "L2RegistrationRequest",
+    "L2RegistrationRemark",
+    "OperatorActivationRequest",
+    "ActivationDocument",
+    "OperatorActivationRemark",
+    "StationIDRequest",
+    "StationIDRemark",
 ]

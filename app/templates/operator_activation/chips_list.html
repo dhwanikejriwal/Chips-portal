@@ -3,74 +3,8 @@
 {% block title %}Operator Activation Requests — CHIPS Admin{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 <style>
-    * { font-family: 'Inter', sans-serif; }
-
-    /* ── Admin banner ── */
-    .admin-banner {
-        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #3730a3 100%);
-        border-radius: 16px;
-        padding: 22px 28px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 24px;
-        position: relative;
-        overflow: hidden;
-    }
-    .admin-banner::before {
-        content: '';
-        position: absolute; right: -20px; top: -30px;
-        width: 160px; height: 160px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.05);
-    }
-    .admin-banner-left { display: flex; align-items: center; gap: 16px; }
-    .admin-banner-icon {
-        width: 48px; height: 48px;
-        background: rgba(255,255,255,0.12);
-        border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-    }
-    .admin-banner h2 { font-size: 20px; font-weight: 800; color: #fff; margin: 0 0 3px; }
-    .admin-banner p  { font-size: 13px; color: rgba(255,255,255,0.65); margin: 0; }
-    .admin-banner-stats {
-        display: flex; gap: 24px;
-    }
-    .admin-stat {
-        text-align: center;
-        padding: 10px 20px;
-        background: rgba(255,255,255,0.1);
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,0.15);
-    }
-    .admin-stat-num { font-size: 22px; font-weight: 800; color: #fff; line-height: 1; }
-    .admin-stat-lbl { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 3px; }
-
-    /* ── Filter bar ── */
-    .filter-bar {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 12px 16px;
-        display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;
-        margin-bottom: 14px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    }
-    .filter-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
-    .filter-group-search { flex: 2.5; }
-    .filter-group label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-    .filter-input {
-        height: 36px; padding: 0 10px;
-        border: 1.5px solid #e2e8f0; border-radius: 8px;
-        font-size: 13px; color: #334155;
-        outline: none; background: #fff; font-family: 'Inter', sans-serif;
-        transition: border-color 0.2s;
-    }
-    .filter-input:focus { border-color: #6366f1; }
-
-    /* ── Export Button ── */
     .oa-btn-export {
         display: inline-flex;
         align-items: center;
@@ -90,86 +24,16 @@
     .oa-btn-export:hover { background: #15803d; }
     .oa-btn-export svg { width: 14px; height: 14px; }
 
-    /* ── Section headers ── */
-    .sec-header {
-        display: flex; align-items: center; gap: 10px;
-        margin: 24px 0 12px;
-    }
-    .sec-dot { width: 10px; height: 10px; border-radius: 3px; }
-    .sec-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; }
-    .sec-count {
-        background: #f1f5f9; color: #475569;
-        font-size: 12px; font-weight: 700;
-        padding: 2px 9px; border-radius: 20px;
-        margin-left: auto;
-    }
-
-    /* ── Table ── */
-    .sid-table-wrapper {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        overflow-x: auto;
-        overflow-y: visible;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-        margin-bottom: 28px;
-        -webkit-overflow-scrolling: touch;
-    }
-    .sid-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
-    .sid-table thead tr { background: #f8fafc; }
-    .sid-table th {
-        text-align: left; padding: 11px 13px;
-        font-size: 10px; font-weight: 700; color: #64748b;
-        text-transform: uppercase; letter-spacing: 0.5px;
-        border-bottom: 1px solid #e2e8f0;
-        white-space: nowrap;
-    }
-    .sid-table td {
-        padding: 12px 13px; color: #334155;
-        border-bottom: 1px solid #f1f5f9; vertical-align: middle;
-        white-space: nowrap;
-    }
-    .sid-table tbody tr:last-child td { border-bottom: none; }
-    .sid-table tbody tr:hover td { background: #fafafe; }
-
-    /* ── Badges ── */
-    .sid-badge {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 3px 9px; border-radius: 20px;
-        font-size: 11px; font-weight: 700;
-    }
-    .sid-badge::before { content:''; width:5px; height:5px; border-radius:50%; }
-    .sid-badge-pending, .sid-badge-sent_to_chips { background:#fef9c3; color:#854d0e; }
-    .sid-badge-pending::before, .sid-badge-sent_to_chips::before { background:#f59e0b; }
-    
-    .sid-badge-sent_to_uidai { background:#e0f2fe; color:#0369a1; }
-    .sid-badge-sent_to_uidai::before { background:#0ea5e9; }
-    
-    .sid-badge-approved { background:#dcfce7; color:#166534; }
-    .sid-badge-approved::before { background:#16a34a; }
-    
-    .sid-badge-reverted { background:#fee2e2; color:#991b1b; }
-    .sid-badge-reverted::before { background:#dc2626; }
-    
-    .sid-badge-rejected { background:#ffedd5; color:#c2410c; }
-    .sid-badge-rejected::before { background:#ea580c; }
-
-    .sid-badge-reapplied { background:#ede9fe; color:#5b21b6; }
-    .sid-badge-reapplied::before { background:#7c3aed; }
-
-    /* ── Action buttons ── */
-    .action-group { display: flex; gap: 5px; flex-wrap: nowrap; align-items: center; }
-    
     .btn-issue {
         display: inline-flex; align-items: center; gap: 4px;
         padding: 6px 12px;
-        background: #4f46e5; color: #fff;
+        background: var(--dc-primary, #007bff); color: #fff;
         border: none; border-radius: 7px;
         font-size: 12px; font-weight: 700;
-        cursor: pointer; font-family: 'Inter',sans-serif;
+        cursor: pointer;
         transition: background 0.15s;
     }
-    .btn-issue:hover { background: #4338ca; }
+    .btn-issue:hover { background: var(--dc-primary-hover, #0056b3); }
 
     .btn-approve {
         display: inline-flex; align-items: center; gap: 4px;
@@ -177,7 +41,7 @@
         background: #16a34a; color: #fff;
         border: none; border-radius: 7px;
         font-size: 12px; font-weight: 700;
-        cursor: pointer; font-family: 'Inter',sans-serif;
+        cursor: pointer;
         transition: background 0.15s;
     }
     .btn-approve:hover { background: #15803d; }
@@ -188,69 +52,54 @@
         background: #fff; color: #dc2626;
         border: 1.5px solid #fca5a5; border-radius: 7px;
         font-size: 12px; font-weight: 700;
-        cursor: pointer; font-family: 'Inter',sans-serif;
+        cursor: pointer;
         transition: all 0.15s;
     }
     .btn-revert:hover { background: #fee2e2; border-color: #dc2626; }
     
-    .btn-details {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 5px 12px;
-        background: #f8fafc; color: #334155;
-        border: 1.5px solid #e2e8f0; border-radius: 7px;
-        font-size: 12px; font-weight: 600;
-        cursor: pointer; font-family: 'Inter',sans-serif;
-        transition: all 0.15s;
-    }
-    .btn-details:hover { border-color: #6366f1; color: #4f46e5; background: #f5f3ff; }
-
-    /* ── Empty ── */
     .empty-state { padding:36px 20px; text-align:center; color:#94a3b8; }
     .empty-state-icon { font-size:32px; margin-bottom:8px; }
     .empty-state p { font-size:13px; margin:0; }
-
-    /* ══ RESPONSIVE ══════════════════════════════════════════════ */
-    @media (max-width: 1100px) {
-        .admin-banner {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 16px;
-        }
-        .admin-banner-stats {
-            width: 100%;
-            justify-content: flex-start;
-            gap: 10px;
-        }
-        .admin-stat { padding: 8px 14px; }
-    }
 </style>
 {% endblock %}
 
 {% block content %}
 
             <!-- Gradient Admin Banner -->
-            <div class="admin-banner">
-                <div class="admin-banner-left">
-                    <div class="admin-banner-icon">
+            <div class="chips-header-banner">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                     </div>
                     <div>
-                        <h2>Admin Control Dashboard</h2>
-                        <p>Manage and process incoming operator activation pipelines, forward requests to UIDAI, and track approvals.</p>
+                        <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">Operator Activation Dashboard</h1>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Manage and process incoming operator activation pipelines</p>
                     </div>
                 </div>
-                <div class="admin-banner-stats">
-                    <div class="admin-stat">
-                        <div class="admin-stat-num">{{ requests | selectattr('status', 'in', ['pending', 'sent_to_chips']) | list | length }}</div>
-                        <div class="admin-stat-lbl">Pending Requests</div>
+                <div class="chips-banner-metrics">
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'in', ['pending', 'sent_to_chips', 'reapplied']) | list | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review</div>
                     </div>
-                    <div class="admin-stat">
-                        <div class="admin-stat-num">{{ requests | selectattr('status', 'equalto', 'sent_to_uidai') | list | length }}</div>
-                        <div class="admin-stat-lbl">Sent to UIDAI</div>
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'sent_to_uidai') | list | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI</div>
                     </div>
-                    <div class="admin-stat">
-                        <div class="admin-stat-num">{{ requests | selectattr('status', 'in', ['approved', 'rejected', 'reverted']) | list | length }}</div>
-                        <div class="admin-stat-lbl">Processed Log</div>
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'reverted') | list | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+                    </div>
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'rejected') | list | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
+                    </div>
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+                    </div>
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests</div>
                     </div>
                 </div>
             </div>
@@ -740,11 +589,16 @@
                     return fetch(`/auth/chips/operator-activation/${requestId}/send-to-uidai`, {
                         method: 'POST',
                         body: new URLSearchParams(formData)
-                    }).then(res => {
-                        if (!res.ok) throw new Error('Status modification failed.');
+                    }).then(res => res.json().then(data => ({ httpOk: res.ok, data })))
+                      .then(({ httpOk, data }) => {
+                        if (!httpOk || data.status === 'error') {
+                            Swal.showValidationMessage(`Error: ${data.message || 'Status update failed.'}`);
+                            return false;
+                        }
                         return true;
                     }).catch(error => {
-                        Swal.showValidationMessage(`Error: ${error.message}`);
+                        Swal.showValidationMessage(`Network error: ${error.message}`);
+                        return false;
                     });
                 }
             }).then(result => {
@@ -871,34 +725,280 @@
             return `<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">${title}</div>`;
         }
 
-        // ── Remarks timeline ──────────────────────────────────────────────────
+        // ── Status badge helper (DC-style) ────────────────────────────────────────
+        function getStatusBadgeHtml(status) {
+            const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+            let badgeClass = 'badge-pending';
+            let label = 'Pending';
+            if (s.includes('approve')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+            else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
+            else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
+            else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
+            else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
+            else if (s.includes('sent to chips') || s.includes('sent_to_chips')) { badgeClass = 'badge-pending'; label = 'Sent to CHiPS'; }
+            return `<span class="badge ${badgeClass}">${label}</span>`;
+        }
+
+        // ── DC-style timeline remarks builder ─────────────────────────────────────
         function buildRemarksHtml(remarks) {
             if (!remarks || remarks.length === 0) {
-                return `<div style="text-align:center;padding:14px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or conversation history yet.</div>`;
+                return `<div style="text-align:center;padding:20px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or action history logged yet.</div>`;
             }
-            let html = `<div style="display:flex;flex-direction:column;gap:8px;max-height:180px;overflow-y:auto;padding-right:4px;">`;
-            remarks.forEach(item => {
-                const isAdmin = item.author_role === 'CHIPS_ADMIN' || item.author_role === 'chips_admin';
-                const sender  = isAdmin ? '🏛️ CHiPS Admin' : '📍 District Coordinator';
-                const bg      = isAdmin ? '#f1f5f9' : '#eff6ff';
-                const border  = isAdmin ? '#e2e8f0' : '#bfdbfe';
-                const nameCol = isAdmin ? '#0f172a' : '#1d4ed8';
+            let html = `<div class="remarks-timeline">
+                <div class="timeline-title">Audit Action History Log</div>
+                <div class="timeline-track">`;
+            remarks.forEach(r => {
+                const isChips = r.author_role === 'CHIPS_ADMIN' || r.author_role === 'chips' || r.author_role === 'chips_admin';
+                const sender  = isChips ? 'CHiPS Admin' : 'District Coordinator';
+                const senderClass = isChips ? 'chips' : 'dc';
+
+                const statusAfter = r.status_after || '';
+                let statusBadgeHtmlInline = '';
+                let markerClass = 'marker-pending';
+                if (statusAfter) {
+                    statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
+                    const sLower = statusAfter.toLowerCase();
+                    if (sLower.includes('approve')) markerClass = 'marker-approved';
+                    else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                    else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                    else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+                }
+
+                const stepLabel = 'Operator Activation';
+                const username = r.sender_username || '';
+                const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
                 html += `
-                <div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:10px 13px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-                        <span style="font-size:12px;font-weight:700;color:${nameCol};">${sender}</span>
-                        <span style="font-size:10px;color:#94a3b8;white-space:nowrap;">${item.created_at}</span>
+                    <div class="timeline-item ${senderClass}">
+                        <div class="timeline-marker ${markerClass}"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-section-row">
+                                <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
+                            </div>
+                            <div class="timeline-by-row">
+                                <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
+                                <span class="timeline-time">${r.created_at}</span>
+                            </div>
+                            <div class="timeline-body">${escapeHtml(r.remark)}</div>
+                        </div>
                     </div>
-                    <div style="font-size:13px;color:#334155;line-height:1.5;">${escapeHtml(item.remark)}</div>
-                </div>`;
+                `;
             });
-            html += `</div>`;
+            html += `</div></div>`;
             return html;
         }
 
         // ── Main detail modal ─────────────────────────────────────────────────
+        function zoomPhoto(url) {
+            viewDocument('Profile Photo', url, 'jpg');
+        }
+
+        function viewDocument(title, fileUrl, extension) {
+            if (!fileUrl) return;
+
+            const ext = (extension || '').toLowerCase();
+            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || fileUrl.startsWith('data:image/');
+
+            const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100vw';
+            overlay.style.height = '100vh';
+            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+            overlay.style.display = 'flex';
+            overlay.style.justifyContent = 'center';
+            overlay.style.alignItems = 'center';
+            overlay.style.zIndex = '99999';
+
+            const modal = document.createElement('div');
+            modal.style.width = '90%';
+            modal.style.maxWidth = '800px';
+            modal.style.height = '85vh';
+            modal.style.maxHeight = '700px';
+            modal.style.backgroundColor = 'white';
+            modal.style.borderRadius = '12px';
+            modal.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
+            modal.style.display = 'flex';
+            modal.style.flexDirection = 'column';
+            modal.style.overflow = 'hidden';
+            modal.style.animation = 'swal2-show 0.3s ease-out';
+
+            const header = document.createElement('div');
+            header.style.backgroundColor = '#1e3a8a';
+            header.style.padding = '12px 20px';
+            header.style.display = 'flex';
+            header.style.justifyContent = 'space-between';
+            header.style.alignItems = 'center';
+            header.style.color = 'white';
+
+            const headerTitle = document.createElement('span');
+            headerTitle.innerText = title;
+            headerTitle.style.fontWeight = '700';
+            headerTitle.style.fontSize = '16px';
+
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+            closeBtn.style.border = 'none';
+            closeBtn.style.width = '32px';
+            closeBtn.style.height = '32px';
+            closeBtn.style.borderRadius = '50%';
+            closeBtn.style.display = 'flex';
+            closeBtn.style.alignItems = 'center';
+            closeBtn.style.justifyContent = 'center';
+            closeBtn.style.cursor = 'pointer';
+            closeBtn.style.color = 'white';
+            closeBtn.style.transition = 'background 0.2s';
+            closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+            closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+            closeBtn.onclick = () => document.body.removeChild(overlay);
+            closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+            header.appendChild(headerTitle);
+            header.appendChild(closeBtn);
+
+            const body = document.createElement('div');
+            body.style.flex = '1';
+            body.style.padding = '20px';
+            body.style.backgroundColor = '#f8fafc';
+            body.style.display = 'flex';
+            body.style.justifyContent = 'center';
+            body.style.alignItems = 'center';
+            body.style.overflow = 'hidden';
+
+            if (isImage) {
+                const img = document.createElement('img');
+                img.src = fileUrl;
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '100%';
+                img.style.objectFit = 'contain';
+                img.style.borderRadius = '4px';
+                body.appendChild(img);
+            } else {
+                const iframe = document.createElement('iframe');
+                iframe.src = fileUrl;
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.style.borderRadius = '4px';
+                body.appendChild(iframe);
+            }
+
+            const footer = document.createElement('div');
+            footer.style.padding = '12px 20px';
+            footer.style.borderTop = '1px solid #edf2f7';
+            footer.style.display = 'flex';
+            footer.style.justifyContent = 'flex-end';
+            footer.style.alignItems = 'center';
+            footer.style.gap = '12px';
+            footer.style.backgroundColor = 'white';
+
+            const downloadLink = document.createElement('a');
+            downloadLink.href = fileUrl;
+            downloadLink.download = title;
+            downloadLink.style.display = 'inline-flex';
+            downloadLink.style.alignItems = 'center';
+            downloadLink.style.gap = '6px';
+            downloadLink.style.padding = '8px 16px';
+            downloadLink.style.borderRadius = '8px';
+            downloadLink.style.backgroundColor = '#ecfdf5';
+            downloadLink.style.color = '#10b981';
+            downloadLink.style.fontWeight = '600';
+            downloadLink.style.fontSize = '14px';
+            downloadLink.style.textDecoration = 'none';
+            downloadLink.style.cursor = 'pointer';
+            downloadLink.style.transition = 'background-color 0.2s';
+            downloadLink.onmouseenter = () => downloadLink.style.backgroundColor = '#d1fae5';
+            downloadLink.onmouseleave = () => downloadLink.style.backgroundColor = '#ecfdf5';
+            downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
+
+            const closeBtnFooter = document.createElement('button');
+            closeBtnFooter.type = 'button';
+            closeBtnFooter.style.padding = '8px 24px';
+            closeBtnFooter.style.borderRadius = '8px';
+            closeBtnFooter.style.backgroundColor = '#4f46e5';
+            closeBtnFooter.style.color = 'white';
+            closeBtnFooter.style.fontWeight = '600';
+            closeBtnFooter.style.fontSize = '14px';
+            closeBtnFooter.style.border = 'none';
+            closeBtnFooter.style.cursor = 'pointer';
+            closeBtnFooter.style.transition = 'background-color 0.2s';
+            closeBtnFooter.onmouseenter = () => closeBtnFooter.style.backgroundColor = '#4338ca';
+            closeBtnFooter.onmouseleave = () => closeBtnFooter.style.backgroundColor = '#4f46e5';
+            closeBtnFooter.onclick = () => document.body.removeChild(overlay);
+            closeBtnFooter.innerText = 'Close';
+
+            footer.appendChild(downloadLink);
+            footer.appendChild(closeBtnFooter);
+
+            modal.appendChild(header);
+            modal.appendChild(body);
+            modal.appendChild(footer);
+            overlay.appendChild(modal);
+
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    document.body.removeChild(overlay);
+                }
+            };
+
+            document.body.appendChild(overlay);
+        }
+
+        function buildDocumentCard(title, fileUrl, defaultName) {
+            if (!fileUrl) return '';
+
+            const extension = (defaultName || '').split('.').pop().toLowerCase();
+            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
+
+            let previewHtml = '';
+            let previewButtonHtml = '';
+
+            if (isImage) {
+                previewHtml = `<img src="${fileUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">`;
+                previewButtonHtml = `
+                    <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                `;
+            } else {
+                previewHtml = `
+                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    </div>
+                `;
+                previewButtonHtml = `
+                    <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                `;
+            }
+
+            const shortFileName = (defaultName || '').length > 22 ? defaultName.substring(0, 19) + '...' : defaultName;
+
+            return `
+                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <div style="height: 100px; width: 100%; background: #f8fafc; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #edf2f7;">
+                        ${previewHtml}
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
+                        <div style="text-align: left; overflow: hidden; flex-grow: 1;">
+                            <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
+                            <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${defaultName}">${shortFileName}</div>
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                            ${previewButtonHtml}
+                            <a href="${fileUrl}" download="${defaultName}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background-color: #ecfdf5; color: #10b981; text-decoration: none; cursor: pointer; transition: background-color 0.2s;" title="Download">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function showChipsDetailsModal(requestId, requestNo, status) {
-            // Show loading skeleton immediately
             Swal.fire({
                 html: `<div style="padding:40px;text-align:center;font-family:'Inter',sans-serif;">
                     <div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
@@ -907,10 +1007,9 @@
                 </div>`,
                 showConfirmButton: false,
                 allowOutsideClick: false,
-                width: '680px',
+                width: '600px',
                 padding: '0',
-                background: '#fff',
-                customClass: { popup: 'oa-detail-popup' },
+                background: '#fff'
             });
 
             fetch(`/auth/chips/operator-activation/${requestId}/detail-json`)
@@ -919,84 +1018,219 @@
                     return res.json();
                 })
                 .then(d => {
-                    const sc  = statusConfig(d.status || status);
-                    const rHtml = buildRemarksHtml(d.remarks_history || []);
-
-                    const html = `
-                    <div style="font-family:'Inter',sans-serif;text-align:left;">
-
-                        <!-- ── Gradient Header ── -->
-                        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#4f46e5 100%);padding:22px 24px 18px;position:relative;overflow:hidden;">
-                            <div style="position:absolute;right:-20px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-                            <div style="position:absolute;right:60px;bottom:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.04);"></div>
-                            <div style="display:flex;align-items:center;gap:14px;position:relative;">
-                                <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="12" cy="7" r="4"></circle>
-                                    </svg>
-                                </div>
-                                <div style="flex:1;min-width:0;">
-                                    <div style="font-size:18px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:3px;">${escapeHtml(d.operator_name || '—')}</div>
-                                    <div style="font-size:12px;color:rgba(255,255,255,0.65);">Request <strong style="color:rgba(255,255,255,0.9);">${requestNo}</strong> &nbsp;·&nbsp; Submitted ${d.submitted_at || '—'}</div>
-                                </div>
-                                <div style="background:${sc.bg};color:${sc.color};font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${sc.label}</div>
-                            </div>
-                        </div>
-
-                        <!-- ── Body ── -->
-                        <div style="padding:20px 22px 22px;">
-
-                            ${sectionHead('Personal & Contact')}
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                                ${infoCell('Mobile Number', d.operator_mobile)}
-                                ${infoCell('Email ID', d.primary_email)}
-                                ${infoCell('Aadhaar (Last 4)', d.operator_aadhaar ? '••••' + d.operator_aadhaar : null)}
-                                ${infoCell('PAN Number', d.operator_pan)}
-                            </div>
-
-                            ${sectionHead('Work & Certification')}
-                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-                                ${infoCell('EA Code', d.ea_code)}
-                                ${infoCell('User Code', d.user_code)}
-                                ${infoCell('Registrar Code', d.registrar_code)}
-                                ${infoCell('NSEIT Cert No.', d.nseit_certificate_number)}
-                                ${infoCell('Issue Date', d.nseit_certification_date)}
-                                ${infoCell('Expiry Date', d.nseit_certificate_expiry_date)}
-                            </div>
-
-                            ${sectionHead('Location')}
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                                ${infoCell('District', d.district_name)}
-                                ${infoCell('Pincode', d.pincode)}
-                            </div>
-
-                            ${sectionHead('Remarks & Conversation')}
-                            ${rHtml}
-
-                        </div>
-                    </div>`;
-
-                    Swal.fire({
-                        html,
-                        showCancelButton: true,
-                        cancelButtonText: 'Close',
-                        confirmButtonText: 'View Documents',
-                        confirmButtonColor: '#4f46e5',
-                        cancelButtonColor: '#64748b',
-                        width: '680px',
-                        padding: '0',
-                        background: '#fff',
-                        customClass: { popup: 'oa-detail-popup' },
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            window.open(`/auth/chips/operator-activation/${requestId}/view`, '_blank');
-                        }
-                    });
+                    window.showActivationDetails(d, 'details', requestId, requestNo, status);
                 })
                 .catch(err => {
                     Swal.fire({ title: 'Error', text: `Could not load request: ${err.message}`, icon: 'error' });
                 });
+        }
+
+        window.showActivationDetails = function (d, activeView, id, requestNo, status) {
+            const remarksHtml = buildRemarksHtml(d.remarks_history || []);
+            const displayStatus = d.status || status;
+            const statusBadge = getStatusBadgeHtml(displayStatus);
+            const maskedAadhaar = d.operator_aadhaar ? `XXXX XXXX ${d.operator_aadhaar.slice(-4)}` : 'N/A';
+
+            if (activeView === 'details') {
+                let htmlContent = `
+                <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                        <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                        <span>${statusBadge}</span>
+                    </div>
+                    <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                        Submitted At: <strong>${d.submitted_at || d.created_at || '—'}</strong>
+                    </div>
+
+                    <!-- Personal Information Card -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Personal Information</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                            <div style="grid-column: 1/-1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Operator Name</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_name)}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Mobile Number</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_mobile)}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Email ID</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.primary_email || 'N/A')}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Aadhaar Card</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${maskedAadhaar}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">PAN Card</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_pan || 'N/A')}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Address Card -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Address</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">District</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.district_name)}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Pincode</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.pincode || 'N/A')}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Work & Certification Card -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Work &amp; Certification</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Role</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.role || 'N/A')}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">EA Code</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.ea_code || 'N/A')}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">User Code</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.user_code || 'N/A')}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Registrar Code</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.registrar_code || 'N/A')}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certificate #</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.nseit_certificate_number || 'N/A')}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certification Date</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.nseit_certification_date || 'N/A')}</div>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Expiry Date</div>
+                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.nseit_certificate_expiry_date || 'N/A')}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- View Documents and View Remarks Buttons -->
+                    <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                        <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Documents</button>
+                        <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
+                    </div>
+                </div>
+                `;
+
+                Swal.fire({
+                    title: `<span style="font-family:inherit; font-weight:800;">Activation Request Details</span>`,
+                    html: htmlContent,
+                    showCancelButton: false,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Close',
+                    customClass: {
+                        confirmButton: 'swal-btn-close'
+                    },
+                    width: '600px',
+                    focusConfirm: false,
+                    didOpen: () => {
+                        document.getElementById('btn-show-docs').onclick = () => {
+                            window.showActivationDetails(d, 'documents', id, requestNo, status);
+                        };
+                        document.getElementById('btn-show-remarks').onclick = () => {
+                            window.showActivationDetails(d, 'remarks', id, requestNo, status);
+                        };
+                    }
+                });
+            }
+            else if (activeView === 'documents') {
+                let documentsHtml = '';
+                if (d.documents && d.documents.length > 0) {
+                    const docLabels = {
+                        'hard_copy_form': 'Consent Form',
+                        'aadhaar_photo': 'Aadhaar Card',
+                        'pan_card': 'PAN Card',
+                        'passbook': 'Passbook',
+                        'nseit_certificate': 'NSEIT Certificate',
+                        'excel_sheet': 'Excel Sheet'
+                    };
+                    d.documents.forEach(doc => {
+                        const label = docLabels[doc.doc_type] || doc.doc_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                        const fileUrl = `/auth/chips/operator-activation/${id}/file/${doc.doc_type}`;
+                        documentsHtml += buildDocumentCard(label, fileUrl, doc.original_filename);
+                    });
+                } else {
+                    documentsHtml = '<div style="grid-column: 1/-1; text-align: center; color: #94a3b8; font-size: 13px; font-style: italic;">No documents uploaded.</div>';
+                }
+
+                let htmlContent = `
+                <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                        <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                        <span>${statusBadge}</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
+                        ${documentsHtml}
+                    </div>
+                </div>
+                `;
+
+                Swal.fire({
+                    title: `<span style="font-family:inherit; font-weight:800;">Uploaded Documents</span>`,
+                    html: htmlContent,
+                    showCancelButton: false,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Close',
+                    showDenyButton: true,
+                    denyButtonText: 'Back',
+                    customClass: {
+                        confirmButton: 'swal-btn-close',
+                        denyButton: 'swal-btn-back'
+                    },
+                    width: '600px',
+                    focusConfirm: false
+                }).then((result) => {
+                    if (result.isDenied) {
+                        window.showActivationDetails(d, 'details', id, requestNo, status);
+                    }
+                });
+            }
+            else if (activeView === 'remarks') {
+                let htmlContent = `
+                <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                        <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                        <span>${statusBadge}</span>
+                    </div>
+                    ${remarksHtml}
+                </div>
+                `;
+
+                Swal.fire({
+                    title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+                    html: htmlContent,
+                    showCancelButton: false,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Close',
+                    showDenyButton: true,
+                    denyButtonText: 'Back',
+                    customClass: {
+                        confirmButton: 'swal-btn-close',
+                        denyButton: 'swal-btn-back'
+                    },
+                    width: '600px',
+                    focusConfirm: false
+                }).then((result) => {
+                    if (result.isDenied) {
+                        window.showActivationDetails(d, 'details', id, requestNo, status);
+                    }
+                });
+            }
         }
 </script>
 {% endblock %}

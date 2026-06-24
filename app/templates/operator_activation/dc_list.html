@@ -3,218 +3,7 @@
 {% block title %}My Activation Requests — CHiPS Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
-<style>
-    /* ── Dashboard Header ── */
-    .dash-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 24px;
-        gap: 16px;
-    }
-    .dash-title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 4px; }
-    .dash-subtitle { font-size: 13px; color: #64748b; }
-    .btn-new-request {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 11px 22px;
-        background: linear-gradient(135deg, #4f46e5, #6366f1);
-        color: #fff;
-        border: none;
-        border-radius: 10px;
-        font-size: 14px; font-weight: 700;
-        cursor: pointer;
-        text-decoration: none;
-        font-family: inherit;
-        box-shadow: 0 4px 14px rgba(99,102,241,0.35);
-        transition: all 0.2s;
-        white-space: nowrap;
-    }
-    .btn-new-request:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.45); }
-
-    /* ── Stats row ── */
-    .stats-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 14px;
-        margin-bottom: 24px;
-    }
-    .stat-card {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 16px 20px;
-        display: flex;
-        align-items: center;
-        gap: 14px;
-    }
-    .stat-icon {
-        width: 40px; height: 40px;
-        border-radius: 10px;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0;
-    }
-    .stat-num { font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1; }
-    .stat-lbl { font-size: 12px; color: #64748b; margin-top: 2px; }
-
-    /* ── Filter bar ── */
-    .filter-bar {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 14px 18px;
-        display: flex;
-        gap: 12px;
-        align-items: flex-end;
-        flex-wrap: wrap;
-        margin-bottom: 24px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    }
-    .filter-group {
-        display: flex; flex-direction: column; gap: 5px;
-        flex: 1; min-width: 160px;
-    }
-    .filter-group-search { flex: 2.5; }
-    .filter-group label {
-        font-size: 11px; font-weight: 700; color: #64748b;
-        text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    .filter-input {
-        height: 38px; padding: 0 12px;
-        border: 1.5px solid #e2e8f0; border-radius: 8px;
-        font-size: 13px; color: #334155;
-        outline: none; background: #fff; font-family: inherit;
-        transition: border-color 0.2s;
-    }
-    .filter-input:focus { border-color: #6366f1; }
-
-    /* ── Section heading ── */
-    .section-heading {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 28px 0 14px;
-    }
-    .section-heading-dot {
-        width: 10px; height: 10px; border-radius: 3px;
-    }
-    .section-heading h3 {
-        font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;
-    }
-    .section-heading .section-count {
-        background: #f1f5f9;
-        color: #475569;
-        font-size: 12px; font-weight: 700;
-        padding: 2px 9px; border-radius: 20px;
-        margin-left: auto;
-    }
-
-    /* ── Table ── */
-    .sid-table-wrapper {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        overflow-x: auto;
-        overflow-y: visible;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-        -webkit-overflow-scrolling: touch;
-    }
-    .sid-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13.5px;
-        min-width: 820px;
-    }
-    .sid-table thead tr { background: #f8fafc; }
-    .sid-table th {
-        text-align: left;
-        padding: 11px 14px;
-        font-size: 11px; font-weight: 700;
-        color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
-        border-bottom: 1px solid #e2e8f0;
-        white-space: nowrap;
-    }
-    .sid-table td {
-        padding: 13px 14px;
-        color: #334155;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-        white-space: nowrap;
-    }
-    .sid-table tbody tr:last-child td { border-bottom: none; }
-    .sid-table tbody tr:hover td { background: #fafafe; }
-
-    /* ── Status badges ── */
-    .sid-badge {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 4px 10px; border-radius: 20px;
-        font-size: 12px; font-weight: 700;
-    }
-    .sid-badge::before {
-        content: '';
-        width: 6px; height: 6px; border-radius: 50%;
-    }
-    .sid-badge-pending, .sid-badge-sent_to_chips { background:#fef9c3; color:#854d0e; }
-    .sid-badge-pending::before, .sid-badge-sent_to_chips::before { background:#f59e0b; }
-    
-    .sid-badge-sent_to_uidai { background:#e0f2fe; color:#0369a1; }
-    .sid-badge-sent_to_uidai::before { background:#0ea5e9; }
-    
-    .sid-badge-approved { background:#dcfce7; color:#166534; }
-    .sid-badge-approved::before { background:#16a34a; }
-    
-    .sid-badge-reverted { background:#fee2e2; color:#991b1b; }
-    .sid-badge-reverted::before { background:#dc2626; }
-    
-    .sid-badge-rejected { background:#ffedd5; color:#c2410c; }
-    .sid-badge-rejected::before { background:#ea580c; }
-
-    .sid-badge-reapplied { background:#ede9fe; color:#5b21b6; }
-    .sid-badge-reapplied::before { background:#7c3aed; }
-
-    /* ── Action button ── */
-    .btn-details {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 6px 14px;
-        background: #f8fafc;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 7px;
-        font-size: 12px; font-weight: 600;
-        color: #334155; cursor: pointer;
-        font-family: inherit;
-        transition: all 0.15s;
-    }
-    .btn-details:hover { border-color: #6366f1; color: #4f46e5; background: #f5f3ff; }
-
-    /* ── Empty states ── */
-    .empty-state {
-        padding: 40px 20px;
-        text-align: center;
-        color: #94a3b8;
-    }
-    .empty-state-icon {
-        font-size: 36px; margin-bottom: 10px;
-    }
-    .empty-state p { font-size: 13px; margin: 0; }
-
-    @media (max-width: 1100px) {
-        .stats-row { grid-template-columns: repeat(2, 1fr); }
-        .btn-new-request { padding: 9px 16px; font-size: 13px; }
-    }
-    @media (max-width: 768px) {
-        .dash-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-        .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .filter-bar { padding: 10px 12px; gap: 8px; }
-        .filter-group { min-width: 120px; }
-        .section-heading h3 { font-size: 14px; }
-    }
-    @media (max-width: 520px) {
-        .stats-row { grid-template-columns: 1fr 1fr; }
-        .stat-num { font-size: 18px; }
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -225,16 +14,22 @@
         <p class="dash-subtitle">Track and manage your operator activation requests</p>
     </div>
     <a href="/auth/dc/operator-activation" class="btn-new-request">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
         New Request
     </a>
 </div>
 
 <!-- Stats Row -->
-<div class="stats-row">
+<div class="stats-row-7">
     <div class="stat-card">
         <div class="stat-icon" style="background:#eff6ff;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+                <path
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
         </div>
         <div>
             <div class="stat-num" id="stat-total">{{ requests | length }}</div>
@@ -243,29 +38,80 @@
     </div>
     <div class="stat-card">
         <div class="stat-icon" style="background:#fef9c3;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+            </svg>
         </div>
         <div>
-            <div class="stat-num" style="color:#f59e0b;" id="stat-pending">{{ requests | selectattr('status', 'in', ['pending', 'sent_to_chips', 'sent_to_uidai']) | list | length }}</div>
-            <div class="stat-lbl">Pending</div>
+            <div class="stat-num" style="color:#f59e0b;" id="stat-pending">{{ requests | selectattr('status', 'in',
+                ['pending', 'sent_to_chips']) | list | length }}</div>
+            <div class="stat-lbl">Pending / CHiPS</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#ffedd5;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2">
+                <path d="M23 4v6h-6"></path>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#d97706;" id="stat-reapplied">{{ requests | selectattr('status',
+                'equalto', 'reapplied') | list | length }}</div>
+            <div class="stat-lbl">Reapplied</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#e0f2fe;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#0284c7;" id="stat-sent-to-uidai">{{ requests | selectattr('status',
+                'equalto', 'sent_to_uidai') | list | length }}</div>
+            <div class="stat-lbl">Sent to UIDAI</div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon" style="background:#dcfce7;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2">
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
         </div>
         <div>
-            <div class="stat-num" style="color:#16a34a;" id="stat-approved">{{ requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
+            <div class="stat-num" style="color:#16a34a;" id="stat-approved">{{ requests | selectattr('status',
+                'equalto', 'approved') | list | length }}</div>
             <div class="stat-lbl">Approved</div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon" style="background:#fee2e2;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+            </svg>
         </div>
         <div>
-            <div class="stat-num" style="color:#dc2626;" id="stat-reverted">{{ requests | selectattr('status', 'in', ['reverted', 'rejected']) | list | length }}</div>
-            <div class="stat-lbl">Reverted / Rejected</div>
+            <div class="stat-num" style="color:#dc2626;" id="stat-reverted">{{ requests | selectattr('status',
+                'equalto', 'reverted') | list | length }}</div>
+            <div class="stat-lbl">Reverted</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fee2e2;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#b91c1c;" id="stat-rejected">{{ requests | selectattr('status',
+                'equalto', 'rejected') | list | length }}</div>
+            <div class="stat-lbl">Rejected</div>
         </div>
     </div>
 </div>
@@ -274,16 +120,27 @@
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
         <label>Search Operator</label>
-        <input type="text" id="dc-search-input" class="filter-input" placeholder="Search by name, mobile or request ID..." oninput="filterAllTables()">
+        <input type="text" id="dc-search-input" class="filter-input"
+            placeholder="Search by name, mobile or request ID..." oninput="filterAllTables()">
     </div>
     <div class="filter-group">
         <label>Time Period</label>
         <select id="dc-date-filter" class="filter-input" onchange="filterAllTables()">
             <option value="all">All Time</option>
             <option value="today">Today</option>
+            <option value="week">This Week</option>
             <option value="month" selected>This Month</option>
-            <option value="year">This Year</option>
         </select>
+    </div>
+    <div class="filter-group-button" style="flex: 0 0 auto;">
+        <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Clear Filters
+        </button>
     </div>
 </div>
 
@@ -292,11 +149,24 @@
     <div class="section-heading-dot" style="background:#f59e0b;"></div>
     <h3>Pending Operator Activation Queue</h3>
     <span class="section-count" id="pending-count">–</span>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <select id="pending-status-filter" class="filter-input"
+            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="reapplied">Reapplied</option>
+            <option value="reverted">Reverted / Rejected</option>
+        </select>
+        <button class="btn btn-sm"
+            onclick="exportTableToExcel('pending-requests-table', 'pending_operator_activations.xlsx')">Export to
+            Excel</button>
+    </div>
 </div>
 <div class="sid-table-wrapper" style="margin-bottom: 28px;">
     <table class="sid-table" id="pending-requests-table">
         <thead>
             <tr>
+                <th style="width: 60px;">S.No</th>
                 <th>Request ID</th>
                 <th>Operator Name</th>
                 <th>Mobile</th>
@@ -307,17 +177,13 @@
         </thead>
         <tbody id="pending-table-body">
             {% for r in requests if r.status != 'approved' %}
-            <tr data-id="{{ r.id }}" 
-                data-request-no="{{ r.request_no if r.request_no else '—' }}"
-                data-name="{{ r.operator_name }}"
-                data-mobile="{{ r.operator_mobile }}"
-                data-district="{{ r.district_name or 'Raipur' }}"
-                data-aadhaar="{{ r.operator_aadhaar or '' }}"
-                data-pan="{{ r.operator_pan or '' }}"
-                data-status="{{ r.status }}" 
-                data-created="{{ r.submitted_at }}"
+            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
+                data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
+                data-district="{{ r.district_name or 'Raipur' }}" data-aadhaar="{{ r.operator_aadhaar or '' }}"
+                data-pan="{{ r.operator_pan or '' }}" data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
                 data-remarks='{{ r.remarks_history | tojson | safe }}'>
-                
+
+                <td>{{ loop.index }}</td>
                 <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
                 <td>{{ r.operator_name }}</td>
                 <td>{{ r.operator_mobile }}</td>
@@ -347,11 +213,22 @@
     <div class="section-heading-dot" style="background:#16a34a;"></div>
     <h3>Activation Log History</h3>
     <span class="section-count" id="approved-count">–</span>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <select id="approved-status-filter" class="filter-input"
+            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
+            <option value="all">All Statuses</option>
+            <option value="approved">Approved</option>
+        </select>
+        <button class="btn btn-sm"
+            onclick="exportTableToExcel('approved-requests-table', 'activation_log_history.xlsx')">Export to
+            Excel</button>
+    </div>
 </div>
 <div class="sid-table-wrapper">
     <table class="sid-table" id="approved-requests-table">
         <thead>
             <tr>
+                <th style="width: 60px;">S.No</th>
                 <th>Request ID</th>
                 <th>Operator Name</th>
                 <th>Mobile</th>
@@ -363,17 +240,13 @@
         </thead>
         <tbody id="approved-table-body">
             {% for r in requests if r.status == 'approved' %}
-            <tr data-id="{{ r.id }}" 
-                data-request-no="{{ r.request_no if r.request_no else '—' }}"
-                data-name="{{ r.operator_name }}"
-                data-mobile="{{ r.operator_mobile }}"
-                data-district="{{ r.district_name or 'Raipur' }}"
-                data-aadhaar="{{ r.operator_aadhaar or '' }}"
-                data-pan="{{ r.operator_pan or '' }}"
-                data-status="{{ r.status }}" 
-                data-created="{{ r.submitted_at }}"
+            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
+                data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
+                data-district="{{ r.district_name or 'Raipur' }}" data-aadhaar="{{ r.operator_aadhaar or '' }}"
+                data-pan="{{ r.operator_pan or '' }}" data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
                 data-remarks='{{ r.remarks_history | tojson | safe }}'>
-                
+
+                <td>{{ loop.index }}</td>
                 <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
                 <td>{{ r.operator_name }}</td>
                 <td>{{ r.operator_mobile }}</td>
@@ -412,10 +285,11 @@
     }
 
     // Modern dynamic search and filter engine
-    window.filterAllTables = function() {
+    window.filterAllTables = function () {
         const searchQuery = document.getElementById('dc-search-input').value.toLowerCase().trim();
         const dateFilter = document.getElementById('dc-date-filter').value;
         const p = getDatePrefixes();
+        const now = new Date();
 
         const configs = [
             { tbodyId: 'pending-table-body', emptyMsgId: 'pending-empty-msg', tableId: 'pending-requests-table', countId: 'pending-count' },
@@ -423,28 +297,63 @@
         ];
 
         configs.forEach(cfg => {
+            const sfId = cfg.tbodyId === 'pending-table-body' ? 'pending-status-filter' : 'approved-status-filter';
+            const statusFilter = document.getElementById(sfId).value;
             const rows = document.querySelectorAll(`#${cfg.tbodyId} tr`);
             let visibleRowsCount = 0;
+            let tableIndexCounter = 1; // 🌟 Tracks visible index increments dynamically
 
             rows.forEach(row => {
+                if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
+
                 const name = (row.getAttribute('data-name') || '').toLowerCase();
                 const mobile = (row.getAttribute('data-mobile') || '').toLowerCase();
                 const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+                const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
                 const createdDate = row.getAttribute('data-created') || '';
 
                 const matchQuery = !searchQuery || name.includes(searchQuery) || mobile.includes(searchQuery) || reqNo.includes(searchQuery);
 
+                let matchStatus = true;
+                if (statusFilter !== 'all') {
+                    if (statusFilter === 'pending') {
+                        matchStatus = ['pending', 'sent_to_chips', 'sent_to_uidai'].includes(rowStatus);
+                    } else if (statusFilter === 'reverted') {
+                        matchStatus = ['reverted', 'rejected'].includes(rowStatus);
+                    } else {
+                        matchStatus = rowStatus === statusFilter;
+                    }
+                }
+
                 let matchDate = true;
                 if (dateFilter === 'today') {
                     matchDate = createdDate.startsWith(p.today);
+                } else if (dateFilter === 'week') {
+                    if (!createdDate) {
+                        matchDate = false;
+                    } else {
+                        const rowDate = new Date(createdDate.replace(' ', 'T'));
+                        const startOfWeek = new Date(now);
+                        const day = startOfWeek.getDay();
+                        startOfWeek.setDate(now.getDate() - day);
+                        startOfWeek.setHours(0, 0, 0, 0);
+
+                        const endOfWeek = new Date(startOfWeek);
+                        endOfWeek.setDate(startOfWeek.getDate() + 6);
+                        endOfWeek.setHours(23, 59, 59, 999);
+
+                        matchDate = rowDate >= startOfWeek && rowDate <= endOfWeek;
+                    }
                 } else if (dateFilter === 'month') {
                     matchDate = createdDate.startsWith(p.month);
-                } else if (dateFilter === 'year') {
-                    matchDate = createdDate.startsWith(p.year);
                 }
 
-                if (matchQuery && matchDate) {
+                if (matchQuery && matchStatus && matchDate) {
                     row.style.display = '';
+                    // 🌟 Update the S.No cell text context dynamically on filter trigger matches
+                    if (row.cells[0]) {
+                        row.cells[0].innerText = tableIndexCounter++;
+                    }
                     visibleRowsCount++;
                 } else {
                     row.style.display = 'none';
@@ -466,6 +375,14 @@
         });
     }
 
+    window.clearAllFilters = function () {
+        document.getElementById('dc-search-input').value = '';
+        document.getElementById('pending-status-filter').value = 'all';
+        document.getElementById('approved-status-filter').value = 'all';
+        document.getElementById('dc-date-filter').value = 'month';
+        filterAllTables();
+    }
+
     // Initialize Filter State Engine on View Mount
     window.addEventListener('load', () => {
         filterAllTables();
@@ -477,51 +394,555 @@
         return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
 
+    function getStatusBadgeHtml(status) {
+        const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+        let badgeClass = 'badge-pending';
+        let label = 'Pending';
+
+        if (s.includes('approve')) {
+            badgeClass = 'badge-approved';
+            label = 'Approved';
+        } else if (s.includes('revert')) {
+            badgeClass = 'badge-reverted';
+            label = 'Reverted';
+        } else if (s.includes('forward') || s.includes('uidai')) {
+            badgeClass = 'badge-forwarded';
+            label = s.includes('again') ? 'Forwarded Again' : 'Forwarded';
+        } else if (s.includes('reappl')) {
+            badgeClass = 'badge-reapplied';
+            label = 'Reapplied';
+        } else if (s.includes('reject')) {
+            badgeClass = 'badge-reverted';
+            label = 'Rejected';
+        }
+        return `<span class="badge ${badgeClass}">${label}</span>`;
+    }
+
     function buildRemarksHtml(remarks) {
-        if (remarks.length === 0) {
+        if (!remarks || remarks.length === 0) {
             return `<div style="margin-top: 15px; font-style: italic; color: #94a3b8; font-size: 13px; text-align: center;">No remarks history available.</div>`;
         }
-        let html = `<div style="margin-top:15px;border-top:1px solid #e2e8f0;padding-top:12px;">
-            <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#1e293b;text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Remarks & Conversation</div>
-            <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px;">`;
+        let html = `<div class="remarks-timeline">
+            <div class="timeline-title">Audit Action History Log</div>
+            <div class="timeline-track">`;
         remarks.forEach(item => {
             const isChips = item.author_role === 'CHIPS_ADMIN' || item.author_role === 'chips';
             const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
-            const bg = isChips ? '#f1f5f9' : '#eff6ff';
-            const border = isChips ? '#e2e8f0' : '#dbeafe';
-            const color = isChips ? '#475569' : '#1e40af';
-            html += `<div style="background:${bg};border:1px solid ${border};padding:10px 12px;border-radius:8px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <span style="font-size:12px;font-weight:700;color:${color};">${sender}</span>
-                    <span style="font-size:11px;color:#94a3b8;">${item.created_at}</span>
+            const senderClass = isChips ? 'chips' : 'dc';
+
+            const statusAfter = item.status_after || '';
+            let statusBadgeHtmlInline = '';
+            let markerClass = 'marker-pending';
+            if (statusAfter) {
+                statusBadgeHtmlInline = getStatusBadgeHtml(statusAfter);
+                const sLower = statusAfter.toLowerCase();
+                if (sLower.includes('approve')) markerClass = 'marker-approved';
+                else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+            }
+
+            const stepLabel = 'Operator Activation';
+            const username = item.sender_username || '';
+            const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
+            html += `
+                <div class="timeline-item ${senderClass}">
+                    <div class="timeline-marker ${markerClass}"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-section-row">
+                            <span class="timeline-step-label">${stepLabel}</span>${statusAfter ? (' ' + statusBadgeHtmlInline) : ''}
+                        </div>
+                        <div class="timeline-by-row">
+                            <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
+                            <span class="timeline-time">${item.created_at}</span>
+                        </div>
+                        <div class="timeline-body">${escapeHtml(item.remark)}</div>
+                    </div>
                 </div>
-                <div style="font-size:13px;color:#334155;line-height:1.4;text-align:left;">${escapeHtml(item.remark)}</div>
-            </div>`;
+            `;
         });
         html += `</div></div>`;
         return html;
     }
 
-    window.openActivationDetailsModal = function(row) {
+    // Custom inline document viewer matching the user's mockup window
+    window.zoomPhoto = function (url) {
+        viewDocument('Profile Photo', url, 'jpg');
+    };
+
+    window.viewDocument = function (title, fileUrl, extension) {
+        if (!fileUrl) return;
+
+        // Determine extension
+        const ext = (extension || '').toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || fileUrl.startsWith('data:image/');
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.zIndex = '99999';
+
+        // Create modal container
+        const modal = document.createElement('div');
+        modal.style.width = '90%';
+        modal.style.maxWidth = '800px';
+        modal.style.height = '85vh';
+        modal.style.maxHeight = '700px';
+        modal.style.backgroundColor = 'white';
+        modal.style.borderRadius = '12px';
+        modal.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.overflow = 'hidden';
+        modal.style.animation = 'swal2-show 0.3s ease-out';
+
+        // Create header
+        const header = document.createElement('div');
+        header.style.backgroundColor = '#1e3a8a'; // Dark Navy Blue
+        header.style.padding = '12px 20px';
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.color = 'white';
+
+        const headerTitle = document.createElement('span');
+        headerTitle.innerText = title;
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.fontSize = '16px';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        closeBtn.style.border = 'none';
+        closeBtn.style.width = '32px';
+        closeBtn.style.height = '32px';
+        closeBtn.style.borderRadius = '50%';
+        closeBtn.style.display = 'flex';
+        closeBtn.style.alignItems = 'center';
+        closeBtn.style.justifyContent = 'center';
+        closeBtn.style.cursor = 'pointer';
+        closeBtn.style.color = 'white';
+        closeBtn.style.transition = 'background 0.2s';
+        closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+        closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        closeBtn.onclick = () => document.body.removeChild(overlay);
+        closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+        header.appendChild(headerTitle);
+        header.appendChild(closeBtn);
+
+        // Create body
+        const body = document.createElement('div');
+        body.style.flex = '1';
+        body.style.padding = '20px';
+        body.style.backgroundColor = '#f8fafc';
+        body.style.display = 'flex';
+        body.style.justifyContent = 'center';
+        body.style.alignItems = 'center';
+        body.style.overflow = 'hidden';
+
+        if (isImage) {
+            const img = document.createElement('img');
+            img.src = fileUrl;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = '4px';
+            body.appendChild(img);
+        } else {
+            const iframe = document.createElement('iframe');
+            iframe.src = fileUrl;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.style.borderRadius = '4px';
+            body.appendChild(iframe);
+        }
+
+        // Create footer
+        const footer = document.createElement('div');
+        footer.style.padding = '12px 20px';
+        footer.style.borderTop = '1px solid #edf2f7';
+        footer.style.display = 'flex';
+        footer.style.justifyContent = 'flex-end';
+        footer.style.alignItems = 'center';
+        footer.style.gap = '12px';
+        footer.style.backgroundColor = 'white';
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = fileUrl;
+        downloadLink.download = title;
+        downloadLink.style.display = 'inline-flex';
+        downloadLink.style.alignItems = 'center';
+        downloadLink.style.gap = '6px';
+        downloadLink.style.padding = '8px 16px';
+        downloadLink.style.borderRadius = '8px';
+        downloadLink.style.backgroundColor = '#ecfdf5';
+        downloadLink.style.color = '#10b981';
+        downloadLink.style.fontWeight = '600';
+        downloadLink.style.fontSize = '14px';
+        downloadLink.style.textDecoration = 'none';
+        downloadLink.style.cursor = 'pointer';
+        downloadLink.style.transition = 'background-color 0.2s';
+        downloadLink.onmouseenter = () => downloadLink.style.backgroundColor = '#d1fae5';
+        downloadLink.onmouseleave = () => downloadLink.style.backgroundColor = '#ecfdf5';
+        downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
+
+        const closeBtnFooter = document.createElement('button');
+        closeBtnFooter.type = 'button';
+        closeBtnFooter.style.padding = '8px 24px';
+        closeBtnFooter.style.borderRadius = '8px';
+        closeBtnFooter.style.backgroundColor = '#4f46e5';
+        closeBtnFooter.style.color = 'white';
+        closeBtnFooter.style.fontWeight = '600';
+        closeBtnFooter.style.fontSize = '14px';
+        closeBtnFooter.style.border = 'none';
+        closeBtnFooter.style.cursor = 'pointer';
+        closeBtnFooter.style.transition = 'background-color 0.2s';
+        closeBtnFooter.onmouseenter = () => closeBtnFooter.style.backgroundColor = '#4338ca';
+        closeBtnFooter.onmouseleave = () => closeBtnFooter.style.backgroundColor = '#4f46e5';
+        closeBtnFooter.onclick = () => document.body.removeChild(overlay);
+        closeBtnFooter.innerText = 'Close';
+
+        footer.appendChild(downloadLink);
+        footer.appendChild(closeBtnFooter);
+
+        modal.appendChild(header);
+        modal.appendChild(body);
+        modal.appendChild(footer);
+        overlay.appendChild(modal);
+
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        };
+
+        document.body.appendChild(overlay);
+    };
+
+    // Helper to build a document preview card matching the mockup design
+    window.buildDocumentCard = function (title, fileUrl, defaultName) {
+        if (!fileUrl) return '';
+
+        const extension = (defaultName || '').split('.').pop().toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
+
+        let previewHtml = '';
+        let previewButtonHtml = '';
+
+        if (isImage) {
+            previewHtml = `<img src="${fileUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">`;
+            previewButtonHtml = `
+                <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            `;
+        } else {
+            previewHtml = `
+                <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+            `;
+            previewButtonHtml = `
+                <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            `;
+        }
+
+        const shortFileName = defaultName.length > 22 ? defaultName.substring(0, 19) + '...' : defaultName;
+
+        return `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="height: 100px; width: 100%; background: #f8fafc; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #edf2f7;">
+                    ${previewHtml}
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
+                    <div style="text-align: left; overflow: hidden; flex-grow: 1;">
+                        <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
+                        <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${defaultName}">${shortFileName}</div>
+                    </div>
+                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                        ${previewButtonHtml}
+                        <a href="${fileUrl}" download="${defaultName}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background-color: #ecfdf5; color: #10b981; text-decoration: none; cursor: pointer; transition: background-color 0.2s;" title="Download">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    window.openActivationDetailsModal = function (row) {
         const id = row.getAttribute('data-id');
         const requestNo = row.getAttribute('data-request-no');
-        const name = row.getAttribute('data-name');
-        const mobile = row.getAttribute('data-mobile');
-        const aadhaar = row.getAttribute('data-aadhaar');
-        const pan = row.getAttribute('data-pan') || '';
         const status = row.getAttribute('data-status');
-        const remarksStr = row.getAttribute('data-remarks') || '[]';
-        const district = row.getAttribute('data-district') || '';
 
-        let remarks = [];
-        try { remarks = JSON.parse(remarksStr); } catch (e) { console.error(e); }
+        // Show loading skeleton immediately
+        Swal.fire({
+            html: `<div style="padding:40px;text-align:center;font-family:'Inter',sans-serif;">
+                <div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+                <div style="color:#94a3b8;font-size:14px;">Fetching request details…</div>
+                <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+            </div>`,
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            width: '600px',
+            padding: '0',
+            background: '#fff'
+        });
 
-        const isRevertable = (status === 'reverted' || status === 'rejected');
-        const remarksHtml = buildRemarksHtml(remarks);
+        fetch(`/auth/chips/operator-activation/${id}/detail-json`)
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch details');
+                return res.json();
+            })
+            .then(d => {
+                window.showActivationDetails(d, 'details', id, requestNo, status);
+            })
+            .catch(err => {
+                Swal.fire({ title: 'Error', text: `Could not load request: ${err.message}`, icon: 'error' });
+            });
+    };
 
-        let htmlContent = '';
-        if (isRevertable) {
-            htmlContent = `
+    window.showActivationDetails = function (d, activeView, id, requestNo, status) {
+        const remarksHtml = buildRemarksHtml(d.remarks_history || []);
+        const isRevertable = (d.status === 'reverted' || d.status === 'rejected');
+
+        const displayStatus = d.status || status;
+        const statusBadge = getStatusBadgeHtml(displayStatus);
+
+        const maskedAadhaar = d.operator_aadhaar ? `XXXX XXXX ${d.operator_aadhaar.slice(-4)}` : 'N/A';
+
+        if (activeView === 'details') {
+            let htmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                    <span>${statusBadge}</span>
+                </div>
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                    Submitted At: <strong>${d.submitted_at || d.created_at || '—'}</strong>
+                </div>
+
+                ${isRevertable ? `
+                <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
+                    <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">⚠ Action Required — Request Reverted</div>
+                    <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</div>
+                </div>
+                ` : ''}
+
+                <!-- Personal Information Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Personal Information</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="grid-column: 1/-1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Operator Name</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_name)}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Mobile Number</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_mobile)}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Email ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.primary_email || 'N/A')}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Aadhaar Card</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${maskedAadhaar}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">PAN Card</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_pan || 'N/A')}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Address Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Address</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">District</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.district_name)}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Pincode</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.pincode || 'N/A')}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Work & Certification Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Work &amp; Certification</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Role</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.role || 'N/A')}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">EA Code</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.ea_code || 'N/A')}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">User Code</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.user_code || 'N/A')}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Registrar Code</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.registrar_code || 'N/A')}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certificate #</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.nseit_certificate_number || 'N/A')}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certification Date</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.nseit_certification_date || 'N/A')}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Expiry Date</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.nseit_certificate_expiry_date || 'N/A')}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View Documents and View Remarks Buttons -->
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Documents</button>
+                    <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
+                </div>
+            </div>
+            `;
+
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Activation Request Details</span>`,
+                html: htmlContent,
+                showCancelButton: false, // NO Cancel button
+                showConfirmButton: true,
+                confirmButtonText: isRevertable ? 'Modify & Reapply' : 'Close',
+                showDenyButton: isRevertable,
+                denyButtonText: 'Close',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false,
+                didOpen: () => {
+                    document.getElementById('btn-show-docs').onclick = () => {
+                        window.showActivationDetails(d, 'documents', id, requestNo, status);
+                    };
+                    document.getElementById('btn-show-remarks').onclick = () => {
+                        window.showActivationDetails(d, 'remarks', id, requestNo, status);
+                    };
+                }
+            }).then((result) => {
+                if (result.isConfirmed && isRevertable) {
+                    openActivationReapplyModal(id, requestNo, d.operator_name, d.operator_mobile, d.operator_aadhaar, d.operator_pan, remarksHtml);
+                }
+            });
+        }
+        else if (activeView === 'documents') {
+            // Build document cards html
+            let documentsHtml = '';
+            if (d.documents && d.documents.length > 0) {
+                const docLabels = {
+                    'hard_copy_form': 'Consent Form',
+                    'aadhaar_photo': 'Aadhaar Card',
+                    'pan_card': 'PAN Card',
+                    'passbook': 'Passbook',
+                    'nseit_certificate': 'NSEIT Certificate',
+                    'excel_sheet': 'Excel Sheet'
+                };
+                d.documents.forEach(doc => {
+                    const label = docLabels[doc.doc_type] || doc.doc_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                    const fileUrl = `/auth/chips/operator-activation/${id}/file/${doc.doc_type}`;
+                    documentsHtml += buildDocumentCard(label, fileUrl, doc.original_filename);
+                });
+            } else {
+                documentsHtml = '<div style="grid-column: 1/-1; text-align: center; color: #94a3b8; font-size: 13px; font-style: italic;">No documents uploaded.</div>';
+            }
+
+            let htmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                    <span>${statusBadge}</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
+                    ${documentsHtml}
+                </div>
+            </div>
+            `;
+
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Uploaded Documents</span>`,
+                html: htmlContent,
+                showCancelButton: false, // NO Cancel button
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                showDenyButton: true,
+                denyButtonText: 'Back',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false
+            }).then((result) => {
+                if (result.isDenied) {
+                    window.showActivationDetails(d, 'details', id, requestNo, status);
+                }
+            });
+        }
+        else if (activeView === 'remarks') {
+            let htmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                    <span>${statusBadge}</span>
+                </div>
+                ${remarksHtml}
+            </div>
+            `;
+
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+                html: htmlContent,
+                showCancelButton: false, // NO Cancel button
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                showDenyButton: true,
+                denyButtonText: 'Back',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false
+            }).then((result) => {
+                if (result.isDenied) {
+                    window.showActivationDetails(d, 'details', id, requestNo, status);
+                }
+            });
+        }
+    };
+
+    function openActivationReapplyModal(id, requestNo, name, mobile, aadhaar, pan, remarksHtml) {
+        let htmlContent = `
             <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
                 <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">⚠ Action Required — Request Reverted</div>
                 <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below, make corrections and reapply.</div>
@@ -529,17 +950,17 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;text-align:left;">
                 <div>
                     <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Mobile Number *</div>
-                    <input id="reapply-mobile" type="text" value="${mobile}" maxlength="10"
+                    <input id="reapply-mobile" type="text" value="${mobile || ''}" maxlength="10"
                         style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
                 </div>
                 <div>
                     <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Aadhaar Last 4 Digits *</div>
-                    <input id="reapply-aadhaar" type="text" value="${aadhaar}" maxlength="4"
+                    <input id="reapply-aadhaar" type="text" value="${aadhaar || ''}" maxlength="4"
                         style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
                 </div>
                 <div style="grid-column:1/-1;">
                     <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">PAN Number</div>
-                    <input id="reapply-pan" type="text" value="${pan}" maxlength="10"
+                    <input id="reapply-pan" type="text" value="${pan || ''}" maxlength="10"
                         style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;text-transform:uppercase;">
                 </div>
             </div>
@@ -548,45 +969,19 @@
                 <textarea id="reapply-remark" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:75px;outline:none;"
                     placeholder="Explain what changes you made to address the revert reason..."></textarea>
             </div>
-            ${remarksHtml}`;
-        } else {
-            htmlContent = `
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;text-align:left;">
-                <div style="background:#f8fafc;border-radius:8px;padding:12px;">
-                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Request ID</div>
-                    <div style="font-weight:700;color:#4f46e5;font-size:15px;">${requestNo}</div>
-                </div>
-                <div style="background:#f8fafc;border-radius:8px;padding:12px;">
-                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Operator Name</div>
-                    <div style="font-weight:600;color:#0f172a;">${escapeHtml(name)}</div>
-                </div>
-                <div style="background:#f8fafc;border-radius:8px;padding:12px;">
-                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Mobile Number</div>
-                    <div style="font-weight:700;color:#0f172a;">${escapeHtml(mobile)}</div>
-                </div>
-                <div style="background:#f8fafc;border-radius:8px;padding:12px;">
-                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Aadhaar Number</div>
-                    <div style="font-weight:700;color:#0f172a;">${escapeHtml(aadhaar)}</div>
-                </div>
-                <div style="grid-column:1/-1;background:#f8fafc;border-radius:8px;padding:12px;">
-                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">District</div>
-                    <div style="font-weight:600;color:#0f172a;">${escapeHtml(district)}</div>
-                </div>
-            </div>
-            ${remarksHtml}`;
-        }
+            ${remarksHtml}
+        `;
 
         Swal.fire({
-            title: isRevertable ? `<span style="color:#dc2626; font-family:inherit; font-weight:800;">Modify & Reapply</span>` : `<span style="font-family:inherit; font-weight:800;">Activation Request Details</span>`,
+            title: `<span style="color:#dc2626; font-family:inherit; font-weight:800;">Modify & Reapply</span>`,
             html: htmlContent,
-            showCancelButton: isRevertable,
-            confirmButtonText: isRevertable ? 'Resubmit Request' : 'Close',
+            showCancelButton: true,
+            confirmButtonText: 'Resubmit Request',
             cancelButtonText: 'Cancel',
-            confirmButtonColor: '#4f46e5',
+            confirmButtonColor: '#007bff',
             width: '560px',
             focusConfirm: false,
             preConfirm: () => {
-                if (!isRevertable) return true;
                 const updatedMobile = document.getElementById('reapply-mobile').value.trim();
                 const updatedAadhaar = document.getElementById('reapply-aadhaar').value.trim();
                 const updatedPan = document.getElementById('reapply-pan').value.trim().toUpperCase();
@@ -615,17 +1010,69 @@
                 });
             }
         }).then((result) => {
-            if (result.isConfirmed && isRevertable) {
+            if (result.isConfirmed) {
                 Swal.fire({
                     title: 'Reapplied Successfully!',
                     text: 'Your modifications have been submitted back to CHiPS.',
                     icon: 'success',
-                    confirmButtonColor: '#4f46e5'
+                    confirmButtonColor: '#007bff'
                 }).then(() => {
                     window.location.reload();
                 });
             }
         });
+    }
+
+    // Export helper function to XLSX format using SheetJS (XLSX) library
+    function exportTableToExcel(tableID, filename = 'export.xlsx') {
+        const table = document.getElementById(tableID);
+        if (!table) return;
+
+        // Find headers and valid indices
+        const headerRow = table.querySelector('thead tr');
+        const headers = headerRow ? headerRow.querySelectorAll('th') : [];
+        const validIndices = [];
+        const headerData = [];
+
+        headers.forEach((th, idx) => {
+            const text = th.innerText.trim();
+            if (text !== "Actions" && text !== "Action") {
+                validIndices.push(idx);
+                headerData.push(text);
+            }
+        });
+
+        const rowsData = [headerData];
+
+        // Find visible body rows
+        const bodyRows = table.querySelectorAll('tbody tr');
+        bodyRows.forEach(row => {
+            // Only export visible rows and rows with actual data (cells.length > 1)
+            if (row.style.display !== 'none' && row.cells.length > 1) {
+                const rowData = [];
+                const cells = row.querySelectorAll('td');
+                validIndices.forEach(idx => {
+                    if (cells[idx]) {
+                        let text = cells[idx].innerText.trim();
+                        text = text.replace(/\s+/g, ' ');
+                        rowData.push(text);
+                    } else {
+                        rowData.push('');
+                    }
+                });
+                rowsData.push(rowData);
+            }
+        });
+
+        if (typeof XLSX === 'undefined') {
+            alert("Excel export library is not loaded yet. Please wait a moment or refresh the page.");
+            return;
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(rowsData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        XLSX.writeFile(wb, filename);
     }
 </script>
 {% endblock %}

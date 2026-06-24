@@ -4,6 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Candidate, NSEITRequest, NSEITRemark, UserLogin, MasterUserRole
+from backend.utils.exporter import generate_excel_export
 
 router = APIRouter(prefix="/nseit_manage", tags=["nseit_manage"])
 
@@ -167,3 +168,61 @@ def revert_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = D
     db.add(new_remark)
     db.commit()
     return {"success": True, "detail": "NSEIT Request reverted."}
+
+@router.get("/export-excel")
+def export_nseit_excel(ids: str = None, db: Session = Depends(get_db)):
+    query = db.query(NSEITRequest)
+    if ids:
+        id_list = [int(x) for x in ids.split(",") if x.isdigit()]
+        query = query.filter(NSEITRequest.r_id.in_(id_list))
+    nseit_records = query.all()
+
+    export_data = []
+    for idx, n in enumerate(nseit_records):
+        c = n.candidate
+        if not c:
+            continue
+        district_name = c.district_rel.district_name if c.district_rel else "Unknown"
+        export_data.append({
+            "s_no": idx + 1,
+            "request_code": c.request_code,
+            "district_name": district_name,
+            "name": c.name,
+            "mobile": c.mobile,
+            "email": c.email,
+            "qualification": c.qualification,
+            "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "",
+            "aadhaar": c.aadhaar or "",
+            "address": c.address or "",
+            "pincode": c.pincode or "",
+            "is_existing_operator": "Yes" if c.is_existing_operator else "No",
+            "lms_id": c.lms_id or "",
+            "exam_unique_code": c.exam_unique_code or "",
+            "nseit_certificate_id": c.nseit_id or "",
+            "nseit_status": n.status,
+            "submitted_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else "",
+            "updated_at": n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else (n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else ""),
+        })
+
+    column_mappings = {
+        "s_no": "S.No",
+        "request_code": "Request Code",
+        "district_name": "District",
+        "name": "Candidate Name",
+        "mobile": "Mobile No",
+        "email": "Email ID",
+        "qualification": "Qualification",
+        "dob": "Date of Birth",
+        "aadhaar": "Aadhaar Number",
+        "address": "Address",
+        "pincode": "Pincode",
+        "is_existing_operator": "Is Existing Operator",
+        "lms_id": "LMS ID",
+        "exam_unique_code": "Exam Unique Code",
+        "nseit_certificate_id": "NSEIT Certificate ID",
+        "nseit_status": "NSEIT Status",
+        "submitted_at": "Submitted At",
+        "updated_at": "Updated At",
+    }
+
+    return generate_excel_export(export_data, column_mappings, "nseit_requests")

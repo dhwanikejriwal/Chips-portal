@@ -86,7 +86,9 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
             {
                 "author_role": rm.author_role.upper(),
                 "remark": rm.remark,
-                "created_at": str(rm.created_at)[:16]
+                "created_at": str(rm.created_at)[:16],
+                "status_after": rm.status_after,
+                "sender_username": rm.author.username if rm.author else "",
             } for rm in r.remarks
         ]
         
@@ -130,7 +132,9 @@ def get_all_requests(db: Session = Depends(get_db)):
             {
                 "author_role": rm.author_role.upper(),
                 "remark": rm.remark,
-                "created_at": str(rm.created_at)[:16]
+                "created_at": str(rm.created_at)[:16],
+                "status_after": rm.status_after,
+                "sender_username": rm.author.username if rm.author else "",
             } for rm in r.remarks
         ]
         
@@ -177,7 +181,9 @@ def get_request_details(request_id: int, db: Session = Depends(get_db)):
         {
             "author_role": rm.author_role.upper(),
             "remark": rm.remark,
-            "created_at": str(rm.created_at)[:16]
+            "created_at": str(rm.created_at)[:16],
+            "status_after": rm.status_after,
+            "sender_username": rm.author.username if rm.author else "",
         } for rm in r.remarks
     ]
 
@@ -234,7 +240,8 @@ def send_to_uidai(
             request_id=r.id,
             author_id=reviewed_by,
             author_role="chips_admin",
-            remark=f"Sent to UIDAI: {uidai_remarks.strip()}"
+            remark=f"Sent to UIDAI: {uidai_remarks.strip()}",
+            status_after="sent_to_uidai"
         )
         db.add(remark)
 
@@ -263,7 +270,8 @@ def uidai_approve(
         request_id=r.id,
         author_id=reviewed_by,
         author_role="chips_admin",
-        remark=remark_text
+        remark=remark_text,
+        status_after="approved"
     )
     db.add(remark)
     db.commit()
@@ -290,7 +298,8 @@ def uidai_reject(
         request_id=r.id,
         author_id=reviewed_by,
         author_role="chips_admin",
-        remark=f"UIDAI Rejected. Remarks: {uidai_remarks}"
+        remark=f"UIDAI Rejected. Remarks: {uidai_remarks}",
+        status_after="rejected"
     )
     db.add(remark)
     db.commit()
@@ -316,7 +325,8 @@ def revert_request(
         request_id=r.id,
         author_id=reviewed_by,
         author_role="chips_admin",
-        remark=f"Reverted back to DC: {revert_reason.strip()}"
+        remark=f"Reverted back to DC: {revert_reason.strip()}",
+        status_after="reverted"
     )
     db.add(remark)
     db.commit()
@@ -376,7 +386,8 @@ def reapply_l2_request(
         request_id=r.id,
         author_id=dc_id,
         author_role="dc",
-        remark=reapply_remark.strip()
+        remark=reapply_remark.strip(),
+        status_after="reapplied"
     )
     db.add(remark)
     db.commit()

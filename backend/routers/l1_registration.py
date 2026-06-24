@@ -10,6 +10,8 @@ from backend.database import get_db
 from backend.routers.auth import get_current_user
 from backend.models import User, District
 from backend.models.l1_registration import L1RegistrationRequest, L1RegistrationRemarkHistory
+from backend.models.base import to_name
+from backend.utils.exporter import generate_excel_export
 
 router = APIRouter()
 
@@ -110,25 +112,23 @@ async def get_l1_requests(
 ):
     user_role_str = get_user_role_str(current_user)
     
-    base_query = """
-        SELECT r.id, r.request_code, r.station_id, r.model_type, CAST(r.status AS TEXT) as raw_status, r.created_at, d.district_name as dist_name
-        FROM l1_registration_requests r LEFT JOIN district_table d ON r.district_id = d.district_code
-    """
+    query = db.query(L1RegistrationRequest)
     if user_role_str == "dc":
-        query_exec = db.execute(text(base_query + " WHERE r.district_id = :d_id ORDER BY r.created_at DESC"), {"d_id": current_user.district_id})
-    else:
-        query_exec = db.execute(text(base_query + " ORDER BY r.created_at DESC"))
+        query = query.filter(L1RegistrationRequest.district_id == current_user.district_id)
+    
+    requests = query.order_by(L1RegistrationRequest.created_at.desc()).all()
         
     compiled_list = []
-    for row in query_exec.fetchall():
+    for req in requests:
+        dist_name = req.district.district_name if req.district else "Raipur"
         compiled_list.append({
-            "id": row.id,
-            "request_code": row.request_code,
-            "station_id": row.station_id,
-            "model_type": row.model_type,
-            "status": str(row.raw_status or "PENDING").upper().replace(" ", "_").strip(),
-            "submitted_at": str(row.created_at)[:19],
-            "district_name": row.dist_name or "Raipur"
+            "id": req.id,
+            "request_code": req.request_code,
+            "station_id": req.station_id,
+            "model_type": req.model_type,
+            "status": to_name(req.status_code, casing="upper").replace(" ", "_").strip(),
+            "submitted_at": str(req.created_at)[:19] if req.created_at else "",
+            "district_name": dist_name
         })
     return compiled_list
 
@@ -354,3 +354,47 @@ def export_all_l1_to_excel_stream(db: Session = Depends(get_db), current_user: U
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
         headers={"Content-Disposition": f"attachment; filename=Pending_L1_Requests.xlsx"}
     )
+
+
+@router.get("/export-excel-v2")
+def export_l1_excel_v2(ids: str = None, db: Session = Depends(get_db)):
+    query = db.query(L1RegistrationRequest)
+    if ids:
+        id_list = [int(x) for x in ids.split(",") if x.isdigit()]
+        query = query.filter(L1RegistrationRequest.id.in_(id_list))
+    records = query.all()
+
+    export_data = []
+    for idx, req in enumerate(records):
+        dist_name = req.district.district_name if req.district else "Unknown"
+        export_data.append({
+            "s_no": idx + 1,
+            "request_code": req.request_code,
+            "district_name": dist_name,
+            "station_id": req.station_id,
+            "machine_id": req.machine_id,
+            "operator_name": req.operator_name or "",
+            "operator_id": req.operator_id or "",
+            "model_type": req.model_type,
+            "software_version": req.software_version,
+            "uv_id": req.uv_id,
+            "status": str(req.status).upper(),
+            "submitted_at": str(req.created_at)[:19] if req.created_at else "",
+        })
+
+    column_mappings = {
+        "s_no": "S.No",
+        "request_code": "Request Code",
+        "district_name": "District",
+        "station_id": "Station ID",
+        "machine_id": "Machine ID",
+        "operator_name": "Operator Name",
+        "operator_id": "Operator ID",
+        "model_type": "Model Type",
+        "software_version": "Software Version",
+        "uv_id": "UV ID",
+        "status": "Status",
+        "submitted_at": "Submitted At",
+    }
+
+    return generate_excel_export(export_data, column_mappings, "l1_registration_requests")

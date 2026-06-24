@@ -66,7 +66,10 @@ def view_reactivation_dashboard():
                     "created_at": str(req.get("timestamp") or req.get("created_at") or req.get("submitted_at") or "—")[:19],
                     "updated_at": str(req.get("updated_at") or "—")[:19],
                     "revert_reason": str(req.get("reject_reason") or req.get("revert_reason") or "None"),
-                    "operators": req.get("operators", []),
+                    "operators": [
+                        dict(op, timeline_logs=req.get("timeline_logs", []))
+                        for op in req.get("operators", [])
+                    ] if isinstance(req.get("operators"), list) else [],
                     "timeline_logs": req.get("timeline_logs", [])
                 })
         else:

@@ -4,6 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Candidate, LMS, LMSRemark, UserLogin, MasterUserRole
+from backend.utils.exporter import generate_excel_export
 
 router = APIRouter(prefix="/lms_manage", tags=["lms_manage"])
 
@@ -162,3 +163,58 @@ def revert_lms_request(r_id: int, payload: LMSActionRequest, db: Session = Depen
     db.commit()
     return {"success": True, "detail": "LMS Request reverted."}
 
+@router.get("/export-excel")
+def export_lms_excel(ids: str = None, db: Session = Depends(get_db)):
+    query = db.query(LMS)
+    if ids:
+        id_list = [int(x) for x in ids.split(",") if x.isdigit()]
+        query = query.filter(LMS.r_id.in_(id_list))
+    lms_records = query.all()
+
+    export_data = []
+    for idx, l in enumerate(lms_records):
+        c = l.candidate
+        if not c:
+            continue
+        district_name = c.district_rel.district_name if c.district_rel else "Unknown"
+        export_data.append({
+            "s_no": idx + 1,
+            "request_code": c.request_code,
+            "district_name": district_name,
+            "name": c.name,
+            "mobile": c.mobile,
+            "email": c.email,
+            "qualification": c.qualification,
+            "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "",
+            "aadhaar": c.aadhaar or "",
+            "address": c.address or "",
+            "pincode": c.pincode or "",
+            "is_existing_operator": "Yes" if c.is_existing_operator else "No",
+            "lms_credential_id": c.lms_id or "",
+            "nseit_id": c.nseit_id or "",
+            "lms_status": l.status,
+            "submitted_at": l.created_at.strftime("%Y-%m-%d %H:%M:%S") if l.created_at else "",
+            "updated_at": l.updated_at.strftime("%Y-%m-%d %H:%M:%S") if l.updated_at else (l.created_at.strftime("%Y-%m-%d %H:%M:%S") if l.created_at else ""),
+        })
+
+    column_mappings = {
+        "s_no": "S.No",
+        "request_code": "Request Code",
+        "district_name": "District",
+        "name": "Candidate Name",
+        "mobile": "Mobile No",
+        "email": "Email ID",
+        "qualification": "Qualification",
+        "dob": "Date of Birth",
+        "aadhaar": "Aadhaar Number",
+        "address": "Address",
+        "pincode": "Pincode",
+        "is_existing_operator": "Is Existing Operator",
+        "lms_credential_id": "LMS Credential ID",
+        "nseit_id": "NSEIT ID",
+        "lms_status": "LMS Status",
+        "submitted_at": "Submitted At",
+        "updated_at": "Updated At",
+    }
+
+    return generate_excel_export(export_data, column_mappings, "lms_requests")

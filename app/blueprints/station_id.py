@@ -156,3 +156,25 @@ def chips_revert(request_id):
 
     http.patch(f"{BACKEND}/{request_id}/revert", data=form_data, headers=_headers())
     return redirect(url_for("station_id.chips_list"))
+
+
+@station_id_bp.route("/station-id/export", methods=["GET"])
+def export_station_id_proxy():
+    if not session.get("access_token"):
+        return "Unauthorized", 401
+    ids = request.args.get("ids", "")
+    try:
+        response = http.get(f"{BACKEND}/export-excel", params={"ids": ids}, stream=True)
+        if response.status_code == 200:
+            from flask import Response as FlaskResponse
+            return FlaskResponse(
+                response.iter_content(chunk_size=4096),
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={
+                    "Content-Disposition": response.headers.get("Content-Disposition", "attachment; filename=station_id_requests.xlsx"),
+                    "Cache-Control": "no-cache"
+                }
+            )
+        return f"Export failed. Backend status: {response.status_code}", response.status_code
+    except Exception as e:
+        return f"Connection error: {str(e)}", 500

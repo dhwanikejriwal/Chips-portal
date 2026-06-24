@@ -3,254 +3,102 @@
 {% block title %}L2 Registration Requests — CHIPS Admin{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 <style>
-        * { font-family: 'Inter', sans-serif; }
+    /* Scoped customizations for L2 Dashboard */
+    .oa-btn-export {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        background: #16a34a;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.18s;
+        white-space: nowrap;
+    }
+    .oa-btn-export:hover { background: #15803d; }
+    .oa-btn-export svg { width: 14px; height: 14px; }
 
-        /* ── Admin banner ── */
-        .admin-banner {
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #3730a3 100%);
-            border-radius: 16px;
-            padding: 22px 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 24px;
-            position: relative;
-            overflow: hidden;
-        }
-        .admin-banner::before {
-            content: '';
-            position: absolute; right: -20px; top: -30px;
-            width: 160px; height: 160px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.05);
-        }
-        .admin-banner-left { display: flex; align-items: center; gap: 16px; }
-        .admin-banner-icon {
-            width: 48px; height: 48px;
-            background: rgba(255,255,255,0.12);
-            border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .admin-banner h2 { font-size: 20px; font-weight: 800; color: #fff; margin: 0 0 3px; }
-        .admin-banner p  { font-size: 13px; color: rgba(255,255,255,0.65); margin: 0; }
-        .admin-banner-stats {
-            display: flex; gap: 24px;
-        }
-        .admin-stat {
-            text-align: center;
-            padding: 10px 20px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.15);
-        }
-        .admin-stat-num { font-size: 22px; font-weight: 800; color: #fff; line-height: 1; }
-        .admin-stat-lbl { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 3px; }
+    .btn-approve {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 12px;
+        background: #16a34a; color: #fff;
+        border: none; border-radius: 7px;
+        font-size: 12px; font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .btn-approve:hover { background: #15803d; }
+    
+    .btn-revert {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 5px 12px;
+        background: #fff; color: #dc2626;
+        border: 1.5px solid #fca5a5; border-radius: 7px;
+        font-size: 12px; font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .btn-revert:hover { background: #fee2e2; border-color: #dc2626; }
 
-        /* ── Filter bar ── */
-        .filter-bar {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 12px 16px;
-            display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;
-            margin-bottom: 14px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-        }
-        .filter-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
-        .filter-group-search { flex: 2.5; }
-        .filter-group label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-        .filter-input {
-            height: 36px; padding: 0 10px;
-            border: 1.5px solid #e2e8f0; border-radius: 8px;
-            font-size: 13px; color: #334155;
-            outline: none; background: #fff; font-family: 'Inter', sans-serif;
-            transition: border-color 0.2s;
-        }
-        .filter-input:focus { border-color: #6366f1; }
-
-        /* ── Export Button ── */
-        .oa-btn-export {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 8px 16px;
-            font-size: 13px;
-            font-weight: 600;
-            background: #16a34a;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            text-decoration: none;
-            transition: background 0.18s;
-            white-space: nowrap;
-        }
-        .oa-btn-export:hover { background: #15803d; }
-        .oa-btn-export svg { width: 14px; height: 14px; }
-
-        /* ── Section headers ── */
-        .sec-header {
-            display: flex; align-items: center; gap: 10px;
-            margin: 24px 0 12px;
-        }
-        .sec-dot { width: 10px; height: 10px; border-radius: 3px; }
-        .sec-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; }
-        .sec-count {
-            background: #f1f5f9; color: #475569;
-            font-size: 12px; font-weight: 700;
-            padding: 2px 9px; border-radius: 20px;
-            margin-left: auto;
-        }
-
-        /* ── Table ── */
-        .sid-table-wrapper {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            overflow-x: auto;
-            overflow-y: visible;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-            margin-bottom: 28px;
-            -webkit-overflow-scrolling: touch;
-        }
-        .sid-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
-        .sid-table thead tr { background: #f8fafc; }
-        .sid-table th {
-            text-align: left; padding: 11px 13px;
-            font-size: 10px; font-weight: 700; color: #64748b;
-            text-transform: uppercase; letter-spacing: 0.5px;
-            border-bottom: 1px solid #e2e8f0;
-            white-space: nowrap;
-        }
-        .sid-table td {
-            padding: 12px 13px; color: #334155;
-            border-bottom: 1px solid #f1f5f9; vertical-align: middle;
-            white-space: nowrap;
-        }
-        .sid-table tbody tr:last-child td { border-bottom: none; }
-        .sid-table tbody tr:hover td { background: #fafafe; }
-
-        /* ── Badges ── */
-        .sid-badge {
-            display: inline-flex; align-items: center; gap: 5px;
-            padding: 3px 9px; border-radius: 20px;
-            font-size: 11px; font-weight: 700;
-        }
-        .sid-badge::before { content:''; width:5px; height:5px; border-radius:50%; }
-        .sid-badge-pending, .sid-badge-sent_to_chips { background:#fef9c3; color:#854d0e; }
-        .sid-badge-pending::before, .sid-badge-sent_to_chips::before { background:#f59e0b; }
-        
-        .sid-badge-sent_to_uidai { background:#e0f2fe; color:#0369a1; }
-        .sid-badge-sent_to_uidai::before { background:#0ea5e9; }
-        
-        .sid-badge-approved { background:#dcfce7; color:#166534; }
-        .sid-badge-approved::before { background:#16a34a; }
-        
-        .sid-badge-reverted { background:#fee2e2; color:#991b1b; }
-        .sid-badge-reverted::before { background:#dc2626; }
-        
-        .sid-badge-rejected { background:#ffedd5; color:#c2410c; }
-        .sid-badge-rejected::before { background:#ea580c; }
-
-        .sid-badge-reapplied { background:#ede9fe; color:#5b21b6; }
-        .sid-badge-reapplied::before { background:#7c3aed; }
-
-        /* ── Action buttons ── */
-        .action-group { display: flex; gap: 5px; flex-wrap: nowrap; align-items: center; }
-        
-        .btn-issue {
-            display: inline-flex; align-items: center; gap: 4px;
-            padding: 6px 12px;
-            background: #4f46e5; color: #fff;
-            border: none; border-radius: 7px;
-            font-size: 12px; font-weight: 700;
-            cursor: pointer; font-family: 'Inter',sans-serif;
-            transition: background 0.15s;
-        }
-        .btn-issue:hover { background: #4338ca; }
-
-        .btn-approve {
-            display: inline-flex; align-items: center; gap: 4px;
-            padding: 6px 12px;
-            background: #16a34a; color: #fff;
-            border: none; border-radius: 7px;
-            font-size: 12px; font-weight: 700;
-            cursor: pointer; font-family: 'Inter',sans-serif;
-            transition: background 0.15s;
-        }
-        .btn-approve:hover { background: #15803d; }
-        
-        .btn-revert {
-            display: inline-flex; align-items: center; gap: 4px;
-            padding: 5px 12px;
-            background: #fff; color: #dc2626;
-            border: 1.5px solid #fca5a5; border-radius: 7px;
-            font-size: 12px; font-weight: 700;
-            cursor: pointer; font-family: 'Inter',sans-serif;
-            transition: all 0.15s;
-        }
-        .btn-revert:hover { background: #fee2e2; border-color: #dc2626; }
-        
-        .btn-details {
-            display: inline-flex; align-items: center; gap: 4px;
-            padding: 5px 12px;
-            background: #f8fafc; color: #334155;
-            border: 1.5px solid #e2e8f0; border-radius: 7px;
-            font-size: 12px; font-weight: 600;
-            cursor: pointer; font-family: 'Inter',sans-serif;
-            transition: all 0.15s;
-        }
-        .btn-details:hover { border-color: #6366f1; color: #4f46e5; background: #f5f3ff; }
-
-        /* ── Empty ── */
-        .empty-state { padding:36px 20px; text-align:center; color:#94a3b8; }
-        .empty-state-icon { font-size:32px; margin-bottom:8px; }
-        .empty-state p { font-size:13px; margin:0; }
-
-        /* ══ RESPONSIVE ══════════════════════════════════════════════ */
-        @media (max-width: 1100px) {
-            .admin-banner {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 16px;
-            }
-            .admin-banner-stats {
-                width: 100%;
-                justify-content: flex-start;
-                gap: 10px;
-            }
-            .admin-stat { padding: 8px 14px; }
-        }
+    .btn-issue {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 12px;
+        background: var(--dc-primary, #007bff); color: #fff;
+        border: none; border-radius: 7px;
+        font-size: 12px; font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .btn-issue:hover { background: var(--dc-primary-hover, #0056b3); }
 </style>
 {% endblock %}
 
 {% block content %}
 
-            <!-- Gradient Admin Banner -->
-            <div class="admin-banner">
-                <div class="admin-banner-left">
-                    <div class="admin-banner-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <!-- Standardized L2 Registration Dashboard Banner -->
+            <div class="chips-header-banner">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
                     </div>
                     <div>
-                        <h2>Admin Control Dashboard</h2>
-                        <p>Manage and process incoming L2 Registration requests, forward to UIDAI, and track approvals.</p>
+                        <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">L2 Registration Control Panel</h1>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Manage and process incoming L2 Registration requests, forward to UIDAI, and track approvals</p>
                     </div>
                 </div>
-                <div class="admin-banner-stats">
-                    <div class="admin-stat">
-                        <div class="admin-stat-num">{{ requests | selectattr('status', 'in', ['sent_to_chips', 'reapplied']) | list | length }}</div>
-                        <div class="admin-stat-lbl">Pending Queue</div>
+                <div class="chips-banner-metrics">
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'in', ['sent_to_chips', 'reapplied']) | list | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review</div>
                     </div>
-                    <div class="admin-stat">
-                        <div class="admin-stat-num">{{ requests | selectattr('status', 'equalto', 'sent_to_uidai') | list | length }}</div>
-                        <div class="admin-stat-lbl">Sent to UIDAI</div>
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'sent_to_uidai') | list | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI</div>
                     </div>
-                    <div class="admin-stat">
-                        <div class="admin-stat-num">{{ requests | selectattr('status', 'in', ['approved', 'rejected', 'reverted']) | list | length }}</div>
-                        <div class="admin-stat-lbl">Processed Log</div>
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'reverted') | list | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+                    </div>
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'rejected') | list | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
+                    </div>
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+                    </div>
+                    <div class="chips-metric-card">
+                        <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | length }}</div>
+                        <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests</div>
                     </div>
                 </div>
             </div>
@@ -342,9 +190,15 @@
                             <td>
                                 <div class="action-group" style="justify-content: center;">
                                     <button type="button" class="btn-issue"
-                                        onclick="showSendToUidaiModal('{{ r.id }}', '{{ r.request_no }}')">Send to UIDAI</button>
+                                        onclick="showSendToUidaiModal('{{ r.id }}', '{{ r.request_no }}')">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                                        Send to UIDAI
+                                    </button>
                                     <button type="button" class="btn-revert"
-                                        onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">Revert</button>
+                                        onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                        Revert
+                                    </button>
                                     <button type="button" class="btn-details"
                                         onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">Details</button>
                                 </div>
@@ -448,9 +302,15 @@
                             <td>
                                 <div class="action-group" style="justify-content: center;">
                                     <button type="button" class="btn-approve"
-                                        onclick="showUidaiApproveModal('{{ r.id }}', '{{ r.request_no }}')">UIDAI Approved</button>
+                                        onclick="showUidaiApproveModal('{{ r.id }}', '{{ r.request_no }}')">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                        UIDAI Approved
+                                    </button>
                                     <button type="button" class="btn-revert"
-                                        onclick="showUidaiRejectModal('{{ r.id }}', '{{ r.request_no }}')">UIDAI Rejected</button>
+                                        onclick="showUidaiRejectModal('{{ r.id }}', '{{ r.request_no }}')">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                        UIDAI Rejected
+                                    </button>
                                     <button type="button" class="btn-details"
                                         onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">Details</button>
                                 </div>
@@ -850,65 +710,70 @@
             return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
+        // ── Status badge helper (DC-style) ────────────────────────────────────────
+        function getStatusBadgeHtml(status) {
+            const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+            let badgeClass = 'badge-pending';
+            let label = 'Pending';
+            if (s.includes('approve')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+            else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
+            else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
+            else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
+            else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
+            else if (s.includes('sent to chips') || s.includes('sent_to_chips')) { badgeClass = 'badge-pending'; label = 'Sent to CHiPS'; }
+            return `<span class="badge ${badgeClass}">${label}</span>`;
+        }
+
+        // ── DC-style timeline remarks builder ─────────────────────────────────────
         function buildRemarksHtml(remarks) {
-            if (remarks.length === 0) {
-                return `<div style="margin-top: 15px; font-style: italic; color: #94a3b8; font-size: 13px; text-align: center;">No remarks history available.</div>`;
+            if (!remarks || remarks.length === 0) {
+                return `<div style="text-align:center;padding:20px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or action history logged yet.</div>`;
             }
-            let html = `<div style="margin-top:15px;border-top:1px solid #e2e8f0;padding-top:12px;">
-                <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#1e293b;text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Remarks & Conversation</div>
-                <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px;">`;
-            remarks.forEach(item => {
-                const isChips = item.author_role === 'CHIPS_ADMIN' || item.author_role === 'chips';
-                const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
-                const bg = isChips ? '#f1f5f9' : '#eff6ff';
-                const border = isChips ? '#e2e8f0' : '#dbeafe';
-                const color = isChips ? '#475569' : '#1e40af';
-                html += `<div style="background:${bg};border:1px solid ${border};padding:10px 12px;border-radius:8px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                        <span style="font-size:12px;font-weight:700;color:${color};">${sender}</span>
-                        <span style="font-size:11px;color:#94a3b8;">${item.created_at}</span>
+            let html = `<div class="remarks-timeline">
+                <div class="timeline-title">Audit Action History Log</div>
+                <div class="timeline-track">`;
+            remarks.forEach(r => {
+                const isChips = r.author_role === 'CHIPS_ADMIN' || r.author_role === 'chips' || r.author_role === 'chips_admin';
+                const sender  = isChips ? 'CHiPS Admin' : 'District Coordinator';
+                const senderClass = isChips ? 'chips' : 'dc';
+
+                const statusAfter = r.status_after || '';
+                let statusBadgeHtmlInline = '';
+                let markerClass = 'marker-pending';
+                if (statusAfter) {
+                    statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
+                    const sLower = statusAfter.toLowerCase();
+                    if (sLower.includes('approve')) markerClass = 'marker-approved';
+                    else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                    else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                    else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+                }
+
+                const stepLabel = 'L2 Registration';
+                const username = r.sender_username || '';
+                const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
+                html += `
+                    <div class="timeline-item ${senderClass}">
+                        <div class="timeline-marker ${markerClass}"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-section-row">
+                                <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
+                            </div>
+                            <div class="timeline-by-row">
+                                <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
+                                <span class="timeline-time">${r.created_at}</span>
+                            </div>
+                            <div class="timeline-body">${escapeHtml(r.remark)}</div>
+                        </div>
                     </div>
-                    <div style="font-size:13px;color:#334155;line-height:1.4;text-align:left;">${escapeHtml(item.remark)}</div>
-                </div>`;
+                `;
             });
             html += `</div></div>`;
             return html;
         }
 
         function showChipsDetailsModal(requestId, requestNo, status) {
-            // Helpers
-            function escapeHtml(text) {
-                if (!text) return '';
-                return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-            }
-
-            function statusConfig(status) {
-                const s = (status || '').toLowerCase();
-                const map = {
-                    sent_to_chips:  { label: 'Sent to CHiPS',  bg: '#dbeafe', color: '#1d4ed8' },
-                    pending:        { label: 'Pending',         bg: '#fef9c3', color: '#a16207' },
-                    sent_to_uidai:  { label: 'Sent to UIDAI',  bg: '#ede9fe', color: '#6d28d9' },
-                    approved:       { label: 'Approved',        bg: '#dcfce7', color: '#15803d' },
-                    rejected:       { label: 'Rejected',        bg: '#fee2e2', color: '#dc2626' },
-                    reverted:       { label: 'Reverted',        bg: '#ffedd5', color: '#c2410c' },
-                };
-                return map[s] || { label: status.replace(/_/g,' ').toUpperCase(), bg:'#f1f5f9', color:'#475569' };
-            }
-
-            function infoCell(label, value) {
-                const v = (value && value !== 'null' && value !== 'undefined') ? escapeHtml(String(value)) : '<span style="color:#cbd5e1;">—</span>';
-                return `
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
-                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">${label}</div>
-                    <div style="font-size:13px;font-weight:600;color:#0f172a;word-break:break-word;">${v}</div>
-                </div>`;
-            }
-
-            function sectionHead(title) {
-                return `<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">${title}</div>`;
-            }
-
-            // Show loading skeleton immediately
             Swal.fire({
                 html: `<div style="padding:40px;text-align:center;font-family:'Inter',sans-serif;">
                     <div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
@@ -917,10 +782,9 @@
                 </div>`,
                 showConfirmButton: false,
                 allowOutsideClick: false,
-                width: '680px',
+                width: '600px',
                 padding: '0',
-                background: '#fff',
-                customClass: { popup: 'oa-detail-popup' },
+                background: '#fff'
             });
 
             fetch(`/auth/chips/l2-registration/${requestId}/detail-json`)
@@ -929,83 +793,128 @@
                     return res.json();
                 })
                 .then(data => {
-                    const sc = statusConfig(data.status || status);
-                    const remarksHtml = buildRemarksHtml(data.remarks_history || []);
-
-                    const html = `
-                    <div style="font-family:'Inter',sans-serif;text-align:left;">
-                        <!-- ── Gradient Header ── -->
-                        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#4f46e5 100%);padding:22px 24px 18px;position:relative;overflow:hidden;">
-                            <div style="position:absolute;right:-20px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-                            <div style="position:absolute;right:60px;bottom:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.04);"></div>
-                            <div style="display:flex;align-items:center;gap:14px;position:relative;">
-                                <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="9" cy="7" r="4"></circle>
-                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                                    </svg>
-                                </div>
-                                <div style="flex:1;min-width:0;">
-                                    <div style="font-size:18px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:3px;">${escapeHtml(data.operator_name || '—')}</div>
-                                    <div style="font-size:12px;color:rgba(255,255,255,0.65);">Request <strong style="color:rgba(255,255,255,0.9);">${requestNo}</strong> &nbsp;·&nbsp; Submitted ${data.submitted_at || '—'}</div>
-                                </div>
-                                <div style="background:${sc.bg};color:${sc.color};font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${sc.label}</div>
-                            </div>
-                        </div>
-
-                        <!-- ── Body ── -->
-                        <div style="padding:20px 22px 22px;">
-                            ${sectionHead('Personal & Operator Details')}
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-                                ${infoCell('Operator Name', data.operator_name)}
-                                ${infoCell('Operator ID', data.operator_id)}
-                                ${infoCell('Client Version & Type', `${data.client_version} (${data.client_type})`)}
-                                ${infoCell('Unique ID & Block', `${data.unique_id} (Block: ${data.block})`)}
-                            </div>
-
-                            ${sectionHead('Work & Location Details')}
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-                                ${infoCell('Station & Machine ID', `${data.new_station_id} / ${data.new_machine_id}`)}
-                                ${infoCell('EA & Registrar Code', `${data.ea_code} / ${data.reg_code}`)}
-                                ${infoCell('Old Station & Machine', `${data.old_station_id || '—'} / ${data.old_machine_id || '—'}`)}
-                                ${infoCell('District', data.district_name)}
-                            </div>
-
-                            <div style="margin-bottom:12px;">
-                                ${infoCell('Govt Premises Address', data.address_of_govt_premises)}
-                            </div>
-
-                            ${data.reason_for_l2_registration ? `
-                            <div style="margin-bottom:12px;">
-                                ${infoCell('Reason for L2 Registration', data.reason_for_l2_registration)}
-                            </div>` : ''}
-
-                            ${data.tech_center_remarks ? `
-                            <div style="margin-bottom:12px;">
-                                ${infoCell('Tech Center Remarks', data.tech_center_remarks)}
-                            </div>` : ''}
-
-                            ${sectionHead('Remarks & Conversation')}
-                            ${remarksHtml}
-                        </div>
-                    </div>`;
-
-                    Swal.fire({
-                        html,
-                        showConfirmButton: true,
-                        confirmButtonText: 'Close',
-                        confirmButtonColor: '#4f46e5',
-                        width: '680px',
-                        padding: '0',
-                        background: '#fff',
-                        customClass: { popup: 'oa-detail-popup' },
-                    });
+                    window.showL2Details(data, 'details', requestId, requestNo, status);
                 })
                 .catch(err => {
                     Swal.fire({ title: 'Error', text: `Failed to fetch details: ${err.message}`, icon: 'error' });
                 });
+        }
+
+        window.showL2Details = function (data, activeView, requestId, requestNo, status) {
+            const displayStatus = data.status || status;
+            const statusBadge = getStatusBadgeHtml(displayStatus);
+            const remarksHtml = buildRemarksHtml(data.remarks_history || []);
+
+            if (activeView === 'details') {
+                function infoCell(label, value) {
+                    const v = (value && value !== 'null' && value !== 'undefined') ? escapeHtml(String(value)) : '<span style="color:#cbd5e1;">—</span>';
+                    return `
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">${label}</div>
+                        <div style="font-size:13px;font-weight:600;color:#0f172a;word-break:break-word;">${v}</div>
+                    </div>`;
+                }
+
+                function sectionHead(title) {
+                    return `<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">${title}</div>`;
+                }
+
+                let htmlContent = `
+                <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                        <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                        <span>${statusBadge}</span>
+                    </div>
+                    <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                        Submitted At: <strong>${data.submitted_at || '—'}</strong>
+                    </div>
+
+                    ${sectionHead('Personal & Operator Details')}
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                        ${infoCell('Operator Name', data.operator_name)}
+                        ${infoCell('Operator ID', data.operator_id)}
+                        ${infoCell('Client Version & Type', `${data.client_version} (${data.client_type})`)}
+                        ${infoCell('Unique ID & Block', `${data.unique_id || '—'} (Block: ${data.block || '—'})`)}
+                    </div>
+
+                    ${sectionHead('Work & Location Details')}
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                        ${infoCell('Station & Machine ID', `${data.new_station_id} / ${data.new_machine_id}`)}
+                        ${infoCell('EA & Registrar Code', `${data.ea_code} / ${data.reg_code}`)}
+                        ${infoCell('Old Station & Machine ID', `${data.old_station_id || '—'} / ${data.old_machine_id || '—'}`)}
+                        ${infoCell('District', data.district_name)}
+                    </div>
+
+                    <div style="margin-bottom:12px;">
+                        ${infoCell('Govt Premises Address', data.address_of_govt_premises)}
+                    </div>
+
+                    ${data.reason_for_l2_registration ? `
+                    <div style="margin-bottom:12px;">
+                        ${infoCell('Reason for L2 Registration', data.reason_for_l2_registration)}
+                    </div>` : ''}
+
+                    ${data.tech_center_remarks ? `
+                    <div style="margin-bottom:12px;">
+                        ${infoCell('Tech Center Remarks', data.tech_center_remarks)}
+                    </div>` : ''}
+
+                    <!-- View Remarks Button -->
+                    <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                        <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
+                    </div>
+                </div>
+                `;
+
+                Swal.fire({
+                    title: `<span style="font-family:inherit; font-weight:800;">L2 Registration Request Details</span>`,
+                    html: htmlContent,
+                    showCancelButton: false,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Close',
+                    customClass: {
+                        confirmButton: 'swal-btn-close'
+                    },
+                    width: '600px',
+                    focusConfirm: false,
+                    didOpen: () => {
+                        document.getElementById('btn-show-remarks').onclick = () => {
+                            window.showL2Details(data, 'remarks', requestId, requestNo, status);
+                        };
+                    }
+                });
+            }
+            else if (activeView === 'remarks') {
+                let htmlContent = `
+                <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                        <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                        <span>${statusBadge}</span>
+                    </div>
+                    ${remarksHtml}
+                </div>
+                `;
+
+                Swal.fire({
+                    title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+                    html: htmlContent,
+                    showCancelButton: false,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Close',
+                    showDenyButton: true,
+                    denyButtonText: 'Back',
+                    customClass: {
+                        confirmButton: 'swal-btn-close',
+                        denyButton: 'swal-btn-back'
+                    },
+                    width: '600px',
+                    focusConfirm: false
+                }).then((result) => {
+                    if (result.isDenied) {
+                        window.showL2Details(data, 'details', requestId, requestNo, status);
+                    }
+                });
+            }
         }
 </script>
 {% endblock %}

@@ -1,6 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator , field_validator
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -25,6 +25,17 @@ class CandidateRegisterRequest(BaseModel):
     marksheet_upload: str | None = None  
     tenth_marksheet_upload: str | None = None
 
+    @field_validator('pincode')
+    @classmethod
+    def validate_chhattisgarh_pincode(cls, value: str | None) -> str | None:
+        if value:
+            # Check length constraint and character prefix criteria
+            if len(value) != 6 or not value.isdigit():
+                raise ValueError("Pincode must be exactly 6 numeric digits.")
+            if not value.startswith("49"):
+                raise ValueError("Only applicants from Chhattisgarh state (Pincode series starting with 49) are eligible to register.")
+        return value
+    
     @model_validator(mode='before')
     def enforce_marksheet_routing(cls, values):
         qualification = values.get('qualification')

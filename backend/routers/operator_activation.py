@@ -157,6 +157,8 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
                 "author_role": rm.author_role.upper(),
                 "remark": rm.remark,
                 "created_at": str(rm.created_at)[:16],
+                "status_after": rm.status_after,
+                "sender_username": rm.author.username if rm.author else "",
             }
             for rm in r.remarks
         ]
@@ -490,6 +492,8 @@ def get_request_detail(request_id: int, db: Session = Depends(get_db)):
             "author_role": rm.author_role.upper(),
             "remark": rm.remark,
             "created_at": str(rm.created_at)[:16],
+            "status_after": rm.status_after,
+            "sender_username": rm.author.username if rm.author else "",
         }
         for rm in r.remarks
     ]
@@ -587,6 +591,7 @@ def reject_request(
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=rejection_reason,
+        status_after="reverted",
     )
     db.add(remark)
     db.commit()
@@ -622,6 +627,7 @@ def send_to_uidai(
             author_id=reviewed_by,
             author_role="chips_admin",
             remark=f"Sent to UIDAI: {uidai_remarks}",
+            status_after="sent_to_uidai",
         )
         db.add(remark)
 
@@ -675,6 +681,7 @@ def uidai_reject(
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=f"Rejected by UIDAI: {uidai_remarks}",
+        status_after="rejected",
     )
     db.add(remark)
     db.commit()
@@ -730,6 +737,7 @@ def reapply_request(
         author_id=dc_id,
         author_role="dc",
         remark=reapply_remark,
+        status_after="sent_to_chips",
     )
     db.add(remark)
     db.commit()

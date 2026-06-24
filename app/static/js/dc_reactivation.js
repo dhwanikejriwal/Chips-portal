@@ -25,6 +25,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (certDateInput) {
         certDateInput.max = todayIsoString;
     }
+
+    // 3. Initialize counts by running the filter pipeline
+    applyHistoryPanelFiltersPipeline();
 });
 
 // 🔄 DYNAMIC VIEW PANEL ROUTER (Bound to global context)
@@ -62,7 +65,7 @@ function addOperatorRecordToExcelLog() {
         name: document.getElementById('op_name').value.trim(),
         reg: document.getElementById('op_reg').value.trim(),
         ea: document.getElementById('op_ea').value.trim(),
-        user: document.getElementById('op_user').value.trim(),
+        user: document.getElementById('user_code').value.trim(),
         cert: document.getElementById('op_cert').value.trim(),
         mobile: document.getElementById('op_mobile').value.trim(),
         email: document.getElementById('op_email').value.trim(),
@@ -180,7 +183,7 @@ function editOperatorInStateArray(index) {
     if (document.getElementById('op_name')) document.getElementById('op_name').value = op.name || '';
     if (document.getElementById('op_reg')) document.getElementById('op_reg').value = op.reg || '';
     if (document.getElementById('op_ea')) document.getElementById('op_ea').value = op.ea || '';
-    if (document.getElementById('op_user')) document.getElementById('op_user').value = op.user || '';
+    if (document.getElementById('user_code')) document.getElementById('user_code').value = op.user || '';
     if (document.getElementById('op_cert')) document.getElementById('op_cert').value = op.cert || '';
     if (document.getElementById('op_mobile')) document.getElementById('op_mobile').value = op.mobile || '';
     if (document.getElementById('op_email')) document.getElementById('op_email').value = op.email || '';
@@ -202,16 +205,36 @@ function editOperatorInStateArray(index) {
 function navigateWizardStep(stepTarget) {
     const s1Form = document.getElementById('section-operator-form-view');
     const s2Docs = document.getElementById('section-documents-upload-view');
+    const node1 = document.getElementById('node-step-1');
     const node2 = document.getElementById('node-step-2');
+    const divider1 = document.getElementById('step-divider-1');
 
     if (stepTarget === 2) {
         if (s1Form) s1Form.style.display = 'none';
         if (s2Docs) s2Docs.style.display = 'block';
-        if (node2) node2.classList.add('active');
+        if (node1) {
+            node1.classList.remove('active');
+            node1.classList.add('completed');
+        }
+        if (divider1) {
+            divider1.classList.add('completed');
+        }
+        if (node2) {
+            node2.classList.add('active');
+        }
     } else {
         if (s1Form) s1Form.style.display = 'block';
         if (s2Docs) s2Docs.style.display = 'none';
-        if (node2) node2.classList.remove('active');
+        if (node1) {
+            node1.classList.remove('completed');
+            node1.classList.add('active');
+        }
+        if (divider1) {
+            divider1.classList.remove('completed');
+        }
+        if (node2) {
+            node2.classList.remove('active');
+        }
     }
 }
 
@@ -259,6 +282,18 @@ function handleFormSubmissionPipeline(event) {
         });
 }
 
+function getStatusBadgeHtml(status) {
+    const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+    let badgeClass = 'badge-pending';
+    let label = 'Pending';
+    if (s.includes('approve') || s.includes('active') || s.includes('activated')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+    else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
+    else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
+    else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
+    else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
+    return `<span class="badge ${badgeClass}">${label}</span>`;
+}
+
 // 👁️ BATCH POPUP OPERATOR ROWS LOOKUP RENDERING
 window.openHistoricalOperatorsModal = function (requestCode) {
     Swal.fire({
@@ -285,7 +320,9 @@ window.openHistoricalOperatorsModal = function (requestCode) {
             </div>
             <div id="modal-timeline-container" style="margin-top: 25px; text-align: left;"></div>`,
         confirmButtonText: 'Close Window',
-        confirmButtonColor: '#475569'
+        customClass: {
+            confirmButton: 'swal-btn-close'
+        }
     });
 
     fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}`)
@@ -312,32 +349,58 @@ window.openHistoricalOperatorsModal = function (requestCode) {
             const timelineContainer = document.getElementById('modal-timeline-container');
             if (timelineContainer) {
                 if (timelineLogs && timelineLogs.length > 0) {
-                    timelineContainer.innerHTML = `
-                    <h4 style="font-size: 15px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">Reactivation Log Timeline</h4>
-                    <div style="display: flex; flex-direction: column; gap: 12px; max-height: 250px; overflow-y: auto; padding-right: 10px;">
-                        ${timelineLogs.map(log => {
+                    let timelineHtml = `
+                    <div class="remarks-timeline">
+                        <div class="timeline-title">Reactivation Log Timeline</div>
+                        <div class="timeline-track">`;
+                    
+                    timelineLogs.forEach(log => {
                         const dateObj = new Date(log.timestamp.replace(' ', 'T'));
                         const formattedTime = dateObj.toLocaleDateString('en-GB') + ' ' + dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                         const isDC = log.sender_role === 'DC';
-                        return `
-                                <div style="background: ${isDC ? '#f8fafc' : '#eff6ff'}; border-left: 4px solid ${isDC ? '#94a3b8' : '#3b82f6'}; padding: 12px 16px; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; text-align: left;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <span style="font-weight: 700; font-size: 12px; color: ${isDC ? '#475569' : '#1d4ed8'};">${isDC ? 'DC Panel' : 'CHiPS Admin'}</span>
-                                        <span style="font-size: 11px; color: #64748b; font-weight: 600;">${formattedTime}</span>
+                        const sender = isDC ? 'District Coordinator' : 'CHiPS Admin';
+                        const senderClass = isDC ? 'dc' : 'chips';
+                        
+                        const statusAfter = log.status_after || '';
+                        let statusBadgeHtmlInline = '';
+                        let markerClass = 'marker-pending';
+                        if (statusAfter) {
+                            statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
+                            const sLower = statusAfter.toLowerCase();
+                            if (sLower.includes('approve') || sLower.includes('active') || sLower.includes('activated')) markerClass = 'marker-approved';
+                            else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                            else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                            else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+                        }
+
+                        const username = log.sender_username || '';
+                        const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
+                        timelineHtml += `
+                            <div class="timeline-item ${senderClass}">
+                                <div class="timeline-marker ${markerClass}"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-section-row">
+                                        <span class="timeline-step-label">Operator Reactivation</span>${statusBadgeHtmlInline}
                                     </div>
-                                    <div style="font-size: 13px; color: #334155; margin-top: 4px;">
-                                        ${escapeHtmlString(log.message)}
+                                    <div class="timeline-by-row">
+                                        <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtmlString(username) + ')' : ''}</span>
+                                        <span class="timeline-time">${formattedTime}</span>
                                     </div>
+                                    <div class="timeline-body">${escapeHtmlString(log.message)}</div>
                                 </div>
-                            `;
-                    }).join('')}
-                    </div>
-                `;
+                            </div>
+                        `;
+                    });
+                    
+                    timelineHtml += `</div></div>`;
+                    timelineContainer.innerHTML = timelineHtml;
                 } else {
                     timelineContainer.innerHTML = `
-                    <h4 style="font-size: 15px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">Reactivation Log Timeline</h4>
-                    <div style="text-align: center; color: #94a3b8; font-size: 13px; padding: 20px;">No timeline logs available for this batch.</div>
-                `;
+                    <div class="remarks-timeline">
+                        <div class="timeline-title">Reactivation Log Timeline</div>
+                        <div style="text-align: center; color: #94a3b8; font-size: 13px; padding: 20px; font-style: italic;">No timeline logs available for this batch.</div>
+                    </div>`;
                 }
             }
 
@@ -361,8 +424,8 @@ window.openHistoricalOperatorsModal = function (requestCode) {
                 <td style="padding: 10px; padding-left: 15px; color: #1e293b;"><strong>${escapeHtmlString(op.operator_name)}</strong></td>
                 <td style="padding: 10px; text-align: center;"><span style="${statusStyle}">${String(op.status).toUpperCase()}</span></td>
                 <td style="padding: 10px; text-align: center;">
-                    <button type="button" class="btn btn-sm" 
-                            style="background-color: #4b5563; color: white; border: none; padding: 4px 14px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight:600;"
+                    <button type="button" class="btn-details" 
+                            style="padding: 4px 12px; font-size: 11px;"
                             onclick="openIndividualOperatorDetailCard(${idx})">
                         Detail
                     </button>
@@ -426,19 +489,223 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
 }
 
 // 💳 DETAILS MODAL MAPPING INTERFACE CARD BUILDER
-window.openIndividualOperatorDetailCard = function (arrayIndex) {
+window.zoomPhoto = function(url) {
+    viewDocument('Profile Photo', url, 'jpg');
+};
+
+window.viewDocument = function(title, fileUrl, extension) {
+    if (!fileUrl) return;
+    
+    const ext = (extension || '').toLowerCase();
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || fileUrl.startsWith('data:image/');
+    
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+    overlay.style.display = 'flex';
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    overlay.style.zIndex = '99999';
+    
+    const modal = document.createElement('div');
+    modal.style.width = '90%';
+    modal.style.maxWidth = '800px';
+    modal.style.height = '85vh';
+    modal.style.maxHeight = '700px';
+    modal.style.backgroundColor = 'white';
+    modal.style.borderRadius = '12px';
+    modal.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
+    modal.style.display = 'flex';
+    modal.style.flexDirection = 'column';
+    modal.style.overflow = 'hidden';
+    modal.style.animation = 'swal2-show 0.3s ease-out';
+    
+    const header = document.createElement('div');
+    header.style.backgroundColor = '#1e3a8a';
+    header.style.padding = '12px 20px';
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
+    header.style.color = 'white';
+    
+    const headerTitle = document.createElement('span');
+    headerTitle.innerText = title;
+    headerTitle.style.fontWeight = '700';
+    headerTitle.style.fontSize = '16px';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+    closeBtn.style.border = 'none';
+    closeBtn.style.width = '32px';
+    closeBtn.style.height = '32px';
+    closeBtn.style.borderRadius = '50%';
+    closeBtn.style.display = 'flex';
+    closeBtn.style.alignItems = 'center';
+    closeBtn.style.justifyContent = 'center';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.color = 'white';
+    closeBtn.style.transition = 'background 0.2s';
+    closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+    closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+    closeBtn.onclick = () => document.body.removeChild(overlay);
+    closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+    
+    header.appendChild(headerTitle);
+    header.appendChild(closeBtn);
+    
+    const body = document.createElement('div');
+    body.style.flex = '1';
+    body.style.padding = '20px';
+    body.style.backgroundColor = '#f8fafc';
+    body.style.display = 'flex';
+    body.style.justifyContent = 'center';
+    body.style.alignItems = 'center';
+    body.style.overflow = 'hidden';
+    
+    if (isImage) {
+        const img = document.createElement('img');
+        img.src = fileUrl;
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '100%';
+        img.style.objectFit = 'contain';
+        img.style.borderRadius = '4px';
+        body.appendChild(img);
+    } else {
+        const iframe = document.createElement('iframe');
+        iframe.src = fileUrl;
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.border = 'none';
+        iframe.style.borderRadius = '4px';
+        body.appendChild(iframe);
+    }
+    
+    const footer = document.createElement('div');
+    footer.style.padding = '12px 20px';
+    footer.style.borderTop = '1px solid #edf2f7';
+    footer.style.display = 'flex';
+    footer.style.justifyContent = 'flex-end';
+    footer.style.alignItems = 'center';
+    footer.style.gap = '12px';
+    footer.style.backgroundColor = 'white';
+    
+    const downloadLink = document.createElement('a');
+    downloadLink.href = fileUrl;
+    downloadLink.download = title;
+    downloadLink.style.display = 'inline-flex';
+    downloadLink.style.alignItems = 'center';
+    downloadLink.style.gap = '6px';
+    downloadLink.style.padding = '8px 16px';
+    downloadLink.style.borderRadius = '8px';
+    downloadLink.style.backgroundColor = '#ecfdf5';
+    downloadLink.style.color = '#10b981';
+    downloadLink.style.fontWeight = '600';
+    downloadLink.style.fontSize = '14px';
+    downloadLink.style.textDecoration = 'none';
+    downloadLink.style.cursor = 'pointer';
+    downloadLink.style.transition = 'background-color 0.2s';
+    downloadLink.onmouseenter = () => downloadLink.style.backgroundColor = '#d1fae5';
+    downloadLink.onmouseleave = () => downloadLink.style.backgroundColor = '#ecfdf5';
+    downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
+    
+    const closeBtnFooter = document.createElement('button');
+    closeBtnFooter.type = 'button';
+    closeBtnFooter.style.padding = '8px 24px';
+    closeBtnFooter.style.borderRadius = '8px';
+    closeBtnFooter.style.backgroundColor = '#4f46e5';
+    closeBtnFooter.style.color = 'white';
+    closeBtnFooter.style.fontWeight = '600';
+    closeBtnFooter.style.fontSize = '14px';
+    closeBtnFooter.style.border = 'none';
+    closeBtnFooter.style.cursor = 'pointer';
+    closeBtnFooter.style.transition = 'background-color 0.2s';
+    closeBtnFooter.onmouseenter = () => closeBtnFooter.style.backgroundColor = '#4338ca';
+    closeBtnFooter.onmouseleave = () => closeBtnFooter.style.backgroundColor = '#4f46e5';
+    closeBtnFooter.onclick = () => document.body.removeChild(overlay);
+    closeBtnFooter.innerText = 'Close';
+    
+    footer.appendChild(downloadLink);
+    footer.appendChild(closeBtnFooter);
+    
+    modal.appendChild(header);
+    modal.appendChild(body);
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
+    
+    overlay.onclick = (e) => {
+        if (e.target === overlay) {
+            document.body.removeChild(overlay);
+        }
+    };
+    
+    document.body.appendChild(overlay);
+};
+
+window.buildDocumentCard = function(title, fileUrl, defaultName) {
+    if (!fileUrl) return '';
+    
+    const extension = (defaultName || '').split('.').pop().toLowerCase();
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
+    
+    let previewHtml = '';
+    let previewButtonHtml = '';
+    
+    if (isImage) {
+        previewHtml = `<img src="${fileUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">`;
+        previewButtonHtml = `
+            <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+        `;
+    } else {
+        previewHtml = `
+            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            </div>
+        `;
+        previewButtonHtml = `
+            <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+        `;
+    }
+    
+    const shortFileName = defaultName.length > 22 ? defaultName.substring(0, 19) + '...' : defaultName;
+    
+    return `
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="height: 100px; width: 100%; background: #f8fafc; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #edf2f7;">
+                ${previewHtml}
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
+                <div style="text-align: left; overflow: hidden; flex-grow: 1;">
+                    <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
+                    <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${defaultName}">${shortFileName}</div>
+                </div>
+                <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                    ${previewButtonHtml}
+                    <a href="${fileUrl}" download="${defaultName}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background-color: #ecfdf5; color: #10b981; text-decoration: none; cursor: pointer; transition: background-color 0.2s;" title="Download">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    `;
+};
+
+window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
     const op = window.currentViewingOperators[arrayIndex];
     if (!op) {
         console.error("Index target context maps outside viewing operator bounds matrix.");
         return;
     }
 
-    const displayStatus = (op.status || 'PENDING').toUpperCase();
-    let badgeStyle = 'background: #e2e8f0; color: #475569;';
-    if (displayStatus === 'ACTIVE' || displayStatus === 'ACTIVATED') badgeStyle = 'background: #d1fae5; color: #065f46;';
-    else if (displayStatus === 'REVERTED' || displayStatus === 'REVERT BACK') badgeStyle = 'background: #fee2e2; color: #991b1b;';
-    else if (displayStatus === 'SENT TO UIDAI' || displayStatus === 'SENT_TO_UIDAI') badgeStyle = 'background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;';
-    else if (displayStatus === 'REAPPLIED') badgeStyle = 'background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe;';
+    const statusBadge = getStatusBadgeHtml(op.status);
 
     const fullName = op.operator_name || op.name || '—';
     const roleProfile = op.role || 'Operator';
@@ -453,60 +720,271 @@ window.openIndividualOperatorDetailCard = function (arrayIndex) {
     const certificationDate = op.certification_date || '—';
     const explicitRemarks = op.remarks || '—';
 
-    Swal.fire({
-        title: 'Submitted Operator Details',
-        width: '560px',
-        html: `
-            <div style="font-family: sans-serif; text-align: left; color: #334155; font-size: 14px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-                    <span style="font-size:12px; color:#64748b;">Record Identity Mapping</span>
-                    <span style="${badgeStyle} padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 11px;">${displayStatus}</span>
+    const requestCode = window.currentViewingRequestCode;
+    const statusUpper = (op.status || '').toUpperCase().trim();
+    const isRevertable = (statusUpper === 'REVERTED' || statusUpper === 'REVERT BACK');
+
+    if (activeView === 'details') {
+        let htmlContent = `
+        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
+                <span>${statusBadge}</span>
+            </div>
+
+            ${isRevertable ? `
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
+                <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">⚠ Action Required — Request Reverted</div>
+                <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below. Click "Quick Edit" to modify details.</div>
+            </div>
+            ` : ''}
+
+            <!-- Personal Information Card -->
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Personal Information</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                    <div style="grid-column: 1/-1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Full Name</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(fullName)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Mobile Number</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(mobileNumber)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Primary Email ID</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(emailAddress)}</div>
+                    </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
-                    <div><strong>Full Name:</strong> ${escapeHtmlString(fullName)}</div>
-                    <div><strong>Role Profile:</strong> ${escapeHtmlString(roleProfile)}</div>
+            </div>
+
+            <!-- Work & Certification Card -->
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Work &amp; Certification</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Role Profile</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(roleProfile)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Registrar Code</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(registrarCode)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">EA Code</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(eaCode)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">User Code</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(userCode)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Model Type</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(modelType)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">LMS Certificate ID</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;"><span style="font-family: monospace; font-weight: 700; color: #2563eb;">${escapeHtmlString(lmsCertId)}</span></div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certificate #</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(nseitCertNo)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Certification Date</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(certificationDate)}</div>
+                    </div>
+                    <div style="grid-column: 1/-1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Remarks</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(explicitRemarks)}</div>
+                    </div>
+                    ${op.reject_reason ? `
+                    <div style="grid-column: 1/-1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Revert Reason</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #b91c1c;">${escapeHtmlString(op.reject_reason)}</div>
+                    </div>` : ''}
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
-                    <div><strong>Mobile Number:</strong> ${escapeHtmlString(mobileNumber)}</div>
-                    <div><strong>Primary Email ID:</strong> ${escapeHtmlString(emailAddress)}</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
-                    <div><strong>Registrar Code:</strong> ${escapeHtmlString(registrarCode)}</div>
-                    <div><strong>EA Code:</strong> ${escapeHtmlString(eaCode)}</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
-                    <div><strong>User Code:</strong> ${escapeHtmlString(userCode)}</div>
-                    <div><strong>Model Type:</strong> ${escapeHtmlString(modelType)}</div>
-                </div>
-                <div style="border-top: 1px dashed #cbd5e1; margin-top: 15px; padding-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 15px;">
-                    <div><strong>LMS Certificate ID:</strong> <span style="font-family: monospace; font-weight: 700; color: #2563eb;">${escapeHtmlString(lmsCertId)}</span></div>
-                    <div><strong>NSEIT Certificate #:</strong> ${escapeHtmlString(nseitCertNo)}</div>
-                </div>
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; font-size: 12px;">
-                    <div style="margin-bottom: 4px;"><strong>Certification Date:</strong> ${escapeHtmlString(certificationDate)}</div>
-                    <div style="margin-bottom: 4px;"><strong>Remarks:</strong> ${escapeHtmlString(explicitRemarks)}</div>
-                    ${op.reject_reason ? `<div style="margin-top: 6px; color:#b91c1c;"><strong>Revert Reason:</strong> ${escapeHtmlString(op.reject_reason)}</div>` : ''}
-                </div>
-                
-                <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" class="btn btn-secondary" style="padding: 8px 16px; border-radius: 4px; background: #64748b; color: white; border: none; cursor: pointer; font-weight: 600;" onclick="Swal.close()">Back to List</button>
-                    ${(displayStatus === 'REVERTED' || displayStatus === 'REVERT BACK') ?
-                `<button type="button" class="btn btn-warning" style="padding: 8px 16px; border-radius: 4px; background: #f59e0b; color: white; border: none; cursor: pointer; font-weight: 600;" onclick="Swal.close(); openIndividualOperatorEditForm(${arrayIndex})">Quick Edit</button>
-                         <button type="button" class="btn btn-warning" style="padding: 8px 16px; border-radius: 4px; background: #0284c7; color: white; border: none; cursor: pointer; font-weight: 600;" onclick="Swal.close(); reapplyReactivatedBatch('${window.currentViewingRequestCode}')">Reapply Full Batch</button>`
-                : ''}
-                </div>
-            </div>`,
-        showConfirmButton: false
-    });
+            </div>
+
+            <!-- View Documents and View Remarks Buttons -->
+            <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Documents</button>
+                <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
+            </div>
+        </div>
+        `;
+
+        Swal.fire({
+            title: `<span style="font-family:inherit; font-weight:800;">Submitted Operator Details</span>`,
+            html: htmlContent,
+            showCancelButton: false, // NO Cancel button
+            showConfirmButton: true,
+            confirmButtonText: isRevertable ? 'Quick Edit' : 'Close',
+            showDenyButton: isRevertable,
+            denyButtonText: 'Close',
+            customClass: {
+                confirmButton: 'swal-btn-close',
+                denyButton: 'swal-btn-back'
+            },
+            width: '600px',
+            focusConfirm: false,
+            didOpen: () => {
+                document.getElementById('btn-show-docs').onclick = () => {
+                    window.showIndividualOperatorDetails(arrayIndex, 'documents');
+                };
+                document.getElementById('btn-show-remarks').onclick = () => {
+                    window.showIndividualOperatorDetails(arrayIndex, 'remarks');
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed && isRevertable) {
+                openIndividualOperatorEditForm(arrayIndex);
+            }
+        });
+    } 
+    else if (activeView === 'documents') {
+        const trainingPhotoUrl = `/auth/reactivation/requests/${requestCode}/files/training_photo`;
+        const nodalLetterUrl = `/auth/reactivation/requests/${requestCode}/files/nodal_letter`;
+        const omLetterUrl = `/auth/reactivation/requests/${requestCode}/files/om_letter`;
+        const attendanceListUrl = `/auth/reactivation/requests/${requestCode}/files/attendance_list`;
+
+        let htmlContent = `
+        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
+                <span>${statusBadge}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
+                ${buildDocumentCard('Training Photo', trainingPhotoUrl, 'training_photo.jpg')}
+                ${buildDocumentCard('District Nodal Endorsement Letter', nodalLetterUrl, 'nodal_endorsement_letter.pdf')}
+                ${buildDocumentCard('Office Memorandum (OM) Letter', omLetterUrl, 'office_memorandum.pdf')}
+                ${buildDocumentCard('Operator Attendance List', attendanceListUrl, 'attendance_list.xlsx')}
+            </div>
+        </div>
+        `;
+
+        Swal.fire({
+            title: `<span style="font-family:inherit; font-weight:800;">Uploaded Batch Documents</span>`,
+            html: htmlContent,
+            showCancelButton: false, // NO Cancel button
+            showConfirmButton: true,
+            confirmButtonText: 'Close',
+            showDenyButton: true,
+            denyButtonText: 'Back',
+            customClass: {
+                confirmButton: 'swal-btn-close',
+                denyButton: 'swal-btn-back'
+            },
+            width: '600px',
+            focusConfirm: false
+        }).then((result) => {
+            if (result.isDenied) {
+                window.showIndividualOperatorDetails(arrayIndex, 'details');
+            }
+        });
+    } 
+    else if (activeView === 'remarks') {
+        let timelineHtml = '';
+        const logs = op.timeline_logs || [];
+        if (logs.length > 0) {
+            timelineHtml += `
+            <div class="remarks-timeline">
+                <div class="timeline-title">Audit Action History Log</div>
+                <div class="timeline-track">
+            `;
+            logs.forEach(item => {
+                const sender = (item.sender_role === 'CHIPS') ? 'CHiPS Admin' :
+                    (item.sender_role === 'DC') ? 'District Coordinator' :
+                        (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
+                const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
+
+                const statusAfter = item.status_after || '';
+                let statusBadgeHtmlInline = '';
+                let markerClass = 'marker-pending';
+                if (statusAfter) {
+                    statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
+                    const sLower = statusAfter.toLowerCase();
+                    if (sLower.includes('approve') || sLower.includes('active') || sLower.includes('activated')) markerClass = 'marker-approved';
+                    else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                    else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                    else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+                }
+
+                const username = item.sender_username || '';
+                const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
+                timelineHtml += `
+                    <div class="timeline-item ${senderClass}">
+                        <div class="timeline-marker ${markerClass}"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-section-row">
+                                <span class="timeline-step-label">Operator Reactivation</span>${statusBadgeHtmlInline}
+                            </div>
+                            <div class="timeline-by-row">
+                                <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtmlString(username) + ')' : ''}</span>
+                                <span class="timeline-time">${item.timestamp}</span>
+                            </div>
+                            <div class="timeline-body">${escapeHtmlString(item.message)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            timelineHtml += `</div></div>`;
+        } else {
+            timelineHtml += `
+            <div style="margin-top: 15px; font-style: italic; color: #888; text-align: center; font-size: 13px;">
+                No remarks history/actions logged yet.
+            </div>
+            `;
+        }
+
+        let htmlContent = `
+        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
+                <span>${statusBadge}</span>
+            </div>
+            ${timelineHtml}
+        </div>
+        `;
+
+        Swal.fire({
+            title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+            html: htmlContent,
+            showCancelButton: false, // NO Cancel button
+            showConfirmButton: true,
+            confirmButtonText: 'Close',
+            showDenyButton: true,
+            denyButtonText: 'Back',
+            customClass: {
+                confirmButton: 'swal-btn-close',
+                denyButton: 'swal-btn-back'
+            },
+            width: '600px',
+            focusConfirm: false
+        }).then((result) => {
+            if (result.isDenied) {
+                window.showIndividualOperatorDetails(arrayIndex, 'details');
+            }
+        });
+    }
 };
+
+window.openIndividualOperatorDetailCard = function (arrayIndex) {
+    window.showIndividualOperatorDetails(arrayIndex, 'details');
+};
+
 
 // 🧼 WORKSPACE INPUT FIELD CLEANSER
 function clearFormInputs() {
-    document.getElementById('op_role').value = '';
+    document.getElementById('op_role').value = 'Supervisor';
     document.getElementById('op_name').value = '';
     document.getElementById('op_reg').value = '986';
     document.getElementById('op_ea').value = '';
-    document.getElementById('op_user').value = '';
+    
+    const opUserEl = document.getElementById('user_code');
+    opUserEl.value = '';
+
     document.getElementById('op_cert').value = '';
     document.getElementById('op_mobile').value = '';
     document.getElementById('op_email').value = '';
@@ -535,8 +1013,8 @@ function switchMainView(viewType, btnElement) {
     });
 
     btnElement.classList.add('active-view');
-    btnElement.style.color = '#2563eb';
-    btnElement.style.borderBottom = '3px solid #2563eb';
+    btnElement.style.color = '#007bff';
+    btnElement.style.borderBottom = '3px solid #007bff';
 
     if (viewType === 'batches') {
         document.getElementById('view-batches-container').style.display = 'block';
@@ -565,60 +1043,72 @@ function filterFlatActivatedOperators() {
 // 🔍 DISTRICT HISTORY DATA GRID CLIENT-SIDE FILTER PIPELINE
 function applyHistoryPanelFiltersPipeline() {
     // 1. Gather all input conditions safely
-    const searchIdInput = document.getElementById("filter-search-id");
+    const searchOperatorInput = document.getElementById("filter-search-operator");
     const statusInput = document.getElementById("filter-status");
-    const dateFromInput = document.getElementById("filter-date-from");
-    const dateToInput = document.getElementById("filter-date-to");
-    const globalOpSearchInput = document.getElementById("global-op-search");
+    const datePeriodInput = document.getElementById("filter-date-period");
 
-    const searchIdValue = searchIdInput ? searchIdInput.value.trim().toUpperCase() : "";
+    const searchQuery = searchOperatorInput ? searchOperatorInput.value.trim().toLowerCase() : "";
     const statusValue = statusInput ? statusInput.value : "ALL";
-    const dateFromValue = dateFromInput ? dateFromInput.value : "";
-    const dateToValue = dateToInput ? dateToInput.value : "";
-    const globalOpSearchValue = globalOpSearchInput ? globalOpSearchInput.value.trim().toLowerCase() : "";
+    const dateFilter = datePeriodInput ? datePeriodInput.value : "month";
 
     const rows = document.querySelectorAll(".history-data-row");
     let matchCount = 0;
 
     window.currentReapplyCode = null;
 
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = (now.getMonth() + 1).toString().padStart(2, '0');
+    const d = now.getDate().toString().padStart(2, '0');
+    const todayPrefix = `${y}-${m}-${d}`;
+    const monthPrefix = `${y}-${m}`;
+
     rows.forEach(row => {
         const rowId = row.getAttribute("data-request-id") || "";
         let rowStatus = row.getAttribute("data-status") || "";
-        const rowTrainingDateStr = row.getAttribute("data-training-date") || "";
+        const rowCreated = row.getAttribute("data-created") || "";
 
         rowStatus = rowStatus.toUpperCase().replace(" ", "_").trim();
         const cleanStatusFilter = statusValue.toUpperCase().replace(" ", "_").trim();
 
-        const matchesId = !searchIdValue || rowId.includes(searchIdValue);
         const matchesStatus = (statusValue === "ALL") || (rowStatus === cleanStatusFilter);
 
-        let matchesDateRange = true;
-        if (dateFromValue || dateToValue) {
-            if (rowTrainingDateStr) {
-                const trainingTime = new Date(rowTrainingDateStr).getTime();
-                if (dateFromValue && trainingTime < new Date(dateFromValue).getTime()) {
-                    matchesDateRange = false;
-                }
-                if (dateToValue && trainingTime > new Date(dateToValue).getTime()) {
-                    matchesDateRange = false;
-                }
+        let matchesDate = true;
+        if (dateFilter === 'today') {
+            matchesDate = rowCreated.startsWith(todayPrefix);
+        } else if (dateFilter === 'week') {
+            if (!rowCreated) {
+                matchesDate = false;
             } else {
-                matchesDateRange = false;
+                const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                const startOfWeek = new Date(now);
+                const day = startOfWeek.getDay();
+                startOfWeek.setDate(now.getDate() - day);
+                startOfWeek.setHours(0, 0, 0, 0);
+
+                const endOfWeek = new Date(startOfWeek);
+                endOfWeek.setDate(startOfWeek.getDate() + 6);
+                endOfWeek.setHours(23, 59, 59, 999);
+
+                matchesDate = rowDate >= startOfWeek && rowDate <= endOfWeek;
             }
+        } else if (dateFilter === 'month') {
+            matchesDate = rowCreated.startsWith(monthPrefix);
         }
 
         // If batch-level filters match, evaluate individual operators inside the card
-        if (matchesId && matchesStatus && matchesDateRange) {
+        if (matchesStatus && matchesDate) {
+            let isBatchMatch = !searchQuery || rowId.toLowerCase().includes(searchQuery);
             let visibleOpsCount = 0;
             const opRows = row.querySelectorAll('.op-row-item');
 
             opRows.forEach(opRow => {
-                const opName = opRow.getAttribute('data-name') || "";
+                const opName = (opRow.getAttribute('data-name') || "").toLowerCase();
+                const opMobile = (opRow.getAttribute('data-mobile') || "").toLowerCase();
 
-                const matchesOpSearch = !globalOpSearchValue || opName.includes(globalOpSearchValue);
+                const matchesOperator = opName.includes(searchQuery) || opMobile.includes(searchQuery);
 
-                if (matchesOpSearch) {
+                if (isBatchMatch || matchesOperator) {
                     opRow.style.display = "flex";
                     visibleOpsCount++;
                 } else {
@@ -626,8 +1116,8 @@ function applyHistoryPanelFiltersPipeline() {
                 }
             });
 
-            // Show card if it has matching operators, or if it has none natively but no operator filters are active
-            if (visibleOpsCount > 0 || (opRows.length === 0 && !globalOpSearchValue)) {
+            // Show card if search matches the batch ID or at least one operator inside
+            if (!searchQuery || visibleOpsCount > 0 || (opRows.length === 0 && isBatchMatch)) {
                 row.style.display = "";
                 matchCount++;
             } else {
@@ -648,18 +1138,21 @@ function applyHistoryPanelFiltersPipeline() {
     if (standardEmptyState) {
         standardEmptyState.style.display = (rows.length === 0) ? "" : "none";
     }
+
+    const countEl = document.getElementById('batches-count');
+    if (countEl) countEl.textContent = matchCount;
 }
 
 function resetHistoryPanelFilters() {
-    document.getElementById("filter-search-id").value = "";
-    document.getElementById("filter-status").value = "ALL";
-    document.getElementById("filter-date-from").value = "";
-    document.getElementById("filter-date-to").value = "";
+    const searchOperatorInput = document.getElementById("filter-search-operator");
+    if (searchOperatorInput) searchOperatorInput.value = "";
+    
+    const statusInput = document.getElementById("filter-status");
+    if (statusInput) statusInput.value = "ALL";
+    
+    const datePeriodInput = document.getElementById("filter-date-period");
+    if (datePeriodInput) datePeriodInput.value = "month";
 
-    const globalOpSearch = document.getElementById("global-op-search");
-    if (globalOpSearch) globalOpSearch.value = "";
-
-    // reset tabs? Or just leave the view where it is.
     applyHistoryPanelFiltersPipeline();
 }
 
@@ -794,3 +1287,129 @@ window.submitOperatorReapplication = function (data) {
             Swal.fire('Error', err.message, 'error');
         });
 };
+
+// District Code Lookup Map
+const DISTRICT_CODES = {
+    'Bastar': 'BAS',
+    'Bilaspur': 'BLP',
+    'Dakshin Bastar Dantewada': 'DNT',
+    'Dantewada': 'DNT',
+    'Dhamtari': 'DMT',
+    'Durg': 'DRG',
+    'Janjgir-Champa': 'JCH',
+    'Jashpur': 'JSH',
+    'Ultar Bastar Kanker': 'KNK',
+    'Kanker': 'KNK',
+    'Kabirdham': 'KDM',
+    'Kabeerdham': 'KDM',
+    'Korba': 'KRB',
+    'Korea': 'KOR',
+    'Mahasamund': 'MHS',
+    'Raigarh': 'RGR',
+    'Raipur': 'RPR',
+    'Rajnandgaon': 'RJN',
+    'Surguja': 'SRG',
+    'Bijapur': 'BIJ',
+    'Narayanpur': 'NRY',
+    'Sukma': 'SKM',
+    'Kondagaon': 'KON',
+    'Baloda Bazar-Bhatapara': 'BLB',
+    'Balodabazar-Bhatapara': 'BLB',
+    'Gariaband': 'GRY',
+    'Balod': 'BLD',
+    'Mungeli': 'MUN',
+    'Surajpur': 'SRJ',
+    'Balrampur-Ramanujganj': 'BLM',
+    'Bemetara': 'BEM',
+    'Gaurela-Pendra-Marwahi': 'GRL',
+    'Khairagarh-Chhuikhadan-Gandai': 'KCG',
+    'Manendragarh-Chirmiri-Bharatpur': 'MNN',
+    'Mohla-Manpur-Ambagarh Chowki': 'MHL',
+    'Mohla-Manpur-Ambagarh Chouki': 'MHL',
+    'Sakti': 'SKT',
+    'Sarangarh-Bilaigarh': 'SRB',
+    'Gaurela Pendra Marwahi': 'GRL',
+};
+
+window.autoFillUserCode = function() {
+    const eaSelect = document.getElementById('op_ea');
+    const nameInput = document.getElementById('op_name');
+    const districtEl = document.getElementById('dc_district_name');
+    const userCodeEl = document.getElementById('user_code');
+
+    if (!eaSelect || !nameInput || !districtEl || !userCodeEl) return;
+
+    // Do not auto-fill if the user has manually edited the field (and it is not empty)
+    if (userCodeEl.value.trim() === '') {
+        delete userCodeEl.dataset.userEdited;
+    }
+    if (userCodeEl.dataset.userEdited === 'true') return;
+
+    const eaCode = eaSelect.value.trim();
+    const fullName = nameInput.value.trim();
+    const districtVal = districtEl.value.trim();
+
+    if (!eaCode || !fullName || !districtVal) {
+        userCodeEl.value = '';
+        return;
+    }
+
+    const firstName = fullName.split(/\s+/)[0];
+    const districtCode = DISTRICT_CODES[districtVal] || districtVal.toUpperCase().slice(0, 3);
+
+    userCodeEl.value = `${eaCode}_${firstName}_${districtCode}`;
+};
+
+// Export helper function to XLSX format using SheetJS (XLSX) library
+function exportTableToExcel(tableID, filename = 'export.xlsx') {
+    const table = document.getElementById(tableID);
+    if (!table) return;
+
+    // Find headers and valid indices
+    const headerRow = table.querySelector('thead tr');
+    const headers = headerRow ? headerRow.querySelectorAll('th') : [];
+    const validIndices = [];
+    const headerData = [];
+    
+    headers.forEach((th, idx) => {
+        const text = th.innerText.trim();
+        if (text !== "Actions" && text !== "Action") {
+            validIndices.push(idx);
+            headerData.push(text);
+        }
+    });
+
+    const rowsData = [headerData];
+
+    // Find visible body rows
+    const bodyRows = table.querySelectorAll('tbody tr');
+    bodyRows.forEach(row => {
+        // Only export visible rows and rows with actual data (cells.length > 1)
+        if (row.style.display !== 'none' && row.cells.length > 1) {
+            const rowData = [];
+            const cells = row.querySelectorAll('td');
+            validIndices.forEach(idx => {
+                if (cells[idx]) {
+                    let text = cells[idx].innerText.trim();
+                    text = text.replace(/\s+/g, ' ');
+                    rowData.push(text);
+                } else {
+                    rowData.push('');
+                }
+            });
+            rowsData.push(rowData);
+        }
+    });
+
+    if (typeof XLSX === 'undefined') {
+        alert("Excel export library is not loaded yet. Please wait a moment or refresh the page.");
+        return;
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rowsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    XLSX.writeFile(wb, filename);
+}
+
+

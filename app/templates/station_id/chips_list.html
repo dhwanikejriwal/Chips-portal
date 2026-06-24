@@ -3,282 +3,8 @@
 {% block title %}Station ID Admin — CHiPS Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 <style>
-    /* ── Admin banner ── */
-    .admin-banner {
-        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #3730a3 100%);
-        border-radius: 16px;
-        padding: 22px 28px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 24px;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .admin-banner::before {
-        content: '';
-        position: absolute;
-        right: -20px;
-        top: -30px;
-        width: 160px;
-        height: 160px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.05);
-    }
-
-    .admin-banner-left {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
-
-    .admin-banner-icon {
-        width: 48px;
-        height: 48px;
-        background: rgba(255, 255, 255, 0.12);
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .admin-banner h2 {
-        font-size: 20px;
-        font-weight: 800;
-        color: #fff;
-        margin: 0 0 3px;
-    }
-
-    .admin-banner p {
-        font-size: 13px;
-        color: rgba(255, 255, 255, 0.65);
-        margin: 0;
-    }
-
-    .admin-banner-stats {
-        display: flex;
-        gap: 24px;
-    }
-
-    .admin-stat {
-        text-align: center;
-        padding: 10px 20px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-    }
-
-    .admin-stat-num {
-        font-size: 22px;
-        font-weight: 800;
-        color: #fff;
-        line-height: 1;
-    }
-
-    .admin-stat-lbl {
-        font-size: 11px;
-        color: rgba(255, 255, 255, 0.65);
-        margin-top: 3px;
-    }
-
-    /* ── Filter bar ── */
-    .filter-bar {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 12px 16px;
-        display: flex;
-        gap: 10px;
-        align-items: flex-end;
-        flex-wrap: wrap;
-        margin-bottom: 14px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    }
-
-    .filter-group {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        flex: 1;
-        min-width: 140px;
-    }
-
-    .filter-group-search {
-        flex: 2.5;
-    }
-
-    .filter-group label {
-        font-size: 10px;
-        font-weight: 700;
-        color: #64748b;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .filter-input {
-        height: 36px;
-        padding: 0 10px;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 8px;
-        font-size: 13px;
-        color: #334155;
-        outline: none;
-        background: #fff;
-        font-family: inherit;
-        transition: border-color 0.2s;
-    }
-
-    .filter-input:focus {
-        border-color: #6366f1;
-    }
-
-    /* ── Section headers ── */
-    .sec-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 24px 0 12px;
-    }
-
-    .sec-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 3px;
-    }
-
-    .sec-title {
-        font-size: 16px;
-        font-weight: 700;
-        color: #0f172a;
-        margin: 0;
-    }
-
-    .sec-count {
-        background: #f1f5f9;
-        color: #475569;
-        font-size: 12px;
-        font-weight: 700;
-        padding: 2px 9px;
-        border-radius: 20px;
-        margin-left: auto;
-    }
-
-    /* ── Table ── */
-    .sid-table-wrapper {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        overflow-x: auto;
-        overflow-y: visible;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-        margin-bottom: 28px;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .sid-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-        min-width: 900px;
-    }
-
-    .sid-table thead tr {
-        background: #f8fafc;
-    }
-
-    .sid-table th {
-        text-align: left;
-        padding: 11px 13px;
-        font-size: 10px;
-        font-weight: 700;
-        color: #64748b;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 1px solid #e2e8f0;
-        white-space: nowrap;
-    }
-
-    .sid-table td {
-        padding: 12px 13px;
-        color: #334155;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-        white-space: nowrap;
-    }
-
-    .sid-table tbody tr:last-child td {
-        border-bottom: none;
-    }
-
-    .sid-table tbody tr:hover td {
-        background: #fafafe;
-    }
-
-    /* ── Badges ── */
-    .sid-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 3px 9px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 700;
-    }
-
-    .sid-badge::before {
-        content: '';
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-    }
-
-    .sid-badge-sent_to_chips {
-        background: #fef9c3;
-        color: #854d0e;
-    }
-
-    .sid-badge-sent_to_chips::before {
-        background: #f59e0b;
-    }
-
-    .sid-badge-approved {
-        background: #dcfce7;
-        color: #166534;
-    }
-
-    .sid-badge-approved::before {
-        background: #16a34a;
-    }
-
-    .sid-badge-reverted {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-
-    .sid-badge-reverted::before {
-        background: #dc2626;
-    }
-
-    .sid-badge-reapplied {
-        background: #ede9fe;
-        color: #5b21b6;
-    }
-
-    .sid-badge-reapplied::before {
-        background: #7c3aed;
-    }
-
-    /* ── Action buttons ── */
-    .action-group {
-        display: flex;
-        gap: 5px;
-        flex-wrap: nowrap;
-        align-items: center;
-    }
-
     .btn-approve {
         display: inline-flex;
         align-items: center;
@@ -291,7 +17,6 @@
         font-size: 12px;
         font-weight: 700;
         cursor: pointer;
-        font-family: inherit;
         transition: background 0.15s;
     }
 
@@ -311,7 +36,6 @@
         font-size: 12px;
         font-weight: 700;
         cursor: pointer;
-        font-family: inherit;
         transition: all 0.15s;
     }
 
@@ -320,29 +44,19 @@
         border-color: #dc2626;
     }
 
-    .btn-details {
+    .reapplied-chip {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        background: #f8fafc;
-        color: #334155;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        font-family: inherit;
-        transition: all 0.15s;
+        gap: 3px;
+        background: #ede9fe;
+        color: #6d28d9;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 5px;
+        margin-left: 5px;
     }
 
-    .btn-details:hover {
-        border-color: #6366f1;
-        color: #4f46e5;
-        background: #f5f3ff;
-    }
-
-    /* ── Empty ── */
     .empty-state {
         padding: 36px 20px;
         text-align: center;
@@ -358,105 +72,61 @@
         font-size: 13px;
         margin: 0;
     }
-
-    /* ── Reapplied chip ── */
-    .reapplied-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
-        background: #ede9fe;
-        color: #6d28d9;
-        font-size: 10px;
-        font-weight: 700;
-        padding: 2px 7px;
-        border-radius: 5px;
-        margin-left: 5px;
-    }
-
-    @media (max-width: 1100px) {
-        .admin-banner {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 16px;
-        }
-
-        .admin-banner-stats {
-            width: 100%;
-            justify-content: flex-start;
-            gap: 10px;
-        }
-
-        .admin-stat {
-            padding: 8px 14px;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .admin-banner {
-            padding: 16px 18px;
-            border-radius: 10px;
-        }
-
-        .admin-banner h2 {
-            font-size: 16px;
-        }
-
-        .admin-banner p {
-            font-size: 12px;
-        }
-
-        .filter-bar {
-            padding: 10px 12px;
-        }
-
-        .filter-group {
-            min-width: 120px;
-        }
-
-        .sec-title {
-            font-size: 14px;
-        }
-    }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Admin Banner -->
-<div class="admin-banner">
-    <div class="admin-banner-left">
-        <div class="admin-banner-icon">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+<!-- Standardized CHiPS Header Banner -->
+<div class="chips-header-banner">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div
+            style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
                 <rect x="2" y="3" width="20" height="14" rx="2" />
                 <line x1="8" y1="21" x2="16" y2="21" />
                 <line x1="12" y1="17" x2="12" y2="21" />
             </svg>
         </div>
         <div>
-            <h2>Station ID Control Panel</h2>
-            <p>Review, approve and assign Station IDs to DC requests</p>
+            <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">Station ID Control Panel</h1>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Review, approve and assign Station IDs to DC
+                requests</p>
         </div>
     </div>
-    <div class="admin-banner-stats">
-        <div class="admin-stat">
-            <div class="admin-stat-num">{{ requests | selectattr('status', 'in', ['sent_to_chips', 'reapplied']) | list | length }}</div>
-            <div class="admin-stat-lbl">Pending Review</div>
+    <div class="chips-banner-metrics">
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
+                selectattr('status', 'in', ['sent_to_chips', 'reapplied']) | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
+            </div>
         </div>
-        <div class="admin-stat">
-            <div class="admin-stat-num">{{ requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
-            <div class="admin-stat-lbl">Approved</div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
+                selectattr('status', 'equalto', 'reverted') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
-        <div class="admin-stat">
-            <div class="admin-stat-num">{{ requests | length }}</div>
-            <div class="admin-stat-lbl">Total Requests</div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
+                selectattr('status', 'equalto', 'approved') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | length }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
+            </div>
         </div>
     </div>
 </div>
+
 
 <!-- ═══════════════ SECTION 1: PENDING ═══════════════ -->
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
         <label>Search Requests</label>
-        <input type="text" id="pending-search" class="filter-input" placeholder="Search by request ID, district, model…" oninput="filterSection('pending')">
+        <input type="text" id="pending-search" class="filter-input" placeholder="Search by request ID, district, model…"
+            oninput="filterSection('pending')">
     </div>
     <div class="filter-group">
         <label>Time Period</label>
@@ -473,13 +143,16 @@
     <div class="sec-dot" style="background:#f59e0b;"></div>
     <h3 class="sec-title">Pending Approval Queue</h3>
     <span class="sec-count" id="pending-count">–</span>
+    <div style="margin-left: auto;">
+        <button class="btn btn-sm" onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.xlsx')">Export to Excel</button>
+    </div>
 </div>
 
 <div class="sid-table-wrapper">
     <table class="sid-table" id="pending-table">
         <thead>
             <tr>
-                <th>#</th>
+                <th>S.No</th>
                 <th>Request ID</th>
                 <th>District</th>
                 <th>Model</th>
@@ -493,7 +166,11 @@
         <tbody id="pending-tbody">
             {% set ns = namespace(count=1) %}
             {% for r in requests if r.status in ['sent_to_chips', 'reapplied'] %}
-            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-district="{{ r.district_name or '' }}" data-model="{{ r.model }}" data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}" data-status="{{ r.status }}" data-created="{{ r.submitted_at or '' }}">
+            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
+                data-district="{{ r.district_name or '' }}" data-model="{{ r.model }}"
+                data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}"
+                data-kits="{{ r.number_of_kits }}" data-status="{{ r.status }}"
+                data-created="{{ r.submitted_at or '' }}">
                 <td style="color:#94a3b8;font-size:12px;">{{ ns.count }}</td>
                 <td>
                     <strong style="color:#4f46e5;">{{ r.request_no or '—' }}</strong>
@@ -503,7 +180,9 @@
                 </td>
                 <td>{{ r.district_name or '—' }}</td>
                 <td>
-                    <span style="font-weight:700;{% if r.model == 'ECMP' %}color:#1d4ed8;{% else %}color:#16a34a;{% endif %}">{{ r.model }}</span>
+                    <span
+                        style="font-weight:700;{% if r.model == 'ECMP' %}color:#1d4ed8;{% else %}color:#16a34a;{% endif %}">{{
+                        r.model }}</span>
                 </td>
                 <td>
                     {% if r.user_type == 'new_user' %}New User
@@ -511,20 +190,34 @@
                     {% else %}<span style="color:#9333ea;">Custom</span>{% endif %}
                 </td>
                 <td><strong>{{ r.number_of_kits }}</strong></td>
-                <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize }}</span></td>
+                <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize
+                        }}</span></td>
                 <td style="color:#64748b;font-size:12px;">{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
                 <td>
                     <div class="action-group">
-                        <button class="btn-approve" onclick="showApproveModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.model }}', '{{ r.number_of_kits }}')">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                        <button class="btn-approve"
+                            onclick="showApproveModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.model }}', '{{ r.number_of_kits }}')">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
                             Approve
                         </button>
                         <button class="btn-revert" onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-3.5" /></svg>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
                             Revert
                         </button>
-                        <button class="btn-details" onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                        <button class="btn-details"
+                            onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
                             Details
                         </button>
                     </div>
@@ -544,7 +237,8 @@
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
         <label>Search History</label>
-        <input type="text" id="log-search" class="filter-input" placeholder="Search by request ID, district, model…" oninput="filterSection('log')">
+        <input type="text" id="log-search" class="filter-input" placeholder="Search by request ID, district, model…"
+            oninput="filterSection('log')">
     </div>
     <div class="filter-group">
         <label>Filter by Status</label>
@@ -569,13 +263,16 @@
     <div class="sec-dot" style="background:#16a34a;"></div>
     <h3 class="sec-title">Station ID Log History</h3>
     <span class="sec-count" id="log-count">–</span>
+    <div style="margin-left: auto;">
+        <button class="btn btn-sm" onclick="exportTableToExcel('log-table', 'processed_station_id_history.xlsx')">Export to Excel</button>
+    </div>
 </div>
 
 <div class="sid-table-wrapper">
     <table class="sid-table" id="log-table">
         <thead>
             <tr>
-                <th>#</th>
+                <th>S.No</th>
                 <th>Request ID</th>
                 <th>District</th>
                 <th>Model</th>
@@ -591,11 +288,17 @@
         <tbody id="log-tbody">
             {% set ns2 = namespace(count=1) %}
             {% for r in requests if r.status in ['approved', 'reverted'] %}
-            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-district="{{ r.district_name or '' }}" data-model="{{ r.model }}" data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}" data-status="{{ r.status }}" data-created="{{ r.submitted_at or '' }}" data-station-id="{{ r.station_id_inserted or '' }}">
+            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
+                data-district="{{ r.district_name or '' }}" data-model="{{ r.model }}"
+                data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}"
+                data-kits="{{ r.number_of_kits }}" data-status="{{ r.status }}"
+                data-created="{{ r.submitted_at or '' }}" data-station-id="{{ r.station_id_inserted or '' }}">
                 <td style="color:#94a3b8;font-size:12px;">{{ ns2.count }}</td>
                 <td><strong style="color:#4f46e5;">{{ r.request_no or '—' }}</strong></td>
                 <td>{{ r.district_name or '—' }}</td>
-                <td><span style="font-weight:700;{% if r.model == 'ECMP' %}color:#1d4ed8;{% else %}color:#16a34a;{% endif %}">{{ r.model }}</span></td>
+                <td><span
+                        style="font-weight:700;{% if r.model == 'ECMP' %}color:#1d4ed8;{% else %}color:#16a34a;{% endif %}">{{
+                        r.model }}</span></td>
                 <td>
                     {% if r.user_type == 'new_user' %}New User
                     {% elif r.user_type == 'machine_id' %}Machine ID
@@ -604,17 +307,25 @@
                 <td><strong>{{ r.number_of_kits }}</strong></td>
                 <td>
                     {% if r.station_id_inserted %}
-                        {% for sid in r.station_id_inserted.split(',') %}
-                        <span style="font-family:monospace;font-weight:700;color:#15803d;background:#f0fdf4;padding:3px 8px;border-radius:5px;font-size:12px;display:inline-block;margin:2px;">{{ sid.strip() }}</span>
-                        {% endfor %}
+                    {% for sid in r.station_id_inserted.split(',') %}
+                    <span
+                        style="font-family:monospace;font-weight:700;color:#15803d;background:#f0fdf4;padding:3px 8px;border-radius:5px;font-size:12px;display:inline-block;margin:2px;">{{
+                        sid.strip() }}</span>
+                    {% endfor %}
                     {% else %}<span style="color:#94a3b8;">—</span>{% endif %}
                 </td>
-                <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize }}</span></td>
+                <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize
+                        }}</span></td>
                 <td style="color:#64748b;font-size:11px;">{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
                 <td style="color:#64748b;font-size:11px;">{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
                 <td>
-                    <button class="btn-details" onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                    <button class="btn-details"
+                        onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
                         Details
                     </button>
                 </td>
@@ -643,7 +354,70 @@
         return { today: `${y}-${m}-${d}`, month: `${y}-${m}`, year: `${y}` };
     }
 
-    window.filterSection = function(sec) {
+    // ── Status badge helper (DC-style) ────────────────────────────────────────
+    function getStatusBadgeHtml(status) {
+        const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+        let badgeClass = 'badge-pending';
+        let label = 'Pending';
+        if (s.includes('approve')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+        else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
+        else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
+        else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
+        else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
+        else if (s.includes('sent to chips') || s.includes('sent_to_chips')) { badgeClass = 'badge-pending'; label = 'Sent to CHiPS'; }
+        return `<span class="badge ${badgeClass}">${label}</span>`;
+    }
+
+    // ── DC-style timeline remarks builder ─────────────────────────────────────
+    function buildRemarksHtml(remarks) {
+        if (!remarks || remarks.length === 0) {
+            return `<div style="text-align:center;padding:20px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or action history logged yet.</div>`;
+        }
+        let html = `<div class="remarks-timeline">
+            <div class="timeline-title">Audit Action History Log</div>
+            <div class="timeline-track">`;
+        remarks.forEach(r => {
+            const isChips = r.author_role === 'CHIPS_ADMIN' || r.author_role === 'chips' || r.author_role === 'chips_admin';
+            const sender  = isChips ? 'CHiPS Admin' : 'District Coordinator';
+            const senderClass = isChips ? 'chips' : 'dc';
+
+            const statusAfter = r.status_after || '';
+            let statusBadgeHtmlInline = '';
+            let markerClass = 'marker-pending';
+            if (statusAfter) {
+                statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
+                const sLower = statusAfter.toLowerCase();
+                if (sLower.includes('approve')) markerClass = 'marker-approved';
+                else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+            }
+
+            const stepLabel = 'Station ID Request';
+            const username = r.sender_username || '';
+            const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
+            html += `
+                <div class="timeline-item ${senderClass}">
+                    <div class="timeline-marker ${markerClass}"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-section-row">
+                            <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
+                        </div>
+                        <div class="timeline-by-row">
+                            <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
+                            <span class="timeline-time">${r.created_at}</span>
+                        </div>
+                        <div class="timeline-body">${escapeHtml(r.remark)}</div>
+                    </div>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+        return html;
+    }
+
+    window.filterSection = function (sec) {
         const p = getDatePrefixes();
         const q = (document.getElementById(`${sec}-search`).value || '').toLowerCase().trim();
         const dateFilt = document.getElementById(`${sec}-date`).value;
@@ -691,7 +465,7 @@
     }
 
     // ── Approve Modal ───────────────────────────────────────────────
-    window.showApproveModal = function(requestId, requestNo, model, kits) {
+    window.showApproveModal = function (requestId, requestNo, model, kits) {
         const numKits = parseInt(kits) || 1;
         let stationInputsHtml = '';
         if (numKits <= 1) {
@@ -717,7 +491,7 @@
                         <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;">Kit ${i + 1} Station ID:</div>
                         <input id="swal-station-id-${i}" class="swal-station-id-input" type="text"
                             style="width:100%;height:38px;padding:0 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;font-family:monospace;outline:none;box-sizing:border-box;"
-                            placeholder="e.g. ECMP/RJN/2024/${String(i+1).padStart(3, '0')}" ${i === 0 ? 'autofocus' : ''}>
+                            placeholder="e.g. ECMP/RJN/2024/${String(i + 1).padStart(3, '0')}" ${i === 0 ? 'autofocus' : ''}>
                     </div>`;
             }
             stationInputsHtml += `</div></div>`;
@@ -777,7 +551,7 @@
     }
 
     // ── Revert Modal ────────────────────────────────────────────────
-    window.showRevertModal = function(requestId, requestNo) {
+    window.showRevertModal = function (requestId, requestNo) {
         Swal.fire({
             title: `<div style="text-align:left;font-size:18px;color:#dc2626;">Revert Request</div>`,
             html: `<div style="text-align:left;">
@@ -814,57 +588,7 @@
     }
 
     // ── Details Modal ───────────────────────────────────────────────
-    window.showDetailsModal = function(requestId, requestNo, status) {
-        function statusConfig(status) {
-            const s = (status || '').toLowerCase();
-            const map = {
-                sent_to_chips:  { label: 'Sent to CHiPS',  bg: '#dbeafe', color: '#1d4ed8' },
-                pending:        { label: 'Pending',         bg: '#fef9c3', color: '#a16207' },
-                sent_to_uidai:  { label: 'Sent to UIDAI',  bg: '#ede9fe', color: '#6d28d9' },
-                approved:       { label: 'Approved',        bg: '#dcfce7', color: '#15803d' },
-                rejected:       { label: 'Rejected',        bg: '#fee2e2', color: '#dc2626' },
-                reverted:       { label: 'Reverted',        bg: '#ffedd5', color: '#c2410c' },
-            };
-            return map[s] || { label: status.replace(/_/g,' ').toUpperCase(), bg:'#f1f5f9', color:'#475569' };
-        }
-
-        function infoCell(label, value) {
-            const v = (value && value !== 'null' && value !== 'undefined') ? escapeHtml(String(value)) : '<span style="color:#cbd5e1;">—</span>';
-            return `
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
-                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">${label}</div>
-                <div style="font-size:13px;font-weight:600;color:#0f172a;word-break:break-word;">${v}</div>
-            </div>`;
-        }
-
-        function sectionHead(title) {
-            return `<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">${title}</div>`;
-        }
-
-        function buildRemarksHtml(remarks) {
-            if (!remarks || remarks.length === 0) {
-                return `<div style="text-align:center;padding:14px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or conversation history yet.</div>`;
-            }
-            let html = `<div style="display:flex;flex-direction:column;gap:8px;max-height:180px;overflow-y:auto;padding-right:4px;">`;
-            remarks.forEach(item => {
-                const isAdmin = item.author_role === 'CHIPS_ADMIN' || item.author_role === 'chips_admin';
-                const sender  = isAdmin ? 'CHiPS Admin' : 'District Coordinator';
-                const bg      = isAdmin ? '#f1f5f9' : '#eff6ff';
-                const border  = isAdmin ? '#e2e8f0' : '#bfdbfe';
-                const nameCol = isAdmin ? '#0f172a' : '#1d4ed8';
-                html += `
-                <div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:10px 13px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-                        <span style="font-size:12px;font-weight:700;color:${nameCol};">${sender}</span>
-                        <span style="font-size:10px;color:#94a3b8;white-space:nowrap;">${item.created_at}</span>
-                    </div>
-                    <div style="font-size:13px;color:#334155;line-height:1.5;">${escapeHtml(item.remark)}</div>
-                </div>`;
-            });
-            html += `</div>`;
-            return html;
-        }
-
+    window.showDetailsModal = function (requestId, requestNo, status) {
         Swal.fire({
             html: `<div style="padding:40px;text-align:center;">
                 <div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
@@ -872,87 +596,153 @@
             </div>`,
             showConfirmButton: false,
             allowOutsideClick: false,
-            width: '680px',
+            width: '600px',
             padding: '0',
-            background: '#fff',
-            customClass: { popup: 'oa-detail-popup' },
+            background: '#fff'
         });
 
         fetch(`/auth/chips/station-id/${requestId}/detail-json`)
             .then(res => { if (!res.ok) throw new Error('Failed'); return res.json(); })
             .then(data => {
-                const sc = statusConfig(data.status || status);
-                const remarksHtml = buildRemarksHtml(data.remarks_history || []);
-                const userTypeLabel = data.user_type === 'new_user' ? 'New User'
-                    : data.user_type === 'machine_id' ? 'Machine ID'
-                        : `Custom — ${escapeHtml(data.user_type_custom_reason || '')}`;
-
-                const html = `
-                <div style="text-align:left;">
-                    <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#4f46e5 100%);padding:22px 24px 18px;position:relative;overflow:hidden;">
-                        <div style="position:absolute;right:-20px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
-                        <div style="position:absolute;right:60px;bottom:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.04);"></div>
-                        <div style="display:flex;align-items:center;gap:14px;position:relative;">
-                            <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                                    <line x1="7" y1="2" x2="7" y2="22"></line>
-                                    <line x1="17" y1="2" x2="17" y2="22"></line>
-                                    <line x1="2" y1="12" x2="22" y2="12"></line>
-                                    <line x1="2" y1="7" x2="7" y2="7"></line>
-                                    <line x1="2" y1="17" x2="7" y2="17"></line>
-                                    <line x1="17" y1="17" x2="22" y2="17"></line>
-                                    <line x1="17" y1="7" x2="22" y2="7"></line>
-                                </svg>
-                            </div>
-                            <div style="flex:1;min-width:0;">
-                                <div style="font-size:18px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:3px;">Station ID Request</div>
-                                <div style="font-size:12px;color:rgba(255,255,255,0.65);">Request <strong style="color:rgba(255,255,255,0.9);">${requestNo}</strong> &nbsp;·&nbsp; Submitted ${data.submitted_at || '—'}</div>
-                            </div>
-                            <div style="background:${sc.bg};color:${sc.color};font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${sc.label}</div>
-                        </div>
-                    </div>
-
-                    <div style="padding:20px 22px 22px;">
-                        ${sectionHead('Request Metadata')}
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-                            ${infoCell('District', data.district_name)}
-                            ${infoCell('Model', data.model)}
-                            ${infoCell('User Type', userTypeLabel)}
-                            ${infoCell('Number of Kits', data.number_of_kits)}
-                        </div>
-
-                        ${data.station_id_inserted ? `
-                        <div style="margin-bottom:14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:10px;padding:14px;text-align:center;">
-                            <div style="font-size:10px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Station ID(s) Assigned ✓</div>
-                            <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;">
-                                ${data.station_id_inserted.split(',').map(sid => `
-                                    <div style="font-family:monospace;font-size:18px;font-weight:800;color:#15803d;background:#fff;border:1px solid #bbf7d0;padding:4px 10px;border-radius:6px;">
-                                        ${escapeHtml(sid.trim())}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>` : ''}
-
-                        ${sectionHead('Remarks & Conversation')}
-                        ${remarksHtml}
-                    </div>
-                </div>`;
-
-                Swal.fire({
-                    html,
-                    showConfirmButton: true,
-                    confirmButtonText: 'Close',
-                    confirmButtonColor: '#4f46e5',
-                    width: '680px',
-                    padding: '0',
-                    background: '#fff',
-                    customClass: { popup: 'oa-detail-popup' },
-                });
+                window.showStationDetails(data, 'details', requestId, requestNo, status);
             })
             .catch(err => {
                 Swal.fire({ icon: 'error', title: 'Error', text: `Failed to load details: ${err.message}` });
             });
+    }
+
+    window.showStationDetails = function (data, activeView, requestId, requestNo, status) {
+        const displayStatus = data.status || status;
+        const statusBadge = getStatusBadgeHtml(displayStatus);
+        const remarksHtml = buildRemarksHtml(data.remarks_history || []);
+        const userTypeLabel = data.user_type === 'new_user' ? 'New User'
+            : data.user_type === 'machine_id' ? 'Machine ID'
+                : `Custom — ${escapeHtml(data.user_type_custom_reason || '')}`;
+
+        if (activeView === 'details') {
+            let htmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                    <span>${statusBadge}</span>
+                </div>
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                    Submitted At: <strong>${data.submitted_at || '—'}</strong>
+                </div>
+
+                <!-- Request Metadata Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Request Metadata</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">District</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(data.district_name)}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Model</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(data.model)}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">User Type</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${userTypeLabel}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Number of Kits</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${data.number_of_kits}</div>
+                        </div>
+                    </div>
+                </div>
+
+                ${data.station_id_inserted ? `
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Station ID Assigned</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        ${data.station_id_inserted.split(',').map(sid => `
+                            <span style="font-family: monospace; font-size: 14px; font-weight: 700; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 6px; display: inline-block;">
+                                ${escapeHtml(sid.trim())}
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>` : ''}
+
+                <!-- View Remarks Button -->
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
+                </div>
+            </div>
+            `;
+
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Station ID Request Details</span>`,
+                html: htmlContent,
+                showCancelButton: false,
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                customClass: {
+                    confirmButton: 'swal-btn-close'
+                },
+                width: '600px',
+                focusConfirm: false,
+                didOpen: () => {
+                    document.getElementById('btn-show-remarks').onclick = () => {
+                        window.showStationDetails(data, 'remarks', requestId, requestNo, status);
+                    };
+                }
+            });
+        }
+        else if (activeView === 'remarks') {
+            let htmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                    <span>${statusBadge}</span>
+                </div>
+                ${remarksHtml}
+            </div>
+            `;
+
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+                html: htmlContent,
+                showCancelButton: false,
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                showDenyButton: true,
+                denyButtonText: 'Back',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false
+            }).then((result) => {
+                if (result.isDenied) {
+                    window.showStationDetails(data, 'details', requestId, requestNo, status);
+                }
+            });
+        }
+    }
+
+    // Export helper function to fetch Excel stream from backend
+    function exportTableToExcel(tableID, filename = 'export.xlsx') {
+        const table = document.getElementById(tableID);
+        if (!table) return;
+
+        const bodyRows = table.querySelectorAll('tbody tr');
+        const ids = [];
+        bodyRows.forEach(row => {
+            if (row.style.display !== 'none' && row.cells.length > 1) {
+                const id = row.getAttribute('data-id');
+                if (id) ids.push(id);
+            }
+        });
+
+        if (ids.length === 0) {
+            Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#3085d6' });
+            return;
+        }
+
+        window.location.href = `/station-id/export?ids=${ids.join(',')}`;
     }
 </script>
 {% endblock %}

@@ -3,6 +3,7 @@
 {% block title %}{% if session.get('role') == 'EDM' %}EDM Dashboard{% else %}DC Dashboard{% endif %} - CHiPS Portal{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_dash.css') }}">
 {% endblock %}
 
@@ -28,11 +29,14 @@
 </div>
 
 <div class="dashboard-card">
-    <h2 class="card-title">Recent Onboarding Requests</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <h2 class="card-title" style="margin: 0;">Recent Onboarding Requests</h2>
+        <button class="btn btn-sm" onclick="exportTableToExcel('dash-recent-table', 'recent_onboarding_requests.xlsx')">Export to Excel</button>
+    </div>
     <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Below is the summary of recent operator applications from your district.</p>
     
-    <div class="table-responsive">
-        <table class="data-table">
+    <div class="sid-table-wrapper">
+        <table class="sid-table" id="dash-recent-table">
             <thead>
                 <tr>
                     <th>Registration Code</th>
@@ -49,7 +53,7 @@
                     <td>Amit Kumar Sahu</td>
                     <td>9876543210</td>
                     <td>Post Graduation</td>
-                    <td><span class="badge badge-warning">Pending Review</span></td>
+                    <td><span class="badge badge-pending">Pending Review</span></td>
                     <td><a href="#" class="btn btn-sm btn-outline">Review</a></td>
                 </tr>
                 <tr>
@@ -57,11 +61,66 @@
                     <td>Priya Sharma</td>
                     <td>8877665544</td>
                     <td>Graduation</td>
-                    <td><span class="badge badge-success">Selected</span></td>
+                    <td><span class="badge badge-approved">Selected</span></td>
                     <td><a href="#" class="btn btn-sm btn-outline">Manage</a></td>
                 </tr>
             </tbody>
         </table>
     </div>
 </div>
+
+<script>
+// Export helper function to XLSX format using SheetJS (XLSX) library
+function exportTableToExcel(tableID, filename = 'export.xlsx') {
+    const table = document.getElementById(tableID);
+    if (!table) return;
+
+    // Find headers and valid indices
+    const headerRow = table.querySelector('thead tr');
+    const headers = headerRow ? headerRow.querySelectorAll('th') : [];
+    const validIndices = [];
+    const headerData = [];
+    
+    headers.forEach((th, idx) => {
+        const text = th.innerText.trim();
+        if (text !== "Actions" && text !== "Action") {
+            validIndices.push(idx);
+            headerData.push(text);
+        }
+    });
+
+    const rowsData = [headerData];
+
+    // Find visible body rows
+    const bodyRows = table.querySelectorAll('tbody tr');
+    bodyRows.forEach(row => {
+        // Only export visible rows and rows with actual data (cells.length > 1)
+        if (row.style.display !== 'none' && row.cells.length > 1) {
+            const rowData = [];
+            const cells = row.querySelectorAll('td');
+            validIndices.forEach(idx => {
+                if (cells[idx]) {
+                    let text = cells[idx].innerText.trim();
+                    text = text.replace(/\s+/g, ' ');
+                    rowData.push(text);
+                } else {
+                    rowData.push('');
+                }
+            });
+            rowsData.push(rowData);
+        }
+    });
+
+    if (typeof XLSX === 'undefined') {
+        alert("Excel export library is not loaded yet. Please wait a moment or refresh the page.");
+        return;
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rowsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    XLSX.writeFile(wb, filename);
+}
+</script>
 {% endblock %}
+

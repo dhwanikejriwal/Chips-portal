@@ -80,3 +80,33 @@ def reject_candidate(r_id):
             return response.json(), response.status_code
     except requests.exceptions.RequestException:
         return {"detail": "Error connecting to backend API server."}, 500
+
+from flask import Response
+
+@selection_bp.route("/dc/candidate-requests/export")
+def export_candidate_requests():
+    if "access_token" not in session or session.get("role") not in ["DC", "EDM"]:
+        flash("Unauthorized access. Please log in.", "danger")
+        return redirect(url_for("auth.login"))
+        
+    ids = request.args.get("ids", "")
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/selection/export-excel"
+    try:
+        response = requests.get(backend_url, params={"ids": ids}, stream=True)
+        if response.status_code == 200:
+            headers = {
+                'Content-Disposition': response.headers.get('Content-Disposition', 'attachment; filename="candidate_requests.xlsx"'),
+                'Content-Type': response.headers.get('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            }
+            return Response(
+                response.iter_content(chunk_size=8192),
+                status=response.status_code,
+                headers=headers
+            )
+        else:
+            flash("Failed to generate excel file from backend.", "danger")
+            return redirect(url_for("selection.dc_candidate_requests"))
+    except requests.exceptions.RequestException:
+        flash("Error connecting to backend API server.", "danger")
+        return redirect(url_for("selection.dc_candidate_requests"))
+
