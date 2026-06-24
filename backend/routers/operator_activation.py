@@ -12,7 +12,15 @@ from backend.models.operator_activation import (
     ActivationDocument,
     OperatorActivationRemark,
 )
-
+from backend.utils.ocr_utils import (
+    extract_text_from_file, 
+    validate_aadhaar, 
+    validate_pan,
+    validate_consent_form,
+    validate_passbook,
+    validate_nseit_certificate,
+    validate_excel_sheet
+)
 router = APIRouter()
 
 UPLOAD_BASE = "uploads/operator_activation"
@@ -93,6 +101,37 @@ def submit_operator_activation(
     db.flush()
     new_request.request_no = f"RP-A{new_request.id:04d}"
     db.flush()
+
+    # --- OCR Validation Logic ---
+    try:
+        # Extract text from Aadhaar and validate
+        aadhaar_text = extract_text_from_file(aadhaar_photo)
+        validate_aadhaar(aadhaar_text, name_as_per_aadhaar)
+        
+        # Extract text from PAN and validate
+        pan_text = extract_text_from_file(pan_card)
+        validate_pan(pan_text, name_as_per_aadhaar)
+
+        # Validate Consent Form
+        consent_text = extract_text_from_file(hard_copy_form)
+        validate_consent_form(consent_text, name_as_per_aadhaar)
+
+        # Validate Passbook
+        passbook_text = extract_text_from_file(passbook)
+        validate_passbook(passbook_text, name_as_per_aadhaar)
+
+        # Validate NSEIT Certificate
+        nseit_text = extract_text_from_file(nseit_certificate)
+        validate_nseit_certificate(nseit_text, name_as_per_aadhaar, nseit_certificate_number)
+
+        # Validate Excel Sheet
+        excel_bytes = excel_sheet.file.read()
+        validate_excel_sheet(excel_bytes, name_as_per_aadhaar, operator_mobile)
+        excel_sheet.file.seek(0)
+    except HTTPException:
+        db.rollback() # Rollback request creation if validation fails
+        raise
+    # --- End OCR Validation Logic ---
 
     # 2. Save each file to disk and create a document row
     uploaded_files = {

@@ -287,11 +287,11 @@
         });
     }
 
-    // 3. Form Submission SweetAlert2 Popup
+    // 3. Form Submission SweetAlert2 Popup (AJAX)
     const oaForm = document.getElementById('oa-activation-form');
 
     if (oaForm) {
-        oaForm.addEventListener('submit', function (e) {
+        oaForm.addEventListener('submit', async function (e) {
             if (!this.checkValidity()) {
                 return;
             }
@@ -300,14 +300,58 @@
 
             Swal.fire({
                 title: 'Submitting Request...',
-                html: 'Uploading documents and saving details, please wait...',
+                html: 'Uploading documents and validating with AI, please wait...',
                 allowOutsideClick: false,
                 showConfirmButton: false,
                 didOpen: () => {
                     Swal.showLoading();
-                    oaForm.submit();
                 }
             });
+
+            try {
+                const formData = new FormData(oaForm);
+                const response = await fetch(oaForm.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: 'Operator activation request submitted.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.href = data.redirect_url;
+                    });
+                } else {
+                    Swal.close();
+                    
+                    // Show error in banner
+                    let errorBanner = document.querySelector('.oa-error-banner');
+                    if (!errorBanner) {
+                        errorBanner = document.createElement('div');
+                        errorBanner.className = 'oa-error-banner';
+                        // Insert after h2
+                        const h2 = document.querySelector('h2');
+                        h2.parentNode.insertBefore(errorBanner, h2.nextSibling);
+                    }
+                    errorBanner.textContent = data.message || 'Submission failed. Please check your documents.';
+                    errorBanner.style.display = 'block';
+                    
+                    // Scroll to error
+                    errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Network Error',
+                    text: 'Failed to connect to the server. Please try again.'
+                });
+            }
         });
     }
 

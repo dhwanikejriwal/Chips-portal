@@ -9,43 +9,48 @@
 
 {% block content %}
 <div class="monitoring-container">
-    <h1
-        style="text-align: center; margin-bottom: 25px; font-size: 28px; font-weight: 700; color: #1a202c; letter-spacing: -0.5px;">
-        DISTRICT COORDINATOR (DC) MONITORING
-    </h1>
-
-    <!-- 1. Stats Cards Overview -->
-    <div class="stats-grid">
-        {% set ns = namespace(total_cand_pending=0, total_lms_pending=0, total_nseit_pending=0, total_candidates=0) %}
-
-        {% for d in districts_stats %}
-        {% set ns.total_cand_pending = ns.total_cand_pending + d.candidate_stats.pending %}
-        {% set ns.total_lms_pending = ns.total_lms_pending + d.lms_stats.pending %}
-        {% set ns.total_nseit_pending = ns.total_nseit_pending + d.nseit_stats.pending %}
-        {% set ns.total_candidates = ns.total_candidates + d.total_candidates %}
-        {% endfor %}
-
-        <div class="stat-card stat-primary">
-            <span class="card-label">Total Registrations</span>
-            <span class="card-value">{{ ns.total_candidates }}</span>
-            <span class="card-subtext">Across all Chhattisgarh districts</span>
+    <!-- Premium KPI Banner -->
+    <div class="premium-kpi-banner">
+        <div class="banner-header">
+            <h1 class="banner-title">DISTRICT COORDINATOR (DC) MONITORING</h1>
+            <!-- Global District Filter -->
+            <div class="banner-filter">
+                <label for="global-district-filter">Filter by District:</label>
+                <select id="global-district-filter" class="glass-select" onchange="updateKPIs()">
+                    <option value="ALL">All Districts</option>
+                    {% for d in districts_stats %}
+                    <option value="{{ d.district_code }}">{{ d.district_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
-        <div class="stat-card stat-warning">
-            <span class="card-label">Pending Selected (DC)</span>
-            <span class="card-value">{{ ns.total_cand_pending }}</span>
-            <span class="card-subtext">Awaiting DC registration approval</span>
-        </div>
-        <div class="stat-card stat-info">
-            <span class="card-label">LMS Pending at DC</span>
-            <span class="card-value">{{ ns.total_lms_pending }}</span>
-            <span class="card-subtext">Awaiting DC verification & forward</span>
-        </div>
-        <div class="stat-card stat-success">
-            <span class="card-label">NSEIT Pending at DC</span>
-            <span class="card-value">{{ ns.total_nseit_pending }}</span>
-            <span class="card-subtext">Awaiting DC verification & forward</span>
+
+        <!-- 1. Stats Cards Overview -->
+        <div class="stats-grid" id="kpi-cards-container">
+            <div class="stat-card glass-card stat-primary" onclick="showKPIBreakdown('total_candidates', 'Total Registrations')">
+                <span class="card-label">Total Registrations</span>
+                <span class="card-value" id="kpi-total-reg">0</span>
+                <span class="card-subtext">Click for district breakdown</span>
+            </div>
+            <div class="stat-card glass-card stat-warning" onclick="showKPIBreakdown('cand_pending', 'Pending Selection Request')">
+                <span class="card-label">Pending Selection Request</span>
+                <span class="card-value" id="kpi-dc-pending">0</span>
+                <span class="card-subtext">Click for district breakdown</span>
+            </div>
+            <div class="stat-card glass-card stat-info" onclick="showKPIBreakdown('lms_pending', 'LMS Pending at DC')">
+                <span class="card-label">LMS Pending at DC</span>
+                <span class="card-value" id="kpi-lms-pending">0</span>
+                <span class="card-subtext">Click for district breakdown</span>
+            </div>
+            <div class="stat-card glass-card stat-success" onclick="showKPIBreakdown('nseit_pending', 'NSEIT Pending at DC')">
+                <span class="card-label">NSEIT Pending at DC</span>
+                <span class="card-value" id="kpi-nseit-pending">0</span>
+                <span class="card-subtext">Click for district breakdown</span>
+            </div>
         </div>
     </div>
+
+
 
     <!-- 4. Candidate Registration & Timeline Search -->
     <div class="section-card">
@@ -96,11 +101,8 @@
                 </div>
             </div>
 
-            <div style="display: flex; gap: 10px; margin-bottom: 30px;">
-                <a id="prof-marksheet-link" href="#" target="_blank" class="btn btn-sm"
-                    style="background-color: #007bff; color: white; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
-                    📄 View Uploaded Marksheet
-                </a>
+            <div id="prof-documents-container" style="display: flex; gap: 10px; margin-bottom: 30px;">
+                <!-- Links injected via JS -->
             </div>
 
             <h3
@@ -114,75 +116,10 @@
     </div>
 </div>
 
-<!-- 2. District Summary Overview Table -->
-<div class="section-card">
-    <div class="section-header">
-        <h2 class="section-title">District Onboarding Summary</h2>
-        <button class="btn btn-sm" onclick="exportOverviewToExcel()">Export Summary</button>
-    </div>
-    <div style="overflow-x: auto;">
-        <table class="mon-table" id="overview-summary-table">
-            <thead>
-                <tr>
-                    <th>District</th>
-                    <th style="text-align: center;">Total Candidates</th>
-                    <th style="text-align: center;">DC Selection (Pend/Appr/Reje)</th>
-                    <th style="text-align: center;">LMS Step (Pend/Forw/Appr/Reve)</th>
-                    <th style="text-align: center;">NSEIT Step (Pend/Forw/Appr/Reve)</th>
-                    <th style="text-align: center;">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for d in districts_stats %}
-                <tr>
-                    <td><strong>{{ d.district_name }}</strong> ({{ d.district_short_name }})</td>
-                    <td style="text-align: center;"><strong>{{ d.total_candidates }}</strong></td>
-                    <td style="text-align: center;">
-                        <span class="count-badge badge-pending-dc" title="Pending at DC">{{ d.candidate_stats.pending
-                            }}</span> /
-                        <span class="count-badge badge-approved-chips" title="Approved">{{ d.candidate_stats.approved
-                            }}</span> /
-                        <span class="count-badge badge-reverted-chips" title="Rejected">{{ d.candidate_stats.rejected
-                            }}</span>
-                    </td>
-                    <td style="text-align: center;">
-                        <span class="count-badge badge-pending-dc" title="Pending at DC">{{ d.lms_stats.pending
-                            }}</span> /
-                        <span class="count-badge badge-forwarded-chips" title="Forwarded">{{ d.lms_stats.forwarded
-                            }}</span> /
-                        <span class="count-badge badge-approved-chips" title="Approved">{{ d.lms_stats.approved
-                            }}</span> /
-                        <span class="count-badge badge-reverted-chips" title="Reverted">{{ d.lms_stats.reverted
-                            }}</span>
-                    </td>
-                    <td style="text-align: center;">
-                        <span class="count-badge badge-pending-dc" title="Pending at DC">{{ d.nseit_stats.pending
-                            }}</span> /
-                        <span class="count-badge badge-forwarded-chips" title="Forwarded">{{ d.nseit_stats.forwarded
-                            }}</span> /
-                        <span class="count-badge badge-approved-chips" title="Approved">{{ d.nseit_stats.approved
-                            }}</span> /
-                        <span class="count-badge badge-reverted-chips" title="Reverted">{{ d.nseit_stats.reverted
-                            }}</span>
-                    </td>
-                    <td style="text-align: center;">
-                        <button type="button" class="btn btn-sm" style="background-color: #007bff; color: white;"
-                            onclick="triggerDeepDive('{{ d.district_code }}')">Deep Dive</button>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" style="text-align: center; color: #718096; padding: 20px;">No district statistics
-                        found.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+
 
 <!-- 3. District Deep Dive Section -->
-<div class="section-card" id="deep-dive-card" style="display: none;">
+<div class="section-card" id="deep-dive-card">
     <div class="section-header">
         <h2 class="section-title">District Inspect: <span id="deep-dive-district-name" style="color: #3182ce;">District
                 Name</span></h2>
@@ -292,6 +229,94 @@
 
 
 <script>
+    // Inject global stats data for fast client-side KPI filtering
+    const globalDistrictsData = {{ districts_stats | tojson | safe }};
+
+    function updateKPIs() {
+        const filterVal = document.getElementById('global-district-filter').value;
+        let total_reg = 0;
+        let dc_pending = 0;
+        let lms_pending = 0;
+        let nseit_pending = 0;
+
+        globalDistrictsData.forEach(d => {
+            if (filterVal === 'ALL' || d.district_code === filterVal) {
+                total_reg += d.total_candidates;
+                dc_pending += d.candidate_stats.pending;
+                lms_pending += d.lms_stats.pending;
+                nseit_pending += d.nseit_stats.pending;
+            }
+        });
+
+        document.getElementById('kpi-total-reg').textContent = total_reg;
+        document.getElementById('kpi-dc-pending').textContent = dc_pending;
+        document.getElementById('kpi-lms-pending').textContent = lms_pending;
+        document.getElementById('kpi-nseit-pending').textContent = nseit_pending;
+    }
+
+    function showKPIBreakdown(metricKey, title) {
+        const filterVal = document.getElementById('global-district-filter').value;
+        let breakdownHtml = `<div class="kpi-breakdown-container">
+                                <table class="mon-table breakdown-table">
+                                <thead>
+                                    <tr>
+                                        <th>District Name</th>
+                                        <th style="text-align:right;">Count</th>
+                                    </tr>
+                                </thead><tbody>`;
+        let grandTotal = 0;
+
+        globalDistrictsData.forEach(d => {
+            if (filterVal === 'ALL' || d.district_code === filterVal) {
+                let count = 0;
+                if (metricKey === 'total_candidates') count = d.total_candidates;
+                if (metricKey === 'cand_pending') count = d.candidate_stats.pending;
+                if (metricKey === 'lms_pending') count = d.lms_stats.pending;
+                if (metricKey === 'nseit_pending') count = d.nseit_stats.pending;
+
+                grandTotal += count;
+
+                if (count > 0 || filterVal !== 'ALL') {
+                     breakdownHtml += `<tr>
+                                        <td>${escapeHtml(d.district_name)}</td>
+                                        <td style="text-align:right;"><strong>${count}</strong></td>
+                                       </tr>`;
+                }
+            }
+        });
+
+        if (grandTotal === 0 && filterVal === 'ALL') {
+            breakdownHtml += `<tr><td colspan="2" class="empty-state">No records found.</td></tr>`;
+        }
+
+        breakdownHtml += `</tbody>
+                            <tfoot>
+                                <tr>
+                                    <td>Total</td>
+                                    <td style="text-align:right;">${grandTotal}</td>
+                                </tr>
+                            </tfoot>
+                          </table></div>`;
+
+        Swal.fire({
+            title: title + ' Breakdown',
+            html: breakdownHtml,
+            width: '600px',
+            buttonsStyling: false,
+            customClass: {
+                popup: 'kpi-breakdown-modal',
+                title: 'kpi-modal-title',
+                confirmButton: 'mon-btn-primary kpi-modal-btn'
+            },
+            confirmButtonText: 'Close'
+        });
+    }
+
+    // Initialize KPIs on load
+    document.addEventListener("DOMContentLoaded", function () {
+        updateKPIs();
+    });
+
     // Tab switching logic
     function switchTab(evt, tabId) {
         const tabBtns = document.querySelectorAll('.tab-btn');
@@ -483,8 +508,19 @@
                 document.getElementById('prof-lms-status').innerHTML = `<span class="badge ${data.lms_status === 'Approved' ? 'badge-approved' : (data.lms_status === 'Forwarded' ? 'badge-forwarded' : (data.lms_status === 'Forwarded Again' ? 'badge-forwarded-again' : (data.lms_status === 'Reapplied' ? 'badge-reapplied' : (data.lms_status === 'Pending' ? 'badge-pending' : (data.lms_status === 'Skipped' ? 'badge-skipped' : 'badge-reverted')))))}">${data.lms_status}</span>`;
                 document.getElementById('prof-nseit-status').innerHTML = `<span class="badge ${data.nseit_status === 'Approved' ? 'badge-approved' : (data.nseit_status === 'Forwarded' ? 'badge-forwarded' : (data.nseit_status === 'Forwarded Again' ? 'badge-forwarded-again' : (data.nseit_status === 'Reapplied' ? 'badge-reapplied' : (data.nseit_status === 'Pending' ? 'badge-pending' : (data.nseit_status === 'Skipped' ? 'badge-skipped' : 'badge-reverted')))))}">${data.nseit_status}</span>`;
 
-                // Marksheet link
-                document.getElementById('prof-marksheet-link').href = data.marksheet_upload;
+                // Documents links
+                const docsContainer = document.getElementById('prof-documents-container');
+                docsContainer.innerHTML = '';
+                
+                if (data.tenth_marksheet_upload) {
+                    docsContainer.innerHTML += `<a href="${data.tenth_marksheet_upload}" target="_blank" class="btn btn-sm" style="background-color: #007bff; color: white; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">📄 View 10th Marksheet</a>`;
+                }
+                if (data.marksheet_upload) {
+                    docsContainer.innerHTML += `<a href="${data.marksheet_upload}" target="_blank" class="btn btn-sm" style="background-color: #007bff; color: white; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">📄 View Qualification Marksheet</a>`;
+                }
+                if (!data.tenth_marksheet_upload && !data.marksheet_upload) {
+                    docsContainer.innerHTML = '<span style="color: #a0aec0; font-size: 13px; font-style: italic;">No documents uploaded.</span>';
+                }
 
                 // Build timeline track
                 const timelineContainer = document.getElementById('timeline-track-element');
@@ -564,7 +600,7 @@
             const el = document.getElementById(id);
             if (el) el.innerHTML = '-';
         });
-        document.getElementById('prof-marksheet-link').href = '#';
+        document.getElementById('prof-documents-container').innerHTML = '';
         // Scroll back to search bar
         document.getElementById('timeline-search-input').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -648,5 +684,7 @@
             triggerDeepDive(districtCode);
         }
     });
+
+
 </script>
 {% endblock %}

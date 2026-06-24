@@ -232,6 +232,42 @@ function handleFormSubmissionPipeline(event) {
 
     const formElement = document.getElementById('reactivationForm');
     const formData = new FormData(formElement);
+
+    // 📁 STRICT DOCUMENT VALIDATION LAYER
+    const MAX_FILE_SIZE_MB = 5;
+    const MAX_FILE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+    
+    const requiredFiles = [
+        { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'] },
+        { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'] },
+        { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'] },
+        { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'] }
+    ];
+
+    for (const fileDef of requiredFiles) {
+        const fileObj = formData.get(fileDef.name);
+        
+        // Check presence
+        if (!fileObj || fileObj.size === 0) {
+            Swal.fire({ title: 'Missing Document', text: `Please upload the ${fileDef.label}.`, icon: 'warning' });
+            return;
+        }
+        
+        // Check size boundaries
+        if (fileObj.size > MAX_FILE_BYTES) {
+            Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${MAX_FILE_SIZE_MB}MB.`, icon: 'error' });
+            return;
+        }
+
+        // Check file extension extension validity
+        const fileName = fileObj.name.toLowerCase();
+        const hasValidExt = fileDef.exts.some(ext => fileName.endsWith(ext));
+        if (!hasValidExt) {
+            Swal.fire({ title: 'Invalid File Format', text: `The ${fileDef.label} must end with one of: ${fileDef.exts.join(', ')}`, icon: 'error' });
+            return;
+        }
+    }
+
     formData.append('manual_operators', JSON.stringify(structuredOperatorList));
 
     if (window.currentReapplyCode) {
