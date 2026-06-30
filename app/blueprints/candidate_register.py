@@ -86,35 +86,50 @@ def register():
         if qualification == "High School (10th)":
             tenth_file = request.files.get("tenth_marksheet")
             if tenth_file and tenth_file.filename:
+                tenth_bytes = tenth_file.read()
+                tenth_file.seek(0)
+                try:
+                    from backend.utils.ocr_utils import extract_text_from_bytes, validate_marksheet
+                    extracted_text = extract_text_from_bytes(tenth_bytes, tenth_file.content_type, lang="eng+hin")
+                    validate_marksheet(extracted_text, name, dob)
+                except ValueError as e:
+                    return render_template("user/register.html", error=str(e), form_data=request.form, districts=districts)
+
                 result = save_upload(tenth_file, upload_folder)
                 if result == "TOO_LARGE":
-                    flash("10th Standard marksheet must be under 1 MB.", "danger")
-                    return render_template("user/register.html", districts=districts)
+                    return render_template("user/register.html", error="10th Standard marksheet must be under 1 MB.", form_data=request.form, districts=districts)
                 tenth_marksheet_path = result
                 marksheet_path = None
             else:
-                flash("10th Standard marksheet is required.", "danger")
-                return render_template("user/register.html", districts=districts)
+                return render_template("user/register.html", error="10th Standard marksheet is required.", form_data=request.form, districts=districts)
         else:
             # 🌟 Higher Degree Path: Extract and save both items separately
             tenth_file = request.files.get("tenth_marksheet")
             if tenth_file and tenth_file.filename:
+                tenth_bytes = tenth_file.read()
+                tenth_file.seek(0)
+                try:
+                    from backend.utils.ocr_utils import extract_text_from_bytes, validate_marksheet
+                    extracted_text = extract_text_from_bytes(tenth_bytes, tenth_file.content_type, lang="eng+hin")
+                    validate_marksheet(extracted_text, name, dob)
+                except ValueError as e:
+                    return render_template("user/register.html", error=str(e), form_data=request.form, districts=districts)
+
                 result = save_upload(tenth_file, upload_folder)
                 if result == "TOO_LARGE":
-                    flash("10th Standard marksheet must be under 1 MB.", "danger")
-                    return render_template("user/register.html", districts=districts)
+                    return render_template("user/register.html", error="10th Standard marksheet must be under 1 MB.", form_data=request.form, districts=districts)
                 tenth_marksheet_path = result
+            else:
+                return render_template("user/register.html", error="10th Standard marksheet is required.", form_data=request.form, districts=districts)
 
             marksheet_file = request.files.get("marksheet")
             if marksheet_file and marksheet_file.filename:
                 result = save_upload(marksheet_file, upload_folder)
                 if result == "TOO_LARGE":
-                    flash("Qualification marksheet must be under 1 MB.", "danger")
-                    return render_template("user/register.html", districts=districts)
+                    return render_template("user/register.html", error="Qualification marksheet must be under 1 MB.", form_data=request.form, districts=districts)
                 marksheet_path = result
             else:
-                flash("Highest qualification marksheet is required.", "danger")
-                return render_template("user/register.html", districts=districts)
+                return render_template("user/register.html", error="Highest qualification marksheet is required.", form_data=request.form, districts=districts)
 
         # ── 3. SEND CLEAN PAYLOAD TO FASTAPI BACKEND ──
         register_url = f"{current_app.config['BACKEND_API_URL']}/candidate_register/register-candidate"

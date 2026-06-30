@@ -95,13 +95,13 @@ def dc_submit():
             f"{backend_url()}/submit", data=form_data, files=files, headers=headers
         )
         if response.status_code == 200:
-            return redirect(url_for("operator_activation.dc_requests_list"))
+            return jsonify({"status": "success", "redirect_url": url_for("operator_activation.dc_requests_list")}), 200
         else:
             error = response.json().get("detail", "Submission failed.")
-            return redirect(url_for("operator_activation.dc_requests_list", error=error))
+            return jsonify({"status": "error", "message": error}), 400
 
     except requests.exceptions.ConnectionError:
-        return redirect(url_for("operator_activation.dc_requests_list", error="Backend offline."))
+        return jsonify({"status": "error", "message": "Backend offline."}), 500
 
 
 @operator_activation_bp.route("/dc/operator-activation/list", methods=["GET"])

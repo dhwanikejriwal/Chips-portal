@@ -298,6 +298,7 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
         "dob": candidate.dob.strftime("%Y-%m-%d") if candidate.dob else "",
         "aadhaar": candidate.aadhaar,
         "marksheet_upload": candidate.marksheet_upload,
+        "tenth_marksheet_upload": candidate.tenth_marksheet_upload,
         "status": candidate.status,
         "lms_id": candidate.lms_id or "",
         "nseit_id": candidate.nseit_id or "",
