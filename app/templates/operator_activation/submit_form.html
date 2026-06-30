@@ -1,0 +1,525 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+
+
+
+<h2>Submit Operator Activation Request</h2>
+
+{% if error %}
+<div class="oa-error-banner">{{ error }}</div>
+{% endif %}
+
+<div class="table-container">
+
+    <form id="oa-activation-form" action="/auth/dc/operator-activation" method="POST" enctype="multipart/form-data"
+        class="oa-form">
+
+        <div class="oa-form-card">
+            <!-- Visual Stepper -->
+            <div class="oa-stepper">
+                <div class="oa-step active" id="step-1-indicator">
+                    <span class="oa-step-num">1</span>
+                    <span class="oa-step-text">Operator Details</span>
+                </div>
+                <div class="oa-step-divider" id="step-divider-1"></div>
+                <div class="oa-step" id="step-2-indicator">
+                    <span class="oa-step-num">2</span>
+                    <span class="oa-step-text">Upload Documents</span>
+                </div>
+            </div>
+
+            <!-- STEP 1: OPERATOR DETAILS PANEL -->
+            <div class="oa-form-step active" id="step-1-panel">
+
+                <div class="oa-sub-section">
+                    <div class="oa-sub-section-title">1. OPERATOR'S PERSONAL & CONTACT DETAILS</div>
+                    <div class="oa-sub-section-content">
+                        <div class="oa-row">
+                            <div class="oa-field oa-col-6">
+                                <label>Name <span class="oa-required">*</span></label>
+                                <input type="text" id="name_as_per_aadhaar" name="name_as_per_aadhaar" required
+                                    placeholder="Enter Name" oninput="autoFillUserCode()">
+                            </div>
+                            <div class="oa-field oa-col-3">
+                                <label>Mobile Number <span class="oa-required">*</span></label>
+                                <input type="tel" id="operator_mobile" name="operator_mobile" pattern="[6-9][0-9]{9}"
+                                    maxlength="10" required placeholder="10-digit Mobile Number (starts with 6-9)"
+                                    oninput="validateMobile(this)">
+                                <span class="oa-input-hint" id="mobile-hint"
+                                    style="display: none; color: #dc3545; font-size: 11px; margin-top: 2px;">Must start
+                                    with 6-9 and be exactly 10 digits.</span>
+                            </div>
+                            <div class="oa-field oa-col-3">
+                                <label>Primary Email ID <span class="oa-required">*</span></label>
+                                <input type="email" id="primary_email" name="primary_email" required
+                                    placeholder="Enter Email ID (e.g. name@domain.com)" oninput="validateEmail(this)">
+                                <span class="oa-input-hint" id="email-hint"
+                                    style="display: none; color: #dc3545; font-size: 11px; margin-top: 2px;">Please
+                                    enter a valid email.</span>
+                            </div>
+                        </div>
+
+                        <div class="oa-row" style="margin-top: 16px;">
+                            <div class="oa-field oa-col-5">
+                                <label>Last 4 Digits of Aadhaar <span class="oa-required">*</span></label>
+                                <input type="text" id="operator_aadhaar" name="operator_aadhaar" pattern="[0-9]{4}"
+                                    maxlength="4" required placeholder="Enter last 4 digits of Aadhaar"
+                                    oninput="validateAadhaar(this)">
+                                <span class="oa-input-hint" id="aadhaar-hint"
+                                    style="display: none; color: #dc3545; font-size: 11px; margin-top: 2px;">Must be
+                                    exactly 4 numeric digits.</span>
+                            </div>
+                            <div class="oa-field oa-col-7">
+                                <label>PAN Number <span class="oa-required">*</span></label>
+                                <input type="text" id="operator_pan" name="operator_pan"
+                                    pattern="\s*[a-zA-Z]{5}[0-9]{4}[a-zA-Z]{1}\s*" maxlength="10" required
+                                    placeholder="ABCDE1234F" style="text-transform: uppercase;"
+                                    oninput="this.value = this.value.toUpperCase();">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="oa-sub-section">
+                    <div class="oa-sub-section-title">2. OPERATOR'S WORK & CERTIFICATION DETAILS</div>
+                    <div class="oa-sub-section-content">
+                        <div class="oa-row">
+                            <div class="oa-field oa-col-3">
+                                <label>Role <span class="oa-required">*</span></label>
+                                <select id="role" name="role" required>
+                                    <option value="" disabled selected>Select Role</option>
+                                    <option value="Operator">Operator</option>
+                                    <option value="Supervisor">Supervisor</option>
+                                </select>
+                            </div>
+                            <div class="oa-field oa-col-3">
+                                <label>Registrar Code <span class="oa-required">*</span></label>
+                                <input type="text" name="registrar_code" value="986" readonly class="oa-readonly-input">
+                            </div>
+                            <div class="oa-field oa-col-3">
+                                <label>EA Code <span class="oa-required">*</span></label>
+                                <select id="ea_code" name="ea_code" required onchange="autoFillUserCode()">
+                                    <option value="" disabled selected>Select EA Code</option>
+                                    <option value="2084">2084 (ECMP)</option>
+                                    <option value="4082">4082 (UCL)</option>
+                                </select>
+                            </div>
+                            <div class="oa-field oa-col-3">
+                                <label>User Code <span class="oa-required">*</span></label>
+                                <input type="text" id="user_code" name="user_code" required readonly
+                                    class="oa-readonly-input" placeholder="Auto-generated: EACode_Name_DistrictCode">
+                                <span class="oa-field-subtext">Auto-filled — you may edit if needed</span>
+                            </div>
+                        </div>
+
+                        <div class="oa-row" style="margin-top: 16px;">
+                            <div class="oa-field oa-col-6">
+                                <label>NSEIT Certification Number <span class="oa-required">*</span></label>
+                                <input type="text" id="nseit_certificate_number" name="nseit_certificate_number"
+                                    required placeholder="Enter NSEIT Certificate Number">
+                            </div>
+                            <div class="oa-field oa-col-6">
+                                <label>NSEIT Certificate Issue Date <span class="oa-required">*</span></label>
+                                <input type="date" id="nseit_certification_date" name="nseit_certification_date"
+                                    required onchange="autoFillExpiryDate()">
+                            </div>
+                        </div>
+
+                        <div class="oa-row" style="margin-top: 16px;">
+                            <div class="oa-field oa-col-5">
+                                <label>NSEIT Certificate Expiry Date <span class="oa-required">*</span></label>
+                                <input type="date" id="nseit_certificate_expiry_date"
+                                    name="nseit_certificate_expiry_date" required readonly class="oa-readonly-input">
+                                <span class="oa-field-subtext">Auto-set to 3 years from Issue Date</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="oa-sub-section">
+                    <div class="oa-sub-section-title">3. OPERATOR'S LOCATION DETAILS</div>
+                    <div class="oa-sub-section-content">
+                        <div class="oa-row">
+                            <div class="oa-field oa-col-5">
+                                <label>District <span class="oa-required">*</span></label>
+                                <input type="text" name="district" value="{{ session.get('district_name', 'Raipur') }}"
+                                    readonly class="oa-readonly-input">
+                                <span class="oa-field-subtext">Auto-filled from your DC profile</span>
+                            </div>
+                            <div class="oa-field oa-col-7">
+                                <label>Pincode <span class="oa-required">*</span></label>
+                                <input type="text" id="pincode" name="pincode" pattern="[4][9][0-9]{4}" maxlength="6"
+                                    required placeholder="6-digit Pincode">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="oa-nav-actions">
+                    <button type="button" class="oa-btn oa-btn-cancel"
+                        onclick="window.location.href='/auth/dc/operator-activation/list'">Cancel</button>
+                    <div class="oa-nav-actions-right">
+                        <button type="button" id="btn-next" class="oa-btn oa-btn-next">Next Step →</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2: DOCUMENTS UPLOAD PANEL -->
+            <div class="oa-form-step" id="step-2-panel">
+                <div class="oa-sub-section">
+                    <div class="oa-sub-section-title">UPLOAD DOCUMENTS</div>
+                    <div class="oa-sub-section-content" style="padding: 24px;">
+                        <div class="oa-docs-grid">
+
+                            <div class="oa-doc-card">
+                                <label class="oa-doc-label">Consent Form <span class="oa-required">*</span></label>
+                                <input type="file" name="hard_copy_form" accept=".pdf,image/*" required
+                                    class="oa-file-input">
+                                <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                            </div>
+
+                            <div class="oa-doc-card">
+                                <label class="oa-doc-label">Aadhaar Card <span class="oa-required">*</span></label>
+                                <input type="file" name="aadhaar_photo" accept=".pdf,image/*" required
+                                    class="oa-file-input">
+                                <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                            </div>
+
+                            <div class="oa-doc-card">
+                                <label class="oa-doc-label">PAN Card <span class="oa-required">*</span></label>
+                                <input type="file" name="pan_card" accept=".pdf,image/*" required class="oa-file-input">
+                                <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                            </div>
+
+                            <div class="oa-doc-card">
+                                <label class="oa-doc-label">Passbook <span class="oa-required">*</span></label>
+                                <input type="file" name="passbook" accept=".pdf,image/*" required class="oa-file-input">
+                                <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                            </div>
+
+                            <div class="oa-doc-card">
+                                <label class="oa-doc-label">NSEIT Certificate <span class="oa-required">*</span></label>
+                                <input type="file" name="nseit_certificate" accept=".pdf,image/*" required
+                                    class="oa-file-input">
+                                <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                            </div>
+
+                            <div class="oa-doc-card">
+                                <label class="oa-doc-label">Excel Sheet (Operator Details) <span
+                                        class="oa-required">*</span></label>
+                                <input type="file" name="excel_sheet" accept=".xls,.xlsx,.csv" required
+                                    class="oa-file-input">
+                                <span class="oa-doc-helper">XLSX, XLS, CSV (Max. 5MB)</span>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="oa-nav-actions">
+                    <button type="button" id="btn-back" class="oa-btn oa-btn-back">← Back</button>
+                    <div class="oa-nav-actions-right">
+                        <button type="button" class="oa-btn oa-btn-cancel"
+                            onclick="window.location.href='/auth/dc/operator-activation/list'">Cancel</button>
+                        <button type="submit" id="btn-submit" class="oa-btn oa-btn-submit">Submit Request</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </form>
+
+</div>
+
+<script>
+    // ─── Visual Stepper Navigation ───────────────────────────────────────────
+    const step1Indicator = document.getElementById('step-1-indicator');
+    const step2Indicator = document.getElementById('step-2-indicator');
+    const stepDivider1 = document.getElementById('step-divider-1');
+
+    const step1Panel = document.getElementById('step-1-panel');
+    const step2Panel = document.getElementById('step-2-panel');
+
+    const btnNext = document.getElementById('btn-next');
+    const btnBack = document.getElementById('btn-back');
+
+    if (btnNext && btnBack) {
+        btnNext.addEventListener('click', () => {
+            // Find all input/select fields inside step-1-panel
+            const inputs = step1Panel.querySelectorAll('input[required], select[required]');
+            let isValid = true;
+            for (const input of inputs) {
+                if (!input.checkValidity()) {
+                    input.reportValidity();
+                    isValid = false;
+                    break;
+                }
+            }
+
+            if (isValid) {
+                // Transition panels
+                step1Panel.classList.remove('active');
+                step2Panel.classList.add('active');
+
+                // Update stepper markers
+                step1Indicator.classList.remove('active');
+                step1Indicator.classList.add('completed');
+                stepDivider1.classList.add('completed');
+                step2Indicator.classList.add('active');
+            }
+        });
+
+        btnBack.addEventListener('click', () => {
+            // Transition panels
+            step2Panel.classList.remove('active');
+            step1Panel.classList.add('active');
+
+            // Update stepper markers
+            step2Indicator.classList.remove('active');
+            stepDivider1.classList.remove('completed');
+            step1Indicator.classList.remove('completed');
+            step1Indicator.classList.add('active');
+        });
+    }
+
+    // 3. Form Submission SweetAlert2 Popup (AJAX)
+    const oaForm = document.getElementById('oa-activation-form');
+
+    if (oaForm) {
+        oaForm.addEventListener('submit', async function (e) {
+            if (!this.checkValidity()) {
+                return;
+            }
+
+            e.preventDefault();
+
+            Swal.fire({
+                title: 'Submitting Request...',
+                html: 'Uploading documents and validating with AI, please wait...',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            try {
+                const formData = new FormData(oaForm);
+                const response = await fetch(oaForm.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: 'Operator activation request submitted.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.href = data.redirect_url;
+                    });
+                } else {
+                    Swal.close();
+                    
+                    // Clear previous field errors
+                    document.querySelectorAll('.oa-field-error').forEach(el => el.remove());
+                    
+                    if (data.field_errors) {
+                        let firstErrorEl = null;
+                        for (const [field, errorMsg] of Object.entries(data.field_errors)) {
+                            const inputEl = document.querySelector(`[name="${field}"]`);
+                            if (inputEl) {
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'oa-field-error';
+                                errorDiv.style.color = '#dc2626';
+                                errorDiv.style.fontSize = '12px';
+                                errorDiv.style.marginTop = '4px';
+                                errorDiv.textContent = errorMsg;
+                                
+                                // Insert after the file-upload-design or input
+                                const wrapper = inputEl.closest('.file-upload-wrapper');
+                                if (wrapper) {
+                                    wrapper.parentNode.insertBefore(errorDiv, wrapper.nextSibling);
+                                } else {
+                                    inputEl.parentNode.insertBefore(errorDiv, inputEl.nextSibling);
+                                }
+                                
+                                if (!firstErrorEl) firstErrorEl = errorDiv;
+                            }
+                        }
+                        
+                        if (firstErrorEl) {
+                            firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        
+                        // Ensure we are on the step that has the error
+                        const firstErrorInput = document.querySelector('.oa-field-error').previousElementSibling;
+                        const errorStep = firstErrorInput ? firstErrorInput.closest('.oa-form-step') : null;
+                        if (errorStep) {
+                            const stepIndex = parseInt(errorStep.id.replace('step-', '').replace('-panel', ''));
+                            if (!isNaN(stepIndex)) {
+                                goToStep(stepIndex);
+                            }
+                        }
+                        
+                    } else {
+                        // Show general error in banner
+                        let errorBanner = document.querySelector('.oa-error-banner');
+                        if (!errorBanner) {
+                            errorBanner = document.createElement('div');
+                            errorBanner.className = 'oa-error-banner';
+                            const h2 = document.querySelector('h2');
+                            if (h2) {
+                                h2.parentNode.insertBefore(errorBanner, h2.nextSibling);
+                            } else {
+                                oaForm.insertBefore(errorBanner, oaForm.firstChild);
+                            }
+                        }
+                        errorBanner.textContent = data.message || 'Submission failed. Please check your documents.';
+                        errorBanner.style.display = 'block';
+                        errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Network Error',
+                    text: 'Failed to connect to the server. Please try again.'
+                });
+            }
+        });
+    }
+
+    // Validate Mobile
+    function validateMobile(input) {
+        const val = input.value;
+        const hint = document.getElementById('mobile-hint');
+        const valid = /^[6-9][0-9]{9}$/.test(val);
+        const partialOk = val.length === 0 || /^[6-9]/.test(val);
+        if (val.length > 0 && (!partialOk || (val.length === 10 && !valid))) {
+            hint.style.display = 'block';
+            input.setCustomValidity('Invalid Mobile Number');
+        } else {
+            hint.style.display = 'none';
+            input.setCustomValidity('');
+        }
+    }
+
+    // Validate Email
+    function validateEmail(input) {
+        const val = input.value;
+        const hint = document.getElementById('email-hint');
+        const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+        if (val.length > 0 && !valid) {
+            hint.style.display = 'block';
+            input.setCustomValidity('Please enter a valid email address');
+        } else {
+            hint.style.display = 'none';
+            input.setCustomValidity('');
+        }
+    }
+
+    // Validate Aadhaar Last 4 Digits
+    function validateAadhaar(input) {
+        input.value = input.value.replace(/\D/g, '').slice(0, 4);
+        const val = input.value;
+        const hint = document.getElementById('aadhaar-hint');
+        const valid = /^[0-9]{4}$/.test(val);
+        if (val.length > 0 && val.length < 4) {
+            hint.style.display = 'block';
+            input.setCustomValidity('Must be exactly 4 digits');
+        } else if (val.length === 4 && !valid) {
+            hint.style.display = 'block';
+            input.setCustomValidity('Must be exactly 4 numeric digits');
+        } else {
+            hint.style.display = 'none';
+            input.setCustomValidity('');
+        }
+    }
+
+    // District Code Lookup Map
+    const DISTRICT_CODES = {
+        'Bastar': 'BAS',
+        'Bilaspur': 'BLP',
+        'Dakshin Bastar Dantewada': 'DNT',
+        'Dantewada': 'DNT',
+        'Dhamtari': 'DMT',
+        'Durg': 'DRG',
+        'Janjgir-Champa': 'JCH',
+        'Jashpur': 'JSH',
+        'Ultar Bastar Kanker': 'KNK',
+        'Kanker': 'KNK',
+        'Kabirdham': 'KDM',
+        'Kabeerdham': 'KDM',
+        'Korba': 'KRB',
+        'Korea': 'KOR',
+        'Mahasamund': 'MHS',
+        'Raigarh': 'RGR',
+        'Raipur': 'RPR',
+        'Rajnandgaon': 'RJN',
+        'Surguja': 'SRG',
+        'Bijapur': 'BIJ',
+        'Narayanpur': 'NRY',
+        'Sukma': 'SKM',
+        'Kondagaon': 'KON',
+        'Baloda Bazar-Bhatapara': 'BLB',
+        'Balodabazar-Bhatapara': 'BLB',
+        'Gariaband': 'GRY',
+        'Balod': 'BLD',
+        'Mungeli': 'MUN',
+        'Surajpur': 'SRJ',
+        'Balrampur-Ramanujganj': 'BLM',
+        'Bemetara': 'BEM',
+        'Gaurela-Pendra-Marwahi': 'GRL',
+        'Khairagarh-Chhuikhadan-Gandai': 'KCG',
+        'Manendragarh-Chirmiri-Bharatpur': 'MNN',
+        'Mohla-Manpur-Ambagarh Chowki': 'MHL',
+        'Mohla-Manpur-Ambagarh Chouki': 'MHL',
+        'Sakti': 'SKT',
+        'Sarangarh-Bilaigarh': 'SRB',
+        'Gaurela Pendra Marwahi': 'GRL',
+    };
+
+    // Auto-fill User Code
+    function autoFillUserCode() {
+        const eaSelect = document.getElementById('ea_code');
+        const nameInput = document.getElementById('name_as_per_aadhaar');
+        const districtEl = document.querySelector('[name="district"]');
+        const userCodeEl = document.getElementById('user_code');
+
+        if (!eaSelect || !nameInput || !districtEl || !userCodeEl) return;
+
+        const eaCode = eaSelect.value.trim();
+        const fullName = nameInput.value.trim();
+        const districtVal = districtEl.value.trim();
+
+        if (!eaCode || !fullName || !districtVal) return;
+
+        const firstName = fullName.split(/\s+/)[0];
+        const districtCode = DISTRICT_CODES[districtVal] || districtVal.toUpperCase().slice(0, 3);
+
+        userCodeEl.value = `${eaCode}_${firstName}_${districtCode}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', autoFillUserCode);
+
+    // Auto-fill Expiry Date
+    function autoFillExpiryDate() {
+        const issueDateEl = document.getElementById('nseit_certification_date');
+        const expiryDateEl = document.getElementById('nseit_certificate_expiry_date');
+        if (!issueDateEl || !expiryDateEl || !issueDateEl.value) return;
+
+        const issue = new Date(issueDateEl.value);
+        const expiry = new Date(issue);
+        expiry.setFullYear(expiry.getFullYear() + 3);
+
+        const yyyy = expiry.getFullYear();
+        const mm = String(expiry.getMonth() + 1).padStart(2, '0');
+        const dd = String(expiry.getDate()).padStart(2, '0');
+        expiryDateEl.value = `${yyyy}-${mm}-${dd}`;
+    }
+</script>

@@ -1,0 +1,391 @@
+{% extends 'base.html' %}
+
+{% block title %}CHiPS Admin - L1 Registration Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    /* Scoped button enhancements for this dashboard */
+    .btn-approve {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background: #16a34a;
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .btn-approve:hover {
+        background: #15803d;
+    }
+
+    .btn-revert {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        background: #fff;
+        color: #dc2626;
+        border: 1.5px solid #fca5a5;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .btn-revert:hover {
+        background: #fee2e2;
+        border-color: #dc2626;
+    }
+
+    .empty-state {
+        padding: 36px 20px;
+        text-align: center;
+        color: #94a3b8;
+    }
+
+    .empty-state-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+    }
+
+    .empty-state p {
+        font-size: 13px;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Jinja2 Metric Calculations -->
+{% set total_requests = requests|length %}
+{% set metrics = namespace(pending=0, approved=0, reverted=0) %}
+{% for req in requests %}
+{% if req.status in ['PENDING', 'REAPPLIED'] %}
+{% set metrics.pending = metrics.pending + 1 %}
+{% elif req.status in ['APPROVED', 'REVIEWED'] %}
+{% set metrics.approved = metrics.approved + 1 %}
+{% elif req.status == 'REVERTED' %}
+{% set metrics.reverted = metrics.reverted + 1 %}
+{% endif %}
+{% endfor %}
+
+<!-- Standardized L1 Registration Control Panel Banner -->
+<div class="chips-header-banner">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div
+            style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+        </div>
+        <div>
+            <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">L1 Registration Control Panel</h1>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Review, approve and assign L1 registrations
+                to DC requests</p>
+        </div>
+    </div>
+    <div class="chips-banner-metrics">
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.pending }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
+            </div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.reverted }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.approved }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="form-card-container">
+    <!-- Filters for Pending Requests -->
+    <div class="filter-bar">
+        <div class="filter-group filter-group-search">
+            <label>Search Requests</label>
+            <input type="text" id="pending-search" oninput="filterSection('pending')"
+                placeholder="Search by request ID, district, model..." class="filter-input">
+        </div>
+        <div class="filter-group" style="max-width: 250px;">
+            <label>Time Period</label>
+            <select id="pending-date" onchange="filterSection('pending')" class="filter-input">
+                <option value="all" selected>All Time</option>
+                <option value="today">Today</option>
+                <option value="this_week">This Week</option>
+                <option value="this_month">This Month</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="sec-header">
+        <div class="sec-dot" style="background:#f59e0b;"></div>
+        <h3 class="sec-title">Pending Approval Queue</h3>
+        <span class="sec-count" id="pending-count">–</span>
+        <button class="btn btn-sm" onclick="exportTableToExcel('pending-table', 'pending_l1_requests.xlsx')">Export to CSV</button>
+    </div>
+
+    <div class="sid-table-wrapper">
+        <table class="sid-table" id="pending-table">
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>REQUEST ID</th>
+                    <th>DISTRICT</th>
+                    <th>MODEL</th>
+                    <th>STATUS</th>
+                    <th>SUBMITTED AT</th>
+                    <th style="text-align: center;">ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody id="pending-tbody">
+                {% set pending_count = 0 %}
+                {% for req in requests %}
+                {% if req.status in ['PENDING', 'REAPPLIED'] %}
+                {% set pending_count = pending_count + 1 %}
+                <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}"
+                    data-district="{{ req.district_name or '' }}" data-model="{{ req.model_type or '' }}"
+                    data-status="{{ req.status | lower }}" data-created="{{ req.created_at or '' }}">
+                    <td>{{ pending_count }}</td>
+                    <td><strong>{{ req.request_code }}</strong></td>
+                    <td>{{ req.district_name }}</td>
+                    <td>{{ req.model_type }}</td>
+                    <td>
+                        {% if req.status == 'REAPPLIED' %}
+                        <span class="sid-badge sid-badge-reapplied">Reapplied</span>
+                        {% else %}
+                        <span class="sid-badge sid-badge-pending">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ req.created_at|string|truncate(16, True, '') if req.created_at else '—' }}</td>
+                    <td>
+                        <div class="action-group" style="justify-content: center;">
+                            <button type="button" class="btn-approve"
+                                onclick="approveL1Request('{{ req.request_code }}')">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                Approve
+                            </button>
+                            <button type="button" class="btn-revert"
+                                onclick="revertL1Request('{{ req.request_code }}')">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                                Revert
+                            </button>
+                            <button type="button" class="btn-details"
+                                onclick="openL1DetailsModal('{{ req.request_code }}')">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                                Details
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="pending-empty-msg" class="empty-state" style="display:none;">
+            <div class="empty-state-icon"></div>
+            <p>No pending L1 registration requests in queue.</p>
+        </div>
+    </div>
+</div>
+
+<div class="form-card-container">
+    <!-- Filters for History -->
+    <div class="filter-bar">
+        <div class="filter-group filter-group-search">
+            <label>Search History</label>
+            <input type="text" id="history-search" oninput="filterSection('history')"
+                placeholder="Search by request ID, district, model..." class="filter-input">
+        </div>
+        <div class="filter-group" style="max-width: 200px;">
+            <label>Filter by Status</label>
+            <select id="history-status" onchange="filterSection('history')" class="filter-input">
+                <option value="all">All Statuses</option>
+                <option value="approved">Approved</option>
+                <option value="reverted">Reverted</option>
+            </select>
+        </div>
+        <div class="filter-group" style="max-width: 200px;">
+            <label>Time Period</label>
+            <select id="history-date" onchange="filterSection('history')" class="filter-input">
+                <option value="all" selected>All Time</option>
+                <option value="today">Today</option>
+                <option value="this_week">This Week</option>
+                <option value="this_month">This Month</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="sec-header">
+        <div class="sec-dot" style="background:#16a34a;"></div>
+        <h3 class="sec-title">L1 Registration Log History</h3>
+        <span class="sec-count" id="history-count">–</span>
+        <div style="margin-left: auto;">
+            <button class="btn btn-sm" onclick="exportTableToExcel('history-table', 'processed_l1_history.xlsx')">Export to CSV</button>
+        </div>
+    </div>
+
+    <div class="sid-table-wrapper">
+        <table class="sid-table" id="history-table">
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>REQUEST ID</th>
+                    <th>DISTRICT</th>
+                    <th>MODEL</th>
+                    <th>STATUS</th>
+                    <th>SUBMITTED AT</th>
+                    <th>REVIEWED AT</th>
+                    <th style="text-align: center;">ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody id="history-tbody">
+                {% set history_count = 0 %}
+                {% for req in requests %}
+                {% if req.status not in ['PENDING', 'REAPPLIED'] %}
+                {% set history_count = history_count + 1 %}
+                <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}"
+                    data-district="{{ req.district_name or '' }}" data-model="{{ req.model_type or '' }}"
+                    data-status="{% if req.status in ['APPROVED', 'REVIEWED'] %}approved{% else %}{{ req.status | lower }}{% endif %}"
+                    data-created="{{ req.created_at or '' }}">
+                    <td>{{ history_count }}</td>
+                    <td><strong>{{ req.request_code }}</strong></td>
+                    <td>{{ req.district_name }}</td>
+                    <td>{{ req.model_type }}</td>
+                    <td>
+                        {% if req.status in ['APPROVED', 'REVIEWED'] %}
+                        <span class="sid-badge sid-badge-approved">Approved</span>
+                        {% else %}
+                        <span class="sid-badge sid-badge-reverted">Reverted</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ req.created_at|string|truncate(16, True, '') if req.created_at else '—' }}</td>
+                    <td>{{ req.reviewed_at|string|truncate(16, True, '') if req.reviewed_at else '—' }}</td>
+                    <td>
+                        <div class="action-group" style="justify-content: center;">
+                            <button type="button" class="btn-details"
+                                onclick="openL1DetailsModal('{{ req.request_code }}')">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                                Details
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="history-empty-msg" class="empty-state" style="display:none;">
+            <div class="empty-state-icon"></div>
+            <p>No historical L1 registration logs found.</p>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/chips_l1_registration.js') }}"></script>
+<script>
+    function getDatePrefixes() {
+        const now = new Date(), y = now.getFullYear(),
+            m = (now.getMonth() + 1).toString().padStart(2, '0'),
+            d = now.getDate().toString().padStart(2, '0');
+        return { today: `${y}-${m}-${d}`, month: `${y}-${m}`, year: `${y}` };
+    }
+
+    window.filterSection = function (sec) {
+        const p = getDatePrefixes();
+        const q = (document.getElementById(`${sec}-search`).value || '').toLowerCase().trim();
+        const dateFilt = document.getElementById(`${sec}-date`).value;
+        const statusEl = document.getElementById(`${sec}-status`);
+        const statusFilt = statusEl ? statusEl.value : 'all';
+
+        const rows = document.querySelectorAll(`#${sec}-tbody tr[data-id]`);
+        let visible = 0, idx = 1;
+        rows.forEach(row => {
+            const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase();
+            const model = (row.getAttribute('data-model') || '').toLowerCase();
+            const rowSt = (row.getAttribute('data-status') || '').toLowerCase();
+            const created = row.getAttribute('data-created') || '';
+            const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q);
+
+            let matchSt = true;
+            if (statusFilt !== 'all' && statusFilt !== 'all_statuses') {
+                matchSt = rowSt === statusFilt;
+            }
+
+            let matchDate = true;
+            if (dateFilt === 'today') matchDate = created.startsWith(p.today);
+            else if (dateFilt === 'month' || dateFilt === 'this_month') matchDate = created.includes(p.month) || created.startsWith(p.month);
+            else if (dateFilt === 'year') matchDate = created.startsWith(p.year);
+            else if (dateFilt === 'this_week') {
+                if (created) {
+                    const createdDate = new Date(created.split(' ')[0]);
+                    const diffTime = Math.abs(new Date() - createdDate);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    matchDate = diffDays <= 7;
+                } else {
+                    matchDate = false;
+                }
+            }
+
+            const show = matchQ && matchSt && matchDate;
+            row.style.display = show ? '' : 'none';
+            if (show) { if (row.cells[0]) row.cells[0].innerText = idx++; visible++; }
+        });
+        const cnt = document.getElementById(`${sec}-count`);
+        if (cnt) cnt.textContent = visible;
+
+        // Show empty message if no rows visible
+        const emptyMsg = document.getElementById(`${sec}-empty-msg`);
+        const table = document.getElementById(`${sec}-table`);
+        if (emptyMsg && table) {
+            if (visible === 0 && rows.length > 0) {
+                emptyMsg.style.display = 'block';
+                table.style.display = 'none';
+            } else {
+                emptyMsg.style.display = 'none';
+                table.style.display = '';
+            }
+        }
+    }
+
+    window.addEventListener('load', () => { filterSection('pending'); filterSection('history'); });
+</script>
+{% endblock %}

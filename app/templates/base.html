@@ -1,33 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aadhaar Operator Process Platform</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <title>{% block title %}Chips Portal{% endblock %}</title>
+    <!-- Modern Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Main Style -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-    <style>
-        :root {
-            --color-bg-main: #f5f7fa;
-            --color-card: #ffffff;
-            --color-border: #dee2e6;
-        }
-        body { background-color: var(--color-bg-main); color: #333333; font-family: system-ui, sans-serif; }
-    </style>
-</head>
-<body class="min-h-screen">
-    
-    <main id="main-content">
-        {% block content %}{% endblock %}
-    </main>
 
+    <!-- 🌟 GLOBAL INTERACTIVE POPUP INFRASTRUCTURE: SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.min.css">
+    <!-- SheetJS CDN for xlsx downloads -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+
+    {% block extra_css %}{% endblock %}
+
+    <!-- Tab Session Enforcer -->
+    {% if session.get('access_token') %}
     <script>
-        // Global handler to parse JWT authorization headers from backend responses if needed
-        document.body.addEventListener('htmx:configRequest', (event) => {
-            const token = localStorage.getItem('token');
-            if (token) {
-                event.detail.headers['Authorization'] = `Bearer ${token}`;
+        (function () {
+            var referrer = document.referrer || "";
+            var isLoginRedirect = referrer.indexOf("/auth/login") !== -1;
+            if (isLoginRedirect) {
+                sessionStorage.setItem('session_active', 'true');
+            } else if (!sessionStorage.getItem('session_active')) {
+                // Tab closed & reopened or opened in a new tab: log out to clear server session
+                window.location.href = "{{ url_for('auth.logout') }}";
+            }
+        })();
+    </script>
+    {% endif %}
+</head>
+
+<body>
+    <!-- Header -->
+    {% block header %}
+    {% include 'partials/header.html' %}
+    {% endblock %}
+
+    <div class="{% if session.get('access_token') %}main-layout{% endif %}">
+        <!-- Sidebar -->
+        {% block sidebar %}
+        {% if session.get('access_token') %}
+        {% include 'partials/sidebar.html' %}
+        {% endif %}
+        {% endblock %}
+
+        <!-- Page Specific Content Wrapper -->
+        {% block page_wrapper %}
+        <div class="{% if session.get('access_token') %}content{% endif %}">
+            <!-- Flash messages -->
+            <div class="flash-container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+            </div>
+            {% block content %}{% endblock %}
+        </div>
+        {% endblock %}
+    </div>
+
+    <!-- Sidebar Toggle Script -->
+    <script>
+        // Restore sidebar state from localStorage on load
+        (function () {
+            var isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+            if (window.innerWidth <= 768) {
+                isCollapsed = true;
+            }
+            if (isCollapsed) {
+                document.addEventListener('DOMContentLoaded', function () {
+                    var sidebar = document.querySelector('.sidebar');
+                    if (sidebar) sidebar.classList.add('collapsed');
+                });
+            }
+        })();
+
+        // Event delegation — survives HTMX DOM re-processing
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('#sidebar-toggle');
+            if (btn) {
+                var sidebar = document.querySelector('.sidebar');
+                if (sidebar) {
+                    sidebar.classList.toggle('collapsed');
+                    localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+                }
             }
         });
     </script>

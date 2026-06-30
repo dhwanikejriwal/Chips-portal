@@ -1,0 +1,357 @@
+{% extends 'base.html' %}
+
+{% block title %}DC - L1 Registration Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<!-- Jinja2 Metric Calculations -->
+{% set total_requests = requests | length %}
+{% set pending_count = requests | selectattr('status', 'equalto', 'PENDING') | list | length %}
+{% set reapplied_count = requests | selectattr('status', 'equalto', 'REAPPLIED') | list | length %}
+{% set approved_count = requests | selectattr('status', 'in', ['APPROVED', 'REVIEWED']) | list | length %}
+{% set reverted_count = requests | selectattr('status', 'equalto', 'REVERTED') | list | length %}
+
+<div id="view-l1-application-panel" style="display: none;">
+    <div style="margin-bottom: 20px;">
+        <button type="button" onclick="showL1Dashboard()"
+            style="background: none; border: none; color: #64748b; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back to Dashboard
+        </button>
+    </div>
+    <form id="l1RegistrationForm" onsubmit="submitL1Registration(event);">
+        <div class="form-card-container">
+            <h2 class="container-sub-title"
+                style="margin-top: 0; margin-bottom: 25px; text-transform: none; font-size: 20px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                New L1 Application</h2>
+            <h2 class="container-sub-title">Hardware & User Details</h2>
+
+            <div class="form-grid-2x">
+                <div class="input-group">
+                    <label>Station ID <span class="required-star">*</span></label>
+                    <input type="text" name="station_id" class="form-control-input" placeholder="Enter Station ID"
+                        required>
+                </div>
+                <div class="input-group">
+                    <label>Machine ID <span class="required-star">*</span></label>
+                    <input type="text" name="machine_id" class="form-control-input" placeholder="Enter Machine ID"
+                        required>
+                </div>
+            </div>
+
+            <div class="form-grid-2x">
+                <div class="input-group">
+                    <label>Operator Name</label>
+                    <input type="text" name="operator_name" class="form-control-input"
+                        placeholder="Enter Operator Name (Optional)">
+                </div>
+                <div class="input-group">
+                    <label>Operator ID</label>
+                    <input type="text" name="operator_id" class="form-control-input"
+                        placeholder="Enter Operator ID (Optional)">
+                </div>
+            </div>
+
+            <h2 class="container-sub-title">System Details</h2>
+
+            <div class="form-grid-2x">
+                <div class="input-group">
+                    <label>Model Type <span class="required-star">*</span></label>
+                    <select name="model_type" class="form-control-input" required>
+                        <option value="" disabled selected>Select Model Type</option>
+                        <option value="ECMP">ECMP</option>
+                        <option value="UCL">UCL</option>
+                        <option value="VLE">VLE</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Software Version <span class="required-star">*</span></label>
+                    <input type="text" name="software_version" class="form-control-input"
+                        placeholder="Enter Software Version" required>
+                </div>
+            </div>
+
+            <h2 class="container-sub-title">Authentication Details</h2>
+
+            <div class="form-grid-2x">
+                <div class="input-group">
+                    <label>UV ID <span class="required-star">*</span></label>
+                    <input type="text" name="uv_id" class="form-control-input" placeholder="Enter UV ID" required>
+                </div>
+                <div class="input-group">
+                    <label>UV Password <span class="required-star">*</span></label>
+                    <div style="position: relative;">
+                        <input type="password" id="uv_password_input" name="uv_password" class="form-control-input"
+                            placeholder="Enter UV Password" required
+                            style="padding-right: 40px; width: 100%; box-sizing: border-box;">
+                        <button type="button" onclick="togglePasswordVisibility('uv_password_input', this)"
+                            style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; color: #64748b;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-actions-between" style="margin-top: 25px; align-items: center;">
+                <button type="button" class="btn-cancel" onclick="showL1Dashboard();"
+                    style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Cancel
+                </button>
+                <div style="display: flex; gap: 12px;">
+                    <button type="button" class="btn-secondary" onclick="clearL1Form();"
+                        style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">Clear
+                        Fields</button>
+                    <button type="submit" class="btn-primary"
+                        style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Submit L1 Request
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div id="view-l1-dashboard-panel">
+    <!-- Standardized L1 Registration Dashboard Banner -->
+    <div class="chips-header-banner">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">L1 Registration Dashboard</h1>
+                    <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Manage and track your L1 Registration requests</p>
+                </div>
+            </div>
+            <button type="button" onclick="showL1Form()" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); color: white; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; transition: background 0.2s; cursor: pointer;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New Request
+            </button>
+        </div>
+        <div class="chips-banner-metrics">
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-pending">{{ pending_count }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-reapplied">{{ reapplied_count }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-reverted">{{ reverted_count }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-approved">{{ approved_count }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{ total_requests }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="filter-bar">
+        <div class="filter-group filter-group-search">
+            <label>Search</label>
+            <input type="text" id="l1-search-input" class="filter-input" onkeyup="filterL1Table()"
+                placeholder="Search by request ID, model or district...">
+        </div>
+        <div class="filter-group">
+            <label>Time Period</label>
+            <select id="l1-date-filter" class="filter-input" onchange="filterL1Table()">
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month" selected>This Month</option>
+            </select>
+        </div>
+        <div class="filter-group-button" style="flex: 0 0 auto;">
+            <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                Clear Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Pending Section -->
+    <div class="section-heading">
+        <div class="section-heading-dot" style="background:#f59e0b;"></div>
+        <h3>Pending L1 Registration Requests</h3>
+        <span class="section-count" id="pending-count">–</span>
+        <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+            <select id="pending-status-filter" class="filter-input"
+                style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterL1Table()">
+                <option value="all">All Statuses</option>
+                <option value="PENDING">Pending</option>
+                <option value="REAPPLIED">Reapplied</option>
+            </select>
+            <button type="button" class="btn btn-sm"
+                onclick="exportTableToExcel('pending-table', 'pending_l1_requests.xlsx')"
+                style="background-color: var(--dc-primary); color: white; border: none; cursor: pointer; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;">Export
+                to Excel</button>
+        </div>
+    </div>
+    <div class="sid-table-wrapper" style="margin-bottom: 28px;">
+        <table class="sid-table" id="pending-table">
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>Request ID</th>
+                    <th>Station ID</th>
+                    <th>Model</th>
+                    <th>Status</th>
+                    <th>Submitted At</th>
+                    <th style="text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="pending-tbody">
+                {% set ns_p = namespace(count=1) %}
+                {% for req in requests if req.status in ['PENDING', 'REAPPLIED'] %}
+                <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}"
+                    data-station-id="{{ req.station_id }}" data-model="{{ req.model_type }}"
+                    data-status="{{ req.status }}" data-created="{{ req.created_at }}">
+                    <td>{{ ns_p.count }}</td>
+                    <td><strong>{{ req.request_code }}</strong></td>
+                    <td>{{ req.station_id }}</td>
+                    <td>{{ req.model_type }}</td>
+                    <td>
+                        {% if req.status == 'PENDING' %}
+                        <span class="badge badge-pending">Pending</span>
+                        {% else %}
+                        <span class="badge badge-reapplied">Reapplied</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
+                    <td style="text-align: center;">
+                        <div style="display:flex; gap:6px; justify-content:center;">
+                            <button type="button" class="btn-details"
+                                onclick="openL1DetailsModal('{{ req.request_code }}')">
+                                Details
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% set ns_p.count = ns_p.count + 1 %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="pending-empty-msg" class="empty-state" style="display: none;">
+            <div class="empty-state-icon"></div>
+            <p>No pending request records found matching current scope.</p>
+        </div>
+    </div>
+
+    <!-- History Section -->
+    <div class="section-heading">
+        <div class="section-heading-dot" style="background:#16a34a;"></div>
+        <h3>Processed Log History</h3>
+        <span class="section-count" id="log-count">–</span>
+        <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+            <select id="log-status-filter" class="filter-input"
+                style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterL1Table()">
+                <option value="all">All Statuses</option>
+                <option value="APPROVED">Approved</option>
+                <option value="REVERTED">Reverted</option>
+            </select>
+            <button type="button" class="btn btn-sm"
+                onclick="exportTableToExcel('log-table', 'processed_l1_history.xlsx')"
+                style="background-color: var(--dc-primary); color: white; border: none; cursor: pointer; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;">Export
+                to Excel</button>
+        </div>
+    </div>
+    <div class="sid-table-wrapper">
+        <table class="sid-table" id="log-table">
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>Request ID</th>
+                    <th>Station ID</th>
+                    <th>Model</th>
+                    <th>Status</th>
+                    <th>Submitted At</th>
+                    <th>Reviewed At</th>
+                    <th style="text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="log-tbody">
+                {% set ns_l = namespace(count=1) %}
+                {% for req in requests if req.status not in ['PENDING', 'REAPPLIED'] %}
+                <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}"
+                    data-station-id="{{ req.station_id }}" data-model="{{ req.model_type }}"
+                    data-status="{{ req.status }}" data-created="{{ req.created_at }}">
+                    <td>{{ ns_l.count }}</td>
+                    <td><strong>{{ req.request_code }}</strong></td>
+                    <td>{{ req.station_id }}</td>
+                    <td>{{ req.model_type }}</td>
+                    <td>
+                        {% if req.status == 'APPROVED' or req.status == 'REVIEWED' %}
+                        <span class="badge badge-approved">Approved</span>
+                        {% else %}
+                        <span class="badge badge-reverted">Reverted</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
+                    <td>{{ req.reviewed_at|string|truncate(19, True, '') if req.reviewed_at else '—' }}</td>
+                    <td style="text-align: center;">
+                        <div style="display:flex; gap:6px; justify-content:center;">
+                            <button type="button" class="btn-details"
+                                onclick="openL1DetailsModal('{{ req.request_code }}')">
+                                Details
+                            </button>
+                            {% if req.status == 'REVERTED' %}
+                            <button type="button" class="btn-sm" style="background-color: #dc3545;"
+                                onclick="openL1ReapplyModal('{{ req.request_code }}')">
+                                Reapply
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% set ns_l.count = ns_l.count + 1 %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="log-empty-msg" class="empty-state" style="display: none;">
+            <div class="empty-state-icon"></div>
+            <p>No historical request logs found matching current scope.</p>
+        </div>
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/dc_l1_registration.js') }}"></script>
+{% endblock %}

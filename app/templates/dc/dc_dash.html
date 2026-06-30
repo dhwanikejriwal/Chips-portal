@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,3 +114,131 @@
     </script>
 </body>
 </html>
+=======
+{% extends 'base.html' %}
+
+{% block title %}{% if session.get('role') == 'EDM' %}EDM Dashboard{% else %}DC Dashboard{% endif %} - CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_dash.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1 class="page-title">{% if session.get('role') == 'EDM' %}District Manager (EDM) Dashboard{% else %}District Coordinator Dashboard{% endif %}</h1>
+    <p class="page-subtitle">Manage operator candidate registrations and verifications in your district.</p>
+</div>
+
+<div class="metrics-grid">
+    <div class="metric-card">
+        <h3 class="metric-title">Pending Registrations</h3>
+        <p class="metric-value">12</p>
+    </div>
+    <div class="metric-card">
+        <h3 class="metric-title">LMS verifications</h3>
+        <p class="metric-value">4</p>
+    </div>
+    <div class="metric-card">
+        <h3 class="metric-title">NSEIT verifications</h3>
+        <p class="metric-value">6</p>
+    </div>
+</div>
+
+<div class="dashboard-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <h2 class="card-title" style="margin: 0;">Recent Onboarding Requests</h2>
+        <button class="btn btn-sm" onclick="exportTableToExcel('dash-recent-table', 'recent_onboarding_requests.xlsx')">Export to CSV</button>
+    </div>
+    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Below is the summary of recent operator applications from your district.</p>
+    
+    <div class="sid-table-wrapper">
+        <table class="sid-table" id="dash-recent-table">
+            <thead>
+                <tr>
+                    <th>Registration Code</th>
+                    <th>Candidate Name</th>
+                    <th>Mobile</th>
+                    <th>Qualification</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>RYP-0012</strong></td>
+                    <td>Amit Kumar Sahu</td>
+                    <td>9876543210</td>
+                    <td>Post Graduation</td>
+                    <td><span class="badge badge-pending">Pending Review</span></td>
+                    <td><a href="#" class="btn btn-sm btn-outline">Review</a></td>
+                </tr>
+                <tr>
+                    <td><strong>RYP-0011</strong></td>
+                    <td>Priya Sharma</td>
+                    <td>8877665544</td>
+                    <td>Graduation</td>
+                    <td><span class="badge badge-approved">Selected</span></td>
+                    <td><a href="#" class="btn btn-sm btn-outline">Manage</a></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// Export helper function to XLSX format using SheetJS (XLSX) library
+function exportTableToExcel(tableID, filename = 'export.xlsx') {
+    const table = document.getElementById(tableID);
+    if (!table) return;
+
+    // Find headers and valid indices
+    const headerRow = table.querySelector('thead tr');
+    const headers = headerRow ? headerRow.querySelectorAll('th') : [];
+    const validIndices = [];
+    const headerData = [];
+    
+    headers.forEach((th, idx) => {
+        const text = th.innerText.trim();
+        if (text !== "Actions" && text !== "Action") {
+            validIndices.push(idx);
+            headerData.push(text);
+        }
+    });
+
+    const rowsData = [headerData];
+
+    // Find visible body rows
+    const bodyRows = table.querySelectorAll('tbody tr');
+    bodyRows.forEach(row => {
+        // Only export visible rows and rows with actual data (cells.length > 1)
+        if (row.style.display !== 'none' && row.cells.length > 1) {
+            const rowData = [];
+            const cells = row.querySelectorAll('td');
+            validIndices.forEach(idx => {
+                if (cells[idx]) {
+                    let text = cells[idx].innerText.trim();
+                    text = text.replace(/\s+/g, ' ');
+                    rowData.push(text);
+                } else {
+                    rowData.push('');
+                }
+            });
+            rowsData.push(rowData);
+        }
+    });
+
+    if (typeof XLSX === 'undefined') {
+        alert("Excel export library is not loaded yet. Please wait a moment or refresh the page.");
+        return;
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rowsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    XLSX.writeFile(wb, filename);
+}
+</script>
+{% endblock %}
+
+>>>>>>> 6703f280d320a1554ae7b8382f0fd3f1f865fc8b
