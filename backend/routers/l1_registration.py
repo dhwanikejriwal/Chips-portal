@@ -11,7 +11,7 @@ from backend.routers.auth import get_current_user
 from backend.models import User, District
 from backend.models.l1_registration import L1RegistrationRequest, L1RegistrationRemarkHistory
 from backend.models.base import to_name
-from backend.utils.exporter import generate_excel_export
+from backend.utils.exporter import generate_csv_export
 
 router = APIRouter()
 
@@ -127,7 +127,8 @@ async def get_l1_requests(
             "station_id": req.station_id,
             "model_type": req.model_type,
             "status": to_name(req.status_code, casing="upper").replace(" ", "_").strip(),
-            "submitted_at": str(req.created_at)[:19] if req.created_at else "",
+            "created_at": str(req.created_at)[:19] if req.created_at else "",
+            "reviewed_at": str(req.reviewed_at)[:19] if req.reviewed_at else None,
             "district_name": dist_name
         })
     return compiled_list
@@ -169,7 +170,8 @@ async def get_l1_request_details(request_code: str, db: Session = Depends(get_db
         "status": str(req.status).upper().replace(" ", "_").strip(),
         "revert_reason": latest_revert,
         "remarks": remarks_data,
-        "created_at": str(req.created_at)[:19]
+        "created_at": str(req.created_at)[:19] if req.created_at else "",
+        "reviewed_at": str(req.reviewed_at)[:19] if req.reviewed_at else None
     }
 
 @router.post("/requests/{request_code}/perform")
@@ -181,6 +183,8 @@ async def perform_l1(
     req = db.query(L1RegistrationRequest).filter(L1RegistrationRequest.request_code == request_code).first()
     if req: 
         req.status = "APPROVED"
+        from backend.models.base import get_ist_now
+        req.reviewed_at = get_ist_now()
         db.add(L1RegistrationRemarkHistory(
             request_code=request_code,
             remark="Request successfully performed and approved.",
@@ -204,6 +208,8 @@ async def approve_all_l1(
         
     for req in pending_requests:
         req.status = "REVIEWED"
+        from backend.models.base import get_ist_now
+        req.reviewed_at = get_ist_now()
         db.add(L1RegistrationRemarkHistory(
             request_code=req.request_code,
             remark="Mass approval performed by CHIPS Admin.",
@@ -223,6 +229,8 @@ async def revert_l1_request(
     req = db.query(L1RegistrationRequest).filter(L1RegistrationRequest.request_code == request_code).first()
     if req: 
         req.status = "REVERTED"
+        from backend.models.base import get_ist_now
+        req.reviewed_at = get_ist_now()
         db.add(L1RegistrationRemarkHistory(
             request_code=request_code,
             remark=revert_reason,
@@ -369,7 +377,6 @@ def export_l1_excel_v2(ids: str = None, db: Session = Depends(get_db)):
         dist_name = req.district.district_name if req.district else "Unknown"
         export_data.append({
             "s_no": idx + 1,
-            "request_code": req.request_code,
             "district_name": dist_name,
             "station_id": req.station_id,
             "machine_id": req.machine_id,
@@ -378,13 +385,11 @@ def export_l1_excel_v2(ids: str = None, db: Session = Depends(get_db)):
             "model_type": req.model_type,
             "software_version": req.software_version,
             "uv_id": req.uv_id,
-            "status": str(req.status).upper(),
-            "submitted_at": str(req.created_at)[:19] if req.created_at else "",
+            "uv_password": req.uv_password,
         })
 
     column_mappings = {
         "s_no": "S.No",
-        "request_code": "Request Code",
         "district_name": "District",
         "station_id": "Station ID",
         "machine_id": "Machine ID",
@@ -393,8 +398,7 @@ def export_l1_excel_v2(ids: str = None, db: Session = Depends(get_db)):
         "model_type": "Model Type",
         "software_version": "Software Version",
         "uv_id": "UV ID",
-        "status": "Status",
-        "submitted_at": "Submitted At",
+        "uv_password": "UV Password",
     }
 
-    return generate_excel_export(export_data, column_mappings, "l1_registration_requests")
+    return generate_csv_export(export_data, column_mappings, "l1_registration_requests")

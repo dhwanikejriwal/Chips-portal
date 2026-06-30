@@ -112,7 +112,7 @@
         <a href="{{ url_for('auth.proxy_backend_excel_export', module_endpoint='candidate-requests') }}"
             class="btn btn-sm"
             style="text-decoration: none; display: inline-flex; align-items: center; background-color: #007bff; color: white;">
-            Export to Excel
+            Export to CSV
         </a>
     </div>
 </div>
@@ -141,7 +141,7 @@
                 data-pincode="{{ req.pincode or '' }}"
                 data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
                 data-photo="{{ req.photo_upload or '' }}" data-lms-id="{{ req.lms_id or '' }}"
-                data-nseit-id="{{ req.nseit_id or '' }}" data-marksheet="{{ req.marksheet_upload }}"
+                data-nseit-id="{{ req.nseit_id or '' }}" data-marksheet="{{ req.marksheet_upload or '' }}"
                 data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.status }}"
                 data-login-id="{{ req.generated_login_id or '' }}"
                 data-password="{{ req.generated_password_raw or '' }}"
@@ -195,7 +195,7 @@
         <a href="{{ url_for('auth.proxy_backend_excel_export', module_endpoint='candidate-requests') }}"
             class="btn btn-sm"
             style="text-decoration: none; display: inline-flex; align-items: center; background-color: #007bff; color: white;">
-            Export to Excel
+            Export to CSV
         </a>
     </div>
 </div>
@@ -928,7 +928,7 @@
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
                         ${buildDocumentCard('Profile Photo', d.photo, 'profile_photo.jpg')}
-                        ${buildDocumentCard('Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf')}
+                        ${d.marksheet ? buildDocumentCard('Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf') : ''}
                         ${d.tenthMarksheet ? buildDocumentCard('10th Marksheet', d.tenthMarksheet, '10th_marksheet.pdf') : ''}
                     </div>
                 </div>
@@ -1075,8 +1075,8 @@
             photo: row.getAttribute('data-photo') || '',
             lmsId: row.getAttribute('data-lms-id') || '',
             nseitId: row.getAttribute('data-nseit-id') || '',
-            marksheet: row.getAttribute('data-marksheet'),
-            tenthMarksheet: row.getAttribute('data-tenth-marksheet') || '',
+            marksheet: (row.getAttribute('data-marksheet') && row.getAttribute('data-marksheet') !== 'None') ? row.getAttribute('data-marksheet') : '',
+            tenthMarksheet: (row.getAttribute('data-tenth-marksheet') && row.getAttribute('data-tenth-marksheet') !== 'None') ? row.getAttribute('data-tenth-marksheet') : '',
             status: row.getAttribute('data-status'),
             remarksStr: row.getAttribute('data-remarks') || '[]',
             created: row.getAttribute('data-created') || '',

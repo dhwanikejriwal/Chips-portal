@@ -4,7 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Candidate, LMS, LMSRemark, UserLogin, MasterUserRole
-from backend.utils.exporter import generate_excel_export
+from backend.utils.exporter import generate_csv_export
 
 router = APIRouter(prefix="/lms_manage", tags=["lms_manage"])
 
@@ -217,4 +217,4 @@ def export_lms_excel(ids: str = None, db: Session = Depends(get_db)):
         "updated_at": "Updated At",
     }
 
-    return generate_excel_export(export_data, column_mappings, "lms_requests")
+    return generate_csv_export(export_data, column_mappings, "lms_requests")

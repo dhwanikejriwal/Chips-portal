@@ -45,6 +45,7 @@ class L2RegistrationRequest(Base):
 
     submitted_at = Column(DateTime, nullable=False, default=get_ist_time, index=True)
     reviewed_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
     reviewed_by = Column(Integer, ForeignKey("user_login_table.id"), nullable=True)
 
     # Relationships

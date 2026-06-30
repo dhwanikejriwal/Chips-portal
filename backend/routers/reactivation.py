@@ -1,4 +1,5 @@
 # backend/routers/reactivation.py
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -325,15 +326,20 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
 
 
 @router.post("/operator/{operator_id}/activate")
-async def activate_individual_operator(operator_id: int, db: Session = Depends(get_db)):
+async def activate_individual_operator(operator_id: int, reason: Optional[str] = Form(None), db: Session = Depends(get_db)):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
         op.status = "ACTIVATED"
+        if reason:
+            op.reject_reason = reason  # Optional: store activate remarks in reject_reason or remarks
+        remark_text = f"Operator '{op.operator_name}' Activated."
+        if reason:
+            remark_text += f" Remarks: {reason}"
         db.add(ReactivationRemarkHistory(
             request_code=op.request_code,
-            remark_history=f"Operator '{op.operator_name}' Activated",
+            remark_history=remark_text,
             sender_role="CHIPS_ADMIN",
-            status_after=op.parent_request.status if op.parent_request else None
+            status_after=op.status
         ))
         db.commit()
     return {"success": True}
@@ -348,11 +354,10 @@ async def send_to_uidai_individual_operator(operator_id: int, db: Session = Depe
             request_code=op.request_code,
             remark_history=f"Operator '{op.operator_name}' Sent to UIDAI",
             sender_role="CHIPS_ADMIN",
-            status_after=op.parent_request.status if op.parent_request else None
+            status_after=op.status
         ))
         db.commit()
     return {"success": True}
-
 
 @router.post("/operator/{operator_id}/revert")
 async def revert_individual_operator(operator_id: int, reason: str = Form(...), db: Session = Depends(get_db)):
@@ -364,7 +369,22 @@ async def revert_individual_operator(operator_id: int, reason: str = Form(...), 
             request_code=op.request_code,
             remark_history=f"Operator '{op.operator_name}' Reverted. Reason: {reason}",
             sender_role="CHIPS_ADMIN",
-            status_after=op.parent_request.status if op.parent_request else None
+            status_after=op.status
+        ))
+        db.commit()
+    return {"success": True}
+
+@router.post("/operator/{operator_id}/reject")
+async def reject_individual_operator(operator_id: int, reason: str = Form(...), db: Session = Depends(get_db)):
+    op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
+    if op: 
+        op.status = "REJECTED"
+        op.reject_reason = reason
+        db.add(ReactivationRemarkHistory(
+            request_code=op.request_code,
+            remark_history=f"Operator '{op.operator_name}' Rejected. Reason: {reason}",
+            sender_role="CHIPS_ADMIN",
+            status_after=op.status
         ))
         db.commit()
     return {"success": True}
@@ -442,6 +462,13 @@ async def finalize_batch_request(request_code: str, db: Session = Depends(get_db
                     req.status = "REVERTED"
                 else:
                     req.status = "REVIEWED"
+                    
+            db.add(ReactivationRemarkHistory(
+                request_code=request_code, 
+                remark_history=f"Batch Finalized. New Status: {req.status}", 
+                sender_role="CHIPS_ADMIN", 
+                status_after=req.status
+            ))
             db.commit()
         return {"success": True}
     except Exception as e:
@@ -457,6 +484,12 @@ async def revert_batch_request(request_code: str, revert_reason: str = Form(...)
     if req: 
         req.status = "REVERTED"
         req.reject_reason = revert_reason
+        db.add(ReactivationRemarkHistory(
+            request_code=req.request_code,
+            remark_history=f"Batch Reverted. Reason: {revert_reason}",
+            sender_role="CHIPS_ADMIN",
+            status_after="REVERTED"
+        ))
         db.commit()
     return {"success": True}
 
@@ -474,7 +507,10 @@ async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(
 
 @router.get("/export-excel/{request_code}")
 def export_operators_to_excel_stream(request_code: str, db: Session = Depends(get_db)):
-    operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_code == request_code).all()
+    operators = db.query(ReactivationOperator).filter(
+        ReactivationOperator.request_code == request_code,
+        ReactivationOperator.status != "REJECTED"
+    ).all()
     df = pd.DataFrame([{
         "S.No": i + 1,
         "Role": o.role,
@@ -495,14 +531,14 @@ def export_operators_to_excel_stream(request_code: str, db: Session = Depends(ge
     return StreamingResponse(excel_buffer, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename=List_{request_code}.xlsx"})
 
 
-@router.get("/export-excel-all")
-def export_all_operators_to_excel_stream(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.get("/export-csv-all")
+def export_all_operators_to_csv_stream(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     user_role_str = get_user_role_str(current_user)
     
     query = db.query(ReactivationOperator, OperatorReactivationRequest).join(
         OperatorReactivationRequest, ReactivationOperator.request_code == OperatorReactivationRequest.request_code
     ).filter(
-        ReactivationOperator.status.notin_(["REVERTED", "ACTIVATED"])
+        ReactivationOperator.status.notin_(["REVERTED", "ACTIVATED", "REJECTED"])
     )
     
     if user_role_str == "dc":
@@ -512,7 +548,6 @@ def export_all_operators_to_excel_stream(db: Session = Depends(get_db), current_
     
     df = pd.DataFrame([{
         "S.No": i + 1,
-        "Request Code": o.request_code,
         "District ID": req.district_id,
         "Role": o.role,
         "Name As Per Aadhaar": o.operator_name,
@@ -522,19 +557,20 @@ def export_all_operators_to_excel_stream(db: Session = Depends(get_db), current_
         "NSEIT Certificate Number": o.certificate_number,
         "LMS Certificate ID": o.lms_certificate_id,
         "Mobile": o.operator_mobile,
-        "Primary E-MAIL ID": o.email_id,
-        "Status": o.status
+        "Primary E-MAIL ID": o.email_id
     } for i, (o, req) in enumerate(results)])
     
-    excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer: 
-        df.to_excel(writer, index=False)
-    excel_buffer.seek(0)
-    return StreamingResponse(excel_buffer, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=All_Pending_Operators.xlsx"})
+    if df.empty:
+        df = pd.DataFrame(columns=["S.No", "District ID", "Role", "Name As Per Aadhaar", "Registrar Code", "EA Code", "User Code", "NSEIT Certificate Number", "LMS Certificate ID", "Mobile", "Primary E-MAIL ID"])
+    
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_bytes = io.BytesIO(csv_buffer.getvalue().encode('utf-8'))
+    return StreamingResponse(csv_bytes, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=All_Pending_Operators.csv"})
 
 
-@router.get("/export-excel-uidai")
-def export_uidai_operators_to_excel_stream(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.get("/export-csv-uidai")
+def export_uidai_operators_to_csv_stream(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     user_role_str = get_user_role_str(current_user)
     
     query = db.query(ReactivationOperator, OperatorReactivationRequest).join(
@@ -550,7 +586,6 @@ def export_uidai_operators_to_excel_stream(db: Session = Depends(get_db), curren
     
     df = pd.DataFrame([{
         "S.No": i + 1,
-        "Request Code": o.request_code,
         "District ID": req.district_id,
         "Role": o.role,
         "Name As Per Aadhaar": o.operator_name,
@@ -560,18 +595,16 @@ def export_uidai_operators_to_excel_stream(db: Session = Depends(get_db), curren
         "NSEIT Certificate Number": o.certificate_number,
         "LMS Certificate ID": o.lms_certificate_id,
         "Mobile": o.operator_mobile,
-        "Primary E-MAIL ID": o.email_id,
-        "Status": o.status
+        "Primary E-MAIL ID": o.email_id
     } for i, (o, req) in enumerate(results)])
     
     if df.empty:
-        df = pd.DataFrame(columns=["S.No", "Request Code", "District ID", "Role", "Name As Per Aadhaar", "Registrar Code", "EA Code", "User Code", "NSEIT Certificate Number", "LMS Certificate ID", "Mobile", "Primary E-MAIL ID", "Status"])
+        df = pd.DataFrame(columns=["S.No", "District ID", "Role", "Name As Per Aadhaar", "Registrar Code", "EA Code", "User Code", "NSEIT Certificate Number", "LMS Certificate ID", "Mobile", "Primary E-MAIL ID"])
         
-    excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer: 
-        df.to_excel(writer, index=False)
-    excel_buffer.seek(0)
-    return StreamingResponse(excel_buffer, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=UIDAI_Sent_Operators.xlsx"})
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_bytes = io.BytesIO(csv_buffer.getvalue().encode('utf-8'))
+    return StreamingResponse(csv_bytes, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=UIDAI_Sent_Operators.csv"})
 
 
 @router.get("/requests/{request_code}/files/{file_type}")

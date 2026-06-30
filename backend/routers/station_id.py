@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.station_id import StationIDRequest, StationIDRemark
-from backend.utils.exporter import generate_excel_export
+from backend.utils.exporter import generate_csv_export
 
 router = APIRouter()
 
@@ -303,4 +303,4 @@ def export_station_id_excel(ids: str = None, db: Session = Depends(get_db)):
         "reviewed_at": "Reviewed At",
     }
 
-    return generate_excel_export(export_data, column_mappings, "station_id_requests")
+    return generate_csv_export(export_data, column_mappings, "station_id_requests")

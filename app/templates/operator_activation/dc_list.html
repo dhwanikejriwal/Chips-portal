@@ -7,114 +7,58 @@
 {% endblock %}
 
 {% block content %}
-<!-- Header -->
-<div class="dash-header">
-    <div>
-        <h2 class="dash-title">Operator Activation Dashboard</h2>
-        <p class="dash-subtitle">Track and manage your operator activation requests</p>
-    </div>
-    <a href="/auth/dc/operator-activation" class="btn-new-request">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-        New Request
-    </a>
-</div>
-
-<!-- Stats Row -->
-<div class="stats-row-7">
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#eff6ff;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
-                <path
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+<div id="view-dashboard-panel">    <div class="chips-header-banner">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">Operator Activation Dashboard</h1>
+                    <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Track and manage your operator activation requests</p>
+                </div>
+            </div>
+            <button type="button" onclick="switchActivationView('form')" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); color: white; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; transition: background 0.2s; cursor: pointer;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New Request
+            </button>
         </div>
-        <div>
-            <div class="stat-num" id="stat-total">{{ requests | length }}</div>
-            <div class="stat-lbl">Total Requests</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fef9c3;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#f59e0b;" id="stat-pending">{{ requests | selectattr('status', 'in',
-                ['pending', 'sent_to_chips']) | list | length }}</div>
-            <div class="stat-lbl">Pending / CHiPS</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#ffedd5;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2">
-                <path d="M23 4v6h-6"></path>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#d97706;" id="stat-reapplied">{{ requests | selectattr('status',
-                'equalto', 'reapplied') | list | length }}</div>
-            <div class="stat-lbl">Reapplied</div>
+        <div class="chips-banner-metrics">
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'in', ['pending', 'sent_to_chips']) | list | length }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending / CHiPS</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'reapplied') | list | length }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'sent_to_uidai') | list | length }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'reverted') | list | length }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'rejected') | list | length }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | length }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests</div>
+            </div>
         </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#e0f2fe;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#0284c7;" id="stat-sent-to-uidai">{{ requests | selectattr('status',
-                'equalto', 'sent_to_uidai') | list | length }}</div>
-            <div class="stat-lbl">Sent to UIDAI</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#dcfce7;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2">
-                <polyline points="20 6 9 17 4 12" />
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#16a34a;" id="stat-approved">{{ requests | selectattr('status',
-                'equalto', 'approved') | list | length }}</div>
-            <div class="stat-lbl">Approved</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fee2e2;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                <path d="M3 3v5h5"></path>
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#dc2626;" id="stat-reverted">{{ requests | selectattr('status',
-                'equalto', 'reverted') | list | length }}</div>
-            <div class="stat-lbl">Reverted</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fee2e2;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#b91c1c;" id="stat-rejected">{{ requests | selectattr('status',
-                'equalto', 'rejected') | list | length }}</div>
-            <div class="stat-lbl">Rejected</div>
-        </div>
-    </div>
-</div>
 
 <!-- Filter Bar -->
 <div class="filter-bar">
@@ -158,8 +102,7 @@
             <option value="reverted">Reverted / Rejected</option>
         </select>
         <button class="btn btn-sm"
-            onclick="exportTableToExcel('pending-requests-table', 'pending_operator_activations.xlsx')">Export to
-            Excel</button>
+            onclick="exportTableToCSV('pending-requests-table', 'pending_operator_activations.csv')">Export to CSV</button>
     </div>
 </div>
 <div class="sid-table-wrapper" style="margin-bottom: 28px;">
@@ -203,7 +146,7 @@
         </tbody>
     </table>
     <div id="pending-empty-msg" class="empty-state" style="display: none;">
-        <div class="empty-state-icon">📥</div>
+        <div class="empty-state-icon"><i class="fas fa-inbox"></i></div>
         <p>No pending pipeline records found matching current filter scope.</p>
     </div>
 </div>
@@ -220,8 +163,7 @@
             <option value="approved">Approved</option>
         </select>
         <button class="btn btn-sm"
-            onclick="exportTableToExcel('approved-requests-table', 'activation_log_history.xlsx')">Export to
-            Excel</button>
+            onclick="exportTableToCSV('approved-requests-table', 'activation_log_history.csv')">Export to CSV</button>
     </div>
 </div>
 <div class="sid-table-wrapper">
@@ -265,7 +207,7 @@
         </tbody>
     </table>
     <div id="approved-empty-msg" class="empty-state" style="display: none;">
-        <div class="empty-state-icon">✅</div>
+        <div class="empty-state-icon"><i class="fas fa-check-circle" style="color: #10b981;"></i></div>
         <p>No approved request history records found matching current filter scope.</p>
     </div>
 </div>
@@ -737,7 +679,7 @@
 
                 ${isRevertable ? `
                 <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
-                    <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">⚠ Action Required — Request Reverted</div>
+                    <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;"><i class="fas fa-exclamation-triangle" style="margin-right: 4px;"></i> Action Required — Request Reverted</div>
                     <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</div>
                 </div>
                 ` : ''}
@@ -851,7 +793,7 @@
                 }
             }).then((result) => {
                 if (result.isConfirmed && isRevertable) {
-                    openActivationReapplyModal(id, requestNo, d.operator_name, d.operator_mobile, d.operator_aadhaar, d.operator_pan, remarksHtml);
+                    openActivationReapplyModal(id, requestNo, d, remarksHtml);
                 }
             });
         }
@@ -941,27 +883,76 @@
         }
     };
 
-    function openActivationReapplyModal(id, requestNo, name, mobile, aadhaar, pan, remarksHtml) {
+    function openActivationReapplyModal(id, requestNo, d, remarksHtml) {
         let htmlContent = `
             <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
-                <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">⚠ Action Required — Request Reverted</div>
+                <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;"><i class="fas fa-exclamation-triangle" style="margin-right: 4px;"></i> Action Required — Request Reverted</div>
                 <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below, make corrections and reapply.</div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;text-align:left;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;text-align:left;max-height:40vh;overflow-y:auto;padding-right:10px;">
                 <div>
                     <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Mobile Number *</div>
-                    <input id="reapply-mobile" type="text" value="${mobile || ''}" maxlength="10"
+                    <input id="reapply-mobile" type="text" value="${d.operator_mobile || ''}" maxlength="10"
                         style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
                 </div>
                 <div>
                     <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Aadhaar Last 4 Digits *</div>
-                    <input id="reapply-aadhaar" type="text" value="${aadhaar || ''}" maxlength="4"
+                    <input id="reapply-aadhaar" type="text" value="${d.operator_aadhaar || ''}" maxlength="4"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">PAN Number</div>
+                    <input id="reapply-pan" type="text" value="${d.operator_pan || d.pan_number || ''}" maxlength="10"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;text-transform:uppercase;">
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Primary Email ID</div>
+                    <input id="reapply-email" type="email" value="${d.primary_email || ''}"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Role</div>
+                    <select id="reapply-role" style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+                        <option value="Operator" ${d.role === 'Operator' ? 'selected' : ''}>Operator</option>
+                        <option value="Supervisor" ${d.role === 'Supervisor' ? 'selected' : ''}>Supervisor</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Registrar Code</div>
+                    <input id="reapply-registrar" type="text" value="${d.registrar_code || '986'}"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">EA Code</div>
+                    <select id="reapply-ea" style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+                        <option value="2084" ${d.ea_code === '2084' ? 'selected' : ''}>2084 (ECMP)</option>
+                        <option value="4082" ${d.ea_code === '4082' ? 'selected' : ''}>4082 (UCL)</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">User Code</div>
+                    <input id="reapply-user-code" type="text" value="${d.user_code || ''}"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Pincode</div>
+                    <input id="reapply-pincode" type="text" value="${d.pincode || ''}"
                         style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
                 </div>
                 <div style="grid-column:1/-1;">
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">PAN Number</div>
-                    <input id="reapply-pan" type="text" value="${pan || ''}" maxlength="10"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;text-transform:uppercase;">
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">NSEIT Certificate Number</div>
+                    <input id="reapply-nseit" type="text" value="${d.nseit_certificate_number || ''}"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">NSEIT Cert Date</div>
+                    <input id="reapply-cert-date" type="date" value="${(d.nseit_certification_date || '').substring(0,10)}"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">NSEIT Expiry Date</div>
+                    <input id="reapply-exp-date" type="date" value="${(d.nseit_certificate_expiry_date || '').substring(0,10)}"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
                 </div>
             </div>
             <div style="text-align:left;margin-bottom:12px;">
@@ -997,6 +988,15 @@
                 formData.append('operator_mobile', updatedMobile);
                 formData.append('operator_aadhaar', updatedAadhaar);
                 formData.append('operator_pan', updatedPan);
+                formData.append('primary_email', document.getElementById('reapply-email').value.trim());
+                formData.append('role', document.getElementById('reapply-role').value.trim());
+                formData.append('registrar_code', document.getElementById('reapply-registrar').value.trim());
+                formData.append('ea_code', document.getElementById('reapply-ea').value.trim());
+                formData.append('user_code', document.getElementById('reapply-user-code').value.trim());
+                formData.append('pincode', document.getElementById('reapply-pincode').value.trim());
+                formData.append('nseit_certificate_number', document.getElementById('reapply-nseit').value.trim());
+                formData.append('nseit_certification_date', document.getElementById('reapply-cert-date').value.trim());
+                formData.append('nseit_certificate_expiry_date', document.getElementById('reapply-exp-date').value.trim());
                 formData.append('reapply_remark', reapplyRemark);
 
                 return fetch(`/auth/dc/operator-activation/${id}/reapply-json`, {
@@ -1024,11 +1024,10 @@
     }
 
     // Export helper function to XLSX format using SheetJS (XLSX) library
-    function exportTableToExcel(tableID, filename = 'export.xlsx') {
+    function exportTableToCSV(tableID, filename = 'export.csv') {
         const table = document.getElementById(tableID);
         if (!table) return;
 
-        // Find headers and valid indices
         const headerRow = table.querySelector('thead tr');
         const headers = headerRow ? headerRow.querySelectorAll('th') : [];
         const validIndices = [];
@@ -1044,35 +1043,46 @@
 
         const rowsData = [headerData];
 
-        // Find visible body rows
         const bodyRows = table.querySelectorAll('tbody tr');
         bodyRows.forEach(row => {
-            // Only export visible rows and rows with actual data (cells.length > 1)
             if (row.style.display !== 'none' && row.cells.length > 1) {
                 const rowData = [];
                 const cells = row.querySelectorAll('td');
                 validIndices.forEach(idx => {
                     if (cells[idx]) {
                         let text = cells[idx].innerText.trim();
-                        text = text.replace(/\s+/g, ' ');
-                        rowData.push(text);
+                        text = text.replace(/\s+/g, ' ').replace(/"/g, '""');
+                        rowData.push(`"${text}"`);
                     } else {
-                        rowData.push('');
+                        rowData.push('""');
                     }
                 });
                 rowsData.push(rowData);
             }
         });
 
-        if (typeof XLSX === 'undefined') {
-            alert("Excel export library is not loaded yet. Please wait a moment or refresh the page.");
-            return;
+        const csvContent = rowsData.map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
+    }
 
-        const ws = XLSX.utils.aoa_to_sheet(rowsData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-        XLSX.writeFile(wb, filename);
+    function switchActivationView(view) {
+        if (view === 'form') {
+            document.getElementById('view-dashboard-panel').style.display = 'none';
+            document.getElementById('view-workspace-application-panel').style.display = 'block';
+        } else {
+            document.getElementById('view-workspace-application-panel').style.display = 'none';
+            document.getElementById('view-dashboard-panel').style.display = 'block';
+        }
     }
 </script>
 {% endblock %}

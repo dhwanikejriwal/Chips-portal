@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from backend.database import get_db
 from backend.models import Candidate, LMS, LMSRemark, NSEITRequest, NSEITRemark , District
-from backend.utils.exporter import generate_excel_export
+from backend.utils.exporter import generate_csv_export
 router = APIRouter(prefix="/candidate", tags=["candidate"])
 
 @router.get("/status/{r_id}")
@@ -296,4 +296,4 @@ def export_candidate_requests_backend(db: Session = Depends(get_db)):
         "status": "Current Evaluation Status"
     }
     
-    return generate_excel_export(serialized_records, column_mappings, "candidate_onboarding_requests")
+    return generate_csv_export(serialized_records, column_mappings, "candidate_onboarding_requests")

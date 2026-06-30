@@ -94,3 +94,34 @@ def proxy_backend_excel_export(module_endpoint):
     except requests.exceptions.RequestException as e:
         flash(f"Unable to reach the backend export engine service: {str(e)}", "danger")
         return redirect(request.referrer or url_for("dashboard.dc_dashboard"))
+
+@auth_bp.route('/admin-dc/export-l2/<string:module_endpoint>')
+def proxy_l2_excel_export(module_endpoint):
+    if not session.get("access_token"):
+        flash("Unauthorized access. Please log in first.", "danger")
+        return redirect(url_for("auth.login"))
+    
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/l2-registration/export-excel/{module_endpoint}"
+
+    try:
+        response = requests.get(backend_url, stream=True)
+        if response.status_code == 200:
+            return Response(
+                response.raw.read(),
+                headers={
+                    'Content-Disposition': response.headers.get('Content-Disposition'),
+                    'Content-Type': response.headers.get('Content-Type'),
+                    'Cache-Control': 'no-cache'
+                }
+            )
+        else:
+            try:
+                err_detail = response.json().get("detail", "Generation failed.")
+            except Exception:
+                err_detail = f"Server returned status code {response.status_code}"
+            flash(f"Export Compilation Error: {err_detail}", "danger")
+            return redirect(request.referrer or url_for("dashboard.dc_dashboard"))
+
+    except requests.exceptions.RequestException as e:
+        flash(f"Unable to reach the backend export engine service: {str(e)}", "danger")
+        return redirect(request.referrer or url_for("dashboard.dc_dashboard"))

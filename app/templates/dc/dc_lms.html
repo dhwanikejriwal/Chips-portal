@@ -8,124 +8,54 @@
 {% endblock %}
 
 {% block content %}
-<div class="dash-header">
-    <div>
-        <h2 class="dash-title">LMS CREDENTIAL VERIFICATION</h2>
-        <p class="dash-subtitle">Verify and manage candidate LMS credentials</p>
-    </div>
-</div>
-
-
+<!-- Jinja2 Metric Calculations -->
 {% set total_requests = pending_requests | length + processed_requests | length %}
 {% set pending_count = pending_requests | selectattr('lms_status', 'equalto', 'Pending') | list | length %}
 {% set reapplied_count = pending_requests | selectattr('lms_status', 'equalto', 'Reapplied') | list | length %}
 {% set approved_count = processed_requests | selectattr('lms_status', 'equalto', 'Approved') | list | length %}
 {% set forwarded_count = processed_requests | selectattr('lms_status', 'equalto', 'Forwarded') | list | length %}
-{% set forwarded_again_count = processed_requests | selectattr('lms_status', 'equalto', 'Forwarded Again') | list |
-length %}
+{% set forwarded_again_count = processed_requests | selectattr('lms_status', 'equalto', 'Forwarded Again') | list | length %}
 {% set reverted_count = processed_requests | selectattr('lms_status', 'equalto', 'Reverted') | list | length %}
-{% set reverted_by_chips_count = processed_requests | selectattr('lms_status', 'equalto', 'Reverted by CHiPS') | list |
-length %}
+{% set reverted_by_chips_count = processed_requests | selectattr('lms_status', 'equalto', 'Reverted by CHiPS') | list | length %}
 
-<!-- Stats Row -->
-<div class="stats-row">
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#eff6ff;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
-                <path
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+{% set metrics = namespace(pending_review=0, forwarded=0, action_required=0) %}
+{% set metrics.pending_review = pending_count + reapplied_count %}
+{% set metrics.forwarded = forwarded_count + forwarded_again_count %}
+{% set metrics.action_required = reverted_count + reverted_by_chips_count %}
+
+<!-- LMS Control Panel Banner -->
+<div class="chips-header-banner">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
             </svg>
         </div>
         <div>
-            <div class="stat-num" id="stat-total">{{ total_requests }}</div>
-            <div class="stat-lbl">Total Requests</div>
+            <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">LMS Credential Verification</h1>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Verify, approve, and manage candidate LMS credentials</p>
         </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fef9c3;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-            </svg>
+    <div class="chips-banner-metrics">
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.pending_review }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review</div>
         </div>
-        <div>
-            <div class="stat-num" style="color:#f59e0b;" id="stat-pending">{{ pending_count }}</div>
-            <div class="stat-lbl">Pending</div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.forwarded }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Forwarded to CHiPS</div>
         </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#ffedd5;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-            </svg>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.action_required }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Action Required</div>
         </div>
-        <div>
-            <div class="stat-num" style="color:#ea580c;" id="stat-reapplied">{{ reapplied_count }}</div>
-            <div class="stat-lbl">Reapplied</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#dcfce7;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2">
-                <polyline points="20 6 9 17 4 12" />
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#16a34a;" id="stat-approved">{{ approved_count }}</div>
-            <div class="stat-lbl">Approved</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#e0f2fe;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
-                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#0284c7;" id="stat-forwarded">{{ forwarded_count }}</div>
-            <div class="stat-lbl">Forwarded</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#f0f9ff;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2">
-                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#0369a1;" id="stat-forwarded-again">{{ forwarded_again_count }}</div>
-            <div class="stat-lbl">Forwarded Again</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fee2e2;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#dc2626;" id="stat-reverted">{{ reverted_count }}</div>
-            <div class="stat-lbl">Reverted</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fce7f3;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#db2777" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#db2777;" id="stat-reverted-by-chips">{{ reverted_by_chips_count }}</div>
-            <div class="stat-lbl">Reverted by CHiPS</div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests</div>
         </div>
     </div>
 </div>
-
 <!-- Unified Filter Controls -->
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
@@ -169,7 +99,7 @@ length %}
             <option value="reapplied">Reapplied</option>
         </select>
         <button class="btn btn-sm"
-            onclick="exportTableToExcel('admin-pending-table', 'pending_lms_requests.xlsx')">Export to Excel</button>
+            onclick="exportTableToExcel('admin-pending-table', 'pending_lms_requests.xlsx')">Export to CSV</button>
     </div>
 </div>
 <div class="sid-table-wrapper">
@@ -898,7 +828,7 @@ length %}
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
                     ${buildDocumentCard('Profile Photo', d.photo, 'profile_photo.jpg')}
-                    ${buildDocumentCard('Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf')}
+                    ${d.marksheet ? buildDocumentCard('Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf') : ''}
                     ${d.tenthMarksheet ? buildDocumentCard('10th Marksheet', d.tenthMarksheet, '10th_marksheet.pdf') : ''}
                 </div>
             </div>
@@ -1045,8 +975,8 @@ length %}
             photo: row.getAttribute('data-photo') || '',
             lmsId: row.getAttribute('data-lms-id') || '',
             nseitId: row.getAttribute('data-nseit-id') || '',
-            marksheet: row.getAttribute('data-marksheet'),
-            tenthMarksheet: row.getAttribute('data-tenth-marksheet') || '',
+            marksheet: (row.getAttribute('data-marksheet') && row.getAttribute('data-marksheet') !== 'None') ? row.getAttribute('data-marksheet') : '',
+            tenthMarksheet: (row.getAttribute('data-tenth-marksheet') && row.getAttribute('data-tenth-marksheet') !== 'None') ? row.getAttribute('data-tenth-marksheet') : '',
             status: row.getAttribute('data-status'),
             remarksStr: row.getAttribute('data-remarks') || '[]',
             created: row.getAttribute('data-created') || '',
@@ -1074,7 +1004,7 @@ length %}
             return;
         }
 
-        window.location.href = `/lms-manage/export?ids=${ids.join(',')}`;
+        window.location.href = `/auth/lms-manage/export?ids=${ids.join(',')}`;
     }
 
     document.addEventListener("DOMContentLoaded", function () {

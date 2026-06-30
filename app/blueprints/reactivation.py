@@ -216,21 +216,21 @@ def proxy_export_operators_excel_all():
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
 
-        backend_url = f"{FASTAPI_URL}/export-excel-all"
+        backend_url = f"{FASTAPI_URL}/export-csv-all"
         file_response = requests.get(backend_url, headers=headers, stream=True, timeout=20)
 
         if file_response.status_code == 200:
             return Response(
                 file_response.iter_content(chunk_size=4096),
-                content_type=file_response.headers.get("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                content_type="text/csv",
                 headers={
-                    "Content-Disposition": f"attachment; filename=All_Pending_Operators.xlsx",
+                    "Content-Disposition": f"attachment; filename=All_Pending_Operators.csv",
                     "Cache-Control": "no-cache"
                 }
             )
-        return f"Excel export failed. Backend status: {file_response.status_code}", file_response.status_code
-    except Exception as excel_err:
-        return f"Excel compilation transport failure: {str(excel_err)}\n"
+        return f"CSV export failed. Backend status: {file_response.status_code}", file_response.status_code
+    except Exception as export_err:
+        return f"CSV compilation transport failure: {str(export_err)}\n"
 
 @reactivation_bp.route("/chips/reactivation/export-uidai", methods=["GET"])
 def proxy_export_operators_excel_uidai():
@@ -242,21 +242,21 @@ def proxy_export_operators_excel_uidai():
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
 
-        backend_url = f"{FASTAPI_URL}/export-excel-uidai"
+        backend_url = f"{FASTAPI_URL}/export-csv-uidai"
         file_response = requests.get(backend_url, headers=headers, stream=True, timeout=20)
 
         if file_response.status_code == 200:
             return Response(
                 file_response.iter_content(chunk_size=4096),
-                content_type=file_response.headers.get("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                content_type="text/csv",
                 headers={
-                    "Content-Disposition": f"attachment; filename=UIDAI_Sent_Operators.xlsx",
+                    "Content-Disposition": f"attachment; filename=UIDAI_Sent_Operators.csv",
                     "Cache-Control": "no-cache"
                 }
             )
-        return f"Excel export failed. Backend status: {file_response.status_code}", file_response.status_code
-    except Exception as excel_err:
-        return f"Excel compilation transport failure: {str(excel_err)}", 500
+        return f"CSV export failed. Backend status: {file_response.status_code}", file_response.status_code
+    except Exception as export_err:
+        return f"CSV compilation transport failure: {str(export_err)}", 500
 
 
 @reactivation_bp.route("/reactivation/requests/<request_code>/files/<file_type>", methods=["GET"])
@@ -324,6 +324,21 @@ def proxy_revert_operator(operator_id):
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
         backend_target = f"{FASTAPI_URL}/operator/{operator_id}/revert"
+        response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@reactivation_bp.route("/reactivation/operator/<int:operator_id>/reject", methods=["POST"])
+def proxy_reject_operator(operator_id):
+    if not session.get("username"):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        headers = {}
+        if session.get("access_token"):
+            headers["Authorization"] = f"Bearer {session.get('access_token')}"
+        backend_target = f"{FASTAPI_URL}/operator/{operator_id}/reject"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:

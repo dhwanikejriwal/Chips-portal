@@ -402,9 +402,10 @@ def make_excel_sheet(requests_list, sheet_title):
     ws.title = sheet_title
     
     headers = [
-        "S.No", "Request ID", "DC Username", "District", "Block", "Address", "Operator Name", "Operator ID",
-        "Client Version", "New Station ID", "EA Code", "Reg Code", "New Machine ID", "Client Type", 
-        "Old Station ID", "Old Machine ID", "L2 Reason", "Tech Center Remarks", "Status", "Submitted At"
+        "S.NO.", "Client Version", "New Station Id", "EA Code", "Reg Code", "New Machine Id", "Client Type", 
+        "Old Station ID(If Any)", "Reason For L2 Registration In Case of New Station Idis sent against the Old Station ID", 
+        "Old Machine ID", "Tech Cenetr Remarks", "Operator name", "Operator Id", "Unique Id", "District", 
+        "Block", "Address of Govt premises"
     ]
     ws.append(headers)
     for idx, r in enumerate(requests_list, start=1):
@@ -413,25 +414,22 @@ def make_excel_sheet(requests_list, sheet_title):
         
         ws.append([
             idx,
-            r.request_no or "—",
-            r.dc.username if r.dc else "—",
-            dist_name,
-            r.block,
-            r.address_of_govt_premises,
-            r.operator_name,
-            r.operator_id,
-            r.client_version,
-            r.new_station_id,
-            r.ea_code,
-            r.reg_code,
-            r.new_machine_id,
-            r.client_type,
+            r.client_version or "—",
+            r.new_station_id or "—",
+            r.ea_code or "—",
+            r.reg_code or "—",
+            r.new_machine_id or "—",
+            r.client_type or "—",
             r.old_station_id or "—",
-            r.old_machine_id or "—",
             r.reason_for_l2_registration or "—",
+            r.old_machine_id or "—",
             r.tech_center_remarks or "—",
-            str(r.status).upper().strip(),
-            str(r.submitted_at)[:16] if r.submitted_at else "—"
+            r.operator_name or "—",
+            r.operator_id or "—",
+            r.unique_id or "—",
+            dist_name,
+            r.block or "—",
+            r.address_of_govt_premises or "—"
         ])
     
     stream = io.BytesIO()

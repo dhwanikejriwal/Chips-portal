@@ -144,7 +144,7 @@
         <div class="sec-dot" style="background:#f59e0b;"></div>
         <h3 class="sec-title">Pending Approval Queue</h3>
         <span class="sec-count" id="pending-count">–</span>
-        <button class="btn btn-sm" onclick="exportTableToExcel('pending-table', 'pending_l1_requests.xlsx')">Export to Excel</button>
+        <button class="btn btn-sm" onclick="exportTableToExcel('pending-table', 'pending_l1_requests.xlsx')">Export to CSV</button>
     </div>
 
     <div class="sid-table-wrapper">
@@ -165,9 +165,9 @@
                 {% for req in requests %}
                 {% if req.status in ['PENDING', 'REAPPLIED'] %}
                 {% set pending_count = pending_count + 1 %}
-                <tr data-id="{{ req.request_code }}" data-request-no="{{ req.request_code }}"
+                <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}"
                     data-district="{{ req.district_name or '' }}" data-model="{{ req.model_type or '' }}"
-                    data-status="{{ req.status | lower }}" data-created="{{ req.submitted_at or '' }}">
+                    data-status="{{ req.status | lower }}" data-created="{{ req.created_at or '' }}">
                     <td>{{ pending_count }}</td>
                     <td><strong>{{ req.request_code }}</strong></td>
                     <td>{{ req.district_name }}</td>
@@ -179,7 +179,7 @@
                         <span class="sid-badge sid-badge-pending">Pending</span>
                         {% endif %}
                     </td>
-                    <td>{{ req.submitted_at[:16] if req.submitted_at else '—' }}</td>
+                    <td>{{ req.created_at|string|truncate(16, True, '') if req.created_at else '—' }}</td>
                     <td>
                         <div class="action-group" style="justify-content: center;">
                             <button type="button" class="btn-approve"
@@ -216,7 +216,7 @@
             </tbody>
         </table>
         <div id="pending-empty-msg" class="empty-state" style="display:none;">
-            <div class="empty-state-icon">✅</div>
+            <div class="empty-state-icon"></div>
             <p>No pending L1 registration requests in queue.</p>
         </div>
     </div>
@@ -254,7 +254,7 @@
         <h3 class="sec-title">L1 Registration Log History</h3>
         <span class="sec-count" id="history-count">–</span>
         <div style="margin-left: auto;">
-            <button class="btn btn-sm" onclick="exportTableToExcel('history-table', 'processed_l1_history.xlsx')">Export to Excel</button>
+            <button class="btn btn-sm" onclick="exportTableToExcel('history-table', 'processed_l1_history.xlsx')">Export to CSV</button>
         </div>
     </div>
 
@@ -268,6 +268,7 @@
                     <th>MODEL</th>
                     <th>STATUS</th>
                     <th>SUBMITTED AT</th>
+                    <th>REVIEWED AT</th>
                     <th style="text-align: center;">ACTIONS</th>
                 </tr>
             </thead>
@@ -276,10 +277,10 @@
                 {% for req in requests %}
                 {% if req.status not in ['PENDING', 'REAPPLIED'] %}
                 {% set history_count = history_count + 1 %}
-                <tr data-id="{{ req.request_code }}" data-request-no="{{ req.request_code }}"
+                <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}"
                     data-district="{{ req.district_name or '' }}" data-model="{{ req.model_type or '' }}"
                     data-status="{% if req.status in ['APPROVED', 'REVIEWED'] %}approved{% else %}{{ req.status | lower }}{% endif %}"
-                    data-created="{{ req.submitted_at or '' }}">
+                    data-created="{{ req.created_at or '' }}">
                     <td>{{ history_count }}</td>
                     <td><strong>{{ req.request_code }}</strong></td>
                     <td>{{ req.district_name }}</td>
@@ -291,7 +292,8 @@
                         <span class="sid-badge sid-badge-reverted">Reverted</span>
                         {% endif %}
                     </td>
-                    <td>{{ req.submitted_at[:16] if req.submitted_at else '—' }}</td>
+                    <td>{{ req.created_at|string|truncate(16, True, '') if req.created_at else '—' }}</td>
+                    <td>{{ req.reviewed_at|string|truncate(16, True, '') if req.reviewed_at else '—' }}</td>
                     <td>
                         <div class="action-group" style="justify-content: center;">
                             <button type="button" class="btn-details"
@@ -311,7 +313,7 @@
             </tbody>
         </table>
         <div id="history-empty-msg" class="empty-state" style="display:none;">
-            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-icon"></div>
             <p>No historical L1 registration logs found.</p>
         </div>
     </div>

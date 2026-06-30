@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Candidate, CandidateLogin, DCRemark
-from backend.utils.exporter import generate_excel_export
+from backend.utils.exporter import generate_csv_export
 
 router = APIRouter(prefix="/selection", tags=["selection"])
 
@@ -139,7 +139,7 @@ def export_candidates_excel(ids: str = None, db: Session = Depends(get_db)):
         "updated_at": "Updated At",
     }
 
-    return generate_excel_export(export_data, column_mappings, "candidate_requests")
+    return generate_csv_export(export_data, column_mappings, "candidate_requests")
 
 @router.post("/approve-candidate/{r_id}")
 def approve_candidate(r_id: int, payload: CandidateApproveRequest, db: Session = Depends(get_db)):
@@ -154,6 +154,13 @@ def approve_candidate(r_id: int, payload: CandidateApproveRequest, db: Session =
     # Auto-generate credentials if not provided
     username = payload.username.strip() if (payload.username and payload.username.strip()) else candidate.email
     password = payload.password.strip() if (payload.password and payload.password.strip()) else "Test@123"
+
+    existing_user = db.query(CandidateLogin).filter(CandidateLogin.user_id == username).first()
+    if existing_user:
+        # Fallback to request_code if email is already used for another login
+        username = candidate.request_code
+        if db.query(CandidateLogin).filter(CandidateLogin.user_id == username).first():
+             raise HTTPException(status_code=400, detail=f"Username {username} is already taken")
 
     salt = bcrypt.gensalt()
     hashed_pw = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')

@@ -170,7 +170,8 @@ window.showL1Details = function (data, activeView) {
                 <span>${statusBadge}</span>
             </div>
             <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
-                Submitted At: <strong>${data.submitted_at || '—'}</strong>
+                Submitted At: <strong>${data.created_at || '—'}</strong><br>
+                Reviewed At: <strong>${data.reviewed_at || '—'}</strong>
             </div>
 
             ${sectionHead('L1 Registration Specs')}
@@ -292,5 +293,5 @@ function exportTableToExcel(tableID, filename = 'export.xlsx') {
         return;
     }
 
-    window.location.href = `/l1-registration/export-v2?ids=${ids.join(',')}`;
+    window.location.href = `/auth/l1-registration/export-v2?ids=${ids.join(',')}`;
 }

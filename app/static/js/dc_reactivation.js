@@ -734,7 +734,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
 
             ${isRevertable ? `
             <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
-                <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">⚠ Action Required — Request Reverted</div>
+                <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">Action Required — Request Reverted</div>
                 <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below. Click "Quick Edit" to modify details.</div>
             </div>
             ` : ''}
@@ -884,89 +884,110 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
         });
     } 
     else if (activeView === 'remarks') {
-        let timelineHtml = '';
-        const logs = op.timeline_logs || [];
-        if (logs.length > 0) {
-            timelineHtml += `
-            <div class="remarks-timeline">
-                <div class="timeline-title">Audit Action History Log</div>
-                <div class="timeline-track">
-            `;
-            logs.forEach(item => {
-                const sender = (item.sender_role === 'CHIPS') ? 'CHiPS Admin' :
-                    (item.sender_role === 'DC') ? 'District Coordinator' :
-                        (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
-                const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
+        Swal.fire({
+            title: 'Fetching Remarks...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
 
-                const statusAfter = item.status_after || '';
-                let statusBadgeHtmlInline = '';
-                let markerClass = 'marker-pending';
-                if (statusAfter) {
-                    statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
-                    const sLower = statusAfter.toLowerCase();
-                    if (sLower.includes('approve') || sLower.includes('active') || sLower.includes('activated')) markerClass = 'marker-approved';
-                    else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
-                    else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
-                    else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+        fetch(`/auth/dc/reactivation/operators/${requestCode}`)
+            .then(res => res.json())
+            .then(payload => {
+                Swal.close();
+                let timelineHtml = '';
+                const logsRaw = payload.timeline_logs || [];
+                const logs = logsRaw.filter(log => {
+                    const msg = log.message || '';
+                    return !msg.includes("Operator '") || msg.includes(`Operator '${op.operator_name}'`);
+                });
+
+                if (logs.length > 0) {
+                    timelineHtml += `
+                    <div class="remarks-timeline">
+                        <div class="timeline-title">Audit Action History Log</div>
+                        <div class="timeline-track">
+                    `;
+                    logs.forEach(item => {
+                        const sender = (item.sender_role === 'CHIPS' || item.sender_role === 'CHIPS_ADMIN') ? 'CHiPS Admin' :
+                            (item.sender_role === 'DC') ? 'District Coordinator' :
+                                (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
+                        const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'CHIPS_ADMIN' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
+
+                        let statusAfter = item.status_after || '';
+                        const msg = item.message || item.remark || '';
+                        
+                        // Fallback override for older logs where status_after was incorrectly logged as PENDING
+                        if (statusAfter.toUpperCase() === 'PENDING' || !statusAfter) {
+                            const m = msg.toLowerCase();
+                            if (m.includes('reject')) statusAfter = 'REJECTED';
+                            else if (m.includes('revert')) statusAfter = 'REVERTED';
+                            else if (m.includes('activat') || m.includes('approve')) statusAfter = 'ACTIVATED';
+                            else if (m.includes('uidai')) statusAfter = 'SENT_TO_UIDAI';
+                        }
+                        
+                        let statusBadgeHtmlInline = '';
+                        let markerClass = 'marker-pending';
+                        if (statusAfter) {
+                            statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
+                            const sLower = statusAfter.toLowerCase();
+                            if (sLower.includes('approve') || sLower.includes('active') || sLower.includes('activated')) markerClass = 'marker-approved';
+                            else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                            else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                            else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+                        }
+
+                        const username = item.sender_username || '';
+                        const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
+                        timelineHtml += `
+                            <div class="timeline-item ${senderClass}">
+                                <div class="timeline-marker ${markerClass}"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-section-row">
+                                        <span class="timeline-step-label">Reactivation</span>${statusBadgeHtmlInline}
+                                    </div>
+                                    <div class="timeline-by-row">
+                                        <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtmlString(username) + ')' : ''}</span>
+                                        <span class="timeline-time">${item.timestamp || item.created_at || '—'}</span>
+                                    </div>
+                                    <div class="timeline-body">${escapeHtmlString(item.message || item.remark || '')}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    timelineHtml += `</div></div>`;
+                } else {
+                    timelineHtml = `<div style="text-align:center;padding:20px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or action history logged yet.</div>`;
                 }
 
-                const username = item.sender_username || '';
-                const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
-
-                timelineHtml += `
-                    <div class="timeline-item ${senderClass}">
-                        <div class="timeline-marker ${markerClass}"></div>
-                        <div class="timeline-content">
-                            <div class="timeline-section-row">
-                                <span class="timeline-step-label">Operator Reactivation</span>${statusBadgeHtmlInline}
-                            </div>
-                            <div class="timeline-by-row">
-                                <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtmlString(username) + ')' : ''}</span>
-                                <span class="timeline-time">${item.timestamp}</span>
-                            </div>
-                            <div class="timeline-body">${escapeHtmlString(item.message)}</div>
+                Swal.fire({
+                    title: `<span style="font-family:inherit; font-weight:800;">Action History</span>`,
+                    html: `<div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                            <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
+                            <span>${statusBadge}</span>
                         </div>
-                    </div>
-                `;
+                        ${timelineHtml}
+                    </div>`,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Close',
+                    showDenyButton: true,
+                    denyButtonText: 'Back',
+                    customClass: {
+                        confirmButton: 'swal-btn-close',
+                        denyButton: 'swal-btn-back'
+                    },
+                    width: '600px',
+                    focusConfirm: false
+                }).then((result) => {
+                    if (result.isDenied) {
+                        window.showIndividualOperatorDetails(arrayIndex, 'details');
+                    }
+                });
+            })
+            .catch(err => {
+                Swal.fire('Error', 'Failed to fetch remarks history', 'error');
             });
-            timelineHtml += `</div></div>`;
-        } else {
-            timelineHtml += `
-            <div style="margin-top: 15px; font-style: italic; color: #888; text-align: center; font-size: 13px;">
-                No remarks history/actions logged yet.
-            </div>
-            `;
-        }
-
-        let htmlContent = `
-        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
-                <span>${statusBadge}</span>
-            </div>
-            ${timelineHtml}
-        </div>
-        `;
-
-        Swal.fire({
-            title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
-            html: htmlContent,
-            showCancelButton: false, // NO Cancel button
-            showConfirmButton: true,
-            confirmButtonText: 'Close',
-            showDenyButton: true,
-            denyButtonText: 'Back',
-            customClass: {
-                confirmButton: 'swal-btn-close',
-                denyButton: 'swal-btn-back'
-            },
-            width: '600px',
-            focusConfirm: false
-        }).then((result) => {
-            if (result.isDenied) {
-                window.showIndividualOperatorDetails(arrayIndex, 'details');
-            }
-        });
     }
 };
 

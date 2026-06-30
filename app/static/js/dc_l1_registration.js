@@ -317,6 +317,10 @@ window.showL1Details = function (d, activeView) {
                     <span style="font-size: 14px; color: #666; font-weight: 600;">Request: ${d.request_code}</span>
                     <span>${statusBadge}</span>
                 </div>
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                    Submitted At: <strong>${d.created_at || '—'}</strong><br>
+                    Reviewed At: <strong>${d.reviewed_at || '—'}</strong>
+                </div>
                 
                 <!-- Hardware & User Details Card -->
                 <div style="margin-bottom: 20px;">
@@ -484,6 +488,6 @@ function exportTableToExcel(tableID, filename = 'export.xlsx') {
         return;
     }
 
-    window.location.href = `/l1-registration/export-v2?ids=${ids.join(',')}`;
+    window.location.href = `/auth/l1-registration/export-v2?ids=${ids.join(',')}`;
 }
 

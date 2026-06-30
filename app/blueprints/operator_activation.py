@@ -26,13 +26,7 @@ def backend_url():
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["GET"])
 def dc_submit_form():
-    jwt_token = session.get("access_token")
-    if not jwt_token:
-        return redirect(url_for("auth.login"))
-    return render_template(
-        "operator_activation/submit_form.html",
-        district_name=session.get("district_name", ""),
-    )
+    return redirect(url_for("operator_activation.dc_requests_list"))
 
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["POST"])
@@ -104,18 +98,10 @@ def dc_submit():
             return redirect(url_for("operator_activation.dc_requests_list"))
         else:
             error = response.json().get("detail", "Submission failed.")
-            return render_template(
-                "operator_activation/submit_form.html",
-                error=error,
-                district_name=session.get("district_name", ""),
-            )
+            return redirect(url_for("operator_activation.dc_requests_list", error=error))
 
     except requests.exceptions.ConnectionError:
-        return render_template(
-            "operator_activation/submit_form.html",
-            error="Backend offline.",
-            district_name=session.get("district_name", ""),
-        )
+        return redirect(url_for("operator_activation.dc_requests_list", error="Backend offline."))
 
 
 @operator_activation_bp.route("/dc/operator-activation/list", methods=["GET"])
@@ -133,7 +119,8 @@ def dc_requests_list():
     except requests.exceptions.ConnectionError:
         requests_list = []
 
-    return render_template("operator_activation/dc_list.html", requests=requests_list)
+    error = request.args.get("error")
+    return render_template("operator_activation/dc_list.html", requests=requests_list, error=error)
 
 
 @operator_activation_bp.route(
@@ -221,6 +208,15 @@ def dc_reapply_json_handler(id):
         "operator_mobile": request.form.get("operator_mobile", "").strip(),
         "operator_aadhaar": request.form.get("operator_aadhaar", "").strip()[-4:], # Grabs last 4 digits safely
         "operator_pan": request.form.get("operator_pan", "").strip().upper(),
+        "primary_email": request.form.get("primary_email", "").strip(),
+        "pincode": request.form.get("pincode", "").strip(),
+        "role": request.form.get("role", "").strip(),
+        "registrar_code": request.form.get("registrar_code", "").strip(),
+        "ea_code": request.form.get("ea_code", "").strip(),
+        "user_code": request.form.get("user_code", "").strip(),
+        "nseit_certificate_number": request.form.get("nseit_certificate_number", "").strip(),
+        "nseit_certification_date": request.form.get("nseit_certification_date", "").strip(),
+        "nseit_certificate_expiry_date": request.form.get("nseit_certificate_expiry_date", "").strip(),
         "reapply_remark": request.form.get("reapply_remark", "").strip(),
     }
     
@@ -443,9 +439,9 @@ def chips_export_excel():
 
     return Response(
         response.content,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        mimetype="text/csv",
         headers={
-            "Content-Disposition": "attachment; filename=sent_to_uidai.xlsx"
+            "Content-Disposition": "attachment; filename=sent_to_uidai.csv"
         },
     )
 
@@ -463,9 +459,9 @@ def chips_export_pending():
 
     return Response(
         response.content,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        mimetype="text/csv",
         headers={
-            "Content-Disposition": "attachment; filename=pending_activation_queue.xlsx"
+            "Content-Disposition": "attachment; filename=pending_activation_queue.csv"
         },
     )
 
@@ -483,8 +479,8 @@ def chips_export_credentials():
 
     return Response(
         response.content,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        mimetype="text/csv",
         headers={
-            "Content-Disposition": "attachment; filename=credentials_log_history.xlsx"
+            "Content-Disposition": "attachment; filename=credentials_log_history.csv"
         },
     )

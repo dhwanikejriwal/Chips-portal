@@ -35,6 +35,7 @@ class L1RegistrationRequest(Base):
     
     created_at = Column(DateTime, default=get_ist_now)
     updated_at = Column(DateTime, default=get_ist_now, onupdate=get_ist_now)
+    reviewed_at = Column(DateTime, nullable=True)
 
     district = relationship("District")
     remarks = relationship("L1RegistrationRemarkHistory", back_populates="parent_request", cascade="all, delete-orphan", order_by="L1RegistrationRemarkHistory.timestamp")

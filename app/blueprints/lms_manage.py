@@ -146,9 +146,9 @@ def export_lms_proxy():
         if response.status_code == 200:
             return Response(
                 response.iter_content(chunk_size=4096),
-                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                mimetype="text/csv",
                 headers={
-                    "Content-Disposition": response.headers.get("Content-Disposition", "attachment; filename=lms_requests.xlsx"),
+                    "Content-Disposition": response.headers.get("Content-Disposition", "attachment; filename=lms_requests.csv"),
                     "Cache-Control": "no-cache"
                 }
             )

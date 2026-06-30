@@ -229,10 +229,9 @@ def get_all_requests(db: Session = Depends(get_db)):
 @router.get("/export-excel")
 def export_to_excel(db: Session = Depends(get_db)):
     from fastapi.responses import StreamingResponse
-    import openpyxl
+    import csv
     import io
 
-    # 1. Query rows from database table having status as 'sent_to_uidai'
     requests_list = (
         db.query(OperatorActivationRequest)
         .filter(OperatorActivationRequest.status == "sent_to_uidai")
@@ -240,98 +239,45 @@ def export_to_excel(db: Session = Depends(get_db)):
         .all()
     )
 
-    # 2. Setup structural Workbook instance
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "UIDAI Requests Archive"
+    stream = io.StringIO()
+    writer = csv.writer(stream)
 
-    # 3. All database tracking fields mapping headers
     headers = [
-        "ID",
-        "Request Number",
-        "DC ID",
-        "District ID",
-        "Role",
-        "Name as per Aadhaar",
-        "Registrar Code",
-        "EA Code",
-        "User Code",
-        "NSEIT Certificate Number",
-        "Operator Mobile",
-        "Primary Email",
-        "Operator Aadhaar",
-        "NSEIT Certification Date",
-        "Pincode",
-        "Current Status",
-        "Submitted At",
-        "Reviewed At",
-        "UIDAI Final Remarks",
+        "Sl. No", "Role", "Name as per Aadhaar", "Registrar Code",
+        "EA Code", "User code", "Certificate Number", "Mobile Number",
+        "Primary E-mail ID", "Aadhaar Number", "Certification Date", "Any Remarks"
     ]
-    ws.append(headers)
+    writer.writerow(headers)
 
-    # 4. Pull and append ALL raw database records matching the state criteria
-    for r in requests_list:
-        ws.append(
-            [
-                r.id,
-                r.request_no if r.request_no else "—",
-                r.dc_id,
-                r.district_id,
-                r.role if r.role else "—",
-                r.name_as_per_aadhaar,
-                r.registrar_code if r.registrar_code else "—",
-                r.ea_code if r.ea_code else "—",
-                r.user_code if r.user_code else "—",
-                r.nseit_certificate_number if r.nseit_certificate_number else "—",
-                r.operator_mobile,
-                r.primary_email if r.primary_email else "—",
-                r.operator_aadhaar if r.operator_aadhaar else "—",
-                (
-                    str(r.nseit_certification_date)[:10]
-                    if r.nseit_certification_date
-                    else "—"
-                ),
-                (
-                    str(r.nseit_certificate_expiry_date)[:10]
-                    if r.nseit_certificate_expiry_date
-                    else "—"
-                ),
-                r.pincode if r.pincode else "—",
-                r.status,
-                str(r.submitted_at)[:16] if r.submitted_at else "—",
-                str(r.reviewed_at)[:16] if r.reviewed_at else "—",
-                (
-                    r.remark_to_uidai
-                    if hasattr(r, "remark_to_uidai") and r.remark_to_uidai
-                    else ""
-                ),
-            ]
-        )
+    for idx, r in enumerate(requests_list, start=1):
+        writer.writerow([
+            idx,
+            r.role if r.role else "—",
+            r.name_as_per_aadhaar,
+            r.registrar_code if r.registrar_code else "—",
+            r.ea_code if r.ea_code else "—",
+            r.user_code if r.user_code else "—",
+            r.nseit_certificate_number if r.nseit_certificate_number else "—",
+            r.operator_mobile,
+            r.primary_email if r.primary_email else "—",
+            r.operator_aadhaar if r.operator_aadhaar else "—",
+            str(r.nseit_certification_date)[:10] if r.nseit_certification_date else "—",
+            r.remark_to_uidai if hasattr(r, "remark_to_uidai") and r.remark_to_uidai else "—",
+        ])
 
-    # 5. Build raw stream buffer directly to prevent byte chunk loss
-    stream = io.BytesIO()
-    wb.save(stream)
-    file_bytes = stream.getvalue()
-    stream.close()
-
-    # 6. Stream content natively with absolute spreadsheet content headers
-    return StreamingResponse(
-        io.BytesIO(file_bytes),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": "attachment; filename=sent_to_uidai_all_fields.xlsx",
-            "Cache-Control": "no-cache",
-        },
-    )
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=sent_to_uidai_all_fields.csv"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @router.get("/export-excel/pending")
 def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
-    """Export Pending Operator Activation Queue to Excel.
+    """Export Pending Operator Activation Queue to CSV.
     Optional ?ids=1,2,3 to export only specific (filtered) rows.
     """
     from fastapi.responses import StreamingResponse
-    import openpyxl
+    import csv
     import io
 
     query = db.query(OperatorActivationRequest).filter(
@@ -343,9 +289,8 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
             query = query.filter(OperatorActivationRequest.id.in_(id_list))
     requests_list = query.order_by(OperatorActivationRequest.submitted_at.desc()).all()
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Pending Activation Queue"
+    stream = io.StringIO()
+    writer = csv.writer(stream)
 
     headers = [
         "S.No", "Request Number", "DC ID", "District ID", "Role",
@@ -354,10 +299,10 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
         "Operator Aadhaar", "NSEIT Certification Date", "Pincode",
         "Current Status", "Submitted At",
     ]
-    ws.append(headers)
+    writer.writerow(headers)
 
     for idx, r in enumerate(requests_list, start=1):
-        ws.append([
+        writer.writerow([
             idx,
             r.request_no if r.request_no else "—",
             r.dc_id,
@@ -378,28 +323,19 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
             str(r.submitted_at)[:16] if r.submitted_at else "—",
         ])
 
-    stream = io.BytesIO()
-    wb.save(stream)
-    file_bytes = stream.getvalue()
-    stream.close()
-
-    return StreamingResponse(
-        io.BytesIO(file_bytes),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": "attachment; filename=pending_activation_queue.xlsx",
-            "Cache-Control": "no-cache",
-        },
-    )
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=pending_activation_queue.csv"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @router.get("/export-excel/credentials")
 def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
-    """Export Credentials Log History (approved / rejected / reverted) to Excel.
+    """Export Credentials Log History (approved / rejected / reverted) to CSV.
     Optional ?ids=1,2,3 to export only specific (filtered) rows.
     """
     from fastapi.responses import StreamingResponse
-    import openpyxl
+    import csv
     import io
 
     query = db.query(OperatorActivationRequest).filter(
@@ -411,9 +347,8 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
             query = query.filter(OperatorActivationRequest.id.in_(id_list))
     requests_list = query.order_by(OperatorActivationRequest.submitted_at.desc()).all()
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Credentials Log History"
+    stream = io.StringIO()
+    writer = csv.writer(stream)
 
     headers = [
         "S.No", "Request Number", "DC ID", "District ID", "Role",
@@ -422,10 +357,10 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
         "Operator Aadhaar", "NSEIT Certificate Issue Date", "NSEIT Certificate Expiry Date",
         "Pincode", "Final Status", "Submitted At", "Reviewed At", "UIDAI / Admin Remarks",
     ]
-    ws.append(headers)
+    writer.writerow(headers)
 
     for idx, r in enumerate(requests_list, start=1):
-        ws.append([
+        writer.writerow([
             idx,
             r.request_no if r.request_no else "—",
             r.dc_id,
@@ -448,19 +383,10 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
             r.remark_to_uidai if r.remark_to_uidai else "—",
         ])
 
-    stream = io.BytesIO()
-    wb.save(stream)
-    file_bytes = stream.getvalue()
-    stream.close()
-
-    return StreamingResponse(
-        io.BytesIO(file_bytes),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": "attachment; filename=credentials_log_history.xlsx",
-            "Cache-Control": "no-cache",
-        },
-    )
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=credentials_log_history.csv"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @router.get("/{request_id}")
@@ -702,6 +628,15 @@ def reapply_request(
     operator_mobile: str = Form(...),
     operator_aadhaar: str = Form(None),
     operator_pan: str = Form(None),
+    primary_email: str = Form(None),
+    pincode: str = Form(None),
+    role: str = Form(None),
+    registrar_code: str = Form(None),
+    ea_code: str = Form(None),
+    user_code: str = Form(None),
+    nseit_certificate_number: str = Form(None),
+    nseit_certification_date: str = Form(None),
+    nseit_certificate_expiry_date: str = Form(None),
     reapply_remark: str = Form(...),
     db: Session = Depends(get_db),
 ):
@@ -713,19 +648,37 @@ def reapply_request(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    # Only a reverted request can be corrected and sent back to CHIPS
-    # 🌟 FIXED: Allows reapplying requests whether they were reverted by Admin or rejected by UIDAI
     if r.status not in ["reverted", "rejected"]:
         raise HTTPException(
             status_code=400, detail=f"Cannot reapply a request with status: {r.status}"
         )
 
-    # Update operator details
     if operator_name:
         r.name_as_per_aadhaar = operator_name
-    r.operator_mobile = operator_mobile
-    r.operator_aadhaar = operator_aadhaar
-    r.pan_number = operator_pan.upper() if operator_pan else r.pan_number
+    if operator_mobile:
+        r.operator_mobile = operator_mobile
+    if operator_aadhaar:
+        r.operator_aadhaar = operator_aadhaar
+    if operator_pan:
+        r.pan_number = operator_pan.upper()
+    if primary_email:
+        r.primary_email = primary_email
+    if pincode:
+        r.pincode = pincode
+    if role:
+        r.role = role
+    if registrar_code:
+        r.registrar_code = registrar_code
+    if ea_code:
+        r.ea_code = ea_code
+    if user_code:
+        r.user_code = user_code
+    if nseit_certificate_number:
+        r.nseit_certificate_number = nseit_certificate_number
+    if nseit_certification_date:
+        r.nseit_certification_date = nseit_certification_date
+    if nseit_certificate_expiry_date:
+        r.nseit_certificate_expiry_date = nseit_certificate_expiry_date
 
     # Reset status back to sent_to_chips so CHIPS admin receives the corrected request
     r.status = "sent_to_chips"

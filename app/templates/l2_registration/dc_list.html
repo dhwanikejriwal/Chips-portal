@@ -7,104 +7,66 @@
 {% endblock %}
 
 {% block content %}
-<!-- Header -->
-<div class="dash-header">
-    <div>
-        <h2 class="dash-title">L2 Registration Dashboard</h2>
-        <p class="dash-subtitle">Track and manage your L2 Registration requests</p>
-    </div>
-    <a href="/auth/dc/l2-registration/new" class="btn-new-request">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-        New Request
-    </a>
-</div>
-
-<!-- Stats Row -->
-<div class="stats-row-7">
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#eff6ff;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
-                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+<!-- Standardized L2 Registration Dashboard Banner -->
+<div class="chips-header-banner">
+    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div
+                style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+            </div>
+            <div>
+                <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">L2 Registration Dashboard</h1>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Track and manage your L2 Registration
+                    requests</p>
+            </div>
+        </div>
+        <a href="/auth/dc/l2-registration/new"
+            style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); color: white; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; transition: background 0.2s;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-        </div>
-        <div>
-            <div class="stat-num" id="stat-total">{{ requests | length }}</div>
-            <div class="stat-lbl">Total Requests</div>
-        </div>
+            New Request
+        </a>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fef9c3;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-            </svg>
+    <div class="chips-banner-metrics">
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-pending">{{
+                requests | selectattr('status', 'in', ['pending', 'sent_to_chips', 'reapplied']) | list | length }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
+            </div>
         </div>
-        <div>
-            <div class="stat-num" style="color:#f59e0b;" id="stat-pending">{{ requests | selectattr('status', 'in', ['pending', 'sent_to_chips']) | list | length }}</div>
-            <div class="stat-lbl">Pending / CHiPS</div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-sent-to-uidai">{{
+                requests | selectattr('status', 'equalto', 'sent_to_uidai') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
+            </div>
         </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#ffedd5;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2">
-                <path d="M23 4v6h-6"></path>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-            </svg>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-reverted">{{
+                requests | selectattr('status', 'equalto', 'reverted') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
-        <div>
-            <div class="stat-num" style="color:#d97706;" id="stat-reapplied">{{ requests | selectattr('status', 'equalto', 'reapplied') | list | length }}</div>
-            <div class="stat-lbl">Reapplied</div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-rejected">{{
+                requests | selectattr('status', 'equalto', 'rejected') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
         </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#e0f2fe;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-approved">{{
+                requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
         </div>
-        <div>
-            <div class="stat-num" style="color:#0284c7;" id="stat-sent-to-uidai">{{ requests | selectattr('status', 'equalto', 'sent_to_uidai') | list | length }}</div>
-            <div class="stat-lbl">Sent to UIDAI</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#dcfce7;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2">
-                <polyline points="20 6 9 17 4 12" />
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#16a34a;" id="stat-approved">{{ requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
-            <div class="stat-lbl">Approved</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fee2e2;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                <path d="M3 3v5h5"></path>
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#dc2626;" id="stat-reverted">{{ requests | selectattr('status', 'equalto', 'reverted') | list | length }}</div>
-            <div class="stat-lbl">Reverted</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background:#fee2e2;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
-        </div>
-        <div>
-            <div class="stat-num" style="color:#b91c1c;" id="stat-rejected">{{ requests | selectattr('status', 'equalto', 'rejected') | list | length }}</div>
-            <div class="stat-lbl">Rejected</div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{
+                requests | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
+            </div>
         </div>
     </div>
 </div>
@@ -127,7 +89,11 @@
     </div>
     <div class="filter-group-button" style="flex: 0 0 auto;">
         <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
             Clear Filters
         </button>
     </div>
@@ -139,13 +105,15 @@
     <h3>Pending L2 Registration Queue</h3>
     <span class="section-count" id="pending-count">–</span>
     <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <select id="pending-status-filter" class="filter-input" style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
+        <select id="pending-status-filter" class="filter-input"
+            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
             <option value="all">All Statuses</option>
             <option value="pending">Pending</option>
             <option value="reapplied">Reapplied</option>
             <option value="reverted">Reverted / Rejected</option>
         </select>
-        <button class="btn btn-sm" onclick="exportTableToExcel('pending-requests-table', 'pending_l2_registrations.xlsx')">Export to Excel</button>
+        <button class="btn btn-sm" onclick="exportFilteredL2('pending')">Export to
+            CSV</button>
     </div>
 </div>
 <div class="sid-table-wrapper" style="margin-bottom: 28px;">
@@ -206,7 +174,7 @@
         </tbody>
     </table>
     <div id="pending-empty-msg" class="empty-state" style="display: none;">
-        <div class="empty-state-icon">📥</div>
+        <div class="empty-state-icon"></div>
         <p>No pending pipeline records found matching current filter scope.</p>
     </div>
 </div>
@@ -217,11 +185,13 @@
     <h3>L2 Registration Log History</h3>
     <span class="section-count" id="approved-count">–</span>
     <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <select id="approved-status-filter" class="filter-input" style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
+        <select id="approved-status-filter" class="filter-input"
+            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
             <option value="all">All Statuses</option>
             <option value="approved">Approved</option>
         </select>
-        <button class="btn btn-sm" onclick="exportTableToExcel('approved-requests-table', 'l2_registration_log_history.xlsx')">Export to Excel</button>
+        <button class="btn btn-sm" onclick="exportFilteredL2('credentials')">Export to
+            CSV</button>
     </div>
 </div>
 <div class="sid-table-wrapper">
@@ -235,7 +205,7 @@
                 <th>Client Version & Type</th>
                 <th>Status</th>
                 <th>Submitted At</th>
-                <th>Approved At</th>
+                <th>Completed At</th>
                 <th style="text-align: center; width: 120px;">Action</th>
             </tr>
         </thead>
@@ -270,7 +240,7 @@
                     <span class="sid-badge sid-badge-approved">Approved</span>
                 </td>
                 <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
-                <td>{{ r.reviewed_at if r.reviewed_at else '—' }}</td>
+                <td>{{ r.completed_at if r.completed_at else (r.reviewed_at if r.reviewed_at else '—') }}</td>
                 <td style="text-align: center;">
                     <button class="btn-details" onclick="openL2DetailsModal(this.closest('tr'))">
                         Details
@@ -282,7 +252,7 @@
         </tbody>
     </table>
     <div id="approved-empty-msg" class="empty-state" style="display: none;">
-        <div class="empty-state-icon">✅</div>
+        <div class="empty-state-icon"></div>
         <p>No approved request history records found matching current filter scope.</p>
     </div>
 </div>
@@ -431,7 +401,7 @@
             const isChips = item.author_role === 'CHIPS_ADMIN' || item.author_role === 'chips';
             const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
             const senderClass = isChips ? 'chips' : 'dc';
-            
+
             const statusAfter = item.status_after || '';
             let statusBadgeHtmlInline = '';
             let markerClass = 'marker-pending';
@@ -470,7 +440,7 @@
 
     window.showL2Details = function (d, activeView) {
         const isRevertable = (d.status === 'reverted' || d.status === 'rejected');
-        
+
         const statusBadge = getStatusBadgeHtml(d.status);
 
         const infoHtml = `
@@ -774,7 +744,7 @@
         }
         else if (activeView === 'remarks') {
             let remarks = [];
-            try { remarks = JSON.parse(d.remarksStr); } catch(e){}
+            try { remarks = JSON.parse(d.remarksStr); } catch (e) { }
             const remarksHtml = buildRemarksHtml(remarks);
 
             const timelineHtmlContent = `
@@ -834,6 +804,34 @@
         window.showL2Details(d, 'details');
     }
 
+    // Export filtered rows by sending IDs to backend
+    function exportFilteredL2(section) {
+        let tbodyId;
+        let exportUrl = `/admin-dc/export-l2/${section}`;
+        if (section === 'pending') {
+            tbodyId = 'pending-requests-tbody';
+        } else if (section === 'credentials') {
+            tbodyId = 'approved-requests-tbody';
+        }
+
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+
+        // Get IDs of currently visible rows
+        const rows = tbody.querySelectorAll('tr');
+        let ids = [];
+        rows.forEach(r => {
+            if (r.style.display !== 'none' && r.getAttribute('data-id')) {
+                ids.push(r.getAttribute('data-id'));
+            }
+        });
+
+        if (ids.length > 0) {
+            exportUrl += '?ids=' + ids.join(',');
+        }
+        window.location.href = exportUrl;
+    }
+
     // Export helper function to XLSX format using SheetJS (XLSX) library
     function exportTableToExcel(tableID, filename = 'export.xlsx') {
         const table = document.getElementById(tableID);
@@ -844,7 +842,7 @@
         const headers = headerRow ? headerRow.querySelectorAll('th') : [];
         const validIndices = [];
         const headerData = [];
-        
+
         headers.forEach((th, idx) => {
             const text = th.innerText.trim();
             if (text !== "Actions" && text !== "Action") {

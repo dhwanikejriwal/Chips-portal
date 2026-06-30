@@ -4,7 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Candidate, NSEITRequest, NSEITRemark, UserLogin, MasterUserRole
-from backend.utils.exporter import generate_excel_export
+from backend.utils.exporter import generate_csv_export
 
 router = APIRouter(prefix="/nseit_manage", tags=["nseit_manage"])
 
@@ -225,4 +225,4 @@ def export_nseit_excel(ids: str = None, db: Session = Depends(get_db)):
         "updated_at": "Updated At",
     }
 
-    return generate_excel_export(export_data, column_mappings, "nseit_requests")
+    return generate_csv_export(export_data, column_mappings, "nseit_requests")
