@@ -66,32 +66,36 @@ def extract_text_from_file(upload_file: UploadFile) -> str:
     finally:
         upload_file.file.seek(0)
 
-def validate_aadhaar(extracted_text: str, operator_name: str) -> None:
+def validate_aadhaar(extracted_text: str, operator_name: str) -> str | None:
     if not extracted_text:
-        return
+        return None
     if "INCOME TAX DEPARTMENT" in extracted_text or "INCOME TAX" in extracted_text:
-        raise HTTPException(status_code=400, detail="Validation Error: The uploaded Aadhaar document appears to be a PAN Card.")
+        return "Validation Error: The uploaded Aadhaar document appears to be a PAN Card."
     if operator_name:
         name_upper = operator_name.upper().strip()
         score = fuzz.token_set_ratio(name_upper, extracted_text)
         if score < 70:
-            raise HTTPException(status_code=400, detail=f"Validation Error: Operator name '{operator_name}' does not match the name found in the uploaded Aadhaar document (Match score: {score}%).")
+            return f"Validation Error: Operator name '{operator_name}' does not match the name found in the uploaded Aadhaar document (Match score: {score}%)."
+    return None
 
-def validate_pan(extracted_text: str, operator_name: str) -> None:
+def validate_pan(extracted_text: str, operator_name: str) -> str | None:
     if not extracted_text:
-        return
+        return None
     if "AADHAAR" in extracted_text or "UNIQUE IDENTIFICATION AUTHORITY" in extracted_text:
-        raise HTTPException(status_code=400, detail="Validation Error: The uploaded PAN document appears to be an Aadhaar Card.")
+        return "Validation Error: The uploaded PAN document appears to be an Aadhaar Card."
     if operator_name:
         name_upper = operator_name.upper().strip()
         score = fuzz.token_set_ratio(name_upper, extracted_text)
         if score < 70:
-            raise HTTPException(status_code=400, detail=f"Validation Error: Operator name '{operator_name}' does not match the name found in the uploaded PAN document (Match score: {score}%).")
+            return f"Validation Error: Operator name '{operator_name}' does not match the name found in the uploaded PAN document (Match score: {score}%)."
+    return None
 
 def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: str) -> None:
     """Validates if the text looks like a marksheet, and matches name and DOB."""
     if not extracted_text:
         return
+
+    errors = {}
 
     # Rule 1: Document Classification
     keywords = ["BOARD", "EXAMINATION", "SECONDARY", "CERTIFICATE", "MARKS", "SCHOOL", "अंक", "प्रमाण", "परीक्षा"]
@@ -104,132 +108,106 @@ def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: 
         name_upper = candidate_name.upper().strip()
         score = fuzz.token_set_ratio(name_upper, extracted_text)
         if score < 65:
-            raise ValueError(f"Validation Error: Candidate name '{candidate_name}' does not match the name found in the uploaded Marksheet.")
+            errors['name'] = f"Candidate name '{candidate_name}' does not match the name found in the uploaded Marksheet."
 
     # Rule 3: DOB Verification
     if candidate_dob:
         try:
             parsed_dob = datetime.strptime(candidate_dob, "%Y-%m-%d")
         except ValueError:
-            raise ValueError("Validation Error: Invalid DOB format submitted.")
+            errors['dob'] = "Invalid DOB format submitted."
+        else:
+            # Common DOB formats: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
+            date_patterns = [
+                r'\b(\d{2})[-/.](\d{2})[-/.](\d{4})\b',
+                r'\b(\d{4})[-/.](\d{2})[-/.](\d{2})\b'
+            ]
             
-        # Common DOB formats: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
-        date_patterns = [
-            r'\b(\d{2})[-/.](\d{2})[-/.](\d{4})\b',
-            r'\b(\d{4})[-/.](\d{2})[-/.](\d{2})\b'
-        ]
-        
-        found_match = False
-        extracted_dates = []
-        for pattern in date_patterns:
-            matches = re.findall(pattern, extracted_text)
-            for match in matches:
-                if len(match[0]) == 4: # YYYY-MM-DD
-                    dt_str = f"{match[0]}-{match[1]}-{match[2]}"
-                    fmt = "%Y-%m-%d"
-                else: # DD-MM-YYYY
-                    dt_str = f"{match[0]}-{match[1]}-{match[2]}"
-                    fmt = "%d-%m-%Y"
-                
-                try:
-                    found_date = datetime.strptime(dt_str, fmt)
-                    extracted_dates.append(found_date)
-                    if found_date == parsed_dob:
-                        found_match = True
-                        break
-                except ValueError:
-                    continue
-            if found_match:
-                break
-                
-        if extracted_dates and not found_match:
-            raise ValueError(f"Validation Error: DOB '{candidate_dob}' does not match the date(s) found on the Marksheet.")
+            found_match = False
+            extracted_dates = []
+            for pattern in date_patterns:
+                matches = re.findall(pattern, extracted_text)
+                for match in matches:
+                    if len(match[0]) == 4: # YYYY-MM-DD
+                        dt_str = f"{match[0]}-{match[1]}-{match[2]}"
+                        fmt = "%Y-%m-%d"
+                    else: # DD-MM-YYYY
+                        dt_str = f"{match[0]}-{match[1]}-{match[2]}"
+                        fmt = "%d-%m-%Y"
+                    
+                    try:
+                        found_date = datetime.strptime(dt_str, fmt)
+                        extracted_dates.append(found_date)
+                        if found_date == parsed_dob:
+                            found_match = True
+                            break
+                    except ValueError:
+                        continue
+                if found_match:
+                    break
+                    
+            if extracted_dates and not found_match:
+                errors['dob'] = f"DOB '{candidate_dob}' does not match the date(s) found on the Marksheet."
 
-def validate_consent_form(extracted_text: str, operator_name: str) -> None:
+    if errors:
+        import json
+        raise ValueError(json.dumps({'field_errors': errors}))
+
+def validate_consent_form(extracted_text: str, operator_name: str) -> str | None:
     if not extracted_text:
-        return
-
+        return None
     keywords = ["CONSENT", "AGREEMENT", "AUTHORIZATION", "FORM", "DECLARATION"]
     matches = sum(1 for kw in keywords if kw in extracted_text)
     if matches < 1:
-        raise HTTPException(status_code=400, detail="Validation Error: The uploaded document does not appear to be a valid Consent Form.")
-
+        return "Validation Error: The uploaded document does not appear to be a Consent Form."
     if operator_name:
         name_upper = operator_name.upper().strip()
         score = fuzz.token_set_ratio(name_upper, extracted_text)
-        if score < 65:
-            raise HTTPException(status_code=400, detail=f"Validation Error: Operator name '{operator_name}' does not match the name found in the Consent Form.")
+        if score < 50:
+            return f"Validation Error: Operator name '{operator_name}' does not match the name found in the uploaded Consent Form (Match score: {score}%)."
+    return None
 
-def validate_passbook(extracted_text: str, operator_name: str) -> None:
+def validate_passbook(extracted_text: str, operator_name: str) -> str | None:
     if not extracted_text:
-        return
-
-    keywords = ["BANK", "ACCOUNT", "BRANCH", "IFSC", "PASSBOOK", "STATEMENT"]
+        return None
+    keywords = ["BANK", "BRANCH", "ACCOUNT", "IFSC", "PASSBOOK", "STATEMENT"]
     matches = sum(1 for kw in keywords if kw in extracted_text)
     if matches < 1:
-        raise HTTPException(status_code=400, detail="Validation Error: The uploaded document does not appear to be a valid Bank Passbook.")
-
+        return "Validation Error: The uploaded document does not appear to be a valid Bank Passbook or statement."
     if operator_name:
         name_upper = operator_name.upper().strip()
         score = fuzz.token_set_ratio(name_upper, extracted_text)
-        if score < 65:
-            raise HTTPException(status_code=400, detail=f"Validation Error: Operator name '{operator_name}' does not match the name found in the Bank Passbook.")
+        if score < 50:
+            return f"Validation Error: Operator name '{operator_name}' does not match the name found in the Passbook (Match score: {score}%)."
+    return None
 
-def validate_nseit_certificate(extracted_text: str, operator_name: str, cert_number: str) -> None:
+def validate_nseit_certificate(extracted_text: str, operator_name: str, cert_number: str) -> str | None:
     if not extracted_text:
-        return
-
-    keywords = ["NSEIT", "CERTIFICATE", "UIDAI", "EXAM", "QUALIFIED", "SUPERVISOR", "OPERATOR"]
+        return None
+    keywords = ["NSEIT", "CERTIFICATE", "TESTING", "CERTIFICATION", "UIDAI", "AADHAAR"]
     matches = sum(1 for kw in keywords if kw in extracted_text)
-    if matches < 1:
-        raise HTTPException(status_code=400, detail="Validation Error: The uploaded document does not appear to be a valid NSEIT Certificate.")
-
+    if matches < 2:
+        return "Validation Error: The uploaded document does not appear to be a valid NSEIT Certificate."
     if operator_name:
         name_upper = operator_name.upper().strip()
         score = fuzz.token_set_ratio(name_upper, extracted_text)
-        if score < 65:
-            raise HTTPException(status_code=400, detail=f"Validation Error: Operator name '{operator_name}' does not match the name found in the NSEIT Certificate.")
-
+        if score < 60:
+            return f"Validation Error: Operator name '{operator_name}' does not match the name found in the NSEIT Certificate (Match score: {score}%)."
     if cert_number:
-        # Check if the exact or mostly exact cert number exists
-        cert_upper = cert_number.upper().strip()
-        if cert_upper not in extracted_text:
-            # Try a fuzzy substring match for the cert number as well to allow for minor OCR errors (e.g. 0 vs O)
-            cert_score = fuzz.partial_ratio(cert_upper, extracted_text)
-            if cert_score < 80:
-                raise HTTPException(status_code=400, detail=f"Validation Error: NSEIT Certificate number '{cert_number}' not found on the uploaded Certificate document.")
+        if cert_number.upper() not in extracted_text.upper():
+            return f"Validation Error: Certificate number '{cert_number}' was not found in the uploaded document."
+    return None
 
-def validate_excel_sheet(file_bytes: bytes, operator_name: str, operator_mobile: str) -> None:
-    import openpyxl
+def validate_excel_sheet(file_bytes: bytes, operator_name: str, operator_mobile: str) -> str | None:
     try:
-        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
-        ws = wb.active
-        
-        content_chunks = []
-        for row in ws.iter_rows(values_only=True):
-            for cell in row:
-                if cell:
-                    content_chunks.append(str(cell).upper())
-                    
-        full_content = " ".join(content_chunks)
-        
-        # We enforce that the Operator's Name or Mobile must exist in the Excel sheet
-        # If neither is found, it's likely a blank or completely wrong sheet.
-        name_found = False
-        if operator_name:
-            name_upper = operator_name.upper().strip()
-            score = fuzz.token_set_ratio(name_upper, full_content)
-            if score >= 70:
-                name_found = True
-                
-        mobile_found = False
-        if operator_mobile and operator_mobile in full_content:
-            mobile_found = True
-            
-        if not (name_found or mobile_found):
-            raise HTTPException(status_code=400, detail="Validation Error: Operator Details Excel Sheet does not contain the specified Operator Name or Mobile Number.")
-            
-    except HTTPException:
-        raise
+        df = pd.read_excel(io.BytesIO(file_bytes))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Validation Error: Could not read Operator Details Excel Sheet. Ensure it is a valid .xlsx file. Error: {str(e)}")
+        return "Validation Error: Could not read the uploaded Excel sheet. Please ensure it is a valid format."
+    text_content = df.to_string().upper()
+    if operator_name:
+        if operator_name.upper().strip() not in text_content:
+            return f"Validation Error: Operator name '{operator_name}' was not found in the Excel sheet."
+    if operator_mobile:
+        if str(operator_mobile) not in text_content:
+            return f"Validation Error: Operator mobile '{operator_mobile}' was not found in the Excel sheet."
+    return None

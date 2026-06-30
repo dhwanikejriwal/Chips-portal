@@ -97,8 +97,11 @@ def dc_submit():
         if response.status_code == 200:
             return jsonify({"status": "success", "redirect_url": url_for("operator_activation.dc_requests_list")}), 200
         else:
-            error = response.json().get("detail", "Submission failed.")
-            return jsonify({"status": "error", "message": error}), 400
+            detail = response.json().get("detail", "Submission failed.")
+            if isinstance(detail, dict) and "field_errors" in detail:
+                return jsonify({"status": "error", "field_errors": detail["field_errors"]}), 400
+            else:
+                return jsonify({"status": "error", "message": detail}), 400
 
     except requests.exceptions.ConnectionError:
         return jsonify({"status": "error", "message": "Backend offline."}), 500

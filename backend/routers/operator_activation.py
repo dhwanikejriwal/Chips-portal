@@ -104,30 +104,42 @@ def submit_operator_activation(
 
     # --- OCR Validation Logic ---
     try:
+        field_errors = {}
+        
         # Extract text from Aadhaar and validate
         aadhaar_text = extract_text_from_file(aadhaar_photo)
-        validate_aadhaar(aadhaar_text, name_as_per_aadhaar)
+        err = validate_aadhaar(aadhaar_text, name_as_per_aadhaar)
+        if err: field_errors['aadhaar_photo'] = err
         
         # Extract text from PAN and validate
         pan_text = extract_text_from_file(pan_card)
-        validate_pan(pan_text, name_as_per_aadhaar)
+        err = validate_pan(pan_text, name_as_per_aadhaar)
+        if err: field_errors['pan_card'] = err
 
         # Validate Consent Form
         consent_text = extract_text_from_file(hard_copy_form)
-        validate_consent_form(consent_text, name_as_per_aadhaar)
+        err = validate_consent_form(consent_text, name_as_per_aadhaar)
+        if err: field_errors['hard_copy_form'] = err
 
         # Validate Passbook
         passbook_text = extract_text_from_file(passbook)
-        validate_passbook(passbook_text, name_as_per_aadhaar)
+        err = validate_passbook(passbook_text, name_as_per_aadhaar)
+        if err: field_errors['passbook'] = err
 
         # Validate NSEIT Certificate
         nseit_text = extract_text_from_file(nseit_certificate)
-        validate_nseit_certificate(nseit_text, name_as_per_aadhaar, nseit_certificate_number)
+        err = validate_nseit_certificate(nseit_text, name_as_per_aadhaar, nseit_certificate_number)
+        if err: field_errors['nseit_certificate'] = err
 
         # Validate Excel Sheet
         excel_bytes = excel_sheet.file.read()
-        validate_excel_sheet(excel_bytes, name_as_per_aadhaar, operator_mobile)
+        err = validate_excel_sheet(excel_bytes, name_as_per_aadhaar, operator_mobile)
+        if err: field_errors['excel_sheet'] = err
         excel_sheet.file.seek(0)
+        
+        if field_errors:
+            raise HTTPException(status_code=400, detail={"field_errors": field_errors})
+            
     except HTTPException:
         db.rollback() # Rollback request creation if validation fails
         raise

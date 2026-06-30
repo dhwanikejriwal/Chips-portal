@@ -93,7 +93,17 @@ def register():
                     extracted_text = extract_text_from_bytes(tenth_bytes, tenth_file.content_type, lang="eng+hin")
                     validate_marksheet(extracted_text, name, dob)
                 except ValueError as e:
-                    return render_template("user/register.html", error=str(e), form_data=request.form, districts=districts)
+                    import json
+                    error_msg = str(e)
+                    field_errors = {}
+                    if error_msg.startswith('{"field_errors"'):
+                        try:
+                            parsed = json.loads(error_msg)
+                            field_errors = parsed.get("field_errors", {})
+                            error_msg = None
+                        except Exception:
+                            pass
+                    return render_template("user/register.html", error=error_msg, field_errors=field_errors, form_data=request.form, districts=districts)
 
                 result = save_upload(tenth_file, upload_folder)
                 if result == "TOO_LARGE":
@@ -113,7 +123,17 @@ def register():
                     extracted_text = extract_text_from_bytes(tenth_bytes, tenth_file.content_type, lang="eng+hin")
                     validate_marksheet(extracted_text, name, dob)
                 except ValueError as e:
-                    return render_template("user/register.html", error=str(e), form_data=request.form, districts=districts)
+                    import json
+                    error_msg = str(e)
+                    field_errors = {}
+                    if error_msg.startswith('{"field_errors"'):
+                        try:
+                            parsed = json.loads(error_msg)
+                            field_errors = parsed.get("field_errors", {})
+                            error_msg = None
+                        except Exception:
+                            pass
+                    return render_template("user/register.html", error=error_msg, field_errors=field_errors, form_data=request.form, districts=districts)
 
                 result = save_upload(tenth_file, upload_folder)
                 if result == "TOO_LARGE":
