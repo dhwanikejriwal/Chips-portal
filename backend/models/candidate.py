@@ -58,6 +58,7 @@ class CandidateLogin(Base):
     r_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidate_table.r_id"), unique=True, nullable=False)
     user_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
+    has_changed_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     candidate: Mapped[Candidate] = relationship("Candidate", back_populates="login")

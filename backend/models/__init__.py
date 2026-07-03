@@ -21,6 +21,7 @@ from backend.models.operator_activation import (
     OperatorActivationRemark,
 )
 from backend.models.station_id import StationIDRequest, StationIDRemark
+from backend.models.otp_verification import OtpVerification
 
 __all__ = [
     "Base",
@@ -49,4 +50,5 @@ __all__ = [
     "OperatorActivationRemark",
     "StationIDRequest",
     "StationIDRemark",
+    "OtpVerification",
 ]

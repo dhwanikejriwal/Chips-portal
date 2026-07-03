@@ -35,6 +35,7 @@ def login():
                     return redirect(url_for("dashboard.dc_dashboard"))
                 elif data["role"] == "Candidate":
                     session["r_id"] = data.get("r_id")
+                    session["has_changed_password"] = data.get("has_changed_password", True)
                     return redirect(url_for("candidate.instructions"))
                 else:
                     flash("Role not supported in this interface.", "danger")
@@ -55,6 +56,34 @@ def logout():
     if role == "Candidate":
         return redirect(url_for("auth.login", mode="candidate"))
     return redirect(url_for("auth.login"))
+
+
+@auth_bp.route("/forgot-password", methods=["GET"])
+def forgot_password():
+    return render_template("auth/forgot_password.html")
+
+@auth_bp.route("/api/send-reset-otp", methods=["POST"])
+def send_reset_otp():
+    username = request.json.get("username")
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/auth/forgot-password"
+    try:
+        response = requests.post(backend_url, json={"username": username})
+        return response.json(), response.status_code
+    except requests.exceptions.RequestException:
+        return {"success": False, "detail": "Error connecting to backend API server."}, 500
+
+@auth_bp.route("/api/verify-reset-otp", methods=["POST"])
+def verify_reset_otp():
+    payload = request.json
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/auth/reset-password"
+    try:
+        response = requests.post(backend_url, json=payload)
+        # If successful, we can also flash a message for the next page load (login)
+        if response.status_code == 200:
+            flash("Password reset successfully. You can now login.", "success")
+        return response.json(), response.status_code
+    except requests.exceptions.RequestException:
+        return {"success": False, "detail": "Error connecting to backend API server."}, 500
 
 
 # =========================================================================

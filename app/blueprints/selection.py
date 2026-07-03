@@ -18,6 +18,9 @@ def dc_candidate_requests():
             candidates = response.json()
             pending_requests = [c for c in candidates if c["status"] == "Pending"]
             approved_requests = [c for c in candidates if c["status"] in ["Approved", "Rejected"]]
+        else:
+            print(f"Backend API returned {response.status_code}: {response.text}")
+            flash(f"Backend error: {response.text[:100]}", "danger")
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         

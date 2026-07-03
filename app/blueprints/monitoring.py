@@ -1,5 +1,5 @@
 import requests
-from flask import Blueprint, render_template, redirect, url_for, session, flash, current_app, jsonify
+from flask import Blueprint, render_template, redirect, url_for, session, flash, current_app, jsonify, request
 
 monitoring_bp = Blueprint("monitoring", __name__)
 
@@ -9,7 +9,8 @@ def dc_monitoring():
         flash("Unauthorized access. Please log in.", "danger")
         return redirect(url_for("auth.login"))
         
-    backend_url = f"{current_app.config['BACKEND_API_URL']}/monitoring/dc-stats"
+    timeframe = request.args.get("timeframe", "all")
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/monitoring/dc-stats?timeframe={timeframe}"
     districts_stats = []
     try:
         response = requests.get(backend_url)
@@ -20,7 +21,8 @@ def dc_monitoring():
         
     return render_template(
         "chips/dc_monitoring.html",
-        districts_stats=districts_stats
+        districts_stats=districts_stats,
+        current_timeframe=timeframe
     )
 
 @monitoring_bp.route("/chips/dc-monitoring/district-detail/<district_code>")

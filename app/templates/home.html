@@ -542,6 +542,11 @@
       Candidate Login
     </a>
   </div>
+  <div style="margin-top: 16px;">
+    <a href="javascript:void(0)" onclick="openTrackModal()" style="font-size: 14px; color: var(--primary-color); font-weight: 500; text-decoration: underline; cursor: pointer;">
+      Track Application Status
+    </a>
+  </div>
   <div class="hero-trust">
     <div class="trust-item">
       <div class="trust-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
@@ -754,4 +759,143 @@
     <a href="{{ url_for('auth.login', mode='candidate') }}" class="btn-ghost-white">DC / CHIPS Login</a>
   </div>
 </div>
+
+<!-- TRACK APPLICATION MODAL -->
+<style>
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  .modal-box {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  }
+  .modal-close {
+    float: right;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--color-text-muted);
+  }
+  .track-result {
+    margin-top: 24px;
+    padding: 16px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    display: none;
+  }
+  .track-status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+</style>
+
+<div id="trackModal" class="modal-overlay">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeTrackModal()">&times;</button>
+    <h2 style="font-size: 20px; margin-bottom: 8px;">Track Application</h2>
+    <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 24px;">
+      Enter your registered email or mobile number to check your status.
+    </p>
+
+    <div id="trackError" style="color: #ef4444; font-size: 14px; margin-bottom: 12px; display: none;"></div>
+
+    <div class="form-group" style="margin-bottom: 16px;">
+      <input type="text" id="trackIdentifier" class="form-control" placeholder="Email or Mobile Number" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+    </div>
+    
+    <button id="btnTrack" onclick="submitTrack()" class="btn-cta-primary" style="width: 100%; justify-content: center; border: none; padding: 12px; cursor: pointer;">
+      Check Status
+    </button>
+
+    <div id="trackResult" class="track-result">
+      <div style="font-size: 13px; color: var(--color-text-muted);">Applicant Name</div>
+      <div id="resName" style="font-weight: 600; margin-bottom: 12px;"></div>
+
+      <div style="font-size: 13px; color: var(--color-text-muted);">Request Code</div>
+      <div id="resCode" style="font-family: monospace; font-size: 15px; margin-bottom: 12px;"></div>
+
+      <div style="font-size: 13px; color: var(--color-text-muted);">Status</div>
+      <div id="resStatusBadge" class="track-status-badge"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openTrackModal() {
+    document.getElementById('trackModal').style.display = 'flex';
+    document.getElementById('trackIdentifier').value = '';
+    document.getElementById('trackResult').style.display = 'none';
+    document.getElementById('trackError').style.display = 'none';
+  }
+  
+  function closeTrackModal() {
+    document.getElementById('trackModal').style.display = 'none';
+  }
+
+  async function submitTrack() {
+    const identifier = document.getElementById('trackIdentifier').value;
+    if (!identifier) return;
+
+    const btn = document.getElementById('btnTrack');
+    const err = document.getElementById('trackError');
+    const res = document.getElementById('trackResult');
+
+    btn.disabled = true;
+    btn.textContent = "Checking...";
+    err.style.display = 'none';
+    res.style.display = 'none';
+
+    try {
+      const response = await fetch("{{ url_for('candidate_register.track') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: identifier })
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        document.getElementById('resName').textContent = data.name;
+        document.getElementById('resCode').textContent = data.request_code;
+        
+        const badge = document.getElementById('resStatusBadge');
+        badge.textContent = data.status;
+        
+        if (data.status.toLowerCase() === 'approved') {
+          badge.style.backgroundColor = '#dcfce7'; badge.style.color = '#166534';
+        } else if (data.status.toLowerCase() === 'rejected') {
+          badge.style.backgroundColor = '#fee2e2'; badge.style.color = '#991b1b';
+        } else {
+          badge.style.backgroundColor = '#fef9c3'; badge.style.color = '#854d0e';
+        }
+
+        res.style.display = 'block';
+      } else {
+        err.textContent = data.detail || "Application not found.";
+        err.style.display = 'block';
+      }
+    } catch (e) {
+      err.textContent = "Network error. Please try again.";
+      err.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Check Status";
+    }
+  }
+</script>
 {% endblock %}
