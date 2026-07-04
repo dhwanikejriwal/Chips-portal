@@ -8,11 +8,7 @@ class Config:
     """Core application configuration class."""
     # Flask Security Settings
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-fallback-key-change-in-production")
+    DEBUG = True
     
-    # =====================================================================
-    # FUTURE SCALABILITY SCRIPTS (For Member 2 & Member 3)
-    # Your teammates can drop their Redis/Celery/Email settings right here:
-    # =====================================================================
-    # CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    # MAIL_SERVER = 'smtp.gmail.com'
-    # MAIL_PORT = 587
+    # URL of the FastAPI backend API
+    BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://127.0.0.1:8000/api")

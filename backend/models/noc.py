@@ -17,8 +17,8 @@ class NocRequest(Base):
     operator_last_name = Column(String(100), nullable=False)
     
     # Tracking references
-    district_id = Column(Integer, ForeignKey("districts.id"), nullable=False)
-    submitted_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    district_id = Column(Integer, ForeignKey("district_table.id"), nullable=False)
+    submitted_by_id = Column(Integer, ForeignKey("user_login_table.id"), nullable=False)
     
     # States
     status = Column(SQLEnum(RequestStatus, name="requeststatus"), default=RequestStatus.PENDING, nullable=False, index=True)

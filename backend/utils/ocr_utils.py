@@ -91,18 +91,65 @@ def validate_pan(extracted_text: str, operator_name: str) -> str | None:
             return f"Validation Error: Operator name '{operator_name}' does not match the name found in the uploaded PAN document (Match score: {score}%)."
     return None
 
-def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: str) -> None:
+def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: str, qualification: str = "High School (10th)") -> None:
     """Validates if the text looks like a marksheet, and matches name and DOB."""
+    print("===== OCR EXTRACTED TEXT =====")
+    print(extracted_text)
+    print("==============================")
     if not extracted_text:
         return
 
     errors = {}
 
+    # Rule 0: Reject completely wrong document types
+    if "AADHAAR" in extracted_text or "UNIQUE IDENTIFICATION AUTHORITY" in extracted_text:
+        raise ValueError("Validation Error: The uploaded document appears to be an Aadhaar Card, not a Marksheet.")
+    if "INCOME TAX DEPARTMENT" in extracted_text or "PERMANENT ACCOUNT NUMBER" in extracted_text:
+        raise ValueError("Validation Error: The uploaded document appears to be a PAN Card, not a Marksheet.")
+
     # Rule 1: Document Classification
-    keywords = ["BOARD", "EXAMINATION", "SECONDARY", "CERTIFICATE", "MARKS", "SCHOOL", "अंक", "प्रमाण", "परीक्षा"]
-    matches = sum(1 for kw in keywords if kw in extracted_text)
-    if matches < 1:
-        raise ValueError("Validation Error: The uploaded document does not appear to be a valid 10th Standard Marksheet.")
+    if qualification == "High School (10th)":
+        keywords = ["BOARD", "EXAMINATION", "SECONDARY", "CERTIFICATE", "MARKS", "SCHOOL", "अंक", "प्रमाण", "परीक्षा", "10TH", "HIGH SCHOOL"]
+        matches = sum(1 for kw in keywords if kw in extracted_text)
+        if matches < 1:
+            raise ValueError("Validation Error: The uploaded document does not appear to be a valid High School (10th) Marksheet.")
+    else: # Higher Secondary (12th)
+        keywords = ["BOARD", "EXAMINATION", "HIGHER", "SECONDARY", "CERTIFICATE", "MARKS", "SCHOOL", "अंक", "प्रमाण", "परीक्षा", "12TH", "INTERMEDIATE"]
+        matches = sum(1 for kw in keywords if kw in extracted_text)
+        if matches < 1:
+            raise ValueError("Validation Error: The uploaded document does not appear to be a valid Higher Secondary (12th) Marksheet.")
+        
+        # Ensure it's not a 12th certificate
+        negative_kws = ["SENIOR SECONDARY EXAM", "HIGHER SECONDARY", "12TH", "INTERMEDIATE EXAM", "XII", "PRE-UNIVERSITY", "SENIOR SCHOOL CERTIFICATE"]
+        if any(kw in extracted_text for kw in negative_kws):
+            raise ValueError("Validation Error: Document appears to be a 12th standard marksheet, but 10th was expected.")
+
+    elif qualification == "Higher Secondary (12th)":
+        keywords = ["HIGHER SECONDARY", "SENIOR SECONDARY", "12TH", "INTERMEDIATE", "BOARD", "EXAMINATION", "SENIOR SCHOOL", "XII"]
+        matches = sum(1 for kw in keywords if kw in extracted_text)
+        if matches < 1:
+            raise ValueError("Validation Error: The uploaded document does not appear to be a valid 12th Standard Marksheet.")
+        
+        # Ensure it's not a 10th certificate
+        # If it says "SECONDARY SCHOOL EXAMINATION" or "HIGH SCHOOL EXAMINATION" but NOT "SENIOR"
+        if ("SECONDARY SCHOOL EXAM" in extracted_text or "HIGH SCHOOL EXAM" in extracted_text or "10TH" in extracted_text) and not any(kw in extracted_text for kw in ["SENIOR", "HIGHER", "12TH", "INTERMEDIATE", "XII", "PRE-UNIVERSITY"]):
+            raise ValueError("Validation Error: Document appears to be a 10th standard marksheet, but 12th was expected.")
+
+    elif qualification == "Diploma / ITI":
+        keywords = ["DIPLOMA", "POLYTECHNIC", "ITI", "COUNCIL", "BOARD", "CERTIFICATE", "EXAMINATION", "INSTITUTE"]
+        matches = sum(1 for kw in keywords if kw in extracted_text)
+        if matches < 1:
+            raise ValueError("Validation Error: The uploaded document does not appear to be a valid Diploma/ITI certificate.")
+            
+    elif qualification in ["Graduation (Bachelor's Degree)", "Post Graduation (Master's Degree)"]:
+        keywords = ["DEGREE", "UNIVERSITY", "BACHELOR", "MASTER", "SEMESTER", "PROVISIONAL", "EXAMINATION", "COLLEGE"]
+        matches = sum(1 for kw in keywords if kw in extracted_text)
+        if matches < 1:
+            raise ValueError(f"Validation Error: The uploaded document does not appear to be a valid {qualification} certificate.")
+    else:
+        # Fallback for "Other / Higher"
+        pass
+>>>>>>> origin/dhwani
 
     # Rule 2: Name Verification
     if candidate_name:
@@ -112,7 +159,7 @@ def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: 
             errors['name'] = f"Candidate name '{candidate_name}' does not match the name found in the uploaded Marksheet."
 
     # Rule 3: DOB Verification
-    if candidate_dob:
+    if candidate_dob and qualification == "High School (10th)":
         try:
             parsed_dob = datetime.strptime(candidate_dob, "%Y-%m-%d")
         except ValueError:

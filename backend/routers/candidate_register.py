@@ -1,17 +1,55 @@
-from datetime import datetime
-import re
-import os
-import shutil
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
-from pydantic import BaseModel, model_validator , field_validator
+from datetime import datetime, timedelta
+import secrets
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, model_validator , field_validator, EmailStr
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import District, Candidate
+from backend.models.otp_verification import OtpVerification
+from backend.utils.email_utils import send_otp_email
 
 router = APIRouter(prefix="/candidate_register", tags=["candidate_register"])
 
-UPLOAD_BASE = "app/static/uploads"
+class CandidateRegisterRequest(BaseModel):
+    name: str
+    mobile: str
+    email: str
+    district: str
+    qualification: str
+    lms_id: str | None = None
+    nseit_id: str | None = None
+    dob: str
+    aadhaar: str
+    address: str | None = None
+    pincode: str | None = None
+    is_existing_operator: str = "false"
+    photo_upload: str | None = None
+    marksheet_upload: str | None = None  
+    tenth_marksheet_upload: str | None = None
+
+    @field_validator('pincode')
+    @classmethod
+    def validate_chhattisgarh_pincode(cls, value: str | None) -> str | None:
+        if value:
+            # Check length constraint and character prefix criteria
+            if len(value) != 6 or not value.isdigit():
+                raise ValueError("Pincode must be exactly 6 numeric digits.")
+            if not value.startswith("49"):
+                raise ValueError("Only applicants from Chhattisgarh state (Pincode series starting with 49) are eligible to register.")
+        return value
+    
+    @model_validator(mode='before')
+    def enforce_marksheet_routing(cls, values):
+        qualification = values.get('qualification')
+        marksheet = values.get('marksheet_upload')
+        tenth = values.get('tenth_marksheet_upload')
+        
+        if qualification == 'High School (10th)':
+            if marksheet and not tenth:
+                values['tenth_marksheet_upload'] = marksheet
+            values['marksheet_upload'] = None
+        return values
 
 @router.get("/districts")
 def get_districts(db: Session = Depends(get_db)):
@@ -24,99 +62,130 @@ def get_districts(db: Session = Depends(get_db)):
         } for d in districts
     ]
 
+class SendOtpRequest(BaseModel):
+    email: EmailStr
+    mobile: str = None
+
+class VerifyOtpRequest(BaseModel):
+    email: EmailStr
+    otp_code: str
+
+@router.post("/send-otp")
+async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
+    email_exists = db.query(Candidate).filter(Candidate.email == payload.email).first()
+    
+    mobile_exists = None
+    if payload.mobile:
+        mobile_exists = db.query(Candidate).filter(Candidate.mobile == payload.mobile).first()
+        
+    if email_exists or mobile_exists:
+        field_errors = {}
+        if email_exists:
+            field_errors["email"] = "Email is already registered"
+        if mobile_exists:
+            field_errors["mobile"] = "Mobile number is already registered"
+        raise HTTPException(status_code=400, detail={"field_errors": field_errors})
+
+    otp = "".join(secrets.choice("0123456789") for _ in range(6))
+    expires = datetime.now() + timedelta(minutes=1)
+
+    existing_record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
+    if existing_record:
+        existing_record.otp_code = otp
+        existing_record.expires_at = expires
+        existing_record.is_verified = False
+    else:
+        new_record = OtpVerification(
+            email=payload.email,
+            otp_code=otp,
+            expires_at=expires,
+            is_verified=False
+        )
+        db.add(new_record)
+    
+    db.commit()
+    
+    # Send email asynchronously
+    await send_otp_email(payload.email, otp)
+    
+    return {"success": True, "message": "OTP sent successfully"}
+
+@router.post("/verify-otp")
+def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
+    record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
+    
+    if not record:
+        raise HTTPException(status_code=400, detail="OTP request not found for this email")
+    
+    if record.is_verified:
+        return {"success": True, "message": "Email is already verified"}
+        
+    if record.otp_code != payload.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid OTP code")
+        
+    if datetime.now() > record.expires_at:
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+        
+    record.is_verified = True
+    db.commit()
+    
+    return {"success": True, "message": "Email verified successfully"}
+
 @router.post("/register-candidate")
-def register_candidate(
-    name: str = Form(...),
-    mobile: str = Form(...),
-    email: str = Form(...),
-    district: str = Form(...),
-    qualification: str = Form(...),
-    lms_id: str = Form(None),
-    nseit_id: str = Form(None),
-    dob: str = Form(...),
-    aadhaar: str = Form(...),
-    address: str = Form(None),
-    pincode: str = Form(None),
-    is_existing_operator: str = Form("false"),
-    photo: UploadFile = File(None),
-    marksheet: UploadFile = File(None),
-    tenth_marksheet: UploadFile = File(None),
-    db: Session = Depends(get_db)
-):
-    district_obj = db.query(District).filter(District.district_code == district).first()
+def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(get_db)):
+    # 1. Verify that the email was validated via OTP
+    otp_record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
+    if not otp_record or not otp_record.is_verified:
+        raise HTTPException(status_code=400, detail="Email address has not been verified with OTP.")
+
+    # [DUPLICATE CHECK] You can comment out this block below to allow duplicate registrations during testing
+    existing_candidate = db.query(Candidate).filter(
+        (Candidate.email == payload.email) | (Candidate.mobile == payload.mobile)
+    ).first()
+    if existing_candidate:
+        if existing_candidate.email == payload.email:
+            raise HTTPException(status_code=400, detail="This email address is already registered.")
+        else:
+            raise HTTPException(status_code=400, detail="This mobile number is already registered.")
+    # [/DUPLICATE CHECK]
+
+    district_obj = db.query(District).filter(District.district_code == payload.district).first()
     if not district_obj:
         raise HTTPException(status_code=400, detail="Invalid district code")
 
-    if pincode:
-        if len(pincode) != 6 or not pincode.isdigit():
-            raise HTTPException(status_code=400, detail="Pincode must be exactly 6 numeric digits.")
-        if not pincode.startswith("49"):
-            raise HTTPException(status_code=400, detail="Only applicants from Chhattisgarh state (Pincode series starting with 49) are eligible to register.")
-
-    # Generate request_code sequentially based on the highest existing number (not count)
-    # Using count() is dangerous: deletions reduce count and can cause duplicate request_codes.
-    last_candidate = db.query(Candidate).filter(
-        Candidate.district == district,
-        Candidate.request_code.isnot(None)
-    ).order_by(Candidate.id.desc()).first()
-
-    if last_candidate and last_candidate.request_code:
-        try:
-            last_num = int(re.sub(r'[^\d]', '', last_candidate.request_code.split('-A')[-1]))
-        except (ValueError, TypeError, IndexError):
-            last_num = 0
-    else:
-        last_num = 0
+    count = db.query(Candidate).filter(Candidate.district == payload.district).count()
     short_name = district_obj.district_short_name or "CAN"
-    request_code = f"{short_name}-A{last_num + 1:04d}"
+    request_code = f"{short_name}-A{count + 1:04d}"
 
     try:
-        dob_parsed = datetime.strptime(dob, "%Y-%m-%d").date()
+        dob_parsed = datetime.strptime(payload.dob, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
-    # Helper function to save file
-    def save_upload(file_obj: UploadFile):
-        if not file_obj or not file_obj.filename:
-            return None
-        # Target directory: candidate_upload/<request_code>/
-        target_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "candidate_upload", request_code)
-        os.makedirs(target_dir, exist_ok=True)
-        filename = file_obj.filename.replace(" ", "_")
-        filepath = os.path.join(target_dir, filename)
-        with open(filepath, "wb") as buffer:
-            shutil.copyfileobj(file_obj.file, buffer)
-        return f"/candidate_upload/{request_code}/{filename}"
-
-    photo_path = save_upload(photo)
-    marksheet_path = save_upload(marksheet)
-    tenth_marksheet_path = save_upload(tenth_marksheet)
-    
-    if qualification == "High School (10th)":
-        if marksheet_path and not tenth_marksheet_path:
-            tenth_marksheet_path = marksheet_path
-        marksheet_path = None
-
     new_candidate = Candidate(
         request_code=request_code,
-        name=name,
-        mobile=mobile,
-        email=email,
-        district=district,
-        qualification=qualification,
-        lms_id=lms_id,
-        nseit_id=nseit_id,
+        name=payload.name,
+        mobile=payload.mobile,
+        email=payload.email,
+        district=payload.district,
+        qualification=payload.qualification,
+        lms_id=payload.lms_id,
+        nseit_id=payload.nseit_id,
         dob=dob_parsed,
-        aadhaar=aadhaar,
-        address=address,
-        pincode=pincode,
-        is_existing_operator=(is_existing_operator.lower() == "true"),
-        photo_upload=photo_path,
-        marksheet_upload=marksheet_path,       
-        tenth_marksheet_upload=tenth_marksheet_path, 
+        aadhaar=payload.aadhaar,
+        address=payload.address,
+        pincode=payload.pincode,
+        is_existing_operator=(payload.is_existing_operator.lower() == "true"),
+        photo_upload=payload.photo_upload,
+        marksheet_upload=payload.marksheet_upload,       
+        tenth_marksheet_upload=payload.tenth_marksheet_upload, 
         status="Pending"
     )
     db.add(new_candidate)
+    db.commit()
+    
+    # Clean up OTP record now that registration is successful
+    db.delete(otp_record)
     db.commit()
     
     return {
@@ -124,9 +193,25 @@ def register_candidate(
         "request_code": request_code
     }
 
-@router.get("/status/{request_code}")
-def get_candidate_status(request_code: str, db: Session = Depends(get_db)):
-    candidate = db.query(Candidate).filter(Candidate.request_code == request_code).first()
+class TrackRequest(BaseModel):
+    identifier: str
+
+@router.post("/track")
+def track_application(payload: TrackRequest, db: Session = Depends(get_db)):
+    identifier = payload.identifier.strip()
+    
+    # Search by email or mobile
+    candidate = db.query(Candidate).filter(
+        (Candidate.email == identifier) | (Candidate.mobile == identifier)
+    ).first()
+    
     if not candidate:
-        raise HTTPException(status_code=404, detail="Application not found")
-    return {"status": candidate.status}
+        raise HTTPException(status_code=404, detail="No application found with this email or mobile number.")
+        
+    return {
+        "success": True,
+        "request_code": candidate.request_code,
+        "name": candidate.name,
+        "district": candidate.district_rel.district_name if candidate.district_rel else candidate.district,
+        "status": candidate.status
+    }

@@ -1,0 +1,955 @@
+{% extends 'base.html' %}
+
+{% block title %}DC Monitoring Dashboard - CHIPS Admin Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chips/dc_monitoring.css') }}">
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}
+
+{% block content %}
+<div class="monitoring-container">
+    <!-- Premium KPI Banner -->
+    <div class="premium-kpi-banner">
+        <div class="banner-header">
+            <h1 class="banner-title">DC Efficiency Analytics</h1>
+            <div class="banner-filter" style="display: flex; gap: 12px; align-items: center;">
+                <select id="time-filter" onchange="changeTimeframe()" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: 600; color: #1e293b; background: #ffffff; cursor: pointer; outline: none; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
+                    <option value="all" {% if current_timeframe == 'all' %}selected{% endif %}>All Time</option>
+                    <option value="7_days" {% if current_timeframe == '7_days' %}selected{% endif %}>Last 7 Days</option>
+                    <option value="15_days" {% if current_timeframe == '15_days' %}selected{% endif %}>Last 15 Days</option>
+                    <option value="this_month" {% if current_timeframe == 'this_month' %}selected{% endif %}>This Month</option>
+                    <option value="last_month" {% if current_timeframe == 'last_month' %}selected{% endif %}>Last Month</option>
+                    <option value="this_year" {% if current_timeframe == 'this_year' %}selected{% endif %}>This Year</option>
+                </select>
+                <select id="district-filter" onchange="filterByDistrict()" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: 600; color: #1e293b; background: #ffffff; cursor: pointer; outline: none; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
+                    <option value="ALL">All Districts</option>
+                    {% for d in districts_stats %}
+                    <option value="{{ d.district_code }}">{{ d.district_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <p style="color: #64748b; font-size: 15px; margin-top: 5px; margin-bottom: 20px;">Comprehensive overview of District Coordinator performance, processing times, and error rates.</p>
+
+        <!-- DC Info Card (Integrated) -->
+        <div id="dc-info-card" style="display: none; background: rgba(255, 255, 255, 0.6); border-radius: 12px; padding: 15px 20px; border: 1px solid rgba(226, 232, 240, 0.8); border-left: 4px solid #3b82f6; transition: all 0.3s ease;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="width: 42px; height: 42px; border-radius: 50%; background: #e0e7ff; display: flex; align-items: center; justify-content: center; color: #4338ca; font-size: 16px; font-weight: bold;">
+                        <span id="dc-info-initials" style="font-family: inherit;">DC</span>
+                    </div>
+                    <div>
+                        <h3 id="dc-info-name" style="margin: 0; font-size: 16px; color: #1e293b; font-weight: 700;">-</h3>
+                        <p id="dc-info-district" style="margin: 2px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500;">-</p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #475569; font-size: 14px;">
+                        <span style="color: #94a3b8; font-weight: bold;">Email:</span>
+                        <span id="dc-info-email" style="font-weight: 500;">-</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; color: #475569; font-size: 14px;">
+                        <span style="color: #94a3b8; font-weight: bold;">Phone:</span>
+                        <span id="dc-info-phone" style="font-weight: 500;">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Requests moved to bottom -->
+
+    <!-- Dashboard Tabs at the Top -->
+    <div class="tabs-nav" style="margin-bottom: 30px;">
+        <button class="tab-btn active" onclick="switchDashboardTab(event, 'tab-performance')">Performance Metrics (Holding Time)</button>
+        <button class="tab-btn" onclick="switchDashboardTab(event, 'tab-analysis')">Request Analysis (Revert %)</button>
+        <button class="tab-btn" onclick="switchDashboardTab(event, 'tab-totals')">Request Totals & Status</button>
+        <button class="tab-btn" onclick="switchDashboardTab(event, 'tab-leaderboard')" id="tab-btn-leaderboard">DC Scorecard</button>
+    </div>
+
+    <!-- Tab 1: Performance Matrix -->
+    <div id="tab-performance" class="tab-pane active">
+        <!-- KPIs for Performance -->
+        <div class="kpi-grid">
+            <div class="kpi-card blue">
+                <div class="kpi-title">Avg Candidate Holding</div>
+                <div class="kpi-value" id="kpi-avg-cand">0 Hrs</div>
+                <div class="kpi-sub">Time taken to process</div>
+            </div>
+            <div class="kpi-card green">
+                <div class="kpi-title">Avg LMS Holding</div>
+                <div class="kpi-value" id="kpi-avg-lms">0 Hrs</div>
+                <div class="kpi-sub">Time taken to process</div>
+            </div>
+            <div class="kpi-card purple">
+                <div class="kpi-title">Avg NSEIT Holding</div>
+                <div class="kpi-value" id="kpi-avg-nseit">0 Hrs</div>
+                <div class="kpi-sub">Time taken to process</div>
+            </div>
+            <div class="kpi-card red" id="kpi-card-fastest">
+                <div class="kpi-title">Fastest District</div>
+                <div class="kpi-value" id="kpi-fastest-perf">-</div>
+                <div class="kpi-sub">Overall best time</div>
+            </div>
+        </div>
+
+        <!-- Chart for Performance -->
+        <div class="chart-grid" id="performance-chart-container" style="grid-template-columns: 1fr; margin-bottom: 30px;">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Average Holding Time (Hours)</h3>
+                </div>
+                <!-- Adding a wrapper to control height for full width -->
+                <div style="height: 400px; width: 100%;">
+                    <canvas id="holdingTimeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table for Performance -->
+        <div class="section-card">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <h2 class="section-title" style="margin-bottom: 0;">DC Performance Matrix</h2>
+                <div class="search-box" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <select id="perf-sort" onchange="sortPerformanceTable()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155;">
+                        <option value="district">Sort by District A-Z (Default)</option>
+                        <option value="max">Sort by Highest Holding (Hrs)</option>
+                        <option value="cand">Candidate Request (Hrs)</option>
+                        <option value="lms">LMS Request (Hrs)</option>
+                        <option value="nseit">NSEIT Request (Hrs)</option>
+                    </select>
+                    <input type="text" id="perf-district-search" onkeypress="if(event.key === 'Enter') filterByDistrict()" placeholder="Search by district name..." style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155; width: 200px;">
+                    <button onclick="filterByDistrict()" style="padding: 8px 16px; border-radius: 6px; border: none; background-color: #3b82f6; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 0.2s;">Search</button>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="mon-table" id="performance-table">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>District Name</th>
+                            <th style="text-align: right;">Candidate Request (Hrs)</th>
+                            <th style="text-align: right;">LMS Request (Hrs)</th>
+                            <th style="text-align: right;">NSEIT Request (Hrs)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in districts_stats %}
+                        <tr data-district="{{ d.district_code }}">
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ d.district_name }}</strong></td>
+                            <td style="text-align: right;"><span class="badge {% if d.cand_holding_hours > 48 %}badge-rejected{% elif d.cand_holding_hours > 24 %}badge-pending{% else %}badge-approved{% endif %}">{{ d.cand_holding_hours }}</span></td>
+                            <td style="text-align: right;"><span class="badge {% if d.lms_holding_hours > 48 %}badge-rejected{% elif d.lms_holding_hours > 24 %}badge-pending{% else %}badge-approved{% endif %}">{{ d.lms_holding_hours }}</span></td>
+                            <td style="text-align: right;"><span class="badge {% if d.nseit_holding_hours > 48 %}badge-rejected{% elif d.nseit_holding_hours > 24 %}badge-pending{% else %}badge-approved{% endif %}">{{ d.nseit_holding_hours }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 2: Request Analysis -->
+    <div id="tab-analysis" class="tab-pane" style="display: none;">
+        <!-- KPIs for Analysis -->
+        <div class="kpi-grid">
+            <div class="kpi-card blue">
+                <div class="kpi-title">Global Revert Rate</div>
+                <div class="kpi-value" id="kpi-global-revert">0%</div>
+                <div class="kpi-sub">Overall error percentage</div>
+            </div>
+            <div class="kpi-card red">
+                <div class="kpi-title">Highest Revert Area</div>
+                <div class="kpi-value" id="kpi-highest-revert-type">-</div>
+                <div class="kpi-sub">Most problematic request type</div>
+            </div>
+        </div>
+
+        <!-- Chart for Analysis -->
+        <div class="chart-grid" style="grid-template-columns: 1fr; margin-bottom: 30px;">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Revert Distribution</h3>
+                </div>
+                <!-- Centered doughnut wrapper -->
+                <div style="height: 300px; width: 100%; display: flex; justify-content: center;">
+                    <canvas id="revertPieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table for Analysis -->
+        <div class="section-card">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <h2 class="section-title" style="margin-bottom: 0;">Request Analysis (Revert Percentage by CHiPS)</h2>
+                <div class="search-box" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <select id="analysis-sort" onchange="sortAnalysisTable()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155;">
+                        <option value="district">Sort by District A-Z (Default)</option>
+                        <option value="max">Sort by Highest Revert %</option>
+                        <option value="op_act">Operator Activation %</option>
+                        <option value="st_id">Station ID %</option>
+                        <option value="l1">L1 Registration %</option>
+                        <option value="l2">L2 Registration %</option>
+                        <option value="react">Reactivation %</option>
+                    </select>
+                    <input type="text" id="analysis-district-search" onkeypress="if(event.key === 'Enter') filterByDistrict()" placeholder="Search by district name..." style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155; width: 200px;">
+                    <button onclick="filterByDistrict()" style="padding: 8px 16px; border-radius: 6px; border: none; background-color: #3b82f6; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 0.2s;">Search</button>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="mon-table" id="analysis-table">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>District Name</th>
+                            <th style="text-align: right;">Operator Activation</th>
+                            <th style="text-align: right;">Station ID</th>
+                            <th style="text-align: right;">L1 Registration</th>
+                            <th style="text-align: right;">L2 Registration</th>
+                            <th style="text-align: right;">Reactivation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in districts_stats %}
+                        <tr data-district="{{ d.district_code }}">
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ d.district_name }}</strong></td>
+                            <td style="text-align: right;">
+                                <span class="badge {% if d.op_act_revert_pct > 20 %}badge-rejected{% elif d.op_act_revert_pct > 10 %}badge-pending{% else %}badge-approved{% endif %}">{{ d.op_act_revert_pct }}%</span>
+                                <div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">({{ d.op_act_total }} total)</div>
+                            </td>
+                            <td style="text-align: right;">
+                                <span class="badge {% if d.st_id_revert_pct > 20 %}badge-rejected{% elif d.st_id_revert_pct > 10 %}badge-pending{% else %}badge-approved{% endif %}">{{ d.st_id_revert_pct }}%</span>
+                                <div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">({{ d.st_id_total }} total)</div>
+                            </td>
+                            <td style="text-align: right;">
+                                <span class="badge {% if d.l1_revert_pct > 20 %}badge-rejected{% elif d.l1_revert_pct > 10 %}badge-pending{% else %}badge-approved{% endif %}">{{ d.l1_revert_pct }}%</span>
+                                <div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">({{ d.l1_total }} total)</div>
+                            </td>
+                            <td style="text-align: right;">
+                                <span class="badge {% if d.l2_revert_pct > 20 %}badge-rejected{% elif d.l2_revert_pct > 10 %}badge-pending{% else %}badge-approved{% endif %}">{{ d.l2_revert_pct }}%</span>
+                                <div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">({{ d.l2_total }} total)</div>
+                            </td>
+                            <td style="text-align: right;">
+                                <span class="badge {% if d.react_revert_pct > 20 %}badge-rejected{% elif d.react_revert_pct > 10 %}badge-pending{% else %}badge-approved{% endif %}">{{ d.react_revert_pct }}%</span>
+                                <div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">({{ d.react_total }} total)</div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: Request Totals & Status -->
+    <div id="tab-totals" class="tab-pane" style="display: none;">
+        <!-- KPIs for Totals -->
+        <div class="kpi-grid">
+            <div class="kpi-card blue">
+                <div class="kpi-title">Total Processed (Overall)</div>
+                <div class="kpi-value" id="kpi-total-processed">0</div>
+                <div class="kpi-sub">Across all types</div>
+            </div>
+            <div class="kpi-card green" style="border-left: 4px solid #eab308;">
+                <div class="kpi-title">Total Pending</div>
+                <div class="kpi-value" id="kpi-total-pending" style="color: #ca8a04;">0</div>
+                <div class="kpi-sub">Requests awaiting action</div>
+            </div>
+            <div class="kpi-card red" style="border-left: 4px solid #ef4444;">
+                <div class="kpi-title">Total Rejected</div>
+                <div class="kpi-value" id="kpi-total-rejected" style="color: #dc2626;">0</div>
+                <div class="kpi-sub">Requests permanently rejected</div>
+            </div>
+            <div class="kpi-card orange" style="border-left: 4px solid #f97316;">
+                <div class="kpi-title">Total Reverted</div>
+                <div class="kpi-value" id="kpi-total-reverted" style="color: #ea580c;">0</div>
+                <div class="kpi-sub">Requests sent back for correction</div>
+            </div>
+        </div>
+
+        <!-- Table for Totals -->
+        <div class="section-card">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <h2 class="section-title" style="margin-bottom: 0;">Total Requests & Status Overview</h2>
+                <div class="search-box" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <select id="totals-sort" onchange="sortTotalsTable()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155;">
+                        <option value="district">Sort by District A-Z (Default)</option>
+                        <option value="pending">Highest Pending</option>
+                        <option value="rejected">Highest Rejected</option>
+                        <option value="total">Highest Total Requests</option>
+                    </select>
+                    <input type="text" id="totals-district-search" onkeypress="if(event.key === 'Enter') filterByDistrict()" placeholder="Search by district name..." style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155; width: 200px;">
+                    <button onclick="filterByDistrict()" style="padding: 8px 16px; border-radius: 6px; border: none; background-color: #3b82f6; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 0.2s;">Search</button>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="mon-table" id="totals-table">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>District Name</th>
+                            <th style="text-align: right;">Candidate Requests</th>
+                            <th style="text-align: right;">LMS Requests</th>
+                            <th style="text-align: right;">NSEIT Requests</th>
+                            <th style="text-align: right;">Pending Requests</th>
+                            <th style="text-align: right;">Reverted Requests</th>
+                            <th style="text-align: right;">Rejected Requests</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in districts_stats %}
+                        <tr data-district="{{ d.district_code }}">
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ d.district_name }}</strong></td>
+                            <td style="text-align: right;"><span style="font-size: 15px; font-weight: 600; color: #1e293b;">{{ d.cand_total }}</span></td>
+                            <td style="text-align: right;"><span style="font-size: 15px; font-weight: 600; color: #1e293b;">{{ d.lms_total }}</span></td>
+                            <td style="text-align: right;"><span style="font-size: 15px; font-weight: 600; color: #1e293b;">{{ d.nseit_total }}</span></td>
+                            <td style="text-align: right;"><span style="font-size: 15px; font-weight: 600; color: #eab308;">{{ d.pending_total }}</span></td>
+                            <td style="text-align: right;"><span style="font-size: 15px; font-weight: 600; color: #f97316;">{{ d.reverted_total }}</span></td>
+                            <td style="text-align: right;"><span style="font-size: 15px; font-weight: 600; color: #ef4444;">{{ d.rejected_total }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 4: DC Scorecard Leaderboard -->
+    <div id="tab-leaderboard" class="tab-pane" style="display: none;">
+        <div class="section-card">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h2 class="section-title" style="margin-bottom: 0;">DC Performance Scorecard</h2>
+                    <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Ranking of District Coordinators based on revert rates and holding times.</p>
+                </div>
+                <div class="search-box" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <select id="leaderboard-sort" onchange="renderLeaderboard()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155;">
+                        <option value="rank">Sort by Rank</option>
+                        <option value="holding">Sort by Avg Holding</option>
+                        <option value="revert">Sort by Revert Rate</option>
+                        <option value="district">Sort by District A-Z</option>
+                    </select>
+                    <input type="text" id="leaderboard-district-search" onkeypress="if(event.key === 'Enter') renderLeaderboard()" placeholder="Search by district name..." style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155; width: 220px;">
+                    <button onclick="renderLeaderboard()" style="padding: 8px 16px; border-radius: 6px; border: none; background-color: #3b82f6; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 0.2s;">Search</button>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="mon-table" id="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>District Coordinator</th>
+                            <th>District</th>
+                            <th>Overall Health</th>
+                            <th style="text-align: right;">Avg Holding (Hrs)</th>
+                            <th style="text-align: right;">Global Revert Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Requests Table (Hidden by default, shown only for specific district) -->
+    <div id="district-requests-section" class="section-card" style="display: none; margin-top: 30px;">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <h2 class="section-title" style="margin-bottom: 0;">Detailed District Requests</h2>
+            <div class="request-filters" style="display: flex; gap: 10px;">
+                <select id="req-type-filter" onchange="renderDistrictRequests()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155; font-weight: 500;">
+                    <option value="ALL">All Types</option>
+                    <option value="Candidate">Candidate</option>
+                    <option value="LMS">LMS</option>
+                    <option value="NSEIT">NSEIT</option>
+                    <option value="Operator Act.">Operator Act.</option>
+                    <option value="Station ID">Station ID</option>
+                    <option value="L1 Reg.">L1 Reg.</option>
+                    <option value="L2 Reg.">L2 Reg.</option>
+                    <option value="Reactivation">Reactivation</option>
+                </select>
+                <select id="req-status-filter" onchange="renderDistrictRequests()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155; font-weight: 500;">
+                    <option value="ALL">All Statuses</option>
+                    <option value="PE">Pending</option>
+                    <option value="AP">Approved / Processed</option>
+                    <option value="RV">Reverted</option>
+                    <option value="RJ">Rejected</option>
+                </select>
+            </div>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="mon-table" id="district-requests-table">
+                <thead>
+                    <tr>
+                        <th>S.No</th>
+                        <th>Request Type</th>
+                        <th>Request Code / ID</th>
+                        <th>Applicant Name / Info</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const globalData = {{ districts_stats | tojson | safe }};
+    let barChartInstance = null;
+    let pieChartInstance = null;
+
+    function switchDashboardTab(evt, tabId) {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+
+        tabBtns.forEach(btn => btn.classList.remove('active'));
+        tabPanes.forEach(pane => {
+            pane.classList.remove('active');
+            pane.style.display = 'none';
+        });
+
+        evt.currentTarget.classList.add('active');
+        const activePane = document.getElementById(tabId);
+        activePane.classList.add('active');
+        activePane.style.display = 'block';
+    }
+
+    function calculateMetrics(filteredData) {
+        if (filteredData.length === 0) return;
+
+        // -- TAB 1: PERFORMANCE --
+        const avgCand = filteredData.reduce((sum, d) => sum + d.cand_holding_hours, 0) / (filteredData.length || 1);
+        const avgLms = filteredData.reduce((sum, d) => sum + d.lms_holding_hours, 0) / (filteredData.length || 1);
+        const avgNseit = filteredData.reduce((sum, d) => sum + d.nseit_holding_hours, 0) / (filteredData.length || 1);
+        
+        document.getElementById('kpi-avg-cand').textContent = avgCand.toFixed(1) + ' Hrs';
+        document.getElementById('kpi-avg-lms').textContent = avgLms.toFixed(1) + ' Hrs';
+        document.getElementById('kpi-avg-nseit').textContent = avgNseit.toFixed(1) + ' Hrs';
+
+        let fastestDist = '-';
+        let lowestHolding = Infinity;
+        filteredData.forEach(d => {
+            const distAvg = (d.cand_holding_hours + d.lms_holding_hours + d.nseit_holding_hours) / 3;
+            if (distAvg < lowestHolding) {
+                lowestHolding = distAvg;
+                fastestDist = d.district_name;
+            }
+        });
+        document.getElementById('kpi-fastest-perf').textContent = fastestDist;
+
+        const fastestCard = document.getElementById('kpi-card-fastest');
+        if (fastestCard) {
+            if (filteredData.length === 1) {
+                fastestCard.style.display = 'none';
+            } else {
+                fastestCard.style.display = 'flex';
+            }
+        }
+
+        // -- TAB 2: ANALYSIS --
+        const totalRevertReqs = filteredData.reduce((sum, d) => sum + d.op_act_total + d.st_id_total + d.l1_total + d.l2_total + d.react_total, 0);
+        
+        let opActReverts = 0, stIdReverts = 0, l1Reverts = 0, l2Reverts = 0, reactReverts = 0;
+        filteredData.forEach(d => {
+            opActReverts += (d.op_act_total * d.op_act_revert_pct / 100);
+            stIdReverts += (d.st_id_total * d.st_id_revert_pct / 100);
+            l1Reverts += (d.l1_total * d.l1_revert_pct / 100);
+            l2Reverts += (d.l2_total * d.l2_revert_pct / 100);
+            reactReverts += (d.react_total * d.react_revert_pct / 100);
+        });
+
+        const totalReverted = opActReverts + stIdReverts + l1Reverts + l2Reverts + reactReverts;
+        const globalRevertPct = totalRevertReqs > 0 ? (totalReverted / totalRevertReqs * 100).toFixed(1) : 0;
+        document.getElementById('kpi-global-revert').textContent = globalRevertPct + '%';
+
+        const revertsArr = [
+            { name: 'Operator Act.', val: opActReverts },
+            { name: 'Station ID', val: stIdReverts },
+            { name: 'L1 Reg.', val: l1Reverts },
+            { name: 'L2 Reg.', val: l2Reverts },
+            { name: 'Reactivation', val: reactReverts }
+        ];
+        revertsArr.sort((a,b) => b.val - a.val);
+        document.getElementById('kpi-highest-revert-type').textContent = revertsArr[0].val > 0 ? revertsArr[0].name : '-';
+
+        // -- TAB 3: TOTALS --
+        const tCand = filteredData.reduce((sum, d) => sum + d.cand_total, 0);
+        const tLms = filteredData.reduce((sum, d) => sum + d.lms_total, 0);
+        const tNseit = filteredData.reduce((sum, d) => sum + d.nseit_total, 0);
+        const tPending = filteredData.reduce((sum, d) => sum + d.pending_total, 0);
+        const tReverted = filteredData.reduce((sum, d) => sum + d.reverted_total, 0);
+        const tRejected = filteredData.reduce((sum, d) => sum + d.rejected_total, 0);
+        const tOverall = tCand + tLms + tNseit + totalRevertReqs;
+        
+        document.getElementById('kpi-total-processed').textContent = tOverall.toLocaleString();
+        document.getElementById('kpi-total-pending').textContent = tPending.toLocaleString();
+        document.getElementById('kpi-total-reverted').textContent = tReverted.toLocaleString();
+        document.getElementById('kpi-total-rejected').textContent = tRejected.toLocaleString();
+    }
+
+    function renderCharts(filteredData) {
+        // Prepare Bar Chart Data
+        const labels = filteredData.map(d => d.district_name);
+        const candData = filteredData.map(d => d.cand_holding_hours);
+        const lmsData = filteredData.map(d => d.lms_holding_hours);
+        const nseitData = filteredData.map(d => d.nseit_holding_hours);
+
+        if (barChartInstance) barChartInstance.destroy();
+        const ctxBar = document.getElementById('holdingTimeChart').getContext('2d');
+        barChartInstance = new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Candidate Avg (Hrs)',
+                        data: candData,
+                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'LMS Avg (Hrs)',
+                        data: lmsData,
+                        backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'NSEIT Avg (Hrs)',
+                        data: nseitData,
+                        backgroundColor: 'rgba(139, 92, 246, 0.8)',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#e2e8f0' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+
+        // Prepare Pie Chart Data
+        let opActReverts_pie = 0, stIdReverts_pie = 0, l1Reverts_pie = 0, l2Reverts_pie = 0, reactReverts_pie = 0;
+        filteredData.forEach(d => {
+            opActReverts_pie += (d.op_act_total * d.op_act_revert_pct / 100);
+            stIdReverts_pie += (d.st_id_total * d.st_id_revert_pct / 100);
+            l1Reverts_pie += (d.l1_total * d.l1_revert_pct / 100);
+            l2Reverts_pie += (d.l2_total * d.l2_revert_pct / 100);
+            reactReverts_pie += (d.react_total * d.react_revert_pct / 100);
+        });
+
+        if (pieChartInstance) pieChartInstance.destroy();
+        const ctxPie = document.getElementById('revertPieChart').getContext('2d');
+        pieChartInstance = new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: ['Operator Activation', 'Station ID', 'L1 Registration', 'L2 Registration', 'Reactivation'],
+                datasets: [{
+                    data: [opActReverts_pie, stIdReverts_pie, l1Reverts_pie, l2Reverts_pie, reactReverts_pie],
+                    backgroundColor: ['#8b5cf6', '#3b82f6', '#10b981', '#ef4444', '#f59e0b'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { position: 'right', labels: { padding: 20, boxWidth: 12, usePointStyle: true } }
+                }
+            }
+        });
+    }
+
+    function renderDistrictRequests() {
+        const selectedDistrict = document.getElementById('district-filter').value;
+        const reqType = document.getElementById('req-type-filter').value;
+        const reqStatus = document.getElementById('req-status-filter').value;
+        
+        const requestsTableBody = document.querySelector('#district-requests-table tbody');
+        requestsTableBody.innerHTML = ''; // clear
+
+        if (selectedDistrict === 'ALL') return;
+
+        const dData = globalData.find(d => d.district_code === selectedDistrict);
+        if (!dData || !dData.recent_requests) return;
+
+        let reqs = dData.recent_requests;
+        
+        // Filter by type
+        if (reqType !== 'ALL') {
+            reqs = reqs.filter(r => r.type === reqType);
+        }
+
+        // Filter by status group
+        if (reqStatus !== 'ALL') {
+            reqs = reqs.filter(r => {
+                if (reqStatus === 'RV') {
+                    return ['RV', 'RC'].includes(r.status) || r.was_reverted;
+                }
+                let sGroup = 'AP';
+                if (['PE', 'P'].includes(r.status)) sGroup = 'PE';
+                else if (['RJ', 'R', 'UR'].includes(r.status)) sGroup = 'RJ';
+                return sGroup === reqStatus;
+            });
+        }
+
+        if (reqs.length === 0) {
+            requestsTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #64748b; padding: 20px;">No recent requests found matching the criteria.</td></tr>';
+        } else {
+            reqs.forEach((r, idx) => {
+                let statusBadge = 'badge-pending';
+                let fullStatus = r.status;
+                if (['RV', 'RC'].includes(r.status)) {
+                    statusBadge = 'badge-warning';
+                    fullStatus = 'Reverted';
+                }
+                else if (['PE', 'P'].includes(r.status)) {
+                    statusBadge = 'badge-pending';
+                    fullStatus = r.was_reverted ? 'Pending (Prev. Reverted)' : 'Pending';
+                }
+                else if (['RJ', 'R', 'UR'].includes(r.status)) {
+                    statusBadge = 'badge-rejected';
+                    fullStatus = 'Rejected';
+                }
+                else {
+                    statusBadge = 'badge-approved';
+                    fullStatus = r.was_reverted ? 'Processed (Prev. Reverted)' : 'Approved / Processed';
+                }
+                
+                const row = `<tr>
+                    <td>${idx + 1}</td>
+                    <td><strong>${r.type}</strong></td>
+                    <td>${r.code}</td>
+                    <td>${r.name}</td>
+                    <td><span class="badge ${statusBadge}">${fullStatus}</span></td>
+                </tr>`;
+                requestsTableBody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+    }
+
+    function changeTimeframe() {
+        const timeFilter = document.getElementById('time-filter').value;
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('timeframe', timeFilter);
+        window.location.href = currentUrl.toString();
+    }
+
+    function filterByDistrict() {
+        const selected = document.getElementById('district-filter').value;
+        
+        // Filter Table Rows
+        const tables = [
+            { id: 'performance-table', inputId: 'perf-district-search' },
+            { id: 'analysis-table', inputId: 'analysis-district-search' },
+            { id: 'totals-table', inputId: 'totals-district-search' }
+        ];
+        
+        tables.forEach(tableData => {
+            const table = document.getElementById(tableData.id);
+            if (!table) return;
+            const searchInput = document.getElementById(tableData.inputId);
+            const searchFilter = searchInput ? searchInput.value.toLowerCase() : '';
+            
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const districtNameTD = row.querySelector("td:nth-child(2)");
+                let txtValue = "";
+                if (districtNameTD) {
+                    txtValue = districtNameTD.textContent || districtNameTD.innerText;
+                }
+                
+                const matchesDropdown = (selected === 'ALL' || row.dataset.district === selected);
+                let matchesSearch = true;
+                if (searchFilter) {
+                    matchesSearch = txtValue.toLowerCase().indexOf(searchFilter) > -1;
+                }
+
+                if (matchesDropdown && matchesSearch) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // Filter Data for KPIs and Charts
+        const filteredData = selected === 'ALL' ? globalData : globalData.filter(d => d.district_code === selected);
+        
+
+        // Handle Detailed Requests Section and Leaderboard Tab
+        const requestsSection = document.getElementById('district-requests-section');
+        const perfChartContainer = document.getElementById('performance-chart-container');
+        const leaderboardBtn = document.getElementById('tab-btn-leaderboard');
+        const dcInfoCard = document.getElementById('dc-info-card');
+        
+        if (selected === 'ALL') {
+            if (dcInfoCard) dcInfoCard.style.display = 'none';
+            requestsSection.style.display = 'none';
+            if (perfChartContainer) perfChartContainer.style.display = 'none';
+            if (leaderboardBtn) leaderboardBtn.style.display = 'inline-block';
+            renderLeaderboard();
+        } else {
+            if (dcInfoCard && filteredData.length > 0) {
+                const districtData = filteredData[0];
+                document.getElementById('dc-info-name').textContent = districtData.dc_name && districtData.dc_name !== 'Unknown' ? districtData.dc_name : 'Not Assigned';
+                document.getElementById('dc-info-district').textContent = `District Coordinator for ${districtData.district_name}`;
+                document.getElementById('dc-info-email').textContent = districtData.dc_email || 'N/A';
+                document.getElementById('dc-info-phone').textContent = districtData.dc_phone || 'N/A';
+                
+                const initials = (districtData.dc_name && districtData.dc_name !== 'Unknown') 
+                    ? districtData.dc_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() 
+                    : 'DC';
+                document.getElementById('dc-info-initials').textContent = initials;
+                
+                dcInfoCard.style.display = 'block';
+            } else if (dcInfoCard) {
+                dcInfoCard.style.display = 'none';
+            }
+
+            if (leaderboardBtn) {
+                leaderboardBtn.style.display = 'none';
+                if (leaderboardBtn.classList.contains('active')) {
+                    // Switch back to performance tab if they were on leaderboard
+                    switchDashboardTab({currentTarget: document.querySelector('.tab-btn')}, 'tab-performance');
+                }
+            }
+            requestsSection.style.display = 'block';
+            if (perfChartContainer) perfChartContainer.style.display = ''; // restore class default
+            
+            // Reset filters to ALL when switching district
+            document.getElementById('req-type-filter').value = 'ALL';
+            document.getElementById('req-status-filter').value = 'ALL';
+            
+            renderDistrictRequests();
+        }
+        
+        calculateMetrics(filteredData);
+
+        renderCharts(filteredData);
+    }
+
+    function renderLeaderboard() {
+        const tbody = document.querySelector('#leaderboard-table tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        
+        const sortSelect = document.getElementById('leaderboard-sort');
+        const sortType = sortSelect ? sortSelect.value : 'rank';
+        
+        const searchInput = document.getElementById('leaderboard-district-search');
+        const searchFilter = searchInput ? searchInput.value.toLowerCase() : '';
+
+        // Filter by Search
+        let filteredData = [...globalData];
+        if (searchFilter) {
+            filteredData = filteredData.filter(d => d.district_name.toLowerCase().includes(searchFilter));
+        }
+
+        // Sort Data
+        const sortedData = filteredData.sort((a, b) => {
+            const getRevertPct = (d) => {
+                const reverts = d.op_act_total + d.st_id_total + d.l1_total + d.l2_total + d.react_total;
+                const reverted = (d.op_act_total * d.op_act_revert_pct / 100) + (d.st_id_total * d.st_id_revert_pct / 100) + (d.l1_total * d.l1_revert_pct / 100) + (d.l2_total * d.l2_revert_pct / 100) + (d.react_total * d.react_revert_pct / 100);
+                return reverts > 0 ? (reverted / reverts * 100) : 0;
+            };
+            const getAvgHolding = (d) => (d.cand_holding_hours + d.lms_holding_hours + d.nseit_holding_hours) / 3;
+
+            const aRevertPct = getRevertPct(a);
+            const bRevertPct = getRevertPct(b);
+            const aAvgHolding = getAvgHolding(a);
+            const bAvgHolding = getAvgHolding(b);
+
+            if (sortType === 'rank') {
+                if (Math.abs(aRevertPct - bRevertPct) > 0.1) return aRevertPct - bRevertPct;
+                return aAvgHolding - bAvgHolding;
+            } else if (sortType === 'holding') {
+                return aAvgHolding - bAvgHolding;
+            } else if (sortType === 'revert') {
+                return aRevertPct - bRevertPct;
+            } else if (sortType === 'district') {
+                return a.district_name.localeCompare(b.district_name);
+            }
+        });
+
+        sortedData.forEach((d, idx) => {
+            const reverts = d.op_act_total + d.st_id_total + d.l1_total + d.l2_total + d.react_total;
+            const reverted = (d.op_act_total * d.op_act_revert_pct / 100) + (d.st_id_total * d.st_id_revert_pct / 100) + (d.l1_total * d.l1_revert_pct / 100) + (d.l2_total * d.l2_revert_pct / 100) + (d.react_total * d.react_revert_pct / 100);
+            const revertPct = reverts > 0 ? (reverted / reverts * 100).toFixed(1) : '0.0';
+            const avgHolding = ((d.cand_holding_hours + d.lms_holding_hours + d.nseit_holding_hours) / 3).toFixed(1);
+
+            let badgeHtml = '';
+            if (d.health_status === 'Excellent') {
+                badgeHtml = '<span class="badge" style="background: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 600;">Excellent</span>';
+            } else if (d.health_status === 'Needs Attention') {
+                badgeHtml = '<span class="badge" style="background: #fefce8; color: #eab308; border: 1px solid #fef08a; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 600;">Needs Attention</span>';
+            } else {
+                badgeHtml = '<span class="badge" style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 600;">Critical</span>';
+            }
+
+            const tr = `<tr>
+                <td><strong>#${idx + 1}</strong></td>
+                <td><strong>${d.dc_name}</strong></td>
+                <td>${d.district_name}</td>
+                <td>${badgeHtml}</td>
+                <td style="text-align: right; font-weight: 600; color: #1e293b;">${avgHolding}</td>
+                <td style="text-align: right; font-weight: 600; color: #1e293b;">${revertPct}%</td>
+            </tr>`;
+            tbody.insertAdjacentHTML('beforeend', tr);
+        });
+    }
+
+    function sortAnalysisTable() {
+        const table = document.getElementById('analysis-table');
+        if (!table) return;
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const sortType = document.getElementById('analysis-sort').value;
+
+        rows.sort((a, b) => {
+            if (sortType === 'district') {
+                const aName = a.querySelector('td:nth-child(2)').textContent.trim();
+                const bName = b.querySelector('td:nth-child(2)').textContent.trim();
+                return aName.localeCompare(bName);
+            } else {
+                const getVal = (row, colIndex) => {
+                    const badge = row.querySelector(`td:nth-child(${colIndex}) .badge`);
+                    if (!badge) return 0;
+                    const text = badge.textContent.replace('%', '').trim();
+                    return parseFloat(text) || 0;
+                };
+
+                let aVal = 0, bVal = 0;
+                
+                if (sortType === 'max') {
+                    aVal = Math.max(getVal(a, 3), getVal(a, 4), getVal(a, 5), getVal(a, 6), getVal(a, 7));
+                    bVal = Math.max(getVal(b, 3), getVal(b, 4), getVal(b, 5), getVal(b, 6), getVal(b, 7));
+                } else if (sortType === 'op_act') {
+                    aVal = getVal(a, 3); bVal = getVal(b, 3);
+                } else if (sortType === 'st_id') {
+                    aVal = getVal(a, 4); bVal = getVal(b, 4);
+                } else if (sortType === 'l1') {
+                    aVal = getVal(a, 5); bVal = getVal(b, 5);
+                } else if (sortType === 'l2') {
+                    aVal = getVal(a, 6); bVal = getVal(b, 6);
+                } else if (sortType === 'react') {
+                    aVal = getVal(a, 7); bVal = getVal(b, 7);
+                }
+                
+                return bVal - aVal;
+            }
+        });
+
+        rows.forEach((row, idx) => {
+            const sNoTd = row.querySelector('td:nth-child(1)');
+            if (sNoTd) sNoTd.textContent = idx + 1;
+            tbody.appendChild(row);
+        });
+    }
+
+    function sortPerformanceTable() {
+        const table = document.getElementById('performance-table');
+        if (!table) return;
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const sortType = document.getElementById('perf-sort').value;
+
+        rows.sort((a, b) => {
+            if (sortType === 'district') {
+                const aName = a.querySelector('td:nth-child(2)').textContent.trim();
+                const bName = b.querySelector('td:nth-child(2)').textContent.trim();
+                return aName.localeCompare(bName);
+            } else {
+                const getVal = (row, colIndex) => {
+                    const badge = row.querySelector(`td:nth-child(${colIndex}) .badge`);
+                    if (!badge) return 0;
+                    return parseFloat(badge.textContent.trim()) || 0;
+                };
+
+                let aVal = 0, bVal = 0;
+                
+                if (sortType === 'max') {
+                    aVal = Math.max(getVal(a, 3), getVal(a, 4), getVal(a, 5));
+                    bVal = Math.max(getVal(b, 3), getVal(b, 4), getVal(b, 5));
+                } else if (sortType === 'cand') {
+                    aVal = getVal(a, 3); bVal = getVal(b, 3);
+                } else if (sortType === 'lms') {
+                    aVal = getVal(a, 4); bVal = getVal(b, 4);
+                } else if (sortType === 'nseit') {
+                    aVal = getVal(a, 5); bVal = getVal(b, 5);
+                }
+                
+                return bVal - aVal; // Sort descending (highest holding time first)
+            }
+        });
+
+        rows.forEach((row, idx) => {
+            const sNoTd = row.querySelector('td:nth-child(1)');
+            if (sNoTd) sNoTd.textContent = idx + 1;
+            tbody.appendChild(row);
+        });
+    }
+
+    function sortTotalsTable() {
+        const table = document.getElementById('totals-table');
+        if (!table) return;
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const sortType = document.getElementById('totals-sort').value;
+
+        rows.sort((a, b) => {
+            if (sortType === 'district') {
+                const aName = a.querySelector('td:nth-child(2)').textContent.trim();
+                const bName = b.querySelector('td:nth-child(2)').textContent.trim();
+                return aName.localeCompare(bName);
+            } else {
+                const getVal = (row, colIndex) => {
+                    const span = row.querySelector(`td:nth-child(${colIndex}) span`);
+                    if (!span) return 0;
+                    return parseInt(span.textContent.trim().replace(/,/g, '')) || 0;
+                };
+
+                let aVal = 0, bVal = 0;
+                
+                if (sortType === 'total') {
+                    aVal = getVal(a, 3) + getVal(a, 4) + getVal(a, 5);
+                    bVal = getVal(b, 3) + getVal(b, 4) + getVal(b, 5);
+                } else if (sortType === 'pending') {
+                    aVal = getVal(a, 6); bVal = getVal(b, 6);
+                } else if (sortType === 'rejected') {
+                    aVal = getVal(a, 8); bVal = getVal(b, 8);
+                }
+                
+                return bVal - aVal; // Descending order
+            }
+        });
+
+        rows.forEach((row, idx) => {
+            const sNoTd = row.querySelector('td:nth-child(1)');
+            if (sNoTd) sNoTd.textContent = idx + 1;
+            tbody.appendChild(row);
+        });
+    }
+
+    // Initialize on load
+    document.addEventListener("DOMContentLoaded", function () {
+        // District filter is already populated via Jinja
+        filterByDistrict();
+    });
+</script>
+{% endblock %}

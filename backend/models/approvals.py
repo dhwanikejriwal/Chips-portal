@@ -9,7 +9,7 @@ class ApprovalHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
     request_type = Column(String, nullable=False)  # e.g., LMS, NOC, ACTIVATION, STATION
     request_id = Column(Integer, nullable=False)
-    action_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    action_by_user_id = Column(Integer, ForeignKey("user_login_table.id"), nullable=False)
     action_taken = Column(String, nullable=False)  # e.g., APPROVED, REJECTED, ESCALATED
     comments = Column(String, nullable=True)
     action_at = Column(DateTime, default=get_ist_time)

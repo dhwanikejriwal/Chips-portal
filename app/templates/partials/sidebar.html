@@ -1,27 +1,224 @@
 <!-- app/templates/partials/sidebar.html -->
+<style>
+    /* Sidebar navigation styles */
+    .sidebar {
+        width: 260px;
+        flex-shrink: 0;
+        /* CRITICAL: Prevents sidebar from collapsing/shrinking on small windows */
+        background: white;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.08);
+        padding-top: 20px;
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-x: hidden;
+        white-space: nowrap;
+        height: 100%;
+        overflow-y: auto;
+    }
+
+    .sidebar.collapsed {
+        width: 0px;
+        padding-left: 0px;
+        padding-right: 0px;
+        border: none;
+        box-shadow: none;
+    }
+
+    .sidebar ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .sidebar ul li {
+        padding: 15px 25px;
+        cursor: pointer;
+        transition: 0.3s;
+        font-weight: 600;
+    }
+
+    .sidebar ul li:hover {
+        background: #eaf3ff;
+        color: #007bff;
+    }
+
+    .sidebar ul li a {
+        color: inherit;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        height: 100%;
+    }
+
+    .menu-item:hover {
+        background: transparent !important;
+    }
+
+    .sidebar ul li.active {
+        background: #007bff;
+        color: white;
+    }
+
+    /* Sidebar details and summary */
+    .sidebar details {
+        width: 100%;
+    }
+
+    .sidebar details summary {
+        display: block;
+        /* Hide default list-item marker */
+        padding: 15px 25px;
+        font-size: 16px;
+        font-weight: 600;
+        color: inherit;
+        cursor: pointer;
+        outline: none;
+        transition: 0.3s;
+        position: relative;
+    }
+
+    .sidebar details summary:hover {
+        background: #eaf3ff;
+        color: #007bff;
+    }
+
+    /* Hide default marker in Safari and Chrome */
+    .sidebar details summary::-webkit-details-marker {
+        display: none;
+    }
+
+    /* Add custom toggle indicators (chevron down / right) */
+    .sidebar details summary::after {
+        content: '';
+        position: absolute;
+        right: 25px;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        border-right: 2px solid #64748b;
+        border-bottom: 2px solid #64748b;
+        transform: translateY(-50%) rotate(-45deg);
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .sidebar details[open] summary::after {
+        transform: translateY(-75%) rotate(45deg);
+    }
+
+    /* Submenu list under details */
+    .sidebar ul.submenu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .sidebar ul.submenu li.submenu-item {
+        padding: 12px 25px 12px 40px !important;
+        /* Indented with padding */
+        font-size: 15px;
+        font-weight: 600;
+        /* Bold weight like earlier */
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    .sidebar ul.submenu li.submenu-item:hover {
+        background: #eaf3ff;
+        color: #007bff;
+    }
+
+    .sidebar ul.submenu li.submenu-item a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .sidebar ul.submenu li.submenu-item.active {
+        background: #007bff;
+        color: white;
+    }
+
+    .sidebar ul.submenu li.submenu-item.active a {
+        color: white !important;
+    }
+
+    .sidebar ul li.menu-item {
+        padding: 0 !important;
+    }
+
+    .sidebar ul li.menu-item:hover {
+        background: transparent !important;
+    }
+
+    @media (max-width: 768px) {
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: var(--header-height, 80px);
+            bottom: 0;
+            width: 260px !important;
+            height: calc(100vh - var(--header-height, 80px)) !important;
+            z-index: 999;
+            transform: translateX(0);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(-100%) !important;
+            width: 260px !important;
+            box-shadow: none !important;
+        }
+    }
+</style>
+
 <aside class="sidebar">
     <ul>
-        {% if session.get('role') == 'chips_admin' %}
+        {% if session.get('role') == 'Admin' or session.get('role') == 'chips_admin' %}
             <!-- CHiPS Admin Navigation Links -->
-            <li class="{% if request.path == '/chips/dashboard' %}active{% endif %}">
-                <a href="/chips/dashboard">Dashboard</a>
+            <li class="{% if request.path == '/auth/chips/dashboard' %}active{% endif %}">
+                <a href="/auth/chips/dashboard">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                    Dashboard
+                </a>
+            </li>
+
+            <li class="{% if request.path == '/auth/chips/dc-monitoring' %}active{% endif %}">
+                <a href="/auth/chips/dc-monitoring">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                    DC Monitoring
+                </a>
             </li>
             
             <li class="menu-item">
                 <details open>
-                    <summary>Operator registration</summary>
+                    <summary>
+                        <span style="display: flex; align-items: center; gap: 10px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                            Operator Registration
+                        </span>
+                    </summary>
                     <ul class="submenu">
-                        <li class="submenu-item {% if request.path == '/chips/lms' %}active{% endif %}">
-                            <a href="/chips/lms"> LMS Credential</a>
+                        <li class="submenu-item {% if request.path == '/auth/chips/lms' %}active{% endif %}">
+                            <a href="/auth/chips/lms">
+                                LMS Credential
+                            </a>
                         </li>
-                        <li class="submenu-item {% if request.path == '/chips/noc' %}active{% endif %}">
-                            <a href="/chips/noc"> NOC</a>
+                        <li class="submenu-item {% if request.path == '/auth/chips/nseit' %}active{% endif %}">
+                            <a href="/auth/chips/nseit">
+                                NSEIT Request
+                            </a>
                         </li>
-                        <li class="submenu-item">
-                            <a href="#"> Operator Activation</a>
+                        <li class="submenu-item {% if request.path == '/auth/chips/operator-activation' %}active{% endif %}">
+                            <a href="/auth/chips/operator-activation">
+                                Operator Activation
+                            </a>
                         </li>
-                        <li class="submenu-item">
-                            <a href="#"> Operator Reactivation</a>
+                        <li class="submenu-item {% if request.path == '/auth/chips/reactivation' %}active{% endif %}">
+                            <a href="/auth/chips/reactivation">
+                                Operator Reactivation
+                            </a>
                         </li>
                     </ul>
                 </details>
@@ -29,41 +226,93 @@
             
             <li class="menu-item">
                 <details open>
-                    <summary>Kit Registration</summary>
+                    <summary>
+                        <span style="display: flex; align-items: center; gap: 10px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                            Kit Registration
+                        </span>
+                    </summary>
                     <ul class="submenu">
-                        <li class="submenu-item">
-                            <a href="#"> Station id</a>
+                        <li class="submenu-item {% if request.path == '/auth/chips/station-id' %}active{% endif %}">
+                            <a href="/auth/chips/station-id">
+                                Station ID
+                            </a>
                         </li>
-                        <li class="submenu-item">
-                            <a href="#"> L1 registration</a>
+                        <li class="submenu-item {% if request.path == '/auth/chips/l1-registration' %}active{% endif %}">
+                            <a href="/auth/chips/l1-registration">
+                                L1 Registration
+                            </a>
                         </li>
-                        <li class="submenu-item">
-                            <a href="#"> L2 registration</a>
+                        <li class="submenu-item {% if request.path == '/auth/chips/l2-registration' %}active{% endif %}">
+                            <a href="/auth/chips/l2-registration">
+                                L2 Registration
+                            </a>
                         </li>
                     </ul>
                 </details>
+            </li>
+        {% elif session.get('role') == 'Candidate' %}
+            <!-- Candidate Navigation Links -->
+            <li class="{% if request.path == '/auth/candidate/instructions' %}active{% endif %}">
+                <a href="/auth/candidate/instructions">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    Overview
+                </a>
+            </li>
+            <li class="{% if request.path == '/auth/candidate/lms' %}active{% endif %}">
+                <a href="/auth/candidate/lms">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    LMS Certificate
+                </a>
+            </li>
+            <li class="{% if request.path == '/auth/candidate/nseit' %}active{% endif %}">
+                <a href="/auth/candidate/nseit">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    NSEIT Certificate
+                </a>
             </li>
         {% else %}
             <!-- District Coordinator (DC) Navigation Links -->
-            <li class="{% if request.path == '/dc/dashboard' %}active{% endif %}">
-                <a href="/dc/dashboard">Dashboard</a>
+            <li class="{% if request.path == '/auth/dc/dashboard' %}active{% endif %}">
+                <a href="/auth/dc/dashboard">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                    Dashboard
+                </a>
             </li>
             
             <li class="menu-item">
                 <details open>
-                    <summary>Operator registration</summary>
+                    <summary>
+                        <span style="display: flex; align-items: center; gap: 10px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                            Operator Registration
+                        </span>
+                    </summary>
                     <ul class="submenu">
-                        <li class="submenu-item {% if request.path == '/lms' %}active{% endif %}">
-                            <a href="/lms"> LMS Credential</a>
+                        <li class="submenu-item {% if request.path == '/auth/dc/candidate-requests' %}active{% endif %}">
+                            <a href="/auth/dc/candidate-requests">
+                                Candidate Requests
+                            </a>
                         </li>
-                        <li class="submenu-item {% if request.path == '/dc/noc' %}active{% endif %}">
-                            <a href="/dc/noc"> NOC</a>
+                        <li class="submenu-item {% if request.path == '/auth/dc/lms' %}active{% endif %}">
+                            <a href="/auth/dc/lms">
+                                LMS Credential
+                            </a>
                         </li>
-                        <li class="submenu-item">
-                            <a href="#"> Operator Activation</a>
+                        <li class="submenu-item {% if request.path == '/auth/dc/nseit' %}active{% endif %}">
+                            <a href="/auth/dc/nseit">
+                                NSEIT Request
+                            </a>
                         </li>
-                        <li class="submenu-item">
-                            <a href="#"> Operator Reactivation</a>
+                        <li class="submenu-item {% if request.path == '/auth/dc/operator-activation/list' or request.path == '/auth/dc/operator-activation' %}active{% endif %}">
+                            <a href="/auth/dc/operator-activation/list">
+                                Operator Activation
+                            </a>
+                        </li>
+                        <li class="submenu-item {% if request.path == '/auth/dc/reactivation' %}active{% endif %}">
+                            <a href="/auth/dc/reactivation">
+                                Operator Reactivation
+                            </a>
                         </li>
                     </ul>
                 </details>
@@ -71,16 +320,27 @@
             
             <li class="menu-item">
                 <details open>
-                    <summary>Kit Registration</summary>
+                    <summary>
+                        <span style="display: flex; align-items: center; gap: 10px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                            Kit Registration
+                        </span>
+                    </summary>
                     <ul class="submenu">
-                        <li class="submenu-item">
-                            <a href="#"> Station id</a>
+                        <li class="submenu-item {% if request.path == '/auth/dc/station-id/list' %}active{% endif %}">
+                            <a href="/auth/dc/station-id/list">
+                                Station ID
+                            </a>
                         </li>
-                        <li class="submenu-item">
-                            <a href="#"> L1 registration</a>
+                        <li class="submenu-item {% if request.path == '/auth/dc/l1-registration' %}active{% endif %}">
+                            <a href="/auth/dc/l1-registration">
+                                L1 Registration
+                            </a>
                         </li>
-                        <li class="submenu-item">
-                            <a href="#"> L2 registration</a>
+                        <li class="submenu-item {% if request.path == '/auth/dc/l2-registration/list' %}active{% endif %}">
+                            <a href="/auth/dc/l2-registration/list">
+                                L2 Registration
+                            </a>
                         </li>
                     </ul>
                 </details>
@@ -88,7 +348,10 @@
         {% endif %}
         
         <li>
-            <a href="#">Reports</a>
+            <a href="#">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                Reports
+            </a>
         </li>
     </ul>
 </aside>

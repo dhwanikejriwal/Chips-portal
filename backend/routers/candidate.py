@@ -248,7 +248,7 @@ def update_nseit_id(r_id: int, nseit_id: str, login_id: int | None = None, db: S
 # 🌟 REPLACE THIS SINGLE FUNCTION AT THE BOTTOM OF backend/routers/candidate.py
 # =========================================================================
 @router.get("/export-download/candidate-requests")
-def export_candidate_requests_backend(ids: str = None, db: Session = Depends(get_db)):
+def export_candidate_requests_backend(db: Session = Depends(get_db)):
     """
     Fetches all candidate records and exports them using a bulletproof string-conversion loop.
     """
@@ -259,20 +259,20 @@ def export_candidate_requests_backend(ids: str = None, db: Session = Depends(get
     serialized_records = []
     for c in records:
         row = {
-            "r_id": str(c.r_id) if c.r_id is not None else "",
-            "request_code": str(c.request_code) if c.request_code else "",
-            "district_name": str(c.district_rel.district_name) if (c.district_rel and hasattr(c.district_rel, 'district_name') and c.district_rel.district_name) else (str(c.district) if c.district else ""),
-            "name": str(c.name) if c.name else "",
-            "mobile": str(c.mobile) if c.mobile else "",
-            "email": str(c.email) if c.email else "",
-            "dob": c.dob.strftime("%Y-%m-%d") if (c.dob and hasattr(c.dob, "strftime")) else (str(c.dob) if c.dob else ""),
-            "aadhaar": str(c.aadhaar) if c.aadhaar else "",
-            "qualification": str(c.qualification) if c.qualification else "",
-            "address": str(c.address) if c.address else "",
-            "pincode": str(c.pincode) if c.pincode else "",
+            "r_id": str(c.r_id) if c.r_id is not None else "—",
+            "request_code": str(c.request_code) if c.request_code else "—",
+            "district_name": str(c.district_rel.district_name) if (c.district_rel and hasattr(c.district_rel, 'district_name') and c.district_rel.district_name) else (str(c.district) if c.district else "—"),
+            "name": str(c.name) if c.name else "—",
+            "mobile": str(c.mobile) if c.mobile else "—",
+            "email": str(c.email) if c.email else "—",
+            "dob": c.dob.strftime("%Y-%m-%d") if (c.dob and hasattr(c.dob, "strftime")) else (str(c.dob) if c.dob else "—"),
+            "aadhaar": str(c.aadhaar) if c.aadhaar else "—",
+            "qualification": str(c.qualification) if c.qualification else "—",
+            "address": str(c.address) if c.address else "—",
+            "pincode": str(c.pincode) if c.pincode else "—",
             "is_existing_operator": "Yes" if c.is_existing_operator else "No",
-            "lms_id": str(c.lms_id) if c.lms_id else "",
-            "nseit_id": str(c.nseit_id) if c.nseit_id else "",
+            "lms_id": str(c.lms_id) if c.lms_id else "—",
+            "nseit_id": str(c.nseit_id) if c.nseit_id else "—",
             "status": str(c.status) if hasattr(c, 'status') and c.status else "Pending"
         }
         serialized_records.append(row)
@@ -296,5 +296,4 @@ def export_candidate_requests_backend(ids: str = None, db: Session = Depends(get
         "status": "Current Evaluation Status"
     }
     
-    return generate_csv_export(serialized_records, column_mappings, "candidate_onboarding_requests", ids=ids)
-
+    return generate_csv_export(serialized_records, column_mappings, "candidate_onboarding_requests")

@@ -1,129 +1,261 @@
+import os
 from datetime import datetime, timedelta
-from enum import Enum
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
+from fastapi import APIRouter, Depends, HTTPException, status, Security, BackgroundTasks
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from backend.database import SessionLocal
-from backend.models import User
+from jose import jwt, JWTError
 
-# Security Configurations (Matches your shared .env profiles)
-SECRET_KEY = "your-secret-key-here"  # In prod, fetch from os.getenv("SECRET_KEY")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+from backend.database import get_db
+from backend.models import UserLogin, CandidateLogin
+from backend.utils.email_utils import send_password_reset_email
 
-router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+router = APIRouter(prefix="/auth", tags=["auth"])
 
-# Database session dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+SECRET_KEY = os.getenv("SECRET_KEY", "your_super_secret_key_change_me_in_production")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
-# Token schemas
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
-class TokenData(BaseModel):
-    username: str | None = None
-    role: str | None = None
-
-# Utility security helpers
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def create_access_token(data: dict):
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate security credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        role: str = payload.get("role")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username, role=role)
-    except JWTError:
-        raise credentials_exception
-        
-    user = db.query(User).filter(User.username == token_data.username).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-# Role-Based Access Control Guardrail Decorator-class
-class RoleChecker:
-    def __init__(self, allowed_roles: list[str]):
-        self.allowed_roles = [r.lower() for r in allowed_roles]
-
-    def __call__(self, user: User = Depends(get_current_user)):
-        if hasattr(user.role, "value"):
-            user_role_str = str(user.role.value).lower()
-        elif hasattr(user.role, "name"):
-            user_role_str = user.role.name.lower()
-        else:
-            user_role_str = str(user.role).split(".")[-1].lower()
-
-        if user_role_str not in self.allowed_roles:
+@router.post("/login")
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(UserLogin).filter(UserLogin.username == payload.username).first()
+    is_candidate = False
+    candidate_login = None
+    if not user:
+        candidate_login = db.query(CandidateLogin).filter(CandidateLogin.user_id == payload.username).first()
+        if not candidate_login:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied. You do not possess the required role permissions."
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
             )
-        return user
+        is_candidate = True
 
-# =====================================================================
-# CORE LOGIN API ROUTE
-# =====================================================================
-@router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # 1. Fetch user from PostgreSQL
-    user = db.query(User).filter(User.username == form_data.username).first()
-    
-    # 2. Validate existence and password hash matches
-    if not user or not verify_password(form_data.password, user.password_hash):
+    password_bytes = payload.password.encode('utf-8')
+    if is_candidate:
+        db_password_bytes = candidate_login.password.encode('utf-8')
+        if not bcrypt.checkpw(password_bytes, db_password_bytes):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+            )
+        candidate = candidate_login.candidate
+        token_data = {
+            "user_id": candidate_login.id,
+            "username": candidate_login.user_id,
+            "role": "Candidate",
+            "district_id": candidate.district if candidate else None
+        }
+        access_token = create_access_token(data=token_data)
+        district_name = candidate.district_rel.district_name if (candidate and candidate.district_rel) else ""
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "role": "Candidate",
+            "district_id": candidate.district if candidate else None,
+            "district_name": district_name,
+            "user_id": candidate_login.id,
+            "r_id": candidate_login.r_id,
+            "has_changed_password": candidate_login.has_changed_password
+        }
+    else:
+        db_password_bytes = user.password.encode('utf-8')
+        if not bcrypt.checkpw(password_bytes, db_password_bytes):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+            )
+
+        token_data = {
+            "user_id": user.id,
+            "username": user.username,
+            "role": user.role.role,
+            "district_id": user.district_id
+        }
+
+        access_token = create_access_token(data=token_data)
+        district_name = user.district.district_name if user.district else ""
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "role": user.role.role,
+            "district_id": user.district_id,
+            "district_name": district_name,
+            "user_id": user.id
+        }
+
+security = HTTPBearer()
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Security(security),
+    db: Session = Depends(get_db)
+) -> UserLogin:
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        username: str = payload.get("username")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password mapping",
+            detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    user = db.query(UserLogin).filter(UserLogin.username == username).first()
+    if user:
+        return user
         
-    # 3. Create token embedded with user authorization details
-    if hasattr(user.role, "value"):
-        role_string = str(user.role.value).lower()
-    elif hasattr(user.role, "name"):
-        role_string = user.role.name.lower()
-    else:
-        role_string = str(user.role).split(".")[-1].lower()
-    
-    access_token = create_access_token(
-        data={"sub": user.username, "role": role_string}
+    candidate = db.query(CandidateLogin).filter(CandidateLogin.user_id == username).first()
+    if candidate:
+        return candidate
+        
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="User not found",
+        headers={"WWW-Authenticate": "Bearer"},
     )
-    return {"access_token": access_token, "token_type": "bearer"}
 
-@router.get("/me")
-async def get_me(current_user: User = Depends(get_current_user)):
-    if hasattr(current_user.role, "value"):
-        role_string = str(current_user.role.value).lower()
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+@router.post("/change-password")
+def change_password(payload: ChangePasswordRequest, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Check if current_user is CandidateLogin or UserLogin
+    if isinstance(current_user, CandidateLogin):
+        db_password_bytes = current_user.password.encode('utf-8')
     else:
-        role_string = current_user.role.name.lower()
-    return {
-        "username": current_user.username,
-        "role": role_string,
-        "district_id": current_user.district_id,
-        "district_name": current_user.district_details.name if current_user.district_details else None
-    }
+        db_password_bytes = current_user.password.encode('utf-8')
+
+    if not bcrypt.checkpw(payload.current_password.encode('utf-8'), db_password_bytes):
+        raise HTTPException(status_code=400, detail="Incorrect current password.")
+
+    salt = bcrypt.gensalt()
+    hashed_pw = bcrypt.hashpw(payload.new_password.encode('utf-8'), salt).decode('utf-8')
+
+    current_user.password = hashed_pw
+    if isinstance(current_user, CandidateLogin):
+        current_user.has_changed_password = True
+
+    db.commit()
+    return {"success": True, "detail": "Password updated successfully."}
+
+class ForgotPasswordRequest(BaseModel):
+    username: str
+
+class ResetPasswordRequest(BaseModel):
+    username: str
+    otp: str
+    new_password: str
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = db.query(UserLogin).filter(UserLogin.username == payload.username).first()
+    candidate = None
+    email_to = None
+    name = "User"
+    
+    if user:
+        email_to = payload.username # Assuming username is email
+        name = user.username
+        canonical_username = user.username
+    else:
+        # Search by request code
+        candidate_login = db.query(CandidateLogin).filter(CandidateLogin.user_id == payload.username).first()
+        # If not found by request code, search by email
+        if not candidate_login:
+            from backend.models.candidate import Candidate
+            cand = db.query(Candidate).filter(Candidate.email == payload.username).first()
+            if cand and cand.login:
+                candidate_login = cand.login
+                
+        if candidate_login:
+            # We must use the candidate's actual email, not their request code!
+            if candidate_login.candidate:
+                email_to = candidate_login.candidate.email
+                name = candidate_login.candidate.name
+            else:
+                email_to = candidate_login.user_id
+            # Set canonical username for the JWT token so reset logic finds them
+            canonical_username = candidate_login.user_id
+        else:
+            # Do not leak information, just say success
+            return {"success": True, "detail": "If an account exists, a reset link was sent."}
+    
+    # Generate 6-digit OTP
+    import secrets
+    from backend.models.otp_verification import OtpVerification
+    from backend.utils.email_utils import send_password_reset_otp_email
+    
+    otp_code = "".join([str(secrets.randbelow(10)) for _ in range(6)])
+    expire = datetime.utcnow() + timedelta(minutes=15)
+    
+    # Store OTP using canonical_username as the key
+    db_otp = db.query(OtpVerification).filter(OtpVerification.email == canonical_username).first()
+    if db_otp:
+        db_otp.otp_code = otp_code
+        db_otp.expires_at = expire
+        db_otp.is_verified = False
+    else:
+        new_otp = OtpVerification(email=canonical_username, otp_code=otp_code, expires_at=expire)
+        db.add(new_otp)
+    db.commit()
+    
+    background_tasks.add_task(
+        send_password_reset_otp_email,
+        email_to=email_to,
+        name=name,
+        otp_code=otp_code
+    )
+    
+    # Return canonical_username so the frontend knows what to send to reset-password
+    return {"success": True, "detail": "An OTP has been sent to your email address.", "canonical_username": canonical_username}
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    from backend.models.otp_verification import OtpVerification
+    db_otp = db.query(OtpVerification).filter(OtpVerification.email == payload.username).first()
+    
+    if not db_otp or db_otp.otp_code != payload.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP.")
+    if db_otp.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="OTP has expired.")
+        
+    salt = bcrypt.gensalt()
+    hashed_pw = bcrypt.hashpw(payload.new_password.encode('utf-8'), salt).decode('utf-8')
+    
+    user = db.query(UserLogin).filter(UserLogin.username == payload.username).first()
+    if user:
+        user.password = hashed_pw
+        db.delete(db_otp)
+        db.commit()
+        return {"success": True, "detail": "Password reset successfully."}
+        
+    candidate = db.query(CandidateLogin).filter(CandidateLogin.user_id == payload.username).first()
+    if candidate:
+        candidate.password = hashed_pw
+        db.delete(db_otp)
+        db.commit()
+        return {"success": True, "detail": "Password reset successfully."}
+        
+    raise HTTPException(status_code=404, detail="User not found")

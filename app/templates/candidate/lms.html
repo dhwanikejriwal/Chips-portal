@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+
+{% block title %}LMS Certificate - Candidate Portal{% endblock %}
+
+{% block sidebar %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate/portal.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="candidate-container">
+    <div style="margin-bottom: 20px;">
+        <a href="{{ url_for('candidate.instructions') }}" class="btn-back">
+            <i class="ti ti-arrow-left"></i> Go to Overview
+        </a>
+    </div>
+    <div class="detail-layout">
+        <!-- Left Column Wrapper to stack main panel and training info -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Main Panel: Submission and Status -->
+            <div class="main-panel" style="margin-bottom: 0;">
+                <div class="panel-header">
+                    <h2 class="panel-title">LMS Certificate Verification</h2>
+                    {% if status_data.lms_status == 'Approved' %}
+                    <span class="status-badge approved">Approved</span>
+                    {% elif status_data.lms_status == 'Forwarded' %}
+                    <span class="status-badge forwarded">Forwarded</span>
+                    {% elif status_data.lms_status == 'Forwarded Again' %}
+                    <span class="status-badge forwarded-again">Forwarded Again</span>
+                    {% elif status_data.lms_status == 'Pending' %}
+                    <span class="status-badge pending">Pending Review</span>
+                    {% elif status_data.lms_status == 'Reapplied' %}
+                    <span class="status-badge reapplied">Reapplied</span>
+                    {% elif status_data.lms_status == 'Reverted' %}
+                    <span class="status-badge reverted">Reverted</span>
+                    {% elif status_data.lms_status == 'Reverted by CHiPS' %}
+                    <span class="status-badge reverted">Reverted by CHiPS</span>
+                    {% else %}
+                    <span class="status-badge not-initiated">Not Initiated</span>
+                    {% endif %}
+                </div>
+
+                {% if status_data.lms_status == 'Approved' %}
+                <div
+                    style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; margin-bottom: 8px; font-size: 16px; font-weight: 600;">LMS Request
+                        Approved</h4>
+                    <p style="margin: 0 0 12px; font-size: 14px; line-height: 1.5;">Your LMS training request has been
+                        approved by Administrator.</p>
+                    <p style="margin: 0; font-size: 14px; font-weight: 500; line-height: 1.5;"><strong>Credentials
+                            Sent:</strong> An email has been sent to your registered email address (<strong>{{
+                            status_data.email }}</strong>) containing your LMS login credentials and website link.
+                        Please log in using those credentials to complete the mandatory 16-hour video training and
+                        obtain your certificate.</p>
+                </div>
+                <div
+                    style="margin-bottom: 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
+                    <div
+                        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <span class="form-label" style="font-weight: 600; color: #4a5568; margin-bottom: 0;">Your LMS
+                            ID</span>
+                        <button type="button" onclick="toggleEditLmsForm()" class="btn btn-xs btn-outline"
+                            style="background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600;">
+                            {% if status_data.lms_id %}Edit LMS ID{% else %}Add LMS ID{% endif %}
+                        </button>
+                    </div>
+
+                    {% if status_data.lms_id %}
+                    <div id="lms-id-display-block"
+                        style="background: white; padding: 14px 18px; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 700; font-size: 18px; color: #1e293b; display: inline-block; min-width: 200px;">
+                        {{ status_data.lms_id }}
+                    </div>
+                    {% else %}
+                    <div id="lms-id-display-block" style="color: #64748b; font-style: italic;">
+                        No LMS ID registered yet.
+                    </div>
+                    {% endif %}
+
+                    <div id="lms-id-edit-block" style="display: none; margin-top: 12px;">
+                        <form method="POST" action="{{ url_for('candidate.update_lms_id') }}"
+                            style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" name="lms_id" class="form-input" value="{{ status_data.lms_id or '' }}"
+                                placeholder="Enter LMS ID..." required
+                                style="margin: 0; padding: 8px 12px; max-width: 250px;">
+                            <button type="submit" class="btn btn-sm"
+                                style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Save</button>
+                            <button type="button" onclick="toggleEditLmsForm()" class="btn btn-sm"
+                                style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Cancel</button>
+                        </form>
+                    </div>
+                </div>
+                <p style="font-size: 15px;">You can now proceed to the next step: <a
+                        href="{{ url_for('candidate.candidate_nseit') }}"
+                        style="color: #4f46e5; font-weight: 600; text-decoration: underline;">NSEIT Certificate
+                        verification</a>.</p>
+                {% elif status_data.lms_status in ['Pending', 'Reapplied'] %}
+                <div
+                    style="background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; margin-bottom: 8px; font-size: 16px; font-weight: 600;">
+                        {% if status_data.lms_status == 'Reapplied' %}Reapplied - Pending DC Verification{% else
+                        %}Pending DC Verification{% endif %}
+                    </h4>
+                    <p style="margin: 0 0 12px; font-size: 14px; line-height: 1.5;">Your request has been successfully
+                        {% if status_data.lms_status == 'Reapplied' %}reapplied{% else %}submitted{% endif %} and is
+                        currently pending verification by your District Coordinator.</p>
+                    <p style="margin: 0; font-size: 14px; font-weight: 500; line-height: 1.5;"><strong>Next
+                            Step:</strong> Please wait for approval. Once CHiPS grants final approval, an email will be
+                        sent to your registered email address (<strong>{{ status_data.email }}</strong>) containing your
+                        LMS login credentials, website link, and instructions to complete the mandatory 16-hour training
+                        video.</p>
+                </div>
+                <p style="color: #64748b;">No actions are required at this stage. You can track progress or review
+                    feedback in the request history panel on the right.</p>
+                {% elif status_data.lms_status in ['Forwarded', 'Forwarded Again'] %}
+                <div
+                    style="background: #e0f2fe; border: 1px solid #bae6fd; color: #0369a1; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; margin-bottom: 8px; font-size: 16px; font-weight: 600;">
+                        {% if status_data.lms_status == 'Forwarded Again' %}Forwarded Again to CHiPS{% else %}Forwarded
+                        to CHiPS{% endif %}
+                    </h4>
+                    <p style="margin: 0 0 12px; font-size: 14px; line-height: 1.5;">Your request has been verified by
+                        the District Coordinator and forwarded to CHiPS for final approval.</p>
+                    <p style="margin: 0; font-size: 14px; font-weight: 500; line-height: 1.5;"><strong>Next
+                            Step:</strong> Once CHiPS grants final approval, your LMS login credentials and website link
+                        will be sent to your registered email address (<strong>{{ status_data.email }}</strong>) so you
+                        can access the platform and complete the mandatory 16-hour video training.</p>
+                </div>
+                <p style="color: #64748b;">No actions are required at this stage. You can track progress or review
+                    feedback in the request history panel on the right.</p>
+                {% else %}
+                {% if status_data.lms_status in ['Reverted', 'Reverted by CHiPS'] %}
+                <div
+                    style="background: #fef2f2; border: 1px solid #fee2e2; color: #991b1b; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                    <strong>Action Required:</strong> Your request was reverted by the administrator. Please review the
+                    remarks, make the necessary corrections, and resubmit.
+                </div>
+                {% endif %}
+
+                <div class="aadhaar-reminder-box">
+                    <div class="aadhaar-reminder-icon">
+                        <i class="ti ti-alert-triangle"></i>
+                    </div>
+                    <div class="aadhaar-reminder-content">
+                        <p>Please make sure that your <strong>Full Name</strong> and <strong>Mobile Number</strong>
+                            entered below match <strong>exactly as per your Aadhaar Card</strong>.</p>
+                    </div>
+                </div>
+
+                <form method="POST" action="{{ url_for('candidate.candidate_lms') }}">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <!-- Full Name -->
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="name" class="form-label">Full Name *</label>
+                            <input type="text" id="name" name="name" class="form-input" value="{{ status_data.name }}"
+                                required>
+                        </div>
+
+                        <!-- Mobile Number -->
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="mobile" class="form-label">Mobile Number *</label>
+                            <input type="tel" id="mobile" name="mobile" class="form-input"
+                                value="{{ status_data.mobile }}" pattern="[0-9]{10}" required>
+                        </div>
+
+                        <!-- Email Address -->
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="email" class="form-label">Email Address *</label>
+                            <input type="email" id="email" name="email" class="form-input"
+                                value="{{ status_data.email }}" required>
+                        </div>
+
+                        <!-- Operational District -->
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="district" class="form-label">Operational District *</label>
+                            <select id="district" name="district" class="form-input" required>
+                                {% for d in districts %}
+                                <option value="{{ d.district_code }}" {% if d.district_code==status_data.district
+                                    %}selected{% endif %}>
+                                    {{ d.district_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    {% if status_data.lms_status in ['Reverted', 'Reverted by CHiPS'] %}
+                    <div class="form-group">
+                        <label for="remark" class="form-label">Submission Remarks / Notes *</label>
+                        <textarea id="remark" name="remark" class="form-textarea" required
+                            placeholder="Provide details about your corrections..."></textarea>
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="btn-card">Submit LMS Request</button>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- Mandatory LMS Training Information (Rendered below the card container) -->
+            {% if status_data.lms_status not in ['Approved', 'Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}
+            <div
+                style="background: #eef2ff; border: 1px solid #e0e7ff; color: #3730a3; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <h4
+                    style="margin-top: 0; margin-bottom: 8px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    <i class="ti ti-info-circle" style="font-size: 18px;"></i> Mandatory LMS Training Information
+                </h4>
+                <p style="margin: 0; font-size: 14px; line-height: 1.5;">The LMS (Learning Management System) is a
+                    mandatory learning platform. To obtain your LMS certificate, you must watch a 16-hour long training
+                    video. This certificate is a mandatory requirement to become an Aadhaar operator. Submit this
+                    request to get your credentials, video link, and registration instructions sent directly to your
+                    registered email once approved.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Side Panel: Remarks Log History -->
+        <div class="side-panel">
+            <h3
+                style="font-size: 16px; font-weight: 600; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                Request History Log</h3>
+            <div class="remarks-timeline">
+                {% if status_data.lms_remarks %}
+                {% for r in status_data.lms_remarks %}
+                <div class="remark-log-item {% if r.sender_role in ['CHIPS', 'DC', 'EDM'] %}by-admin{% endif %}">
+                    <div class="remark-section-row">
+                        <span class="remark-step-label">LMS Credential</span>
+
+                        <!-- 🌟 FIXED DICTIONARY LOOKUP: Correctly pulls the backend string key -->
+                        {% set db_status = r.get('status_after') or 'Pending' %}
+
+                        <!-- Filter administrative jargon like "Reverted by CHiPS" to just "Reverted" for the candidate -->
+                        {% if 'revert' in db_status | lower %}
+                        {% set calculated_status = 'Reverted' %}
+                        {% elif 'forward' in db_status | lower %}
+                        {% set calculated_status = 'Forwarded' %}
+                        {% else %}
+                        {% set calculated_status = db_status %}
+                        {% endif %}
+
+                        <span
+                            class="remark-status-badge badge-{{ calculated_status | lower | replace(' ', '-') }} {{ calculated_status | lower | replace(' ', '-') }}">
+                            {{ calculated_status }}
+                        </span>
+                    </div>
+                    <div class="remark-by-row">
+                        <span class="remark-sender">By: <strong>
+                                {% if r.sender_role in ['CHIPS', 'DC', 'EDM'] %}
+                                Administrator
+                                {% else %}
+                                You
+                                {% endif %}
+                            </strong></span>
+                        <span class="remark-time">{{ r.created_at }}</span>
+                    </div>
+                    <div class="remark-body">{{ r.remark }}</div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="color: #718096; font-size: 14px;">No remarks logs yet. Your submission and administrator
+                    feedback will appear here.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleEditLmsForm() {
+        const display = document.getElementById('lms-id-display-block');
+        const edit = document.getElementById('lms-id-edit-block');
+        if (edit.style.display === 'none') {
+            edit.style.display = 'block';
+            if (display) display.style.display = 'none';
+        } else {
+            edit.style.display = 'none';
+            if (display) display.style.display = 'inline-block';
+        }
+    }
+</script>
+{% endblock %}

@@ -29,6 +29,73 @@ mermaid.initialize({
   er: { diagramPadding: 20, layoutDirection: 'TB', minEntityWidth: 100, minEntityHeight: 75, entityPadding: 15, useMaxWidth: true },
 });
 const diagram = `erDiagram
+    credential_requests {
+        integer id PK
+        varchar request_code
+        varchar operator_first_name
+        varchar operator_middle_name
+        varchar operator_last_name
+        varchar operator_phone
+        varchar operator_email
+        integer district_id FK
+        integer submitted_by_id FK
+        varchar status
+        datetime created_at
+        datetime updated_at
+        varchar generated_login_id
+        varchar generated_password_raw
+        varchar revert_reason
+        json remarks_history
+    }
+    LMS_table {
+        integer id PK
+        integer R_Id FK
+        varchar status_code
+        datetime created_at
+        datetime updated_at
+    }
+    lms_remark_table {
+        integer id PK
+        integer R_id FK
+        varchar remark
+        datetime time
+        varchar status_after_code
+        integer admin_by_id FK
+        integer candidate_by_id FK
+        boolean is_public
+    }
+    noc_requests {
+        integer id PK
+        varchar request_code
+        varchar operator_unique_id
+        varchar operator_first_name
+        varchar operator_middle_name
+        varchar operator_last_name
+        integer district_id FK
+        integer submitted_by_id FK
+        varchar status
+        datetime created_at
+        datetime updated_at
+        varchar revert_reason
+        json remarks_history
+    }
+    station_kit_details {
+        integer id PK
+        integer district_id FK
+        varchar station_id
+        varchar kit_number
+        varchar status
+        datetime created_at
+    }
+    approval_history {
+        integer id PK
+        varchar request_type
+        integer request_id
+        integer action_by_user_id FK
+        varchar action_taken
+        varchar comments
+        datetime action_at
+    }
     master_user_role {
         integer id PK
         varchar role
@@ -36,12 +103,6 @@ const diagram = `erDiagram
     master_status {
         varchar code PK
         varchar name
-    }
-    district_table {
-        varchar district_code PK
-        integer id
-        varchar district_name
-        varchar district_short_name
     }
     user_login_table {
         integer id PK
@@ -78,6 +139,7 @@ const diagram = `erDiagram
         integer r_id FK
         varchar user_id
         varchar password
+        boolean has_changed_password
     }
     dc_remark_table {
         integer id PK
@@ -86,23 +148,6 @@ const diagram = `erDiagram
         datetime time
         varchar status_after_code
         integer by FK
-    }
-    LMS_table {
-        integer id PK
-        integer R_Id FK
-        varchar status_code
-        datetime created_at
-        datetime updated_at
-    }
-    lms_remark_table {
-        integer id PK
-        integer R_id FK
-        varchar remark
-        datetime time
-        varchar status_after_code
-        integer admin_by_id FK
-        integer candidate_by_id FK
-        boolean is_public
     }
     nseit_request_table {
         integer id PK
@@ -292,16 +337,39 @@ const diagram = `erDiagram
         varchar status_after_code
         datetime created_at
     }
+    otp_verification_table {
+        varchar email PK
+        varchar otp_code
+        datetime expires_at
+        boolean is_verified
+        datetime created_at
+        datetime updated_at
+    }
+    district_table {
+        varchar district_code PK
+        integer id
+        varchar district_name
+        varchar district_short_name
+        varchar dc_name
+        varchar dc_email
+        varchar dc_phone
+    }
+    district_table ||--o{ credential_requests : "district_id"
+    user_login_table ||--o{ credential_requests : "submitted_by_id"
+    candidate_table ||--o{ LMS_table : "R_Id"
+    LMS_table ||--o{ lms_remark_table : "R_id"
+    user_login_table ||--o{ lms_remark_table : "admin_by_id"
+    candidate_login_table ||--o{ lms_remark_table : "candidate_by_id"
+    district_table ||--o{ noc_requests : "district_id"
+    user_login_table ||--o{ noc_requests : "submitted_by_id"
+    district_table ||--o{ station_kit_details : "district_id"
+    user_login_table ||--o{ approval_history : "action_by_user_id"
     district_table ||--o{ user_login_table : "district_id"
     master_user_role ||--o{ user_login_table : "roleid"
     district_table ||--o{ candidate_table : "district"
     candidate_table ||--o{ candidate_login_table : "r_id"
     candidate_table ||--o{ dc_remark_table : "r_id"
     user_login_table ||--o{ dc_remark_table : "by"
-    candidate_table ||--o{ LMS_table : "R_Id"
-    LMS_table ||--o{ lms_remark_table : "R_id"
-    user_login_table ||--o{ lms_remark_table : "admin_by_id"
-    candidate_login_table ||--o{ lms_remark_table : "candidate_by_id"
     candidate_table ||--o{ nseit_request_table : "R_Id"
     nseit_request_table ||--o{ nseit_request_remark_table : "R_Id"
     user_login_table ||--o{ nseit_request_remark_table : "admin_by_id"
