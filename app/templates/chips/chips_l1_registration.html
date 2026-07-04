@@ -1,0 +1,518 @@
+{% extends 'base.html' %}
+
+{% block title %}CHiPS Admin - L1 Registration Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    /* Scoped button enhancements for this dashboard */
+    .btn-approve {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background: #16a34a;
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .btn-approve:hover {
+        background: #15803d;
+    }
+
+    .btn-revert {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        background: #fff;
+        color: #dc2626;
+        border: 1.5px solid #fca5a5;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .btn-revert:hover {
+        background: #fee2e2;
+        border-color: #dc2626;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Jinja2 Metric Calculations -->
+{% set total_requests = requests|length %}
+{% set metrics = namespace(pending=0, approved=0, reverted=0) %}
+{% for req in requests %}
+{% if req.status in ['PENDING', 'REAPPLIED'] %}
+{% set metrics.pending = metrics.pending + 1 %}
+{% elif req.status in ['APPROVED', 'REVIEWED'] %}
+{% set metrics.approved = metrics.approved + 1 %}
+{% elif req.status == 'REVERTED' %}
+{% set metrics.reverted = metrics.reverted + 1 %}
+{% endif %}
+{% endfor %}
+
+<!-- Standardized L1 Registration Control Panel Banner -->
+<div class="chips-header-banner">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div
+            style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+        </div>
+        <div>
+            <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">L1 Registration Control Panel</h1>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Review, approve and assign L1 registrations
+                to DC requests</p>
+        </div>
+    </div>
+    <div class="chips-banner-metrics">
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.pending }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
+            </div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.reverted }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.approved }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="form-card-container">
+    <!-- Global Filter Bar -->
+    <div class="filter-bar">
+        <div class="filter-group filter-group-search">
+            <label>Search Request</label>
+            <input type="text" id="global-search" class="filter-input"
+                placeholder="Search by request ID, district, model..." oninput="filterAllTables()">
+        </div>
+        <div class="filter-group">
+            <label>District</label>
+            <select id="global-district" class="filter-input" onchange="filterAllTables()">
+                <option value="all">All Districts</option>
+                {% for d in [
+                'Balod', 'Baloda Bazar-Bhatapara', 'Balrampur-Ramanujganj', 'Bastar', 'Bemetara',
+                'Bijapur', 'Bilaspur', 'Dantewada', 'Dhamtari', 'Durg', 'Gariaband',
+                'Gaurela-Pendra-Marwahi', 'Janjgir-Champa', 'Jashpur', 'Kabirdham', 'Kanker',
+                'Khairagarh-Chhuikhadan-Gandai', 'Kondagaon', 'Korba', 'Koriya', 'Mahasamund',
+                'Manendragarh-Chirmiri-Bharatpur', 'Mohla-Manpur-Ambagarh Chowki', 'Mungeli',
+                'Narayanpur', 'Raigarh', 'Raipur', 'Rajnandgaon', 'Sakti', 'Sarangarh-Bilaigarh',
+                'Sukma', 'Surajpur', 'Surguja'
+                ] %}
+                <option value="{{ d | lower | trim }}">{{ d }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Time Period</label>
+            <select id="global-date" class="filter-input" onchange="filterAllTables()">
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">Week</option>
+                <option value="this_month" selected>Month</option>
+            </select>
+        </div>
+        <div class="filter-group-button" style="flex: 0 0 auto;">
+            <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                Clear Filters
+            </button>
+        </div>
+    </div>
+
+    <div class="sec-header">
+    <div class="sec-dot" style="background:#f59e0b;"></div>
+    <h3 class="sec-title">Pending L1 Registration Requests</h3>
+    <span class="sec-count" id="pending-count">–</span>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <select id="pending-status" class="filter-input" style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="reapplied">Reapplied</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportSection('pending')">Export to CSV</button>
+    </div>
+</div>
+
+    <div class="sid-table-wrapper">
+        <table class="sid-table" id="pending-table">
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>Request ID</th>
+                    <th>District</th>
+                    <th>Model</th>
+                    <th>Status</th>
+                    <th>Submitted At</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="pending-tbody">
+                {% set pending_count = 0 %}
+                {% for req in requests %}
+                {% if req.status in ['PENDING', 'REAPPLIED'] %}
+                {% set pending_count = pending_count + 1 %}
+                <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}"
+                    data-district="{{ req.district_name or '' }}" data-model="{{ req.model_type or '' }}"
+                    data-status="{{ req.status | lower }}" data-created="{{ req.created_at or '' }}">
+                    <td>{{ pending_count }}</td>
+                    <td><strong>{{ req.request_code }}</strong></td>
+                    <td>{{ req.district_name }}</td>
+                    <td>{{ req.model_type }}</td>
+                    <td>
+                        {% if req.status == 'REAPPLIED' %}
+                        <span class="sid-badge sid-badge-reapplied">Reapplied</span>
+                        {% else %}
+                        <span class="sid-badge sid-badge-pending">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ req.created_at|string|truncate(16, True, '') if req.created_at else '—' }}</td>
+                    <td>
+                        <div class="action-group" style="justify-content: center;">
+                            <button type="button" class="btn-approve"
+                                onclick="approveL1Request('{{ req.request_code }}')">
+                                Approve
+                            </button>
+                            <button type="button" class="btn-revert"
+                                onclick="revertL1Request('{{ req.request_code }}')">
+                                Revert
+                            </button>
+                            <button type="button" class="btn-details"
+                                onclick="openL1DetailsModal('{{ req.request_code }}')">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                                Details
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="pending-empty-msg" class="empty-state" style="display:none;">
+            <p>No pending L1 registration requests in queue.</p>
+        </div>
+    </div>
+</div>
+
+<div class="form-card-container">
+    <!-- Filters for History removed -> moved to global -->
+
+   <div class="sec-header">
+    <div class="sec-dot" style="background:#16a34a;"></div>
+    <h3 class="sec-title">Processed Requests Log History</h3>
+    <span class="sec-count" id="history-count">–</span>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <select id="history-status" class="filter-input" style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
+            <option value="all">All Statuses</option>
+            <option value="approved">Approved</option>
+            <option value="reverted by chips">Reverted by CHiPS</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportSection('history')">Export to CSV</button>
+    </div>
+</div>
+
+    <div class="sid-table-wrapper">
+        <table class="sid-table" id="history-table">
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>Request ID</th>
+                    <th>District</th>
+                    <th>Model</th>
+                    <th>Status</th>
+                    <th>Submitted At</th>
+                    <th>Updated At</th>
+                    <th style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="history-tbody">
+                {% set history_count = 0 %}
+                {% for req in requests %}
+                {% if req.status not in ['PENDING', 'REAPPLIED'] %}
+                {% set history_count = history_count + 1 %}
+                <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}"
+                    data-district="{{ req.district_name or '' }}" data-model="{{ req.model_type or '' }}"
+                    data-status="{% if req.status in ['APPROVED', 'REVIEWED'] %}approved{% else %}{{ req.status | lower }}{% endif %}"
+                    data-created="{{ req.created_at or '' }}">
+                    <td>{{ history_count }}</td>
+                    <td><strong>{{ req.request_code }}</strong></td>
+                    <td>{{ req.district_name }}</td>
+                    <td>{{ req.model_type }}</td>
+                    <td>
+                        {% if req.status in ['APPROVED', 'REVIEWED'] %}
+                        <span class="sid-badge sid-badge-approved">Approved</span>
+                        {% else %}
+                        <span class="sid-badge sid-badge-reverted">Reverted</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ req.submitted_at[:16] if req.submitted_at else '—' }}</td>
+                    <td>{{ req.updated_at[:16] if req.updated_at else '—' }}</td>
+<!-- ============================= -->
+
+                    <td>
+                        <div class="action-group" style="justify-content: center;">
+                            <button type="button" class="btn-details"
+                                onclick="openL1DetailsModal('{{ req.request_code }}')">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                                Details
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="history-empty-msg" class="empty-state" style="display:none;">
+            <p>No historical L1 registration logs found.</p>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/chips_l1_registration.js') }}"></script>
+<script>
+    function getDatePrefixes() {
+        const now = new Date(), y = now.getFullYear(),
+            m = (now.getMonth() + 1).toString().padStart(2, '0'),
+            d = now.getDate().toString().padStart(2, '0');
+        return { today: `${y}-${m}-${d}`, month: `${y}-${m}`, year: `${y}` };
+    }
+
+    function clearAllFilters() {
+        document.getElementById('global-search').value = '';
+        document.getElementById('global-district').value = 'all';
+        document.getElementById('global-date').value = 'this_month';
+        document.getElementById('pending-status').value = 'all';
+        document.getElementById('history-status').value = 'all';
+        filterAllTables();
+    }
+
+    function filterAllTables() {
+        const q = (document.getElementById('global-search').value || '').toLowerCase().trim();
+        const df = document.getElementById('global-date').value;
+        const selectedDistrict = document.getElementById('global-district').value;
+        const now = new Date();
+
+        const pending_sf = document.getElementById('pending-status').value.toLowerCase().trim();
+        const history_sf = document.getElementById('history-status').value.toLowerCase().trim();
+
+        sessionStorage.setItem('chips_l1_search', document.getElementById('global-search').value);
+        sessionStorage.setItem('chips_l1_district', selectedDistrict);
+        sessionStorage.setItem('chips_l1_date', df);
+        sessionStorage.setItem('chips_l1_pending_status', pending_sf);
+        sessionStorage.setItem('chips_l1_history_status', history_sf);
+
+        // Process Pending Table
+        let pendingIdx = 1;
+        document.querySelectorAll('#pending-tbody tr[data-id]').forEach(row => {
+            const reqCode = (row.getAttribute('data-request-code') || '').toLowerCase();
+            const opName = (row.getAttribute('data-operator-name') || '').toLowerCase();
+            const opId = (row.getAttribute('data-operator-id') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+            const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
+            const created = row.getAttribute('data-created') || '';
+
+            const matchQ = !q || reqCode.includes(q) || opName.includes(q) || opId.includes(q);
+            const matchDist = (selectedDistrict === 'all') || (dist === selectedDistrict.toLowerCase().trim());
+            const matchStatus = (pending_sf === 'all') || (status === pending_sf);
+
+            let matchDate = true;
+            if (created && df !== 'all') {
+                const rowDate = new Date(created.replace(' ', 'T'));
+                if (df === 'today') {
+                    matchDate = rowDate.toDateString() === now.toDateString();
+                } else if (df === 'week') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 7);
+                    matchDate = rowDate >= threshold;
+                } else if (df === 'this_month') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 30);
+                    matchDate = rowDate >= threshold;
+                }
+            }
+
+            if (matchQ && matchDist && matchStatus && matchDate) {
+                row.style.display = '';
+                if (row.cells[0]) row.cells[0].innerText = pendingIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        if (document.getElementById('pending-count')) document.getElementById('pending-count').textContent = pendingIdx - 1;
+        if (document.getElementById('pending-empty-msg')) document.getElementById('pending-empty-msg').style.display = (pendingIdx === 1) ? 'block' : 'none';
+
+        // Process History Table
+        let historyIdx = 1;
+        document.querySelectorAll('#history-tbody tr[data-id]').forEach(row => {
+            const reqCode = (row.getAttribute('data-request-code') || '').toLowerCase();
+            const opName = (row.getAttribute('data-operator-name') || '').toLowerCase();
+            const opId = (row.getAttribute('data-operator-id') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+            const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
+            const created = row.getAttribute('data-created') || '';
+
+            const matchQ = !q || reqCode.includes(q) || opName.includes(q) || opId.includes(q);
+            const matchDist = (selectedDistrict === 'all') || (dist === selectedDistrict.toLowerCase().trim());
+            
+            let matchStatus = false;
+            if (history_sf === 'all') {
+                matchStatus = true;
+            } else if (history_sf === 'reverted by chips') {
+                matchStatus = (status === 'reverted');
+            } else {
+                matchStatus = (status === history_sf);
+            }
+
+            let matchDate = true;
+            if (created && df !== 'all') {
+                const rowDate = new Date(created.replace(' ', 'T'));
+                if (df === 'today') {
+                    matchDate = rowDate.toDateString() === now.toDateString();
+                } else if (df === 'week') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 7);
+                    matchDate = rowDate >= threshold;
+                } else if (df === 'this_month') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 30);
+                    matchDate = rowDate >= threshold;
+                }
+            }
+
+            if (matchQ && matchDist && matchStatus && matchDate) {
+                row.style.display = '';
+                if (row.cells[0]) row.cells[0].innerText = historyIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        if (document.getElementById('history-count')) document.getElementById('history-count').textContent = historyIdx - 1;
+        if (document.getElementById('history-empty-msg')) document.getElementById('history-empty-msg').style.display = (historyIdx === 1) ? 'block' : 'none';
+    }
+
+    function exportSection(section) {
+        const ids = [];
+        const selector = (section === 'pending') ? '#pending-tbody tr[data-id]' : '#history-tbody tr[data-id]';
+        
+        document.querySelectorAll(selector).forEach(row => {
+            const id = row.getAttribute('data-id');
+            if (id) ids.push(id);
+        });
+
+        if (ids.length === 0) {
+            Swal.fire({ title: 'No Data Mapped', text: 'There are no request entries loaded in this view queue to export.', icon: 'info', confirmButtonColor: '#4f46e5' });
+            return;
+        }
+
+        // Targets the correct flask router proxy path endpoint safely
+        window.location.href = `/auth/l1-registration/export?ids=${ids.join(',')}`;
+    }
+
+    window.addEventListener('load', function () {
+        const isActionReload = sessionStorage.getItem('chips_action_reloading') === 'true';
+        sessionStorage.removeItem('chips_action_reloading');
+
+        if (!isActionReload) {
+            sessionStorage.removeItem('chips_l1_search');
+            sessionStorage.removeItem('chips_l1_district');
+            sessionStorage.removeItem('chips_l1_date');
+            sessionStorage.removeItem('chips_l1_pending_status');
+            sessionStorage.removeItem('chips_l1_history_status');
+        }
+
+        if (sessionStorage.getItem('chips_l1_search') !== null) {
+            document.getElementById('global-search').value = sessionStorage.getItem('chips_l1_search');
+            document.getElementById('global-district').value = sessionStorage.getItem('chips_l1_district');
+            document.getElementById('global-date').value = sessionStorage.getItem('chips_l1_date');
+            if (document.getElementById('pending-status')) document.getElementById('pending-status').value = sessionStorage.getItem('chips_l1_pending_status');
+            if (document.getElementById('history-status')) document.getElementById('history-status').value = sessionStorage.getItem('chips_l1_history_status');
+        } else {
+            document.getElementById('global-search').value = '';
+            document.getElementById('global-district').value = 'all';
+            document.getElementById('global-date').value = 'this_month';
+            if (document.getElementById('pending-status')) document.getElementById('pending-status').value = 'all';
+            if (document.getElementById('history-status')) document.getElementById('history-status').value = 'all';
+        }
+        filterAllTables();
+    });
+
+    window.addEventListener('load', () => {
+        const isActionReload = sessionStorage.getItem('chips_action_reloading') === 'true';
+        sessionStorage.removeItem('chips_action_reloading');
+
+        if (!isActionReload) {
+            sessionStorage.removeItem('chips_l1_search');
+            sessionStorage.removeItem('chips_l1_district');
+            sessionStorage.removeItem('chips_l1_date');
+            sessionStorage.removeItem('chips_l1_pending_status');
+            sessionStorage.removeItem('chips_l1_history_status');
+        }
+
+        if (sessionStorage.getItem('chips_l1_search') !== null) {
+            document.getElementById('global-search').value = sessionStorage.getItem('chips_l1_search');
+            document.getElementById('global-district').value = sessionStorage.getItem('chips_l1_district');
+            document.getElementById('global-date').value = sessionStorage.getItem('chips_l1_date');
+            if (document.getElementById('pending-status')) {
+                document.getElementById('pending-status').value = sessionStorage.getItem('chips_l1_pending_status');
+            }
+            if (document.getElementById('history-status')) {
+                document.getElementById('history-status').value = sessionStorage.getItem('chips_l1_history_status');
+            }
+        } else {
+            document.getElementById('global-search').value = '';
+            document.getElementById('global-district').value = 'all';
+            document.getElementById('global-date').value = 'this_month';
+            if (document.getElementById('pending-status')) {
+                document.getElementById('pending-status').value = 'all';
+            }
+            if (document.getElementById('history-status')) {
+                document.getElementById('history-status').value = 'all';
+            }
+        }
+
+        filterAllTables();
+    });
+</script>
+<script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
+{% endblock %}
