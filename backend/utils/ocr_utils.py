@@ -113,11 +113,6 @@ def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: 
         matches = sum(1 for kw in keywords if kw in extracted_text)
         if matches < 1:
             raise ValueError("Validation Error: The uploaded document does not appear to be a valid High School (10th) Marksheet.")
-    else: # Higher Secondary (12th)
-        keywords = ["BOARD", "EXAMINATION", "HIGHER", "SECONDARY", "CERTIFICATE", "MARKS", "SCHOOL", "अंक", "प्रमाण", "परीक्षा", "12TH", "INTERMEDIATE"]
-        matches = sum(1 for kw in keywords if kw in extracted_text)
-        if matches < 1:
-            raise ValueError("Validation Error: The uploaded document does not appear to be a valid Higher Secondary (12th) Marksheet.")
         
         # Ensure it's not a 12th certificate
         negative_kws = ["SENIOR SECONDARY EXAM", "HIGHER SECONDARY", "12TH", "INTERMEDIATE EXAM", "XII", "PRE-UNIVERSITY", "SENIOR SCHOOL CERTIFICATE"]
@@ -149,7 +144,6 @@ def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: 
     else:
         # Fallback for "Other / Higher"
         pass
->>>>>>> origin/dhwani
 
     # Rule 2: Name Verification
     if candidate_name:

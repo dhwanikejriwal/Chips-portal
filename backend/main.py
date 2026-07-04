@@ -19,16 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register legacy routers (Ours)
-from backend.routers import lms as legacy_lms
-from backend.routers import noc as legacy_noc
-from backend.routers import station as legacy_station
-from backend.routers import approvals as legacy_approvals
 
-app.include_router(legacy_lms.router, prefix="/lms", tags=["LMS Video Requests"])
-app.include_router(legacy_noc.router, prefix="/noc", tags=["NOC Requests"])
-app.include_router(legacy_station.router, prefix="/station", tags=["Station ID Processing"])
-app.include_router(legacy_approvals.router, prefix="/approvals", tags=["L1/L2 Approvals"])
 
 # Register routers (Friend's / Shared)
 from backend.routers.auth import router as auth_router

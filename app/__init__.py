@@ -6,16 +6,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Register modular feature blueprints (Ours)
-    from app.blueprints.noc import noc_bp
-    from app.blueprints.station import station_bp
-    from app.blueprints.approvals import approvals_bp
-    from app.blueprints.lms import lms_bp
 
-    app.register_blueprint(noc_bp)
-    app.register_blueprint(station_bp)
-    app.register_blueprint(approvals_bp)
-    app.register_blueprint(lms_bp)
 
     # Register blueprints (Friend's / Shared)
     from app.blueprints.auth import auth_bp
