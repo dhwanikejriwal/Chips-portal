@@ -9,7 +9,7 @@ window.currentViewingOperators = [];
 
 // 🟢 INITIALIZATION ADAPTER: SET LIMIT BOUNDARIES AND TAB PERSISTENCE
 document.addEventListener("DOMContentLoaded", () => {
-    window.switchReactivationView('dashboard');
+    window.switchReactivationView('dashboard', true);
 
     // Capture precise local calendar boundary configurations (YYYY-MM-DD)
     const todayIsoString = new Date().toISOString().split("T")[0];
@@ -26,12 +26,27 @@ document.addEventListener("DOMContentLoaded", () => {
         certDateInput.max = todayIsoString;
     }
 
-    // 3. Initialize counts by running the filter pipeline
+    // 3. Check if page is reloaded (F5) and reset filters to defaults
+    const navEntries = performance.getEntriesByType("navigation");
+    const isReload = navEntries.length > 0 && navEntries[0].type === "reload";
+
+    if (isReload) {
+        const searchOperatorInput = document.getElementById("filter-search-operator");
+        if (searchOperatorInput) searchOperatorInput.value = "";
+
+        const statusInput = document.getElementById("filter-status");
+        if (statusInput) statusInput.value = "ALL";
+
+        const datePeriodInput = document.getElementById("filter-date-period");
+        if (datePeriodInput) datePeriodInput.value = "month";
+    }
+
+    // 4. Initialize counts by running the filter pipeline
     applyHistoryPanelFiltersPipeline();
 });
 
 // 🔄 DYNAMIC VIEW PANEL ROUTER (Bound to global context)
-window.switchReactivationView = function (targetPanel) {
+window.switchReactivationView = function (targetPanel, shouldReset = false) {
     const dashboardView = document.getElementById('view-reactivation-dashboard-panel');
     const appView = document.getElementById('view-workspace-application-panel');
     const historyView = document.getElementById('view-workspace-history-panel');
@@ -43,7 +58,29 @@ window.switchReactivationView = function (targetPanel) {
     if (targetPanel === 'dashboard') {
         if (dashboardView) dashboardView.style.display = 'block';
         if (historyView) historyView.style.display = 'block';
-        window.currentReapplyCode = null;
+
+        // Reset the form when returning to dashboard ONLY if shouldReset is true
+        if (shouldReset) {
+            if (typeof resetEntireNewRequestForm === 'function') {
+                resetEntireNewRequestForm();
+            } else {
+                clearFormInputs();
+                structuredOperatorList = [];
+                renderOperatorSpreadsheetRows();
+                const nextBtn = document.getElementById('next-step-trigger-btn');
+                if (nextBtn) nextBtn.disabled = true;
+                ['training_photo', 'nodal_letter', 'om_letter', 'attendance_list', 'training_date'].forEach(name => {
+                    const el = document.getElementsByName(name)[0];
+                    if (el) el.value = '';
+                });
+                const s1Form = document.getElementById('section-operator-form-view');
+                const s2Docs = document.getElementById('section-documents-upload-view');
+                if (s1Form) s1Form.style.display = 'block';
+                if (s2Docs) s2Docs.style.display = 'none';
+            }
+            window.currentReapplyCode = null;
+        }
+
         const titleEl = document.querySelector('.container-title');
         if (titleEl) {
             titleEl.innerText = 'AADHAAR OPERATOR REACTIVATION';
@@ -135,7 +172,7 @@ function renderOperatorSpreadsheetRows() {
         tbody.innerHTML = `
             <tr id="empty-state-row">
                 <td colspan="15" style="text-align: center; color: #94a3b8; padding: 30px; font-style: italic;">
-                    No operator entries added to the tracking index matrix yet. Use the data form container inputs above.
+                    No operator entry added yet.
                 </td>
             </tr>`;
         document.getElementById('next-step-trigger-btn').disabled = true;
@@ -308,9 +345,9 @@ function handleFormSubmissionPipeline(event) {
             });
         })
         .then(data => {
-            Swal.fire({ 
-                title: 'Submitted Successfully', 
-                text: 'Reactivation request submitted successfully.', 
+            Swal.fire({
+                title: 'Submitted Successfully',
+                text: 'Reactivation request submitted successfully.',
                 icon: 'success',
                 confirmButtonColor: '#007bff',
                 allowOutsideClick: false,
@@ -331,7 +368,7 @@ function getStatusBadgeHtml(status) {
     const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
     let badgeClass = 'badge-pending';
     let label = 'Pending';
-    if (s.includes('approve') || s.includes('active') || s.includes('activated')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+    if (s.includes('approve')) { badgeClass = 'badge-approved'; label = 'Approved'; }
     else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
     else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
     else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
@@ -412,7 +449,7 @@ window.openHistoricalOperatorsModal = function (requestCode) {
                         if (statusAfter) {
                             statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
                             const sLower = statusAfter.toLowerCase();
-                            if (sLower.includes('approve') || sLower.includes('active') || sLower.includes('activated')) markerClass = 'marker-approved';
+                            if (sLower.includes('approve')) markerClass = 'marker-approved';
                             else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
                             else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
                             else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
@@ -458,16 +495,21 @@ window.openHistoricalOperatorsModal = function (requestCode) {
 
                 if (normalizedStatus === 'sent to uidai' || normalizedStatus === 'sent_to_uidai') {
                     statusStyle = "color: #0369a1; font-weight: 700; background: #e0f2fe; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
-                } else if (normalizedStatus === 'active' || normalizedStatus === 'activated') {
+                } else if (normalizedStatus === 'approved') {
                     statusStyle = "color: #065f46; font-weight: 700; background: #d1fae5; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
                 } else if (normalizedStatus === 'reverted' || normalizedStatus === 'revert back') {
                     statusStyle = "color: #991b1b; font-weight: 700; background: #fee2e2; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
                 }
 
+                let displayStatusText = String(op.status || 'PENDING').toUpperCase();
+                if (displayStatusText === 'APPROVED') {
+                    displayStatusText = 'APPROVED';
+                }
+
                 row.innerHTML = `
                 <td style="padding: 10px; text-align: center; color: #64748b;">${idx + 1}</td>
                 <td style="padding: 10px; padding-left: 15px; color: #1e293b;"><strong>${escapeHtmlString(op.operator_name)}</strong></td>
-                <td style="padding: 10px; text-align: center;"><span style="${statusStyle}">${String(op.status).toUpperCase()}</span></td>
+                <td style="padding: 10px; text-align: center;"><span style="${statusStyle}">${displayStatusText}</span></td>
                 <td style="padding: 10px; text-align: center;">
                     <button type="button" class="btn-details" 
                             style="padding: 4px 12px; font-size: 11px;"
@@ -708,16 +750,23 @@ window.buildDocumentCard = function (title, fileUrl, defaultName) {
             </button>
         `;
     } else {
+        const isExcel = ['xls', 'xlsx'].includes(extension);
+        const clickAttr = isExcel ? '' : `onclick="viewDocument('${title}', '${fileUrl}', '${extension}')"`;
+        const cursorStyle = isExcel ? 'default' : 'pointer';
+
         previewHtml = `
-            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">
+            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: ${cursorStyle};" ${clickAttr}>
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
             </div>
         `;
-        previewButtonHtml = `
-            <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
-        `;
+
+        if (!isExcel) {
+            previewButtonHtml = `
+                <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            `;
+        }
     }
 
     const shortFileName = defaultName.length > 22 ? defaultName.substring(0, 19) + '...' : defaultName;
@@ -859,9 +908,12 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                 </div>
             </div>
 
-            <!-- View Documents and View Remarks Buttons -->
-            <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-                <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Documents</button>
+            <!-- View Action Buttons -->
+            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                ${(document.getElementById('view-approved-container') && document.getElementById('view-approved-container').style.display !== 'none') ? `
+                <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">
+                    <i class="fas fa-file-alt" style="margin-right: 4px;"></i> View Documents
+                </button>` : ''}
                 <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
             </div>
         </div>
@@ -882,57 +934,19 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
             width: '600px',
             focusConfirm: false,
             didOpen: () => {
-                document.getElementById('btn-show-docs').onclick = () => {
-                    window.showIndividualOperatorDetails(arrayIndex, 'documents');
-                };
                 document.getElementById('btn-show-remarks').onclick = () => {
                     window.showIndividualOperatorDetails(arrayIndex, 'remarks');
                 };
+                const btnShowDocs = document.getElementById('btn-show-docs');
+                if (btnShowDocs) {
+                    btnShowDocs.onclick = () => {
+                        window.viewBatchDocuments(requestCode, arrayIndex);
+                    };
+                }
             }
         }).then((result) => {
             if (result.isConfirmed && (isRevertable || isRejected)) {
                 openIndividualOperatorEditForm(arrayIndex);
-            }
-        });
-    }
-    else if (activeView === 'documents') {
-        const trainingPhotoUrl = `/auth/reactivation/requests/${requestCode}/files/training_photo`;
-        const nodalLetterUrl = `/auth/reactivation/requests/${requestCode}/files/nodal_letter`;
-        const omLetterUrl = `/auth/reactivation/requests/${requestCode}/files/om_letter`;
-        const attendanceListUrl = `/auth/reactivation/requests/${requestCode}/files/attendance_list`;
-
-        let htmlContent = `
-        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
-                <span>${statusBadge}</span>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
-                ${buildDocumentCard('Training Photo', trainingPhotoUrl, 'training_photo.jpg')}
-                ${buildDocumentCard('District Nodal Endorsement Letter', nodalLetterUrl, 'nodal_endorsement_letter.pdf')}
-                ${buildDocumentCard('Office Memorandum (OM) Letter', omLetterUrl, 'office_memorandum.pdf')}
-                ${buildDocumentCard('Operator Attendance List', attendanceListUrl, 'attendance_list.xlsx')}
-            </div>
-        </div>
-        `;
-
-        Swal.fire({
-            title: `<span style="font-family:inherit; font-weight:800;">Uploaded Batch Documents</span>`,
-            html: htmlContent,
-            showCancelButton: false, // NO Cancel button
-            showConfirmButton: true,
-            confirmButtonText: 'Close',
-            showDenyButton: true,
-            denyButtonText: 'Back',
-            customClass: {
-                confirmButton: 'swal-btn-close',
-                denyButton: 'swal-btn-back'
-            },
-            width: '600px',
-            focusConfirm: false
-        }).then((result) => {
-            if (result.isDenied) {
-                window.showIndividualOperatorDetails(arrayIndex, 'details');
             }
         });
     }
@@ -972,9 +986,10 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                         // Fallback override for older logs where status_after was incorrectly logged as PENDING
                         if (statusAfter.toUpperCase() === 'PENDING' || !statusAfter) {
                             const m = msg.toLowerCase();
+                            // Prevent 'reactivation' from triggering 'activat' match
                             if (m.includes('reject')) statusAfter = 'REJECTED';
                             else if (m.includes('revert')) statusAfter = 'REVERTED';
-                            else if (m.includes('activat') || m.includes('approve')) statusAfter = 'ACTIVATED';
+                            else if ((m.includes('approv') && !m.includes('reactivat')) || m.includes('approve')) statusAfter = 'APPROVED';
                             else if (m.includes('uidai')) statusAfter = 'SENT_TO_UIDAI';
                         }
 
@@ -983,7 +998,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                         if (statusAfter) {
                             statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
                             const sLower = statusAfter.toLowerCase();
-                            if (sLower.includes('approve') || sLower.includes('active') || sLower.includes('activated')) markerClass = 'marker-approved';
+                            if (sLower.includes('approve')) markerClass = 'marker-approved';
                             else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
                             else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
                             else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
@@ -1070,6 +1085,36 @@ function clearFormInputs() {
     document.querySelectorAll('.error-msg').forEach(el => el.innerText = '');
 }
 
+function resetEntireNewRequestForm() {
+    clearFormInputs();
+    structuredOperatorList = [];
+    renderOperatorSpreadsheetRows();
+    const nextBtn = document.getElementById('next-step-trigger-btn');
+    if (nextBtn) nextBtn.disabled = true;
+    const countBadge = document.getElementById('operator-count-badge');
+    if (countBadge) countBadge.innerText = '0 Operators';
+
+    ['training_photo', 'nodal_letter', 'om_letter', 'attendance_list', 'training_date'].forEach(name => {
+        const el = document.getElementsByName(name)[0];
+        if (el) el.value = '';
+    });
+
+    if (typeof navigateWizardStep === 'function') {
+        navigateWizardStep(1);
+    } else {
+        const s1Form = document.getElementById('section-operator-form-view');
+        const s2Docs = document.getElementById('section-documents-upload-view');
+        if (s1Form) s1Form.style.display = 'block';
+        if (s2Docs) s2Docs.style.display = 'none';
+    }
+
+    window.currentReapplyCode = null;
+    const titleEl = document.querySelector('.container-title');
+    if (titleEl) {
+        titleEl.innerText = 'AADHAAR OPERATOR REACTIVATION';
+    }
+}
+
 // 🛡️ SECURITY STRING ESCAPER
 function escapeHtmlString(text) {
     if (!text) return '';
@@ -1092,21 +1137,23 @@ function switchMainView(viewType, btnElement) {
 
     if (viewType === 'batches') {
         document.getElementById('view-batches-container').style.display = 'block';
-        document.getElementById('view-activated-container').style.display = 'none';
+        document.getElementById('view-approved-container').style.display = 'none';
     } else {
         document.getElementById('view-batches-container').style.display = 'none';
-        document.getElementById('view-activated-container').style.display = 'block';
+        document.getElementById('view-approved-container').style.display = 'block';
     }
 }
 
-function filterFlatActivatedOperators() {
+function filterFlatApprovedOperators() {
     const searchInput = document.getElementById('flat-op-search');
     const searchText = searchInput ? searchInput.value.toLowerCase().trim() : "";
 
     const rows = document.querySelectorAll('.flat-op-row');
     rows.forEach(row => {
         const opName = row.getAttribute('data-name') || "";
-        if (opName.includes(searchText)) {
+        const opMobile = row.getAttribute('data-mobile') || "";
+        const opEmail = row.getAttribute('data-email') || "";
+        if (opName.includes(searchText) || opMobile.includes(searchText) || opEmail.includes(searchText)) {
             row.style.display = "";
         } else {
             row.style.display = "none";
@@ -1127,6 +1174,15 @@ function applyHistoryPanelFiltersPipeline() {
 
     const rows = document.querySelectorAll(".history-data-row");
     let matchCount = 0;
+    let totalVisibleOperators = 0;
+
+    // Track status counts of matching operators based on active time period and search operator filters
+    let opPendingCount = 0;
+    let opReappliedCount = 0;
+    let opSentToUidaiCount = 0;
+    let opRevertedCount = 0;
+    let opRejectedCount = 0;
+    let opApprovedCount = 0;
 
     window.currentReapplyCode = null;
 
@@ -1139,30 +1195,22 @@ function applyHistoryPanelFiltersPipeline() {
 
     rows.forEach(row => {
         const rowId = row.getAttribute("data-request-id") || "";
-        let rowStatus = row.getAttribute("data-status") || "";
         const rowCreated = row.getAttribute("data-created") || "";
 
-        rowStatus = rowStatus.toUpperCase().replace(" ", "_").trim();
         const cleanStatusFilter = statusValue.toUpperCase().replace(" ", "_").trim();
 
-        const matchesStatus = (statusValue === "ALL") || (rowStatus === cleanStatusFilter);
-
-        let matchesDate = true;
+        let matchesDate = (dateFilter === 'all');
         if (dateFilter === 'today') {
             matchesDate = rowCreated.startsWith(todayPrefix);
         } else if (dateFilter === 'week') {
-            if (!rowCreated) {
-                matchesDate = false;
-            } else {
+            if (rowCreated) {
                 const rowDate = new Date(rowCreated.replace(' ', 'T'));
                 const threshold = new Date();
                 threshold.setDate(now.getDate() - 7);
                 matchesDate = rowDate >= threshold;
             }
         } else if (dateFilter === 'month') {
-            if (!rowCreated) {
-                matchesDate = false;
-            } else {
+            if (rowCreated) {
                 const rowDate = new Date(rowCreated.replace(' ', 'T'));
                 const threshold = new Date();
                 threshold.setDate(now.getDate() - 30);
@@ -1170,8 +1218,7 @@ function applyHistoryPanelFiltersPipeline() {
             }
         }
 
-        // If batch-level filters match, evaluate individual operators inside the card
-        if (matchesStatus && matchesDate) {
+        if (matchesDate) {
             let isBatchMatch = !searchQuery || rowId.toLowerCase().includes(searchQuery);
             let visibleOpsCount = 0;
             const opRows = row.querySelectorAll('.op-row-item');
@@ -1179,10 +1226,24 @@ function applyHistoryPanelFiltersPipeline() {
             opRows.forEach(opRow => {
                 const opName = (opRow.getAttribute('data-name') || "").toLowerCase();
                 const opMobile = (opRow.getAttribute('data-mobile') || "").toLowerCase();
+                const opEmail = (opRow.getAttribute('data-email') || "").toLowerCase();
+                const opStatus = (opRow.getAttribute('data-status') || "").toUpperCase();
 
-                const matchesOperator = opName.includes(searchQuery) || opMobile.includes(searchQuery);
+                const matchesSearch = isBatchMatch || opName.includes(searchQuery) || opMobile.includes(searchQuery) || opEmail.includes(searchQuery);
 
-                if (isBatchMatch || matchesOperator) {
+                // Dashboard metrics update: only count if matches date filter and search query
+                if (matchesSearch) {
+                    if (opStatus === 'PENDING') opPendingCount++;
+                    else if (opStatus === 'REAPPLIED') opReappliedCount++;
+                    else if (opStatus === 'SENT_TO_UIDAI') opSentToUidaiCount++;
+                    else if (opStatus === 'REVERTED') opRevertedCount++;
+                    else if (opStatus === 'REJECTED') opRejectedCount++;
+                    else if (opStatus === 'APPROVED') opApprovedCount++;
+                }
+
+                const matchesOpStatus = (statusValue === "ALL") || (opStatus === cleanStatusFilter);
+
+                if (matchesSearch && matchesOpStatus) {
                     opRow.style.display = "flex";
                     visibleOpsCount++;
                 } else {
@@ -1190,10 +1251,10 @@ function applyHistoryPanelFiltersPipeline() {
                 }
             });
 
-            // Show card if search matches the batch ID or at least one operator inside
-            if (!searchQuery || visibleOpsCount > 0 || (opRows.length === 0 && isBatchMatch)) {
+            if (visibleOpsCount > 0 || (opRows.length === 0 && isBatchMatch && statusValue === "ALL")) {
                 row.style.display = "";
                 matchCount++;
+                totalVisibleOperators += visibleOpsCount;
             } else {
                 row.style.display = "none";
             }
@@ -1213,8 +1274,28 @@ function applyHistoryPanelFiltersPipeline() {
         standardEmptyState.style.display = (rows.length === 0) ? "" : "none";
     }
 
+    // Beside the table heading, display the count of matching visible operators
     const countEl = document.getElementById('batches-count');
-    if (countEl) countEl.textContent = matchCount;
+    if (countEl) countEl.textContent = totalVisibleOperators;
+
+    // Dynamically update dashboard metric cards
+    const pendingEl = document.getElementById('metric-pending');
+    const reappliedEl = document.getElementById('metric-reapplied');
+    const sentToUidaiEl = document.getElementById('metric-sent-to-uidai');
+    const revertedEl = document.getElementById('metric-reverted');
+    const rejectedEl = document.getElementById('metric-rejected');
+    const approvedEl = document.getElementById('metric-approved');
+    const totalEl = document.getElementById('metric-total-requests');
+
+    const totalAllStatuses = opPendingCount + opReappliedCount + opSentToUidaiCount + opRevertedCount + opRejectedCount + opApprovedCount;
+
+    if (pendingEl) pendingEl.textContent = opPendingCount;
+    if (reappliedEl) reappliedEl.textContent = opReappliedCount;
+    if (sentToUidaiEl) sentToUidaiEl.textContent = opSentToUidaiCount;
+    if (revertedEl) revertedEl.textContent = opRevertedCount;
+    if (rejectedEl) rejectedEl.textContent = opRejectedCount;
+    if (approvedEl) approvedEl.textContent = opApprovedCount;
+    if (totalEl) totalEl.textContent = totalAllStatuses;
 }
 
 function resetHistoryPanelFilters() {
@@ -1418,54 +1499,94 @@ window.autoFillUserCode = function () {
     // Auto-fill logic removed as per user request
 };
 
-// Export helper function to XLSX format using SheetJS (XLSX) library
-function exportTableToExcel(tableID, filename = 'export.xlsx') {
-    const table = document.getElementById(tableID);
-    if (!table) return;
-
-    // Find headers and valid indices
-    const headerRow = table.querySelector('thead tr');
-    const headers = headerRow ? headerRow.querySelectorAll('th') : [];
-    const validIndices = [];
-    const headerData = [];
-
-    headers.forEach((th, idx) => {
-        const text = th.innerText.trim();
-        if (text !== "Actions" && text !== "Action") {
-            validIndices.push(idx);
-            headerData.push(text);
-        }
-    });
-
-    const rowsData = [headerData];
-
-    // Find visible body rows
-    const bodyRows = table.querySelectorAll('tbody tr');
-    bodyRows.forEach(row => {
-        // Only export visible rows and rows with actual data (cells.length > 1)
-        if (row.style.display !== 'none' && row.cells.length > 1) {
-            const rowData = [];
-            const cells = row.querySelectorAll('td');
-            validIndices.forEach(idx => {
-                if (cells[idx]) {
-                    let text = cells[idx].innerText.trim();
-                    text = text.replace(/\s+/g, ' ');
-                    rowData.push(text);
-                } else {
-                    rowData.push('');
+window.exportReactivationHistoryToExcel = function () {
+    const cards = document.querySelectorAll(".history-data-row.request-card");
+    const ids = [];
+    cards.forEach(card => {
+        if (card.style.display !== 'none') {
+            const opRows = card.querySelectorAll(".op-row-item");
+            opRows.forEach(opRow => {
+                if (opRow.style.display !== 'none') {
+                    const id = opRow.getAttribute('data-id');
+                    if (id) ids.push(id.trim());
                 }
             });
-            rowsData.push(rowData);
         }
     });
 
-    if (typeof XLSX === 'undefined') {
-        alert("Excel export library is not loaded yet. Please wait a moment or refresh the page.");
+    if (ids.length === 0) {
+        Swal.fire({
+            title: 'No Data',
+            text: 'No records found to export.',
+            icon: 'warning',
+            confirmButtonColor: '#3085d6'
+        });
         return;
     }
 
-    const ws = XLSX.utils.aoa_to_sheet(rowsData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-    XLSX.writeFile(wb, filename);
-}
+    // Forward to Flask proxy which streams CSV from FastAPI central exporter
+    window.location.href = `/auth/reactivation/export-csv-all?ids=${ids.join(',')}`;
+};
+
+window.exportApprovedOperatorsCSV = function () {
+    const rows = document.querySelectorAll(".flat-op-row");
+    const ids = [];
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const id = row.getAttribute('data-id');
+            if (id) ids.push(id.trim());
+        }
+    });
+
+    if (ids.length === 0) {
+        Swal.fire({
+            title: 'No Data',
+            text: 'No records found to export.',
+            icon: 'warning',
+            confirmButtonColor: '#3085d6'
+        });
+        return;
+    }
+
+    // Forward to Flask proxy which streams CSV from FastAPI central exporter for approved (UIDAI sent) reactivation records
+    window.location.href = `/auth/reactivation/export-csv-uidai?ids=${ids.join(',')}`;
+};
+
+
+window.viewBatchDocuments = function (requestCode, backIndex = null) {
+    const trainingPhotoUrl = `/auth/reactivation/requests/${requestCode}/files/training_photo`;
+    const nodalLetterUrl = `/auth/reactivation/requests/${requestCode}/files/nodal_letter`;
+    const omLetterUrl = `/auth/reactivation/requests/${requestCode}/files/om_letter`;
+    const attendanceListUrl = `/auth/reactivation/requests/${requestCode}/files/attendance_list`;
+
+    let htmlContent = `
+    <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
+            ${buildDocumentCard('Training Photo', trainingPhotoUrl, 'training_photo.jpg')}
+            ${buildDocumentCard('District Nodal Endorsement Letter', nodalLetterUrl, 'nodal_endorsement_letter.pdf')}
+            ${buildDocumentCard('Office Memorandum (OM) Letter', omLetterUrl, 'office_memorandum.pdf')}
+            ${buildDocumentCard('Operator Attendance List', attendanceListUrl, 'attendance_list.xlsx')}
+        </div>
+    </div>
+    `;
+
+    Swal.fire({
+        title: `<span style="font-family:inherit; font-weight:800; font-size: 18px;">Uploaded Batch Documents</span>`,
+        html: htmlContent,
+        showCancelButton: false,
+        showConfirmButton: true,
+        confirmButtonText: 'Close',
+        showDenyButton: backIndex !== null,
+        denyButtonText: 'Back',
+        customClass: {
+            confirmButton: 'swal-btn-close',
+            denyButton: 'swal-btn-back'
+        },
+        width: '600px',
+        focusConfirm: false
+    }).then((result) => {
+        if (result.isDenied && backIndex !== null) {
+            window.showIndividualOperatorDetails(backIndex, 'details');
+        }
+    });
+};

@@ -279,7 +279,7 @@
         {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
         {% elif status_lower in ['pending', 'reapplied'] %}
         {% set metrics.pending = metrics.pending + 1 %}
-        {% elif status_lower in ['approved', 'reviewed', 'assigned', 'active', 'activated'] %}
+        {% elif status_lower in ['approved', 'reviewed', 'assigned'] %}
         {% set metrics.approved = metrics.approved + 1 %}
         {% elif 'revert' in status_lower %}
         {% set metrics.reverted = metrics.reverted + 1 %}
@@ -521,7 +521,7 @@
                         <td>
                             <div class="action-group" style="justify-content: center;">
                                 
-                                {% if op_status_lower not in ['activated', 'active'] %}
+                                {% if op_status_lower != 'approved' %}
                                 <button type="button" class="btn-activate-op action-toggle-btn"
                                     onclick="executeIndividualActivation('{{ op.id }}', '{{ op.request_code }}', this)">
                                     UIDAI Approved
@@ -602,7 +602,7 @@
                         <td>{{ op.district_name }}</td>
                         <td>{{ op.training_date }}</td>
                         <td>
-                            {% if op.status in ['APPROVED', 'ACTIVE', 'ACTIVATED'] %}
+                            {% if op.status in ['APPROVED'] %}
                             <span class="sid-badge sid-badge-approved">Approved</span>
                             {% elif op.status in ['REJECTED'] %}
                             <span class="sid-badge sid-badge-rejected">Rejected</span>
@@ -691,7 +691,7 @@
             const matchesQuery = code.includes(query) || rowDistrict.includes(query) || (row.innerText || '').toLowerCase().includes(query);
             const matchesDistrict = district === 'all' || rowDistrict === district;
 
-            if (['ASSIGNED', 'APPROVED', 'REVIEWED', 'ACTIVE', 'ACTIVATED'].includes(rowStatus)) { rowStatus = 'REVIEWED'; }
+            if (['ASSIGNED', 'APPROVED', 'REVIEWED'].includes(rowStatus)) { rowStatus = 'REVIEWED'; }
             const matchesPendingStatus = pendingStatusFilter === 'ALL' || rowStatus === pendingStatusFilter;
 
             // 🌟 FIXED: Real-time dynamic lookback calculation mapping logic
@@ -769,7 +769,7 @@
 
             // Normalize statuses for history filter
             let normalizedStatus = rowStatus;
-            if (['ASSIGNED', 'APPROVED', 'REVIEWED', 'ACTIVE', 'ACTIVATED'].includes(rowStatus)) { normalizedStatus = 'APPROVED'; }
+            if (['ASSIGNED', 'APPROVED', 'REVIEWED'].includes(rowStatus)) { normalizedStatus = 'APPROVED'; }
             else if (['REVERTED', 'REJECTED', 'REVERT_BACK'].includes(rowStatus)) { normalizedStatus = rowStatus; }
             const matchesHistoryStatus = historyStatusFilter === 'ALL' || normalizedStatus === historyStatusFilter || rowStatus === historyStatusFilter;
 
@@ -842,7 +842,7 @@
 
                 let reasonHtml = op.status === 'REVERTED' ? `<span style="color:#b91c1c; font-weight:600;">${escapeHtml(op.reject_reason)}</span>` : '<span style="color:#94a3b8; font-style:italic;">—</span>';
 
-                if (op.status === 'ACTIVATED' || op.status === 'ACTIVE') {
+                if (op.status === 'APPROVED') {
                     statusBadgeHtml = `<span style="background-color: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Approved</span>`;
                 } else if (op.status === 'REVERTED') {
                     statusBadgeHtml = `<span style="background-color: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block; white-space: nowrap;">Reverted</span>`;
@@ -874,7 +874,7 @@
                                     `;
                         }
                     } else if (batchStatus === 'SENT_TO_UIDAI') {
-                        if (op.status !== 'ACTIVATED' && op.status !== 'ACTIVE') {
+                        if (op.status !== 'APPROVED') {
                             actionButtonsHtml += `
                                         <button class="action-toggle-btn btn-activate-op"
                                                 onclick="executeIndividualActivation('${op.id}', '${requestCode}', this)"
@@ -1484,7 +1484,7 @@
                             const m = msg.toLowerCase();
                             if (m.includes('reject')) latestStatus = 'REJECTED';
                             else if (m.includes('revert')) latestStatus = 'REVERTED';
-                            else if (m.includes('activat') || m.includes('approve')) latestStatus = 'ACTIVATED';
+                            else if ((m.includes('approve') && !m.includes('uidai'))) latestStatus = 'APPROVED';
                             else if (m.includes('uidai')) latestStatus = 'SENT_TO_UIDAI';
                         }
                     }
@@ -1519,7 +1519,7 @@
                                 const m = msg.toLowerCase();
                                 if (m.includes('reject')) statusAfter = 'REJECTED';
                                 else if (m.includes('revert')) statusAfter = 'REVERTED';
-                                else if (m.includes('activat') || m.includes('approve')) statusAfter = 'ACTIVATED';
+                                else if (m.includes('approve')) statusAfter = 'APPROVED';
                                 else if (m.includes('uidai')) statusAfter = 'SENT_TO_UIDAI';
                             }
 
@@ -1623,6 +1623,14 @@
     window.addEventListener('load', function () {
         const isActionReload = sessionStorage.getItem('chips_action_reloading') === 'true';
         sessionStorage.removeItem('chips_action_reloading');
+
+        const navEntries = performance.getEntriesByType("navigation");
+        const isReload = navEntries.length > 0 && navEntries[0].type === "reload";
+
+        if (isReload && !isActionReload) {
+            clearAllFilters();
+            return;
+        }
 
         if (!isActionReload) {
             sessionStorage.removeItem('chips_react_search');

@@ -157,9 +157,10 @@ async def submit_operator_reactivation(
                 shutil.copyfileobj(uploaded_file.file, buffer)
             db.add(ReactivationDocument(request_id=active_req_id, doc_type=doc_type, path=file_save_path, original_filename=uploaded_file.filename, file_size=bytes_size))
 
+        operators_added = []
         for op in operator_rows:
             parsed_cert_date = date.fromisoformat(op['certDate']) if op.get('certDate') else None
-            db.add(ReactivationOperator(
+            new_op = ReactivationOperator(
                 request_id=active_req_id,
                 role=op.get('role', '').strip(),
                 operator_name=str(op.get('name', '')).strip(),
@@ -175,22 +176,29 @@ async def submit_operator_reactivation(
                 remarks=op.get('remarks', '').strip(),
                 model_type=op.get('model', '').strip(),      
                 status="PENDING"
+            )
+            db.add(new_op)
+            operators_added.append(new_op)
+            
+        db.flush()
+        
+        for new_op in operators_added:
+            db.add(ReactivationRemarkHistory(
+                request_id=active_req_id,
+                operator_id=new_op.id,
+                author_id=current_user.id,
+                remark_history=f"Reactivation request for Operator '{new_op.operator_name}' {'is reapplied' if reapply_request_code else 'is submitted'} by DC",
+                sender_role="DC",
+                status_after="REAPPLIED" if reapply_request_code else "PENDING"
             ))
-        if reapply_request_code:
+
+        if reapply_request_code and dc_remark:
             db.add(ReactivationRemarkHistory(
                 request_id=active_req_id,
                 author_id=current_user.id,
-                remark_history=dc_remark or "Reapplied by DC",
+                remark_history=dc_remark,
                 sender_role="DC",
                 status_after="REAPPLIED"
-            ))
-        else:
-            db.add(ReactivationRemarkHistory(
-                request_id=active_req_id,
-                author_id=current_user.id,
-                remark_history="Submitted by DC",
-                sender_role="DC",
-                status_after="PENDING"
             ))
             
         db.commit()
@@ -301,7 +309,11 @@ async def get_reactivation_requests_with_operators(
 
 @router.get("/operators/{request_code}")
 async def get_individual_operators_by_batch(request_code: str, db: Session = Depends(get_db)):
-    operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_code == request_code).all()
+    req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+        
+    operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).all()
     ops_data = [
         {
             "id": op.id,
@@ -323,7 +335,10 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
         }
         for op in operators
     ]
-    
+    req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+        
     remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_id == req.id).order_by(ReactivationRemarkHistory.timestamp.desc()).all()
     timeline_logs = [
         {
@@ -346,10 +361,10 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
 async def activate_individual_operator(operator_id: int, reason: Optional[str] = Form(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
-        op.status = "ACTIVATED"
+        op.status = "APPROVED"
         if reason:
             op.reject_reason = reason  # Optional: store activate remarks in reject_reason or remarks
-        remark_text = f"Operator '{op.operator_name}' Activated."
+        remark_text = f"Operator '{op.operator_name}' Approved."
         if reason:
             remark_text += f" Remarks: {reason}"
         db.add(ReactivationRemarkHistory(
@@ -490,7 +505,7 @@ async def finalize_batch_request(request_code: str, db: Session = Depends(get_db
                 req.status = "REVIEWED"
                 req.reviewed_by = current_user.id
             else:
-                if "REVERTED" in statuses and "ACTIVATED" not in statuses:
+                if "REVERTED" in statuses and "APPROVED" not in statuses:
                     req.status = "REVERTED"
                     req.reviewed_by = current_user.id
                 else:
@@ -550,12 +565,17 @@ async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(
 
 @router.get("/export-excel/{request_code}")
 def export_operators_to_excel_stream(request_code: str, db: Session = Depends(get_db)):
-
-# --- FRIEND'S UPDATED CODE ---
-    operators = db.query(ReactivationOperator).filter(
-        ReactivationOperator.request_code == request_code,
+    operators = db.query(ReactivationOperator).join(
+        OperatorReactivationRequest, ReactivationOperator.request_id == OperatorReactivationRequest.id
+    ).filter(
+        OperatorReactivationRequest.request_code == request_code,
         ReactivationOperator.status != "REJECTED"
     ).all()
+    
+    def get_display_status(status_str):
+        s = str(status_str or '').upper().strip()
+        return "APPROVED" if s in ["ACTIVE", "APPROVED"] else s
+
     df = pd.DataFrame([{
         "S.No": i + 1,
         "Role": o.role,
@@ -567,39 +587,13 @@ def export_operators_to_excel_stream(request_code: str, db: Session = Depends(ge
         "LMS Certificate ID": o.lms_certificate_id,
         "Mobile": o.operator_mobile,
         "Primary E-MAIL ID": o.email_id,
-        "Status": o.status
+        "Status": get_display_status(o.status)
     } for i, o in enumerate(operators)])
     excel_buffer = io.BytesIO()
     with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer: 
         df.to_excel(writer, index=False)
     excel_buffer.seek(0)
     return StreamingResponse(excel_buffer, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename=List_{request_code}.xlsx"})
-# --- YOUR LOCAL CODE ---
-    operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_code == request_code).all()
-    export_data = [{
-        "s_no": i + 1,
-        "role": o.role,
-        "operator_name": o.operator_name,
-        "registrar_code": o.registrar_code,
-        "ea_code": o.ea_code,
-        "user_code": o.user_code,
-        "certificate_number": o.certificate_number,
-        "lms_certificate_id": o.lms_certificate_id,
-        "operator_mobile": o.operator_mobile,
-        "email_id": o.email_id,
-        "status": o.status
-    } for i, o in enumerate(operators)]
-    
-    column_mappings = {
-        "s_no": "S.No", "role": "Role", "operator_name": "Name As Per Aadhaar",
-        "registrar_code": "Registrar Code", "ea_code": "EA Code", "user_code": "User Code",
-        "certificate_number": "NSEIT Certificate Number", "lms_certificate_id": "LMS Certificate ID",
-        "operator_mobile": "Mobile", "email_id": "Primary E-MAIL ID", "status": "Status"
-    }
-    return generate_excel_export(export_data, column_mappings, f"List_{request_code}")
-
-# ---------------------------
-
 
 
 @router.get("/export-csv-all")
@@ -607,13 +601,20 @@ def export_all_operators_to_csv_stream(ids: str = None, db: Session = Depends(ge
     user_role_str = get_user_role_str(current_user)
     
     query = db.query(ReactivationOperator, OperatorReactivationRequest, District.district_name).\
-        join(OperatorReactivationRequest, ReactivationOperator.request_code == OperatorReactivationRequest.request_code).\
-        outerjoin(District, OperatorReactivationRequest.district_id == District.district_code).\
-        filter(ReactivationOperator.status.notin_(["REVERTED", "ACTIVATED", "REJECTED"]))
+        join(OperatorReactivationRequest, ReactivationOperator.request_id == OperatorReactivationRequest.id).\
+        outerjoin(District, OperatorReactivationRequest.district_id == District.district_code)
     
     if ids:
-        batch_codes = [code.strip() for code in ids.split(",") if code.strip()]
-        query = query.filter(OperatorReactivationRequest.request_code.in_(batch_codes))
+        id_tokens = [code.strip() for code in ids.split(",") if code.strip()]
+        if id_tokens:
+            if all(token.isdigit() for token in id_tokens):
+                operator_ids = [int(token) for token in id_tokens]
+                query = query.filter(ReactivationOperator.id.in_(operator_ids))
+            else:
+                query = query.filter(OperatorReactivationRequest.request_code.in_(id_tokens))
+    else:
+        query = query.filter(ReactivationOperator.status.notin_(["REVERTED", "APPROVED", "REJECTED"]))
+        
     if user_role_str == "dc":
         query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
         
@@ -621,9 +622,15 @@ def export_all_operators_to_csv_stream(ids: str = None, db: Session = Depends(ge
     
     export_data = []
     for i, (o, req, dist_name) in enumerate(results):
+        status_upper = (o.status or '').upper().strip()
+        is_unreviewed = status_upper in ['PENDING', 'REAPPLIED']
+        reviewed_time = "" if is_unreviewed else (req.updated_at.strftime("%Y-%m-%d %H:%M:%S") if req.updated_at else "—")
+        
+        display_status = "APPROVED" if status_upper in ["ACTIVE", "APPROVED"] else status_upper
+
         export_data.append({
             "s_no": i + 1,
-            "request_code": o.request_code,
+            "request_code": req.request_code,
             "district_name": dist_name,
             "role": o.role,
             "operator_name": o.operator_name,
@@ -634,8 +641,9 @@ def export_all_operators_to_csv_stream(ids: str = None, db: Session = Depends(ge
             "lms_certificate_id": o.lms_certificate_id,
             "operator_mobile": o.operator_mobile,
             "email_id": o.email_id,
-            "status": o.status,
-            "submitted_at": req.created_at.strftime("%Y-%m-%d %H:%M:%S") if req.created_at else "—"
+            "status": display_status,
+            "submitted_at": req.created_at.strftime("%Y-%m-%d %H:%M:%S") if req.created_at else "—",
+            "reviewed_at": reviewed_time
         })
         
     column_mappings = {
@@ -652,7 +660,8 @@ def export_all_operators_to_csv_stream(ids: str = None, db: Session = Depends(ge
         "operator_mobile": "Mobile Phone Number",
         "email_id": "Primary E-MAIL ID", 
         "status": "Current Audit Status", 
-        "submitted_at": "Submission Date"
+        "submitted_at": "Submission Date",
+        "reviewed_at": "Reviewed Time"
     }
     return generate_csv_export(export_data, column_mappings, "All_Pending_Reactivation_Operators")
 
@@ -662,13 +671,20 @@ def export_uidai_operators_to_csv_stream(ids: str = None, db: Session = Depends(
     user_role_str = get_user_role_str(current_user)
     
     query = db.query(ReactivationOperator, OperatorReactivationRequest, District.district_name).\
-        join(OperatorReactivationRequest, ReactivationOperator.request_code == OperatorReactivationRequest.request_code).\
-        outerjoin(District, OperatorReactivationRequest.district_id == District.district_code).\
-        filter(ReactivationOperator.status.in_(["SENT_TO_UIDAI", "SENT TO UIDAI"]))
+        join(OperatorReactivationRequest, ReactivationOperator.request_id == OperatorReactivationRequest.id).\
+        outerjoin(District, OperatorReactivationRequest.district_id == District.district_code)
     
     if ids:
-        batch_codes = [code.strip() for code in ids.split(",") if code.strip()]
-        query = query.filter(OperatorReactivationRequest.request_code.in_(batch_codes))
+        id_tokens = [code.strip() for code in ids.split(",") if code.strip()]
+        if id_tokens:
+            if all(token.isdigit() for token in id_tokens):
+                operator_ids = [int(token) for token in id_tokens]
+                query = query.filter(ReactivationOperator.id.in_(operator_ids))
+            else:
+                query = query.filter(OperatorReactivationRequest.request_code.in_(id_tokens))
+    else:
+        query = query.filter(ReactivationOperator.status.in_(["SENT_TO_UIDAI", "SENT TO UIDAI"]))
+        
     if user_role_str == "dc":
         query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
         
@@ -676,9 +692,15 @@ def export_uidai_operators_to_csv_stream(ids: str = None, db: Session = Depends(
     
     export_data = []
     for i, (o, req, dist_name) in enumerate(results):
+        status_upper = (o.status or '').upper().strip()
+        is_unreviewed = status_upper in ['PENDING', 'REAPPLIED']
+        reviewed_time = "" if is_unreviewed else (req.updated_at.strftime("%Y-%m-%d %H:%M:%S") if req.updated_at else "—")
+        
+        display_status = "APPROVED" if status_upper in ["ACTIVE", "APPROVED"] else status_upper
+
         export_data.append({
             "s_no": i + 1,
-            "request_code": o.request_code,
+            "request_code": req.request_code,
             "district_name": dist_name,
             "role": o.role,
             "operator_name": o.operator_name,
@@ -689,8 +711,9 @@ def export_uidai_operators_to_csv_stream(ids: str = None, db: Session = Depends(
             "lms_certificate_id": o.lms_certificate_id,
             "operator_mobile": o.operator_mobile,
             "email_id": o.email_id,
-            "status": o.status,
-            "submitted_at": req.created_at.strftime("%Y-%m-%d %H:%M:%S") if req.created_at else "—"
+            "status": display_status,
+            "submitted_at": req.created_at.strftime("%Y-%m-%d %H:%M:%S") if req.created_at else "—",
+            "reviewed_at": reviewed_time
         })
         
     column_mappings = {
@@ -707,7 +730,8 @@ def export_uidai_operators_to_csv_stream(ids: str = None, db: Session = Depends(
         "operator_mobile": "Mobile Phone Number",
         "email_id": "Primary E-MAIL ID", 
         "status": "Current Audit Status", 
-        "submitted_at": "Submission Date"
+        "submitted_at": "Submission Date",
+        "reviewed_at": "Reviewed Time"
     }
     return generate_csv_export(export_data, column_mappings, "UIDAI_Sent_Reactivation_Operators")
 
