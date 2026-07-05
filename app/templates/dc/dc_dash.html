@@ -9,6 +9,21 @@
     <link rel="stylesheet" href="/static/css/layout.css">
     <link rel="stylesheet" href="/static/css/dc/dc_dash.css">
 
+    <!-- Tab Session Enforcer -->
+    {% if session.get('access_token') %}
+    <script>
+        (function () {
+            var referrer = document.referrer || "";
+            var isLoginRedirect = referrer.indexOf("/auth/login") !== -1;
+            if (isLoginRedirect) {
+                sessionStorage.setItem('session_active', 'true');
+            } else if (!sessionStorage.getItem('session_active')) {
+                // Tab closed & reopened or opened in a new tab: log out to clear server session
+                window.location.href = "{{ url_for('auth.logout') }}";
+            }
+        })();
+    </script>
+    {% endif %}
 </head>
 <body>
 

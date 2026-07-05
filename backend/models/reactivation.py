@@ -44,7 +44,7 @@ class OperatorReactivationRequest(Base):
         
     created_at = Column(DateTime(timezone=True), default=get_ist_now, nullable=False, index=True)
     updated_at = Column(DateTime(timezone=True), default=get_ist_now, onupdate=get_ist_now, nullable=False)
-    reject_reason = Column(String(500), nullable=True)
+    reviewed_by = Column(Integer, ForeignKey("user_login_table.id"), nullable=True)
 
     operators = relationship("ReactivationOperator", back_populates="parent_request", cascade="all, delete-orphan")
     remarks = relationship("ReactivationRemarkHistory", back_populates="parent_request", cascade="all, delete-orphan")
@@ -54,7 +54,7 @@ class ReactivationOperator(Base):
     __tablename__ = "reactivation_operators"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    request_code = Column(String(50), ForeignKey("operator_reactivation_requests.request_code", ondelete="CASCADE"), nullable=False, index=True)
+    request_id = Column(Integer, ForeignKey("operator_reactivation_requests.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(String(50), nullable=True)
     operator_name = Column(String(150), nullable=False)
     registrar_code = Column(String(50), nullable=True)
@@ -94,9 +94,11 @@ class ReactivationRemarkHistory(Base):
     __tablename__ = "reactivation_remark_history"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    request_code = Column(String(50), ForeignKey("operator_reactivation_requests.request_code", ondelete="CASCADE"), nullable=False, index=True)
+    request_id = Column(Integer, ForeignKey("operator_reactivation_requests.id", ondelete="CASCADE"), nullable=False, index=True)
+    operator_id = Column(Integer, ForeignKey("reactivation_operators.id", ondelete="CASCADE"), nullable=True, index=True)
     remark_history = Column(TEXT, nullable=False)
     sender_role = Column(String(50), nullable=False)
+    author_id = Column(Integer, ForeignKey("user_login_table.id"), nullable=True)
     
     status_after_code = Column(String(2), nullable=True)
 
@@ -126,7 +128,7 @@ class ReactivationDocument(Base):
     __tablename__ = "reactivation_documents"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    request_code = Column(String(50), ForeignKey("operator_reactivation_requests.request_code", ondelete="CASCADE"), nullable=False, index=True)
+    request_id = Column(Integer, ForeignKey("operator_reactivation_requests.id", ondelete="CASCADE"), nullable=False, index=True)
     doc_type = Column(String(100), nullable=False)
     path = Column(String(500), nullable=False)
     original_filename = Column(String(250), nullable=False)

@@ -308,7 +308,16 @@ function handleFormSubmissionPipeline(event) {
             });
         })
         .then(data => {
-            Swal.fire({ title: 'Submitted', text: 'Reactivation request submitted successfully.', icon: 'success' }).then(() => {
+            Swal.fire({ 
+                title: 'Submitted Successfully', 
+                text: 'Reactivation request submitted successfully.', 
+                icon: 'success',
+                confirmButtonColor: '#007bff',
+                allowOutsideClick: false,
+                showConfirmButton: true,
+                timer: 3000,
+                timerProgressBar: true
+            }).then(() => {
                 window.location.reload();
             });
         })
@@ -759,6 +768,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
     const requestCode = window.currentViewingRequestCode;
     const statusUpper = (op.status || '').toUpperCase().trim();
     const isRevertable = (statusUpper === 'REVERTED' || statusUpper === 'REVERT BACK');
+    const isRejected = (statusUpper === 'REJECTED');
 
     if (activeView === 'details') {
         let htmlContent = `
@@ -768,11 +778,23 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                 <span>${statusBadge}</span>
             </div>
 
-            ${isRevertable ? `
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
-                <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">Action Required — Request Reverted</div>
-                <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below. Click "Quick Edit" to modify details.</div>
+            ${isRevertable || isRejected ? `
+            <div style="background-color: #fffaf0; border: 1px solid #fed7aa; padding: 12px 16px; border-radius: 8px; margin-bottom: 15px; text-align: left;">
+                <h4 style="margin: 0 0 4px 0; color: #b45309; font-size: 14px; font-weight: 700;">Action Required — Request ${isRevertable ? 'Reverted' : 'Rejected'}</h4>
+                <p style="margin: 0; color: #b45309; font-size: 13px;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</p>
             </div>
+            ${op.reject_reason ? `
+            <div style="background-color: #fef2f2; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; text-align: left;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#991b1b" stroke-width="2.5">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                    </svg>
+                    <span style="font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">REVERT / REJECTION REASON</span>
+                </div>
+                <div style="color: #7f1d1d; font-size: 13px; line-height: 1.5; padding-left: 22px;">
+                    ${escapeHtmlString(op.reject_reason)}
+                </div>
+            </div>` : ''}
             ` : ''}
 
             <!-- Personal Information Card -->
@@ -834,11 +856,6 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                         <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Remarks</div>
                         <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(explicitRemarks)}</div>
                     </div>
-                    ${op.reject_reason ? `
-                    <div style="grid-column: 1/-1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Revert Reason</div>
-                        <div style="font-size: 13px; font-weight: 600; color: #b91c1c;">${escapeHtmlString(op.reject_reason)}</div>
-                    </div>` : ''}
                 </div>
             </div>
 
@@ -855,8 +872,8 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
             html: htmlContent,
             showCancelButton: false, // NO Cancel button
             showConfirmButton: true,
-            confirmButtonText: isRevertable ? 'Quick Edit' : 'Close',
-            showDenyButton: isRevertable,
+            confirmButtonText: (isRevertable || isRejected) ? 'Modify & Reapply' : 'Close',
+            showDenyButton: (isRevertable || isRejected),
             denyButtonText: 'Close',
             customClass: {
                 confirmButton: 'swal-btn-close',
@@ -873,7 +890,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                 };
             }
         }).then((result) => {
-            if (result.isConfirmed && isRevertable) {
+            if (result.isConfirmed && (isRevertable || isRejected)) {
                 openIndividualOperatorEditForm(arrayIndex);
             }
         });
@@ -1138,19 +1155,19 @@ function applyHistoryPanelFiltersPipeline() {
                 matchesDate = false;
             } else {
                 const rowDate = new Date(rowCreated.replace(' ', 'T'));
-                const startOfWeek = new Date(now);
-                const day = startOfWeek.getDay();
-                startOfWeek.setDate(now.getDate() - day);
-                startOfWeek.setHours(0, 0, 0, 0);
-
-                const endOfWeek = new Date(startOfWeek);
-                endOfWeek.setDate(startOfWeek.getDate() + 6);
-                endOfWeek.setHours(23, 59, 59, 999);
-
-                matchesDate = rowDate >= startOfWeek && rowDate <= endOfWeek;
+                const threshold = new Date();
+                threshold.setDate(now.getDate() - 7);
+                matchesDate = rowDate >= threshold;
             }
         } else if (dateFilter === 'month') {
-            matchesDate = rowCreated.startsWith(monthPrefix);
+            if (!rowCreated) {
+                matchesDate = false;
+            } else {
+                const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                const threshold = new Date();
+                threshold.setDate(now.getDate() - 30);
+                matchesDate = rowDate >= threshold;
+            }
         }
 
         // If batch-level filters match, evaluate individual operators inside the card
@@ -1332,7 +1349,16 @@ window.submitOperatorReapplication = function (data) {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                Swal.fire('Success', 'Operator reapplied successfully!', 'success').then(() => {
+                Swal.fire({
+                    title: 'Success',
+                    text: 'Operator reapplied successfully!',
+                    icon: 'success',
+                    confirmButtonColor: '#007bff',
+                    allowOutsideClick: false,
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
                     window.location.reload();
                 });
             } else {
@@ -1389,32 +1415,7 @@ const DISTRICT_CODES = {
 };
 
 window.autoFillUserCode = function () {
-    const eaSelect = document.getElementById('op_ea');
-    const nameInput = document.getElementById('op_name');
-    const districtEl = document.getElementById('dc_district_name');
-    const userCodeEl = document.getElementById('user_code');
-
-    if (!eaSelect || !nameInput || !districtEl || !userCodeEl) return;
-
-    // Do not auto-fill if the user has manually edited the field (and it is not empty)
-    if (userCodeEl.value.trim() === '') {
-        delete userCodeEl.dataset.userEdited;
-    }
-    if (userCodeEl.dataset.userEdited === 'true') return;
-
-    const eaCode = eaSelect.value.trim();
-    const fullName = nameInput.value.trim();
-    const districtVal = districtEl.value.trim();
-
-    if (!eaCode || !fullName || !districtVal) {
-        userCodeEl.value = '';
-        return;
-    }
-
-    const firstName = fullName.split(/\s+/)[0];
-    const districtCode = DISTRICT_CODES[districtVal] || districtVal.toUpperCase().slice(0, 3);
-
-    userCodeEl.value = `${eaCode}_${firstName}_${districtCode}`;
+    // Auto-fill logic removed as per user request
 };
 
 // Export helper function to XLSX format using SheetJS (XLSX) library

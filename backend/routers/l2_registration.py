@@ -80,7 +80,9 @@ def submit_l2_request(
 
     if last_req and last_req.request_no:
         try:
-            last_num = int(re.sub(r'[^\d]', '', last_req.request_no))
+            # Remove the L2-A prefix so we don't accidentally capture the '2' in 'L2'
+            num_str = last_req.request_no.replace("L2-A", "")
+            last_num = int(re.sub(r'[^\d]', '', num_str)) if num_str else 0
         except (ValueError, TypeError):
             last_num = 0
     else:
@@ -432,14 +434,20 @@ def make_csv_stream(requests_list, report_filename):
         "Old Station ID", "Old Machine ID", "Reason for L2 Registration", 
         "Tech Center Remarks", "Status", "Submission Timestamp"
     ]
+    
+    # Conditionally include 'Review Timestamp' if exporting historical/processed records
+    include_review_time = any(str(r.status).lower() not in ["pending", "reapplied", "sent_to_uidai"] for r in requests_list)
+    if include_review_time:
+        headers.append("Review Timestamp")
+        
     writer.writerow(headers)
 
     for idx, r in enumerate(requests_list, start=1):
         dist_name = r.district.district_name if r.district else "—"
-        writer.writerow([
+        
+        row_data = [
             idx,
             r.request_no or "",
-         
             dist_name,
             r.block or "",
             r.address_of_govt_premises or "",
@@ -458,7 +466,12 @@ def make_csv_stream(requests_list, report_filename):
             r.tech_center_remarks or "",
             str(r.status).upper().strip(),
             str(r.submitted_at)[:19] if r.submitted_at else "—"
-        ])
+        ]
+        
+        if include_review_time:
+            row_data.append(str(r.updated_at)[:19] if getattr(r, 'updated_at', None) else "—")
+            
+        writer.writerow(row_data)
 
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename={report_filename}.csv"
@@ -467,7 +480,7 @@ def make_csv_stream(requests_list, report_filename):
 
 @router.get("/export-excel/pending")
 def export_pending_excel(ids: str = None, db: Session = Depends(get_db)):
-    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status.in_(["pending", "reapplied"]))
+    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status.in_(["pending", "reapplied", "sent_to_uidai"]))
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
         if id_list:

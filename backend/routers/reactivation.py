@@ -46,7 +46,7 @@ def get_db():
 
 # Directory to store uploaded files
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-UPLOAD_DIR = os.path.join(BASE_DIR, "reactivation_uploads")
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "reactivation")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def generate_dynamic_request_code(db: Session, district_id: str, district_name: str) -> str:
@@ -103,6 +103,10 @@ async def submit_operator_reactivation(
         if len(operator_rows) == 0:
             raise HTTPException(status_code=400, detail="The operator log datagrid cannot be processed with zero rows.")
 
+        district = db.query(District).filter(District.district_code == str(current_user.district_id)).first()
+        district_name = district.district_name if district else "Unknown"
+        district_folder = district_name.strip().replace(" ", "_").upper()
+
         if reapply_request_code:
             req = db.query(OperatorReactivationRequest).filter(
                 OperatorReactivationRequest.request_code == reapply_request_code,
@@ -117,11 +121,8 @@ async def submit_operator_reactivation(
             req.status = "REAPPLIED"
             
             # Delete old operators (Documents are handled selectively below)
-            db.query(ReactivationOperator).filter(ReactivationOperator.request_code == req_code).delete()
+            db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).delete()
         else:
-            # 🌟 CONNECTED: Queries target district_table configuration formats dynamically
-            district = db.query(District).filter(District.district_code == str(current_user.district_id)).first()
-            district_name = district.district_name if district else "Unknown"
             req_code = generate_dynamic_request_code(db, str(current_user.district_id), district_name)
     
             new_request = OperatorReactivationRequest(
@@ -133,8 +134,10 @@ async def submit_operator_reactivation(
                 status="PENDING"
             )
             db.add(new_request)
+            db.flush()  # To get new_request.id
 
-        request_folder = os.path.join(UPLOAD_DIR, req_code)
+        active_req_id = req.id if reapply_request_code else new_request.id
+        request_folder = os.path.join(BASE_DIR, "uploads", "reactivation", district_folder, req_code)
         os.makedirs(request_folder, exist_ok=True)
         document_files = {"training_photo": training_photo, "nodal_letter": nodal_letter, "om_letter": om_letter, "attendance_list": attendance_list}
 
@@ -144,7 +147,7 @@ async def submit_operator_reactivation(
                 
             # If replacing an existing document during reapply, delete the old record for this doc_type
             if reapply_request_code:
-                db.query(ReactivationDocument).filter(ReactivationDocument.request_code == req_code, ReactivationDocument.doc_type == doc_type).delete()
+                db.query(ReactivationDocument).filter(ReactivationDocument.request_id == active_req_id, ReactivationDocument.doc_type == doc_type).delete()
                 
             uploaded_file.file.seek(0, 2)
             bytes_size = uploaded_file.file.tell()
@@ -152,12 +155,12 @@ async def submit_operator_reactivation(
             file_save_path = os.path.join(request_folder, f"{doc_type}_{uploaded_file.filename}")
             with open(file_save_path, "wb") as buffer:
                 shutil.copyfileobj(uploaded_file.file, buffer)
-            db.add(ReactivationDocument(request_code=req_code, doc_type=doc_type, path=file_save_path, original_filename=uploaded_file.filename, file_size=bytes_size))
+            db.add(ReactivationDocument(request_id=active_req_id, doc_type=doc_type, path=file_save_path, original_filename=uploaded_file.filename, file_size=bytes_size))
 
         for op in operator_rows:
             parsed_cert_date = date.fromisoformat(op['certDate']) if op.get('certDate') else None
             db.add(ReactivationOperator(
-                request_code=req_code,
+                request_id=active_req_id,
                 role=op.get('role', '').strip(),
                 operator_name=str(op.get('name', '')).strip(),
                 registrar_code=op.get('reg', '').strip(),
@@ -175,14 +178,16 @@ async def submit_operator_reactivation(
             ))
         if reapply_request_code:
             db.add(ReactivationRemarkHistory(
-                request_code=req_code,
+                request_id=active_req_id,
+                author_id=current_user.id,
                 remark_history=dc_remark or "Reapplied by DC",
                 sender_role="DC",
                 status_after="REAPPLIED"
             ))
         else:
             db.add(ReactivationRemarkHistory(
-                request_code=req_code,
+                request_id=active_req_id,
+                author_id=current_user.id,
                 remark_history="Submitted by DC",
                 sender_role="DC",
                 status_after="PENDING"
@@ -221,7 +226,7 @@ async def get_reactivation_requests(
             "status": to_name(req.status_code, casing="upper").replace(" ", "_").strip(),
             "submitted_at": str(req.created_at)[:19] if req.created_at else "",
             "district_name": dist_name or "Raipur",
-            "revert_reason": req.reject_reason or ""
+            "revert_reason": next((r.remark_history for r in reversed(req.remarks) if r.status_after_code in ["RV", "RJ"]), "")
         })
     return compiled_list
 
@@ -242,7 +247,7 @@ async def get_reactivation_requests_with_operators(
         
     compiled_list = []
     for req, dist_name in requests:
-        operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_code == req.request_code).all()
+        operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).all()
         ops_data = [
             {
                 "id": op.id,
@@ -266,7 +271,7 @@ async def get_reactivation_requests_with_operators(
         ]
         
         # 🌟 CONNECTED: Order matching your model 'timestamp' attribute mapping definitions
-        remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_code == req.request_code).order_by(ReactivationRemarkHistory.timestamp.desc()).all()
+        remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_id == req.id).order_by(ReactivationRemarkHistory.timestamp.desc()).all()
         timeline_logs = [
             {
                 "id": rm.id,
@@ -287,7 +292,7 @@ async def get_reactivation_requests_with_operators(
             "submitted_at": str(req.created_at)[:19] if req.created_at else "",
             "updated_at": str(req.updated_at)[:19] if req.updated_at else "",
             "district_name": dist_name or "Raipur",
-            "revert_reason": req.reject_reason or "",
+            "revert_reason": next((r.remark_history for r in reversed(req.remarks) if r.status_after_code in ["RV", "RJ"]), ""),
             "operators": ops_data,
             "timeline_logs": timeline_logs
         })
@@ -319,7 +324,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
         for op in operators
     ]
     
-    remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_code == request_code).order_by(ReactivationRemarkHistory.timestamp.desc()).all()
+    remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_id == req.id).order_by(ReactivationRemarkHistory.timestamp.desc()).all()
     timeline_logs = [
         {
             "id": rm.id,
@@ -338,7 +343,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
 
 
 @router.post("/operator/{operator_id}/activate")
-async def activate_individual_operator(operator_id: int, reason: Optional[str] = Form(None), db: Session = Depends(get_db)):
+async def activate_individual_operator(operator_id: int, reason: Optional[str] = Form(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
         op.status = "ACTIVATED"
@@ -348,7 +353,9 @@ async def activate_individual_operator(operator_id: int, reason: Optional[str] =
         if reason:
             remark_text += f" Remarks: {reason}"
         db.add(ReactivationRemarkHistory(
-            request_code=op.request_code,
+            request_id=op.request_id,
+            operator_id=op.id,
+            author_id=current_user.id,
             remark_history=remark_text,
             sender_role="CHIPS_ADMIN",
             status_after=op.status
@@ -358,13 +365,15 @@ async def activate_individual_operator(operator_id: int, reason: Optional[str] =
 
 
 @router.post("/operator/{operator_id}/send-to-uidai")
-async def send_to_uidai_individual_operator(operator_id: int, remarks: Optional[str] = Form(None), db: Session = Depends(get_db)):
+async def send_to_uidai_individual_operator(operator_id: int, remarks: Optional[str] = Form(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
         op.status = "SENT_TO_UIDAI"
         remark_text = f"Sent to UIDAI. Remarks: {remarks.strip()}" if remarks and remarks.strip() else "Sent to UIDAI"
         db.add(ReactivationRemarkHistory(
-            request_code=op.request_code,
+            request_id=op.request_id,
+            operator_id=op.id,
+            author_id=current_user.id,
             remark_history=f"Operator '{op.operator_name}' {remark_text}",
             sender_role="CHIPS_ADMIN",
             status_after=op.status
@@ -373,13 +382,15 @@ async def send_to_uidai_individual_operator(operator_id: int, remarks: Optional[
     return {"success": True}
 
 @router.post("/operator/{operator_id}/revert")
-async def revert_individual_operator(operator_id: int, reason: str = Form(...), db: Session = Depends(get_db)):
+async def revert_individual_operator(operator_id: int, reason: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
         op.status = "REVERTED"
         op.reject_reason = reason
         db.add(ReactivationRemarkHistory(
-            request_code=op.request_code,
+            request_id=op.request_id,
+            operator_id=op.id,
+            author_id=current_user.id,
             remark_history=f"Operator '{op.operator_name}' Reverted. Reason: {reason}",
             sender_role="CHIPS_ADMIN",
             status_after=op.status
@@ -388,13 +399,15 @@ async def revert_individual_operator(operator_id: int, reason: str = Form(...), 
     return {"success": True}
 
 @router.post("/operator/{operator_id}/reject")
-async def reject_individual_operator(operator_id: int, reason: str = Form(...), db: Session = Depends(get_db)):
+async def reject_individual_operator(operator_id: int, reason: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
         op.status = "REJECTED"
         op.reject_reason = reason
         db.add(ReactivationRemarkHistory(
-            request_code=op.request_code,
+            request_id=op.request_id,
+            operator_id=op.id,
+            author_id=current_user.id,
             remark_history=f"Operator '{op.operator_name}' Rejected. Reason: {reason}",
             sender_role="CHIPS_ADMIN",
             status_after=op.status
@@ -417,7 +430,8 @@ async def update_and_reapply_operator(
     registrar_code: str = Form(None),
     ea_code: str = Form(None),
     user_code: str = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if not op:
@@ -438,12 +452,14 @@ async def update_and_reapply_operator(
     op.status = "REAPPLIED"
     
     # Also update the batch status back to REAPPLIED if it was REVERTED
-    req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == op.request_code).first()
+    req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
     if req and req.status == "REVERTED":
         req.status = "REAPPLIED"
 
     db.add(ReactivationRemarkHistory(
-        request_code=op.request_code,
+        request_id=req.id,
+        operator_id=op.id,
+        author_id=current_user.id,
         remark_history=f"Operator '{op.operator_name}' Reapplied and Details Updated",
         sender_role="DC",
         status_after=req.status if req else "REAPPLIED"
@@ -454,30 +470,36 @@ async def update_and_reapply_operator(
 
 
 @router.post("/requests/{request_code}/finalize")
-async def finalize_batch_request(request_code: str, db: Session = Depends(get_db)):
+async def finalize_batch_request(request_code: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
         if req: 
             operators = db.query(ReactivationOperator).filter(
-                ReactivationOperator.request_code == request_code
+                ReactivationOperator.request_id == req.id
             ).all()
             statuses = [op.status for op in operators]
             
             if req.status in ["PENDING", "REAPPLIED"]:
                 if "SENT_TO_UIDAI" in statuses:
                     req.status = "SENT_TO_UIDAI"
+                    req.reviewed_by = current_user.id
                 else:
                     req.status = "REVERTED"
+                    req.reviewed_by = current_user.id
             elif req.status == "SENT_TO_UIDAI":
                 req.status = "REVIEWED"
+                req.reviewed_by = current_user.id
             else:
                 if "REVERTED" in statuses and "ACTIVATED" not in statuses:
                     req.status = "REVERTED"
+                    req.reviewed_by = current_user.id
                 else:
                     req.status = "REVIEWED"
+                    req.reviewed_by = current_user.id
                     
             db.add(ReactivationRemarkHistory(
-                request_code=request_code, 
+                request_id=req.id,
+                author_id=current_user.id, 
                 remark_history=f"Batch Finalized. New Status: {req.status}", 
                 sender_role="CHIPS_ADMIN", 
                 status_after=req.status
@@ -492,13 +514,14 @@ async def finalize_batch_request(request_code: str, db: Session = Depends(get_db
 
 
 @router.post("/requests/{request_code}/revert")
-async def revert_batch_request(request_code: str, revert_reason: str = Form(...), db: Session = Depends(get_db)):
+async def revert_batch_request(request_code: str, revert_reason: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
     if req: 
         req.status = "REVERTED"
-        req.reject_reason = revert_reason
+        req.reviewed_by = current_user.id
         db.add(ReactivationRemarkHistory(
-            request_code=req.request_code,
+            request_id=req.id,
+            author_id=current_user.id,
             remark_history=f"Batch Reverted. Reason: {revert_reason}",
             sender_role="CHIPS_ADMIN",
             status_after="REVERTED"
@@ -508,13 +531,20 @@ async def revert_batch_request(request_code: str, revert_reason: str = Form(...)
 
 
 @router.post("/requests/{request_code}/send-to-uidai")
-async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(...), db: Session = Depends(get_db)):
+async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
     if req: 
         req.status = "SENT_TO_UIDAI"
-    db.query(ReactivationOperator).filter(ReactivationOperator.request_code == request_code).update({"status": "SENT_TO_UIDAI"})
-    db.add(ReactivationRemarkHistory(request_code=request_code, remark_history=remarks, sender_role="CHIPS", status_after="SENT_TO_UIDAI"))
-    db.commit()
+        req.reviewed_by = current_user.id
+        db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).update({"status": "SENT_TO_UIDAI"})
+        db.add(ReactivationRemarkHistory(
+            request_id=req.id,
+            author_id=current_user.id, 
+            remark_history=remarks, 
+            sender_role="CHIPS", 
+            status_after="SENT_TO_UIDAI"
+        ))
+        db.commit()
     return {"success": True}
 
 
@@ -683,8 +713,12 @@ def export_uidai_operators_to_csv_stream(ids: str = None, db: Session = Depends(
 
 @router.get("/requests/{request_code}/files/{file_type}")
 async def get_reactivation_file(request_code: str, file_type: str, db: Session = Depends(get_db)):
+    req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+        
     doc = db.query(ReactivationDocument).filter(
-        ReactivationDocument.request_code == request_code,
+        ReactivationDocument.request_id == req.id,
         ReactivationDocument.doc_type == file_type
     ).first()
     if not doc or not os.path.exists(doc.path):

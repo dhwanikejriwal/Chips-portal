@@ -193,7 +193,8 @@
             style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
             <option value="all">All Statuses</option>
             <option value="approved">Approved</option>
-            <option value="reverted">Reverted / Rejected</option>
+            <option value="reverted">Reverted</option>
+            <option value="rejected">Rejected</option>
         </select>
 
         <button class="btn btn-sm" onclick="exportFilteredL2('credentials')">Export to CSV</button>
@@ -323,11 +324,7 @@
 
                 let matchStatus = true;
                 if (statusFilter !== 'all') {
-                    if (statusFilter === 'reverted') {
-                        matchStatus = ['reverted', 'rejected'].includes(rowStatus);
-                    } else {
-                        matchStatus = rowStatus === statusFilter;
-                    }
+                    matchStatus = rowStatus === statusFilter;
                 }
 
                 let matchDate = true;
@@ -906,49 +903,33 @@
     }
 
     function exportFilteredL2(section) {
-        let tableId, prefix;
+        let tableId, route;
         
         if (section === 'pending') {
             tableId = 'pending-requests-table';
-            prefix = 'pending_l2_registrations';
+            route = '/auth/dc/l2-registration/export-excel/pending';
         } else if (section === 'credentials') {
             tableId = 'approved-requests-table';
-            prefix = 'l2_registration_log_history';
+            route = '/auth/dc/l2-registration/export-excel/credentials';
         }
 
         const table = document.getElementById(tableId);
         if (!table) return;
 
-        let csv = [];
-        const rows = table.querySelectorAll('tr');
-        
-        for (let i = 0; i < rows.length; i++) {
-            let row = [], cols = rows[i].querySelectorAll('td, th');
-            if (rows[i].style.display === 'none') continue;
-            if (cols.length <= 1) continue;
-
-            // skip the last column (Action)
-            for (let j = 0; j < cols.length - 1; j++) {
-                let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
-                data = data.replace(/"/g, '""');
-                row.push('"' + data + '"');
+        const ids = [];
+        table.querySelectorAll('tbody tr[data-id]').forEach(row => {
+            if (row.style.display !== 'none') {
+                const id = row.getAttribute('data-id');
+                if (id) ids.push(id);
             }
-            csv.push(row.join(','));
-        }
+        });
 
-        if (csv.length <= 1) {
+        if (ids.length === 0) {
             Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#3085d6' });
             return;
         }
 
-        const csvFile = new Blob(["\uFEFF" + csv.join('\n')], {type: "text/csv;charset=utf-8;"});
-        const downloadLink = document.createElement("a");
-        downloadLink.download = prefix + '.csv';
-        downloadLink.href = window.URL.createObjectURL(csvFile);
-        downloadLink.style.display = "none";
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
+        window.location.href = `${route}?ids=${ids.join(',')}`;
     }
 
     function exportTableToExcel(tableID, filename = 'export.csv') {

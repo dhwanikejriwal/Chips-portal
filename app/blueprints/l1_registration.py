@@ -153,27 +153,7 @@ def proxy_export_l1_excel(request_code):
     except Exception as excel_err:
         return f"Excel compilation failure: {str(excel_err)}", 500
 
-@l1_bp.route("/l1-registration/export-all", methods=["GET"])
-def proxy_export_l1_excel_all():
-    if not session.get("username"):
-        return "Unauthorized", 401
-    try:
-        headers = {}
-        if session.get("access_token"):
-            headers["Authorization"] = f"Bearer {session.get('access_token')}"
-        file_response = requests.get(f"{FASTAPI_URL}/export-excel-all", headers=headers, stream=True, timeout=20)
-        if file_response.status_code == 200:
-            return Response(
-                file_response.iter_content(chunk_size=4096),
-                content_type=file_response.headers.get("content-type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-                headers={
-                    "Content-Disposition": "attachment; filename=Pending_L1_Requests.xlsx",
-                    "Cache-Control": "no-cache"
-                }
-            )
-        return f"Excel export failed. Backend status: {file_response.status_code}", file_response.status_code
-    except Exception as excel_err:
-        return f"Excel compilation failure: {str(excel_err)}", 500
+
 
 
 @l1_bp.route("/l1-registration/export", methods=["GET"])

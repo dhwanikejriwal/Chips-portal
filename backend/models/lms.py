@@ -41,7 +41,7 @@ class CredentialRequest(Base):
     
     # Relationships
     district_details = relationship("District", foreign_keys=[district_id])
-    submitted_by = relationship("User", foreign_keys=[submitted_by_id])
+    submitted_by = relationship("UserLogin", foreign_keys=[submitted_by_id])
 
 class LMS(Base):
     __tablename__ = "LMS_table"

@@ -14,7 +14,6 @@
             transform: rotate(360deg);
         }
     }
-
 </style>
 {% endblock %}
 
@@ -37,49 +36,70 @@
             style="margin-top: 0; margin-bottom: 25px; text-transform: none; font-size: 20px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
             New Station ID Request</h2>
 
-        <!-- Section 1: Request Information -->
-        <h2 class="container-sub-title" style="text-transform: none;">Request Information</h2>
-
+        <!-- Request Details -->
         <div class="form-grid-2x">
+
+            <!-- District -->
             <div class="input-group">
-                <label>District <span class="required-star">*</span></label>
+                <label
+                    style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 8px; display: block;">District
+                    <span class="required-star">*</span></label>
                 <select name="district" required disabled style="background:#f1f5f9; cursor:not-allowed;"
                     class="form-control-input">
-                    <option value="{{ session.get('district_id') }}" selected>{{
-                        session.get('district_name', 'Select District') }}</option>
+                    <option value="{{ session.get('district_id') }}" selected>{{ session.get('district_name', 'Select
+                        District') }}</option>
                 </select>
                 <input type="hidden" name="district_id" value="{{ session.get('district_id', '') }}">
                 <div style="font-size: 11px; color: #94a3b8; margin-top: 5px;">Pre-filled from your account</div>
             </div>
-        </div>
 
-        <!-- Section 2: Model Selection -->
-        <h2 class="container-sub-title" style="text-transform: none;">Model Selection <span class="required-star">*</span></h2>
-        <div class="form-grid-2x">
+
+            <!-- Model Selection -->
             <div class="input-group">
+                <label
+                    style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 8px; display: block;">Model
+                    Selection <span class="required-star">*</span></label>
                 <select name="model" id="model-select" class="form-control-input" required>
                     <option value="" disabled selected>Select Model Type</option>
                     <option value="ECMP">ECMP (In House)</option>
                     <option value="UCL">UCL (External)</option>
                 </select>
             </div>
-        </div>
 
-        <!-- Section 3: User Type -->
-        <h2 class="container-sub-title" style="text-transform: none;">User Type <span class="required-star">*</span></h2>
-        <div class="form-grid-2x">
+            <!-- User Type -->
             <div class="input-group">
-                <select name="user_type" id="user-type-select" class="form-control-input" required onchange="toggleCustomReason()">
+                <label
+                    style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 8px; display: block;">User
+                    Type <span class="required-star">*</span></label>
+                <select name="user_type" id="user-type-select" class="form-control-input" required
+                    onchange="toggleCustomReason()">
                     <option value="" disabled selected>Select User Type</option>
                     <option value="new_user">New User (Fresh Assignment)</option>
                     <option value="machine_id">Machine ID (Replace/Reset)</option>
                     <option value="custom">Custom Reason</option>
                 </select>
             </div>
+
+            <!-- Number of Kits -->
+            <div class="input-group">
+                <label
+                    style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 8px; display: block;">Number
+                    of Kits <span class="required-star">*</span></label>
+                <div style="display: flex; align-items: center;">
+                    <button type="button" onclick="updateKits(-1)"
+                        style="border-radius: 6px 0 0 6px; border: 1px solid #cbd5e1; background: #f8fafc; padding: 0 16px; height: 42px; cursor: pointer; font-size: 18px; font-weight: 600; color: #475569; transition: all 0.2s;">−</button>
+                    <input type="number" id="number-of-kits" name="number_of_kits" value="1" min="1" max="999" required
+                        style="border-radius: 0; border: 1px solid #cbd5e1; border-left: none; border-right: none; text-align: center; height: 42px; width: 80px; font-weight: 600; color: #1e293b; font-size: 15px; -moz-appearance: textfield; box-sizing: border-box;"
+                        onkeydown="return event.keyCode !== 38 && event.keyCode !== 40;">
+                    <button type="button" onclick="updateKits(1)"
+                        style="border-radius: 0 6px 6px 0; border: 1px solid #cbd5e1; background: #f8fafc; padding: 0 16px; height: 42px; cursor: pointer; font-size: 18px; font-weight: 600; color: #475569; transition: all 0.2s;">+</button>
+                </div>
+            </div>
+
         </div>
 
         <!-- Custom reason reveal -->
-        <div id="custom-reason-wrapper" style="display: none;">
+        <div id="custom-reason-wrapper" style="display: none; margin-top: 20px;">
             <div
                 style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9333ea" stroke-width="2.5">
@@ -93,20 +113,12 @@
                 placeholder="Describe your specific reason for this Station ID request in detail..."></textarea>
         </div>
 
-        <!-- Section 4: Number of Kits -->
-        <h2 class="container-sub-title" style="text-transform: none;">Number of Kits <span class="required-star">*</span></h2>
-        <div class="form-grid-2x" style="margin-top: 8px;">
-            <div class="input-group">
-                <input type="number" id="number-of-kits" name="number_of_kits" class="form-control-input" value="1" min="1" max="999" required>
-            </div>
-        </div>
-
-
         <!-- Form Actions -->
         <div class="flex-actions-between" style="margin-top: 25px; align-items: center;">
             <a href="/auth/dc/station-id/list" class="btn-cancel"
                 style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
@@ -119,7 +131,8 @@
                 </button>
                 <button type="submit" class="btn-primary" id="submit-btn"
                     style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" id="submit-icon" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        id="submit-icon" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="20 6 9 17 4 12" />
                     </svg>
                     Submit Request
@@ -130,6 +143,16 @@
 </form>
 
 <script>
+    // ── Number of Kits Counter ──────────────────────────────────────
+    function updateKits(change) {
+        const input = document.getElementById('number-of-kits');
+        let val = parseInt(input.value) || 1;
+        val += change;
+        if (val < 1) val = 1;
+        if (val > 999) val = 999;
+        input.value = val;
+    }
+
     // ── Show/hide custom reason ────────────────────────────────────
     function toggleCustomReason() {
         const userType = document.getElementById('user-type-select').value;
@@ -155,18 +178,18 @@
             Swal.fire({ icon: 'warning', title: 'Model Required', text: 'Please select a deployment model.', confirmButtonColor: '#4f46e5' });
             return;
         }
-        
+
         const userType = document.getElementById('user-type-select').value;
         if (!userType) {
             Swal.fire({ icon: 'warning', title: 'User Type Required', text: 'Please select a user type.', confirmButtonColor: '#4f46e5' });
             return;
         }
-        
+
         if (userType === 'custom' && !document.getElementById('custom-reason-input').value.trim()) {
             Swal.fire({ icon: 'warning', title: 'Custom Reason Required', text: 'Please describe your custom reason.', confirmButtonColor: '#4f46e5' });
             return;
         }
-        
+
         const kitsInput = document.getElementById('number-of-kits');
         const kits = parseInt(kitsInput.value);
         if (!kits || kits < 1) {

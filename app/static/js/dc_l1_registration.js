@@ -353,6 +353,15 @@ function buildL1RemarksHtml(remarks) {
             else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
         }
 
+        const username = r.author_username || '';
+        // Only show username if it's a DC (hide CHiPS Admin username from DC panel)
+        const hasUsername = !isChips && username && username !== 'system';
+        
+        // Assume escapeHtml function exists globally or in the file, if not we can use a basic fallback inline
+        // Wait, dc_l1_registration.js has an escapeHtml inside showL1Details but here it's outside. Let's just use a simple escape inline or define it if not present.
+        // Actually, we can just use the global one or a small inline replace.
+        const safeUsername = username.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
         html += `
             <div class="timeline-item ${senderClass}">
                 <div class="timeline-marker ${markerClass}"></div>
@@ -361,7 +370,7 @@ function buildL1RemarksHtml(remarks) {
                         <span class="timeline-step-label">L1 Registration</span>${statusBadgeHtmlInline}
                     </div>
                     <div class="timeline-by-row">
-                        <span class="timeline-by">By: <strong>${sender}</strong></span>
+                        <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + safeUsername + ')' : ''}</span>
                         <span class="timeline-time">${r.timestamp}</span>
                     </div>
                     <div class="timeline-body">${r.remark}</div>
@@ -714,35 +723,20 @@ function exportTableToExcel(tableID, filename = 'export.csv') {
     const table = document.getElementById(tableID);
     if (!table) return;
 
-    let csv = [];
-    const rows = table.querySelectorAll('tr');
-    
-    for (let i = 0; i < rows.length; i++) {
-        let row = [], cols = rows[i].querySelectorAll('td, th');
-        if (rows[i].style.display === 'none') continue;
-        if (cols.length <= 1) continue;
-
-        // Skip the last column (Actions)
-        for (let j = 0; j < cols.length - 1; j++) {
-            let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
-            data = data.replace(/"/g, '""');
-            row.push('"' + data + '"');
+    const ids = [];
+    table.querySelectorAll('tbody tr[data-id]').forEach(row => {
+        if (row.style.display !== 'none') {
+            const id = row.getAttribute('data-id');
+            if (id) ids.push(id);
         }
-        csv.push(row.join(','));
-    }
+    });
 
-    if (csv.length <= 1) {
+    if (ids.length === 0) {
         Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#3085d6' });
         return;
     }
 
-    const csvFile = new Blob(["\uFEFF" + csv.join('\n')], {type: "text/csv;charset=utf-8;"});
-    const downloadLink = document.createElement("a");
-    downloadLink.download = filename.endsWith('.csv') ? filename : filename + '.csv';
-    downloadLink.href = window.URL.createObjectURL(csvFile);
-    downloadLink.style.display = "none";
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
+    // Redirect to the backend export endpoint
+    window.location.href = `/auth/l1-registration/export?ids=${ids.join(',')}`;
 }
 

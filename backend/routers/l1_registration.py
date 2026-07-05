@@ -76,6 +76,7 @@ async def submit_l1_registration(
         new_request = L1RegistrationRequest(
             request_code=req_code,
             district_id=current_user.district_id,
+            dc_id=current_user.id,
             station_id=station_id,
             machine_id=machine_id,
             operator_name=operator_name,
@@ -88,12 +89,15 @@ async def submit_l1_registration(
         )
         db.add(new_request)
 
+        db.flush() # flush to get new_request.id
+        
         # Record Initial Remark
         db.add(L1RegistrationRemarkHistory(
-            request_code=req_code,
+            request_id=new_request.id,
             remark="L1 Registration request initialized by District Coordinator.",
             action="SUBMITTED",
-            user_role=user_role_str
+            user_role=user_role_str,
+            author_id=current_user.id
         ))
 
         db.commit()
@@ -148,6 +152,7 @@ async def get_l1_request_details(request_code: str, db: Session = Depends(get_db
             "action": rm.action,
             "remark": rm.remark,
             "user_role": rm.user_role,
+            "author_username": rm.author.username if rm.author else "system",
             "timestamp": str(rm.timestamp)[:19]
         })
 
@@ -186,6 +191,7 @@ async def perform_l1(
     req = db.query(L1RegistrationRequest).filter(L1RegistrationRequest.request_code == request_code).first()
     if req: 
         req.status = "APPROVED"
+        req.reviewed_by = current_user.id
 
 # --- FRIEND'S UPDATED CODE ---
         from backend.models.base import get_ist_now
@@ -196,10 +202,11 @@ async def perform_l1(
 # ---------------------------
 
         db.add(L1RegistrationRemarkHistory(
-            request_code=request_code,
+            request_id=req.id,
             remark=final_remark,
             action="APPROVED",
-            user_role=get_user_role_str(current_user)
+            user_role=get_user_role_str(current_user),
+            author_id=current_user.id
         ))
         db.commit()
     return {"success": True}
@@ -218,13 +225,15 @@ async def approve_all_l1(
         
     for req in pending_requests:
         req.status = "REVIEWED"
+        req.reviewed_by = current_user.id
         from backend.models.base import get_ist_now
         req.reviewed_at = get_ist_now()
         db.add(L1RegistrationRemarkHistory(
-            request_code=req.request_code,
+            request_id=req.id,
             remark="Mass approval performed by CHIPS Admin.",
             action="REVIEWED",
-            user_role=get_user_role_str(current_user)
+            user_role=get_user_role_str(current_user),
+            author_id=current_user.id
         ))
     db.commit()
     return {"success": True, "count": len(pending_requests)}
@@ -239,13 +248,15 @@ async def revert_l1_request(
     req = db.query(L1RegistrationRequest).filter(L1RegistrationRequest.request_code == request_code).first()
     if req: 
         req.status = "REVERTED"
+        req.reviewed_by = current_user.id
         from backend.models.base import get_ist_now
         req.reviewed_at = get_ist_now()
         db.add(L1RegistrationRemarkHistory(
-            request_code=request_code,
+            request_id=req.id,
             remark=revert_reason,
             action="REVERTED",
-            user_role=get_user_role_str(current_user)
+            user_role=get_user_role_str(current_user),
+            author_id=current_user.id
         ))
         db.commit()
     return {"success": True}
@@ -278,10 +289,11 @@ async def reapply_l1_request(
         req.status = "REAPPLIED"
 
         db.add(L1RegistrationRemarkHistory(
-            request_code=request_code,
+            request_id=req.id,
             remark=reapply_remark.strip(),  # 🌟 FIXED: Strictly binds the DC custom notes
             action="REAPPLIED",
-            user_role=get_user_role_str(current_user)
+            user_role=get_user_role_str(current_user),
+            author_id=current_user.id
         ))
 
         db.commit()
@@ -331,48 +343,7 @@ def export_l1_to_excel_stream(request_code: str, db: Session = Depends(get_db)):
         headers={"Content-Disposition": f"attachment; filename=L1_Request_{request_code}.xlsx"}
     )
 
-@router.get("/export-excel-all")
-def export_all_l1_to_excel_stream(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    user_role_str = get_user_role_str(current_user)
-    
-    if user_role_str == "dc":
-        requests = db.query(L1RegistrationRequest).filter(
-            L1RegistrationRequest.district_id == current_user.district_id,
-            L1RegistrationRequest.status.in_(["PENDING", "REAPPLIED"])
-        ).order_by(L1RegistrationRequest.created_at.desc()).all()
-    else:
-        requests = db.query(L1RegistrationRequest).filter(
-            L1RegistrationRequest.status.in_(["PENDING", "REAPPLIED"])
-        ).order_by(L1RegistrationRequest.created_at.desc()).all()
-        
-    data = []
-    for req in requests:
-        data.append({
-            "Request Code": req.request_code,
-            "District ID": req.district_id,
-            "Station ID": req.station_id,
-            "Machine ID": req.machine_id,
-            "Operator Name": req.operator_name or "N/A",
-            "Operator ID": req.operator_id or "N/A",
-            "Model Type": req.model_type,
-            "Software Version": req.software_version,
-            "UV ID": req.uv_id,
-            "UV Password": req.uv_password,
-            "Status": str(req.status).upper(),
-            "Submitted At": str(req.created_at)[:19]
-        })
-        
-    df = pd.DataFrame(data)
-    excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Pending Requests', index=False)
-        
-    excel_buffer.seek(0)
-    return StreamingResponse(
-        excel_buffer, 
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-        headers={"Content-Disposition": f"attachment; filename=Pending_L1_Requests.xlsx"}
-    )
+
 
 
 @router.get("/export-excel-v2")
@@ -428,5 +399,9 @@ def export_l1_excel_v2(ids: str = None, db: Session = Depends(get_db)):
         "submitted_at": "Submission Timestamp",
         "reviewed_at": "Review Timestamp"
     }
+
+    # If all exported records are pending/reapplied, do not include the review timestamp
+    if all(str(req.status).lower() in ["pending", "reapplied"] for req in records):
+        del column_mappings["reviewed_at"]
 
     return generate_csv_export(export_data, column_mappings, "l1_registration_complete_report")

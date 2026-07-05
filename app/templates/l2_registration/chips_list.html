@@ -519,10 +519,12 @@
                 const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
                 const stationId = (row.getAttribute('data-new-station-id') || '').toLowerCase();
                 const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+                const clientVer = (row.getAttribute('data-client-version') || '').toLowerCase();
+                const clientType = (row.getAttribute('data-client-type') || '').toLowerCase();
                 const created = row.getAttribute('data-created') || '';
                 const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
 
-                const matchQuery = !q || name.includes(q) || opId.includes(q) || reqNo.includes(q) || stationId.includes(q);
+                const matchQuery = !q || name.includes(q) || opId.includes(q) || reqNo.includes(q) || stationId.includes(q) || dist.includes(q) || clientVer.includes(q) || clientType.includes(q);
                 const matchDistrict = selectedDistrict === 'all' || dist === selectedDistrict.toLowerCase();
                 const matchStatus = sec.sf === 'all' || rowStatus === sec.sf;
 
@@ -580,12 +582,16 @@
         if (!tbody) return;
 
         const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
-        if (rows.length === 0) {
+        
+        const ids = rows.filter(r => r.style.display !== 'none')
+                        .map(r => r.getAttribute('data-id'))
+                        .filter(Boolean);
+
+        if (ids.length === 0) {
             Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#4f46e5' });
             return;
         }
 
-        const ids = rows.map(r => r.getAttribute('data-id')).filter(Boolean);
         if (ids.length > 0) {
             const separator = exportUrl.includes('?') ? '&' : '?';
             exportUrl += separator + 'ids=' + ids.join(',');
@@ -921,6 +927,9 @@
                 }
             }
 
+            const authorName = r.sender_username || r.author || '';
+            const hasUsername = authorName && authorName !== 'system';
+            
             html += `
                 <div class="timeline-item ${senderClass}">
                     <div class="timeline-marker ${markerClass}"></div>
@@ -929,7 +938,7 @@
                             <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
                         </div>
                         <div class="timeline-by-row">
-                            <span class="timeline-by">By: <strong>${escapeHtml(author)}</strong></span>
+                            <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(authorName) + ')' : ''}</span>
                             <span class="timeline-time">${escapeHtml(time)}</span>
                         </div>
                         <div class="timeline-body">${escapeHtml(msg)}</div>

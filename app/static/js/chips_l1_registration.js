@@ -57,36 +57,52 @@ function approveL1Request(requestCode) {
 
 function revertL1Request(requestCode) {
     Swal.fire({
-        title: 'Revert L1 Request',
-        input: 'textarea',
-        inputPlaceholder: 'Enter reason for reverting...',
+        title: `<div style="text-align:left;font-size:18px;color:#dc2626;font-weight:800;">Revert Request</div>`,
+        html: `<div style="text-align:left;">
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#c2410c;">
+                Request <strong>${requestCode}</strong> will be sent back to the DC with your remark.
+            </div>
+            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                Revert Reason <span style="color:#ef4444;">*</span>
+            </div>
+            <textarea id="swal-revert-reason"
+                style="width:100%;padding:10px 14px;border:1.5px solid #fca5a5;border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;min-height:90px;outline:none;box-sizing:border-box;"
+                placeholder="Clearly explain why this request is being reverted so the DC can correct it..." autofocus></textarea>
+        </div>`,
         showCancelButton: true,
-        confirmButtonText: 'Revert',
-        confirmButtonColor: '#ef4444',
-        preConfirm: (reason) => {
-            if (!reason || reason.trim() === '') {
+        confirmButtonText: '↩ Revert Request',
+        confirmButtonColor: '#007bff',
+        cancelButtonText: 'Cancel',
+        cancelButtonColor: '#6c757d',
+        width: '500px',
+        focusConfirm: false,
+        showLoaderOnConfirm: true,
+        preConfirm: () => {
+            const reason = document.getElementById('swal-revert-reason').value.trim();
+            if (!reason) {
                 Swal.showValidationMessage('A revert reason is required.');
                 return false;
             }
-            return reason;
-        }
-    }).then((result) => {
-        if (result.isConfirmed) {
+            
             const payload = new URLSearchParams();
-            payload.append('revert_reason', result.value.trim());
+            payload.append('revert_reason', reason);
 
-            fetch(`/auth/l1-registration/requests/${requestCode}/revert`, { method: 'POST', body: payload })
+            return fetch(`/auth/l1-registration/requests/${requestCode}/revert`, { method: 'POST', body: payload })
                 .then(res => {
                     if (!res.ok) throw new Error("Revert failed");
                     return res.json();
                 })
-                .then(() => {
-                    Swal.fire({ title: 'Reverted!', text: 'Request has been sent back to the DC.', icon: 'success', showConfirmButton: true, timer: 3000, timerProgressBar: true }).then(() => {
-                        sessionStorage.setItem('chips_action_reloading', 'true');
-                        window.location.reload();
-                    });
-                })
-                .catch(err => Swal.fire('Error', err.message, 'error'));
+                .catch(err => {
+                    Swal.showValidationMessage(`Action failed: ${err.message}`);
+                    return false;
+                });
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Reverted!', text: 'Request has been sent back to the DC.', icon: 'success', showConfirmButton: true, timer: 3000, timerProgressBar: true }).then(() => {
+                sessionStorage.setItem('chips_action_reloading', 'true');
+                window.location.reload();
+            });
         }
     });
 }
@@ -134,6 +150,9 @@ function buildRemarksHtml(remarks) {
 
         const stepLabel = 'L1 Registration';
 
+        const username = r.author_username || '';
+        const hasUsername = username && username !== 'system';
+
         html += `
             <div class="timeline-item ${senderClass}">
                 <div class="timeline-marker ${markerClass}"></div>
@@ -142,7 +161,7 @@ function buildRemarksHtml(remarks) {
                         <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
                     </div>
                     <div class="timeline-by-row">
-                        <span class="timeline-by">By: <strong>${sender}</strong></span>
+                        <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
                         <span class="timeline-time">${r.timestamp || ''}</span>
                     </div>
                     <div class="timeline-body">${escapeHtml(r.remark)}</div>

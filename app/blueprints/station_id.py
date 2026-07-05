@@ -28,7 +28,7 @@ def _headers():
 @station_id_bp.route("/dc/station-id/list", methods=["GET"])
 def dc_list():
     if not session.get("access_token"):
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
 
     dc_id = session.get("user_id")
     try:
@@ -61,14 +61,14 @@ def dc_list():
 @station_id_bp.route("/dc/station-id/new", methods=["GET"])
 def dc_new_form():
     if not session.get("access_token"):
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
     return render_template("station_id/submit_form.html")
 
 
 @station_id_bp.route("/dc/station-id/new", methods=["POST"])
 def dc_submit():
     if not session.get("access_token"):
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
 
     form_data = {
         "dc_id": session.get("user_id"),
@@ -123,7 +123,7 @@ def dc_reapply_json(request_id):
 @station_id_bp.route("/chips/station-id", methods=["GET"])
 def chips_list():
     if not session.get("access_token"):
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
 
     try:
         resp = http.get(f"{BACKEND}/all", headers=_headers())
@@ -184,7 +184,7 @@ def chips_approve(request_id):
 @station_id_bp.route("/chips/station-id/<int:request_id>/revert", methods=["POST"])
 def chips_revert(request_id):
     if not session.get("access_token"):
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
 
     form_data = {
         "reviewed_by": session.get("user_id"),
