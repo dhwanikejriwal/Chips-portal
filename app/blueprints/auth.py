@@ -21,6 +21,7 @@ def login():
             if response.status_code == 200:
                 data = response.json()
                 # Store JWT and info in Flask Session
+                session.permanent = True
                 session["access_token"] = data["access_token"]
                 session["role"] = data["role"]
                 session["username"] = username

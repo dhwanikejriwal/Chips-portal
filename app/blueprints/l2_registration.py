@@ -23,6 +23,8 @@ def dc_list():
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
         response = requests.get(f"{BACKEND}/dc/{dc_id}", headers=headers)
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         requests_list = response.json() if response.status_code == 200 else []
     except requests.exceptions.ConnectionError:
         requests_list = []
@@ -127,6 +129,8 @@ def chips_list():
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
         response = requests.get(f"{BACKEND}/all", headers=headers)
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         requests_list = response.json() if response.status_code == 200 else []
     except requests.exceptions.ConnectionError:
         requests_list = []

@@ -6,7 +6,9 @@ from backend.database import get_db
 from backend.models import Candidate, LMS, LMSRemark, UserLogin, MasterUserRole
 from backend.utils.exporter import generate_csv_export
 
-router = APIRouter(prefix="/lms_manage", tags=["lms_manage"])
+from backend.routers.auth import get_current_user
+
+router = APIRouter(prefix="/lms_manage", tags=["lms_manage"], dependencies=[Depends(get_current_user)])
 
 class LMSActionRequest(BaseModel):
     remark: str 

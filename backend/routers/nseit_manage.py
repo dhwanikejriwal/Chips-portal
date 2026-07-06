@@ -6,7 +6,9 @@ from backend.database import get_db
 from backend.models import Candidate, NSEITRequest, NSEITRemark, UserLogin, MasterUserRole
 from backend.utils.exporter import generate_csv_export
 
-router = APIRouter(prefix="/nseit_manage", tags=["nseit_manage"])
+from backend.routers.auth import get_current_user
+
+router = APIRouter(prefix="/nseit_manage", tags=["nseit_manage"], dependencies=[Depends(get_current_user)])
 
 class NSEITActionRequest(BaseModel):
     remark: str 

@@ -777,7 +777,7 @@ window.buildDocumentCard = function (title, fileUrl, defaultName) {
                 ${previewHtml}
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
-                <div style="text-align: left; overflow: hidden; flex-grow: 1;">
+                <div style="text-align: left; overflow: hidden; flex-grow: 1; min-width: 0;">
                     <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
                     <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${defaultName}">${shortFileName}</div>
                 </div>
@@ -815,6 +815,8 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
     const explicitRemarks = op.remarks || '—';
 
     const requestCode = window.currentViewingRequestCode;
+    const cardEl = document.querySelector(`[data-request-id="${requestCode}"]`);
+    const submittedAt = cardEl ? cardEl.getAttribute('data-created') || '—' : '—';
     const statusUpper = (op.status || '').toUpperCase().trim();
     const isRevertable = (statusUpper === 'REVERTED' || statusUpper === 'REVERT BACK');
     const isRejected = (statusUpper === 'REJECTED');
@@ -822,9 +824,12 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
     if (activeView === 'details') {
         let htmlContent = `
         <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 14px; color: #666;">Request ID: <strong>${requestCode}</strong></span>
                 <span>${statusBadge}</span>
+            </div>
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                Submitted At: <strong style="color: #475569;">${submittedAt}</strong>
             </div>
 
             ${isRevertable || isRejected ? `
@@ -1561,7 +1566,7 @@ window.viewBatchDocuments = function (requestCode, backIndex = null) {
 
     let htmlContent = `
     <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px;">
             ${buildDocumentCard('Training Photo', trainingPhotoUrl, 'training_photo.jpg')}
             ${buildDocumentCard('District Nodal Endorsement Letter', nodalLetterUrl, 'nodal_endorsement_letter.pdf')}
             ${buildDocumentCard('Office Memorandum (OM) Letter', omLetterUrl, 'office_memorandum.pdf')}
@@ -1589,4 +1594,4 @@ window.viewBatchDocuments = function (requestCode, backIndex = null) {
             window.showIndividualOperatorDetails(backIndex, 'details');
         }
     });
-};
+}; 

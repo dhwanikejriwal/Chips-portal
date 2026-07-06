@@ -24,7 +24,9 @@ from backend.utils.ocr_utils import (
     validate_excel_sheet
 )
 
-router = APIRouter()
+from backend.routers.auth import get_current_user
+
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 UPLOAD_BASE = "activation_uploads"
 

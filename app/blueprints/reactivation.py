@@ -26,13 +26,10 @@ def view_reactivation_dashboard():
         api_endpoint = f"{FASTAPI_URL}/requests-with-operators"
         response = requests.get(api_endpoint, headers=headers, timeout=5)
         
-        # 🌟 FIXED: Dropped session.clear() to stop aggressive auto-logouts.
-        # If the backend token expires independently, safely fallback to an empty queue.
         if response.status_code == 401:
             print("⚠️ WARNING: Reactivation microservice token rejected the authorization context.")
             return redirect("/auth/logout")
-        else:
-            raw_history = response.json() if response.status_code == 200 else []
+        raw_history = response.json() if response.status_code == 200 else []
         with open("debug_chips.txt", "w") as f:
             f.write(f"Status: {response.status_code}\nText: {response.text[:500]}\n")
         

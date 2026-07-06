@@ -12,3 +12,7 @@ class Config:
     
     # URL of the FastAPI backend API
     BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://127.0.0.1:8000/api")
+    
+    # Flask Session Settings (6 Hours lifetime)
+    from datetime import timedelta
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=6)

@@ -138,6 +138,8 @@ def dc_requests_list():
 
     try:
         response = requests.get(f"{backend_url()}/dc/{dc_id}", headers=headers)
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         requests_list = response.json() if response.status_code == 200 else []
     except requests.exceptions.ConnectionError:
         requests_list = []
@@ -273,6 +275,8 @@ def chips_all_requests():
 
     try:
         response = requests.get(f"{backend_url()}/all", headers=headers)
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         requests_list = response.json() if response.status_code == 200 else []
     except requests.exceptions.ConnectionError:
         requests_list = []

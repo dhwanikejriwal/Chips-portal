@@ -2,6 +2,7 @@
 import re
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Form
+from backend.routers.auth import get_current_user
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.station_id import StationIDRequest, StationIDRemark
@@ -12,7 +13,7 @@ from backend.utils.exporter import generate_csv_export
 from typing import Optional
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 def _fmt(dt):

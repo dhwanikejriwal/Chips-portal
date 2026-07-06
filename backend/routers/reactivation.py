@@ -16,7 +16,7 @@ from backend.utils.exporter import generate_excel_export,generate_csv_export
 from backend.database import SessionLocal
 from backend.routers.auth import get_current_user
 from backend.models import User, District
-from backend.models.base import to_name
+from backend.models.base import to_name, get_ist_now
 
 # 🌟 CONNECTED: Pulling from your exact, unchanged model class baseline definitions
 from backend.models.reactivation import (
@@ -364,6 +364,12 @@ async def activate_individual_operator(operator_id: int, reason: Optional[str] =
         op.status = "APPROVED"
         if reason:
             op.reject_reason = reason  # Optional: store activate remarks in reject_reason or remarks
+        
+        # Update parent's updated_at
+        parent = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
+        if parent:
+            parent.updated_at = get_ist_now()
+
         remark_text = f"Operator '{op.operator_name}' Approved."
         if reason:
             remark_text += f" Remarks: {reason}"
@@ -384,6 +390,12 @@ async def send_to_uidai_individual_operator(operator_id: int, remarks: Optional[
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
         op.status = "SENT_TO_UIDAI"
+        
+        # Update parent's updated_at
+        parent = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
+        if parent:
+            parent.updated_at = get_ist_now()
+
         remark_text = f"Sent to UIDAI. Remarks: {remarks.strip()}" if remarks and remarks.strip() else "Sent to UIDAI"
         db.add(ReactivationRemarkHistory(
             request_id=op.request_id,
@@ -402,6 +414,12 @@ async def revert_individual_operator(operator_id: int, reason: str = Form(...), 
     if op: 
         op.status = "REVERTED"
         op.reject_reason = reason
+        
+        # Update parent's updated_at
+        parent = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
+        if parent:
+            parent.updated_at = get_ist_now()
+
         db.add(ReactivationRemarkHistory(
             request_id=op.request_id,
             operator_id=op.id,
@@ -419,6 +437,12 @@ async def reject_individual_operator(operator_id: int, reason: str = Form(...), 
     if op: 
         op.status = "REJECTED"
         op.reject_reason = reason
+        
+        # Update parent's updated_at
+        parent = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
+        if parent:
+            parent.updated_at = get_ist_now()
+
         db.add(ReactivationRemarkHistory(
             request_id=op.request_id,
             operator_id=op.id,
@@ -468,8 +492,10 @@ async def update_and_reapply_operator(
     
     # Also update the batch status back to REAPPLIED if it was REVERTED
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
-    if req and req.status == "REVERTED":
-        req.status = "REAPPLIED"
+    if req:
+        req.updated_at = get_ist_now()
+        if req.status == "REVERTED":
+            req.status = "REAPPLIED"
 
     db.add(ReactivationRemarkHistory(
         request_id=req.id,
@@ -534,6 +560,7 @@ async def revert_batch_request(request_code: str, revert_reason: str = Form(...)
     if req: 
         req.status = "REVERTED"
         req.reviewed_by = current_user.id
+        req.updated_at = get_ist_now()
         db.add(ReactivationRemarkHistory(
             request_id=req.id,
             author_id=current_user.id,
@@ -551,6 +578,7 @@ async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(
     if req: 
         req.status = "SENT_TO_UIDAI"
         req.reviewed_by = current_user.id
+        req.updated_at = get_ist_now()
         db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).update({"status": "SENT_TO_UIDAI"})
         db.add(ReactivationRemarkHistory(
             request_id=req.id,

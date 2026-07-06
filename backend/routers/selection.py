@@ -12,7 +12,9 @@ from backend.models import Candidate, CandidateLogin, DCRemark
 from backend.utils.exporter import generate_csv_export
 from backend.utils.email_utils import send_approval_email, send_rejection_email
 
-router = APIRouter(prefix="/selection", tags=["selection"])
+from backend.routers.auth import get_current_user
+
+router = APIRouter(prefix="/selection", tags=["selection"], dependencies=[Depends(get_current_user)])
 
 class CandidateApproveRequest(BaseModel):
     username: str | None = None

@@ -20,11 +20,6 @@ def _headers():
     return {"Authorization": f"Bearer {session.get('access_token', '')}"}
 
 
-# ─────────────────────────────────────────────
-# DC ROUTES
-# ─────────────────────────────────────────────
-
-
 @station_id_bp.route("/dc/station-id/list", methods=["GET"])
 def dc_list():
     if not session.get("access_token"):
@@ -33,6 +28,8 @@ def dc_list():
     dc_id = session.get("user_id")
     try:
         resp = http.get(f"{BACKEND}/dc/{dc_id}", headers=_headers())
+        if resp.status_code == 401:
+            return redirect(url_for("auth.logout"))
         raw_list = resp.json() if resp.status_code == 200 else []
         
         # 🌟 FIXED: Explicitly sanitize and normalize timestamp mapping properties 
@@ -62,6 +59,7 @@ def dc_list():
 def dc_new_form():
     if not session.get("access_token"):
         return redirect(url_for("auth.login"))
+
     return render_template("station_id/submit_form.html")
 
 
@@ -127,6 +125,8 @@ def chips_list():
 
     try:
         resp = http.get(f"{BACKEND}/all", headers=_headers())
+        if resp.status_code == 401:
+            return redirect(url_for("auth.logout"))
         requests_list = resp.json() if resp.status_code == 200 else []
     except http.exceptions.ConnectionError:
         requests_list = []

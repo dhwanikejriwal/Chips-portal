@@ -10,7 +10,9 @@ from backend.database import SessionLocal
 from backend.models import L2RegistrationRequest, L2RegistrationRemark, User, District
 from backend.models.base import get_ist_time
 
-router = APIRouter()
+from backend.routers.auth import get_current_user
+
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # Dependency to get db session
 def get_db():
