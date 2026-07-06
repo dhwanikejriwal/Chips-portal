@@ -42,4 +42,11 @@ def create_app():
         from flask import render_template
         return render_template("home.html")
 
+    @app.route('/favicon.ico')
+    def favicon():
+        import os
+        from flask import send_from_directory
+        return send_from_directory(os.path.join(app.root_path, 'static', 'css', 'images'),
+                                   'chips_logo.jpg', mimetype='image/jpeg')
+
     return app

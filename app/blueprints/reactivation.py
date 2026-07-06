@@ -146,6 +146,9 @@ def submit_reactivation_form():
         
         if request.form.get("reapply_request_code"):
             form_data["reapply_request_code"] = request.form.get("reapply_request_code")
+            
+        if request.form.get("reapply_remarks"):
+            form_data["dc_remark"] = request.form.get("reapply_remarks")
 
         # Capture file streams
         files_payload = {}
@@ -395,6 +398,36 @@ def proxy_send_to_uidai_batch(request_code):
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
         backend_target = f"{FASTAPI_URL}/requests/{request_code}/send-to-uidai"
+        response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@reactivation_bp.route("/reactivation/requests/<request_code>/approve-all", methods=["POST"])
+def proxy_approve_all_batch(request_code):
+    if not session.get("username"):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        headers = {}
+        if session.get("access_token"):
+            headers["Authorization"] = f"Bearer {session.get('access_token')}"
+        backend_target = f"{FASTAPI_URL}/requests/{request_code}/approve-all"
+        response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@reactivation_bp.route("/reactivation/requests/<request_code>/reject-all", methods=["POST"])
+def proxy_reject_all_batch(request_code):
+    if not session.get("username"):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        headers = {}
+        if session.get("access_token"):
+            headers["Authorization"] = f"Bearer {session.get('access_token')}"
+        backend_target = f"{FASTAPI_URL}/requests/{request_code}/reject-all"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:

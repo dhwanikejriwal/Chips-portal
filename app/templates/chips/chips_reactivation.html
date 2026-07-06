@@ -518,6 +518,18 @@
                                     </svg>
                                     View Documents
                                 </button>
+                                <button type="button" onclick="dispatchBatchToUidaiPipeline('{{ req.request_code }}')"
+                                    style="margin-left: 5px; background: #2563eb; color: white; border: 1px solid #2563eb; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#1d4ed8'; this.style.borderColor='#1d4ed8'"
+                                    onmouseout="this.style.background='#2563eb'; this.style.borderColor='#2563eb'">
+                                    Send All
+                                </button>
+                                <button type="button" onclick="processBatchRevertModal('{{ req.request_code }}')"
+                                    style="margin-left: 5px; background: #dc2626; color: white; border: 1px solid #dc2626; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#b91c1c'; this.style.borderColor='#b91c1c'"
+                                    onmouseout="this.style.background='#dc2626'; this.style.borderColor='#dc2626'">
+                                    Revert All
+                                </button>
                             </div>
                             <div
                                 style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; margin-left: auto;">
@@ -645,6 +657,18 @@
                                     <polyline points="10 9 9 9 8 9"></polyline>
                                 </svg>
                                 View Documents
+                            </button>
+                            <button type="button" onclick="executeBatchApprove('{{ req.request_code }}')"
+                                style="margin-left: 5px; background: #16a34a; color: white; border: 1px solid #16a34a; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
+                                onmouseover="this.style.background='#15803d'; this.style.borderColor='#15803d'"
+                                onmouseout="this.style.background='#16a34a'; this.style.borderColor='#16a34a'">
+                                Approve All
+                            </button>
+                            <button type="button" onclick="executeBatchReject('{{ req.request_code }}')"
+                                style="margin-left: 5px; background: #dc2626; color: white; border: 1px solid #dc2626; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
+                                onmouseover="this.style.background='#b91c1c'; this.style.borderColor='#b91c1c'"
+                                onmouseout="this.style.background='#dc2626'; this.style.borderColor='#dc2626'">
+                                Reject All
                             </button>
                         </div>
                         <div
@@ -1603,20 +1627,26 @@
 
     function processBatchRevertModal(requestCode) {
         Swal.fire({
-            title: 'Revert Entire Batch Package',
-            input: 'textarea',
-            inputPlaceholder: 'Type package reversion reasons here...',
+            title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">Revert Entire Batch</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Reverting all operators in batch: <strong>${requestCode}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">REASON FOR REVERTING</label>
+                    <textarea id="revert-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter the reason for reverting this batch..."></textarea>
+                </div>`,
             showCancelButton: true,
-            confirmButtonText: 'Send back to DC',
-            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'Revert Batch',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
             showLoaderOnConfirm: true,
-            preConfirm: (value) => {
-                if (!value || !value.trim()) {
-                    Swal.showValidationMessage('Please enter a reason to revert the batch.');
+            preConfirm: () => {
+                const value = document.getElementById('revert-remarks-area').value.trim();
+                if (!value) {
+                    Swal.showValidationMessage('Please enter a reason.');
                     return false;
                 }
                 const payload = new URLSearchParams();
-                payload.append('revert_reason', value.trim());
+                payload.append('revert_reason', value);
                 return fetch(`/auth/reactivation/requests/${requestCode}/revert`, { method: 'POST', body: payload })
                     .then(res => {
                         if (!res.ok) throw new Error('Server error while reverting batch');
@@ -1631,7 +1661,7 @@
                     title: 'Batch Package Reverted!',
                     text: `Reactivation package ${requestCode} has been reverted back to the District Coordinator.`,
                     icon: 'success',
-                    confirmButtonColor: '#dc3545',
+                    confirmButtonColor: '#dc2626',
                     showConfirmButton: true,
                     timer: 3000,
                     timerProgressBar: true
@@ -1645,21 +1675,141 @@
 
     function dispatchBatchToUidaiPipeline(requestCode) {
         Swal.fire({
-            title: 'Forward to UIDAI?',
-            text: 'Are you sure you want to forward this batch to UIDAI?',
-            icon: 'question',
+            title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">Send Batch to UIDAI</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Forwarding all operators in batch: <strong>${requestCode}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">NOTES FOR UIDAI (OPTIONAL)</label>
+                    <textarea id="uidai-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Add any contextual notes for UIDAI..."></textarea>
+                </div>`,
             showCancelButton: true,
-            confirmButtonText: 'Confirm & Send',
-            confirmButtonColor: '#2563eb'
+            confirmButtonText: 'Send to UIDAI',
+            confirmButtonColor: '#2563eb',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const remarks = document.getElementById('uidai-remarks-area').value.trim();
+                const payload = new URLSearchParams();
+                if (remarks) {
+                    payload.append('remarks', remarks);
+                } else {
+                    payload.append('remarks', 'Sent to UIDAI');
+                }
+                return fetch(`/auth/reactivation/requests/${requestCode}/send-to-uidai`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server request failed');
+                        return true;
+                    })
+                    .catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
+                    });
+            }
         }).then((result) => {
             if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Batch Sent to UIDAI!',
+                    text: `Reactivation package ${requestCode} has been forwarded to UIDAI.`,
+                    icon: 'success',
+                    confirmButtonColor: '#2563eb',
+                    showConfirmButton: true,
+                    timer: 2500,
+                    timerProgressBar: true
+                }).then(() => {
+                    sessionStorage.setItem('chips_action_reloading', 'true');
+                    window.location.reload();
+                });
+            }
+        });
+    }
+
+    function executeBatchApprove(requestCode) {
+        Swal.fire({
+            title: `<span style="color:#16a34a; font-family:'Inter',sans-serif; font-weight:800;">UIDAI Approve All Operators</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Approving all operators in batch: <strong>${requestCode}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">APPROVAL REMARKS (OPTIONAL)</label>
+                    <textarea id="swal-textarea-batch-approve" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Add any approval remarks for all operators..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Approve All',
+            confirmButtonColor: '#16a34a',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const remarks = document.getElementById('swal-textarea-batch-approve').value.trim();
                 const payload = new URLSearchParams();
-                payload.append('remarks', 'Sent to UIDAI');
-                fetch(`/auth/reactivation/requests/${requestCode}/send-to-uidai`, { method: 'POST', body: payload })
-                    .then(() => {
-                        sessionStorage.setItem('chips_action_reloading', 'true');
-                        window.location.reload();
+                if (remarks) {
+                    payload.append('reason', remarks);
+                }
+                return fetch(`/auth/reactivation/requests/${requestCode}/approve-all`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server error while activating batch');
+                        return true;
+                    }).catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
                     });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Approved Successfully!',
+                    text: `All operators in batch ${requestCode} have been approved by UIDAI.`,
+                    icon: 'success',
+                    confirmButtonColor: '#16a34a',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            }
+        });
+    }
+
+    function executeBatchReject(requestCode) {
+        Swal.fire({
+            title: `<span style="color:#dc2626; font-family:'Inter',sans-serif; font-weight:800;">UIDAI Reject All Operators</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Rejecting all operators in batch: <strong>${requestCode}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#c2410c;">REJECTION REMARKS (MANDATORY) *</label>
+                    <textarea id="swal-textarea-batch-reject" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter UIDAI rejection remarks for all operators..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Submit Rejection',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const remarks = document.getElementById('swal-textarea-batch-reject').value.trim();
+                if (!remarks) {
+                    Swal.showValidationMessage('Please enter rejection remarks.');
+                    return false;
+                }
+                const payload = new URLSearchParams();
+                payload.append('reason', remarks);
+                return fetch(`/auth/reactivation/requests/${requestCode}/reject-all`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server error while rejecting batch');
+                        return true;
+                    }).catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
+                    });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Rejection Submitted!',
+                    text: `All operators in batch ${requestCode} have been rejected by UIDAI.`,
+                    icon: 'error',
+                    confirmButtonColor: '#dc2626',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
             }
         });
     }
@@ -1914,7 +2064,7 @@
         let label = 'Pending';
         if (s.includes('approve') || s.includes('activat')) { badgeClass = 'badge-approved'; label = 'Approved'; }
         else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
-        else if (s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = 'Sent to UIDAI'; }
+        else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Sent to UIDAI Again' : 'Sent to UIDAI'; }
         else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
         else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
 
@@ -2182,26 +2332,27 @@
     function exportTableToCSV(tableID, filename = 'export.csv') {
         let selector = '';
         if (tableID === 'admin-pending-table') {
-            selector = '#pending-cards-container .pending-card';
+            selector = '#pending-cards-container .op-row-item';
         } else if (tableID === 'admin-uidai-table') {
-            selector = '#uidai-cards-container .uidai-card';
+            selector = '#uidai-cards-container .op-row-item';
         } else {
-            selector = '#approved-cards-container .approved-card';
+            selector = '#approved-cards-container .op-row-item';
         }
 
-        const cards = document.querySelectorAll(selector);
+        const opRows = document.querySelectorAll(selector);
         const ids = [];
-        cards.forEach(card => {
-            if (card.style.display !== 'none') {
-                const code = card.getAttribute('data-code');
-                if (code && !ids.includes(code)) ids.push(code);
+        opRows.forEach(row => {
+            const card = row.closest('.request-card');
+            if (row.style.display !== 'none' && card && card.style.display !== 'none') {
+                const opId = row.getAttribute('data-id');
+                if (opId && !ids.includes(opId)) ids.push(opId);
             }
         });
 
         if (ids.length === 0) {
             Swal.fire({
                 title: 'No Data Found',
-                text: 'There are no active batch records loaded in this queue to export.',
+                text: 'There are no active operator records loaded in this queue to export.',
                 icon: 'warning',
                 confirmButtonColor: '#4f46e5'
             });

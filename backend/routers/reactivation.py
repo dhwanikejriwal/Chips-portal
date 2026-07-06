@@ -116,12 +116,29 @@ async def submit_operator_reactivation(
                 raise HTTPException(status_code=404, detail="Original request not found or access denied.")
             
             req_code = reapply_request_code
-            req.operator_count = len(operator_rows)
+            
+            # Count the untouched operators in the batch (e.g. APPROVED or SENT_TO_UIDAI)
+            untouched_count = db.query(ReactivationOperator).filter(
+                ReactivationOperator.request_id == req.id,
+                ~ReactivationOperator.status.in_(["REVERTED", "REJECTED"])
+            ).count()
+            req.operator_count = untouched_count + len(operator_rows)
+            
             req.training_date = date.fromisoformat(training_date.strip())
             req.status = "REAPPLIED"
             
-            # Delete old operators (Documents are handled selectively below)
-            db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).delete()
+            # Delete only the specific reverted/rejected operators that are being resubmitted
+            submitted_ids = [op.get('id') for op in operator_rows if op.get('id')]
+            if submitted_ids:
+                db.query(ReactivationOperator).filter(
+                    ReactivationOperator.request_id == req.id,
+                    ReactivationOperator.id.in_(submitted_ids)
+                ).delete()
+            else:
+                db.query(ReactivationOperator).filter(
+                    ReactivationOperator.request_id == req.id,
+                    ReactivationOperator.status.in_(["REVERTED", "REJECTED"])
+                ).delete()
         else:
             req_code = generate_dynamic_request_code(db, str(current_user.district_id), district_name)
     
@@ -175,7 +192,7 @@ async def submit_operator_reactivation(
                 certification_date=parsed_cert_date,
                 remarks=op.get('remarks', '').strip(),
                 model_type=op.get('model', '').strip(),      
-                status="PENDING"
+                status="REAPPLIED" if reapply_request_code else "PENDING"
             )
             db.add(new_op)
             operators_added.append(new_op)
@@ -183,22 +200,17 @@ async def submit_operator_reactivation(
         db.flush()
         
         for new_op in operators_added:
+            msg = f"Operator '{new_op.operator_name}' {'is reapplied' if reapply_request_code else 'is submitted'} by DC"
+            if reapply_request_code and dc_remark:
+                msg += f". Remarks: {dc_remark.strip()}"
+                
             db.add(ReactivationRemarkHistory(
                 request_id=active_req_id,
                 operator_id=new_op.id,
                 author_id=current_user.id,
-                remark_history=f"Reactivation request for Operator '{new_op.operator_name}' {'is reapplied' if reapply_request_code else 'is submitted'} by DC",
+                remark_history=msg,
                 sender_role="DC",
                 status_after="REAPPLIED" if reapply_request_code else "PENDING"
-            ))
-
-        if reapply_request_code and dc_remark:
-            db.add(ReactivationRemarkHistory(
-                request_id=active_req_id,
-                author_id=current_user.id,
-                remark_history=dc_remark,
-                sender_role="DC",
-                status_after="REAPPLIED"
             ))
             
         db.commit()
@@ -222,7 +234,7 @@ async def get_reactivation_requests(
     if user_role_str == "dc":
         query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
     
-    requests = query.order_by(OperatorReactivationRequest.created_at.desc()).all()
+    requests = query.order_by(OperatorReactivationRequest.updated_at.desc()).all()
         
     compiled_list = []
     for req, dist_name in requests:
@@ -251,7 +263,7 @@ async def get_reactivation_requests_with_operators(
     if user_role_str == "dc":
         query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
     
-    requests = query.order_by(OperatorReactivationRequest.created_at.desc()).all()
+    requests = query.order_by(OperatorReactivationRequest.updated_at.desc()).all()
         
     compiled_list = []
     for req, dist_name in requests:
@@ -279,7 +291,7 @@ async def get_reactivation_requests_with_operators(
         ]
         
         # 🌟 CONNECTED: Order matching your model 'timestamp' attribute mapping definitions
-        remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_id == req.id).order_by(ReactivationRemarkHistory.timestamp.desc()).all()
+        remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_id == req.id).order_by(ReactivationRemarkHistory.timestamp.asc()).all()
         timeline_logs = [
             {
                 "id": rm.id,
@@ -287,6 +299,7 @@ async def get_reactivation_requests_with_operators(
                 "sender_role": rm.sender_role,
                 "timestamp": str(rm.timestamp)[:19] if rm.timestamp else "",
                 "status_after": rm.status_after,
+                "operator_id": rm.operator_id,
             }
             for rm in remarks_hist
         ]
@@ -339,7 +352,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
         
-    remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_id == req.id).order_by(ReactivationRemarkHistory.timestamp.desc()).all()
+    remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_id == req.id).order_by(ReactivationRemarkHistory.timestamp.asc()).all()
     timeline_logs = [
         {
             "id": rm.id,
@@ -347,6 +360,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
             "sender_role": rm.sender_role,
             "timestamp": str(rm.timestamp)[:19] if rm.timestamp else "",
             "status_after": rm.status_after,
+            "operator_id": rm.operator_id,
         }
         for rm in remarks_hist
     ]
@@ -561,13 +575,20 @@ async def revert_batch_request(request_code: str, revert_reason: str = Form(...)
         req.status = "REVERTED"
         req.reviewed_by = current_user.id
         req.updated_at = get_ist_now()
-        db.add(ReactivationRemarkHistory(
-            request_id=req.id,
-            author_id=current_user.id,
-            remark_history=f"Batch Reverted. Reason: {revert_reason}",
-            sender_role="CHIPS_ADMIN",
-            status_after="REVERTED"
-        ))
+        
+        operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).all()
+        for op in operators:
+            op.status = "REVERTED"
+            op.reject_reason = revert_reason
+            db.add(ReactivationRemarkHistory(
+                request_id=req.id,
+                operator_id=op.id,
+                author_id=current_user.id,
+                remark_history=f"Operator '{op.operator_name}' Reverted via Batch Revert. Reason: {revert_reason}",
+                sender_role="CHIPS_ADMIN",
+                status_after="REVERTED"
+            ))
+            
         db.commit()
     return {"success": True}
 
@@ -579,14 +600,78 @@ async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(
         req.status = "SENT_TO_UIDAI"
         req.reviewed_by = current_user.id
         req.updated_at = get_ist_now()
-        db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).update({"status": "SENT_TO_UIDAI"})
-        db.add(ReactivationRemarkHistory(
-            request_id=req.id,
-            author_id=current_user.id, 
-            remark_history=remarks, 
-            sender_role="CHIPS", 
-            status_after="SENT_TO_UIDAI"
-        ))
+        
+        operators = db.query(ReactivationOperator).filter(
+            ReactivationOperator.request_id == req.id,
+            ReactivationOperator.status.in_(["PENDING", "REAPPLIED"])
+        ).all()
+        for op in operators:
+            op.status = "SENT_TO_UIDAI"
+            db.add(ReactivationRemarkHistory(
+                request_id=req.id,
+                operator_id=op.id,
+                author_id=current_user.id,
+                remark_history=f"Operator '{op.operator_name}' Sent to UIDAI via Batch Send. Remarks: {remarks}",
+                sender_role="CHIPS",
+                status_after="SENT_TO_UIDAI"
+            ))
+            
+        db.commit()
+    return {"success": True}
+
+
+@router.post("/requests/{request_code}/approve-all")
+async def approve_all_operators_in_batch(request_code: str, reason: Optional[str] = Form(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
+    if req:
+        req.status = "REVIEWED"
+        req.reviewed_by = current_user.id
+        req.updated_at = get_ist_now()
+        
+        operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).all()
+        for op in operators:
+            op.status = "APPROVED"
+            if reason:
+                op.reject_reason = reason
+            
+            remark_text = f"Operator '{op.operator_name}' Approved via Bulk Approve."
+            if reason:
+                remark_text += f" Remarks: {reason}"
+            db.add(ReactivationRemarkHistory(
+                request_id=req.id,
+                operator_id=op.id,
+                author_id=current_user.id,
+                remark_history=remark_text,
+                sender_role="CHIPS_ADMIN",
+                status_after="APPROVED"
+            ))
+        
+        db.commit()
+    return {"success": True}
+
+
+@router.post("/requests/{request_code}/reject-all")
+async def reject_all_operators_in_batch(request_code: str, reason: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
+    if req:
+        req.status = "REVIEWED"
+        req.reviewed_by = current_user.id
+        req.updated_at = get_ist_now()
+        
+        operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).all()
+        for op in operators:
+            op.status = "REJECTED"
+            op.reject_reason = reason
+            
+            db.add(ReactivationRemarkHistory(
+                request_id=req.id,
+                operator_id=op.id,
+                author_id=current_user.id,
+                remark_history=f"Operator '{op.operator_name}' Rejected via Bulk Reject. Reason: {reason}",
+                sender_role="CHIPS_ADMIN",
+                status_after="REJECTED"
+            ))
+        
         db.commit()
     return {"success": True}
 
@@ -651,8 +736,10 @@ def export_all_operators_to_csv_stream(ids: str = None, db: Session = Depends(ge
     export_data = []
     for i, (o, req, dist_name) in enumerate(results):
         status_upper = (o.status or '').upper().strip()
-        is_unreviewed = status_upper in ['PENDING', 'REAPPLIED']
-        reviewed_time = "" if is_unreviewed else (req.updated_at.strftime("%Y-%m-%d %H:%M:%S") if req.updated_at else "—")
+        if status_upper == 'PENDING':
+            reviewed_time = ""
+        else:
+            reviewed_time = req.updated_at.strftime("%Y-%m-%d %H:%M:%S") if req.updated_at else "—"
         
         display_status = "APPROVED" if status_upper in ["ACTIVE", "APPROVED"] else status_upper
 

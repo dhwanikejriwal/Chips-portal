@@ -61,6 +61,12 @@ window.switchReactivationView = function (targetPanel, shouldReset = false) {
 
         // Reset the form when returning to dashboard ONLY if shouldReset is true
         if (shouldReset) {
+            window.currentReapplyCode = null;
+            const noticeEl = document.getElementById('reapply-file-notice');
+            if (noticeEl) noticeEl.style.display = 'none';
+            document.querySelectorAll('.doc-required-star').forEach(star => {
+                star.style.display = 'inline';
+            });
             if (typeof resetEntireNewRequestForm === 'function') {
                 resetEntireNewRequestForm();
             } else {
@@ -143,9 +149,17 @@ function addOperatorRecordToExcelLog() {
         hasValidationError = true;
     }
 
-    if (fields.certDate && new Date(fields.certDate) > new Date().setHours(23, 59, 59, 999)) {
-        document.getElementById('err_op_cert_date').innerText = 'Certification date cannot be in the future.';
-        hasValidationError = true;
+    if (fields.certDate) {
+        const todayD = new Date();
+        const yyyy = todayD.getFullYear();
+        const mm = String(todayD.getMonth() + 1).padStart(2, '0');
+        const dd = String(todayD.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        
+        if (fields.certDate > todayStr) {
+            document.getElementById('err_op_cert_date').innerText = 'Certification date cannot be in the future.';
+            hasValidationError = true;
+        }
     }
 
     if (hasValidationError) return;
@@ -290,18 +304,26 @@ function handleFormSubmissionPipeline(event) {
         return;
     }
 
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    
+    if (dateField.value > todayStr) {
+        Swal.fire({ title: 'Validation Error', text: 'Training completion date cannot be in the future.', icon: 'warning' });
+        return;
+    }
+
     const formElement = document.getElementById('reactivationForm');
     const formData = new FormData(formElement);
 
     // 📁 STRICT DOCUMENT VALIDATION LAYER
-    const MAX_FILE_SIZE_MB = 5;
-    const MAX_FILE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-
     const requiredFiles = [
-        { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'] },
-        { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'] },
-        { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'] },
-        { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'] }
+        { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'], maxMB: 2 },
+        { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'], maxMB: 2 },
+        { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'], maxMB: 2 },
+        { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'], maxMB: 5 }
     ];
 
     for (const fileDef of requiredFiles) {
@@ -309,13 +331,18 @@ function handleFormSubmissionPipeline(event) {
 
         // Check presence
         if (!fileObj || fileObj.size === 0) {
+            if (window.currentReapplyCode) {
+                // Documents are optional when reapplying; skip presence checks
+                continue;
+            }
             Swal.fire({ title: 'Missing Document', text: `Please upload the ${fileDef.label}.`, icon: 'warning' });
             return;
         }
 
         // Check size boundaries
-        if (fileObj.size > MAX_FILE_BYTES) {
-            Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${MAX_FILE_SIZE_MB}MB.`, icon: 'error' });
+        const maxBytes = fileDef.maxMB * 1024 * 1024;
+        if (fileObj.size > maxBytes) {
+            Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${fileDef.maxMB}MB.`, icon: 'error' });
             return;
         }
 
@@ -330,38 +357,77 @@ function handleFormSubmissionPipeline(event) {
 
     formData.append('manual_operators', JSON.stringify(structuredOperatorList));
 
+    const submitRequestAction = (remarksValue) => {
+        if (remarksValue) {
+            formData.append('reapply_remarks', remarksValue);
+        }
+
+        Swal.fire({
+            title: 'Submitting Request...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        const routingTargetUrl = '/auth/dc/submit';
+        fetch(routingTargetUrl, { method: 'POST', body: formData })
+            .then(res => {
+                return res.json().then(data => {
+                    if (!res.ok) throw new Error(data.error || "Server transaction processing failure.");
+                    return data;
+                });
+            })
+            .then(data => {
+                Swal.fire({
+                    title: 'Submitted Successfully',
+                    text: 'Reactivation request submitted successfully.',
+                    icon: 'success',
+                    confirmButtonColor: '#007bff',
+                    allowOutsideClick: false,
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            })
+            .catch(err => {
+                Swal.close();
+                Swal.fire({ title: 'Submission Error', text: err.message, icon: 'error' });
+            });
+    };
+
     if (window.currentReapplyCode) {
         formData.append('reapply_request_code', window.currentReapplyCode);
-    }
-
-    // Dynamic destination URL resolution preventing deployment proxy collisions
-    const routingTargetUrl = '/auth/dc/submit';
-
-    fetch(routingTargetUrl, { method: 'POST', body: formData })
-        .then(res => {
-            return res.json().then(data => {
-                if (!res.ok) throw new Error(data.error || "Server transaction processing failure.");
-                return data;
-            });
-        })
-        .then(data => {
-            Swal.fire({
-                title: 'Submitted Successfully',
-                text: 'Reactivation request submitted successfully.',
-                icon: 'success',
-                confirmButtonColor: '#007bff',
-                allowOutsideClick: false,
-                showConfirmButton: true,
-                timer: 3000,
-                timerProgressBar: true
-            }).then(() => {
-                window.location.reload();
-            });
-        })
-        .catch(err => {
-            Swal.close();
-            Swal.fire({ title: 'Submission Error', text: err.message, icon: 'error' });
+        
+        // Show mandatory remark pop up before submitting reapplication
+        Swal.fire({
+            title: `<span style="font-family:'Inter',sans-serif; font-weight:800; color:#1e293b;">Reapplication Remarks</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Please enter remarks/reasons for reapplying this request.</div>
+                    <label style="font-weight:600; font-size:12px; color:#c2410c;">REMARKS (MANDATORY) *</label>
+                    <textarea id="swal-textarea-reapply-remarks" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter reapplication remarks here..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Submit Reapplication',
+            confirmButtonColor: '#2563eb',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            preConfirm: () => {
+                const remarks = document.getElementById('swal-textarea-reapply-remarks').value.trim();
+                if (!remarks) {
+                    Swal.showValidationMessage('Please enter reapplication remarks.');
+                    return false;
+                }
+                return remarks;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                submitRequestAction(result.value);
+            }
         });
+    } else {
+        submitRequestAction(null);
+    }
 }
 
 function getStatusBadgeHtml(status) {
@@ -370,7 +436,7 @@ function getStatusBadgeHtml(status) {
     let label = 'Pending';
     if (s.includes('approve')) { badgeClass = 'badge-approved'; label = 'Approved'; }
     else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
-    else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
+    else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Sent to UIDAI Again' : 'Sent to UIDAI'; }
     else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
     else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
     return `<span class="badge ${badgeClass}">${label}</span>`;
@@ -529,6 +595,11 @@ window.openHistoricalOperatorsModal = function (requestCode) {
 
 window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
     window.currentReapplyCode = requestCode;
+    const noticeEl = document.getElementById('reapply-file-notice');
+    if (noticeEl) noticeEl.style.display = 'block';
+    document.querySelectorAll('.doc-required-star').forEach(star => {
+        star.style.display = 'none';
+    });
     const titleEl = document.querySelector('.container-title');
     if (titleEl) {
         titleEl.innerText = `Reapplying Batch: ${requestCode}`;
@@ -554,20 +625,24 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
             structuredOperatorList = [];
             const operators = payload.operators || [];
             operators.forEach(op => {
-                structuredOperatorList.push({
-                    name: op.operator_name || '',
-                    mobile: op.operator_mobile || '',
-                    role: op.role || 'Operator',
-                    email: op.email_id || '',
-                    reg: op.registrar_code || '986',
-                    ea: op.ea_code || '',
-                    user: op.user_code || '',
-                    model: op.model_type || '',
-                    lmsId: op.lms_certificate_id || '',
-                    cert: op.certificate_number || '',
-                    certDate: op.certification_date || '',
-                    remarks: op.remarks || ''
-                });
+                const status = (op.status || '').toLowerCase().replace(/_/g, ' ');
+                if (['reverted', 'revert back', 'rejected'].includes(status)) {
+                    structuredOperatorList.push({
+                        id: op.id,
+                        name: op.operator_name || '',
+                        mobile: op.operator_mobile || '',
+                        role: op.role || 'Operator',
+                        email: op.email_id || '',
+                        reg: op.registrar_code || '986',
+                        ea: op.ea_code || '',
+                        user: op.user_code || '',
+                        model: op.model_type || '',
+                        lmsId: op.lms_certificate_id || '',
+                        cert: op.certificate_number || '',
+                        certDate: op.certification_date || '',
+                        remarks: op.remarks || ''
+                    });
+                }
             });
             renderOperatorSpreadsheetRows();
             window.switchReactivationView('app');
@@ -799,7 +874,10 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
         return;
     }
 
-    const statusBadge = getStatusBadgeHtml(op.status);
+    const requestCode = window.currentViewingRequestCode;
+    const reqObj = (window.historyRequestsPayload || []).find(r => r.request_code === requestCode);
+    const requestStatus = reqObj ? reqObj.status : op.status;
+    const statusBadge = getStatusBadgeHtml(requestStatus);
 
     const fullName = op.operator_name || op.name || '—';
     const roleProfile = op.role || 'Operator';
@@ -814,7 +892,6 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
     const certificationDate = op.certification_date || '—';
     const explicitRemarks = op.remarks || '—';
 
-    const requestCode = window.currentViewingRequestCode;
     const cardEl = document.querySelector(`[data-request-id="${requestCode}"]`);
     const submittedAt = cardEl ? cardEl.getAttribute('data-created') || '—' : '—';
     const statusUpper = (op.status || '').toUpperCase().trim();
@@ -951,7 +1028,8 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
             }
         }).then((result) => {
             if (result.isConfirmed && (isRevertable || isRejected)) {
-                openIndividualOperatorEditForm(arrayIndex);
+                const trainingDate = cardEl ? cardEl.getAttribute('data-training-date') || '' : '';
+                window.reapplyIndividualOperator(op.id, requestCode, trainingDate);
             }
         });
     }
@@ -969,6 +1047,9 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                 let timelineHtml = '';
                 const logsRaw = payload.timeline_logs || [];
                 const logs = logsRaw.filter(log => {
+                    if (log.operator_id) {
+                        return String(log.operator_id) === String(op.id);
+                    }
                     const msg = log.message || '';
                     return !msg.includes("Operator '") || msg.includes(`Operator '${op.operator_name}'`);
                 });
@@ -1595,3 +1676,95 @@ window.viewBatchDocuments = function (requestCode, backIndex = null) {
         }
     });
 }; 
+
+window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDate) {
+    window.currentReapplyCode = requestCode;
+    const noticeEl = document.getElementById('reapply-file-notice');
+    if (noticeEl) noticeEl.style.display = 'block';
+    document.querySelectorAll('.doc-required-star').forEach(star => {
+        star.style.display = 'none';
+    });
+    const titleEl = document.querySelector('.container-title');
+    if (titleEl) {
+        titleEl.innerText = `Reapplying Batch: ${requestCode}`;
+    }
+
+    if (trainingDate) {
+        document.getElementById('doc_training_date').value = trainingDate;
+    }
+
+    Swal.fire({
+        title: 'Loading Operator Data...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}`)
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to load previous operators');
+            return res.json();
+        })
+        .then(payload => {
+            Swal.close();
+            structuredOperatorList = [];
+            const operators = payload.operators || [];
+            // Find only this specific operator!
+            const op = operators.find(o => String(o.id) === String(operatorId));
+            if (op) {
+                structuredOperatorList.push({
+                    id: op.id,
+                    name: op.operator_name || '',
+                    mobile: op.operator_mobile || '',
+                    role: op.role || 'Operator',
+                    email: op.email_id || '',
+                    reg: op.registrar_code || '986',
+                    ea: op.ea_code || '',
+                    user: op.user_code || '',
+                    model: op.model_type || '',
+                    lmsId: op.lms_certificate_id || '',
+                    cert: op.certificate_number || '',
+                    certDate: op.certification_date || '',
+                    remarks: op.remarks || ''
+                });
+            }
+            renderOperatorSpreadsheetRows();
+            window.switchReactivationView('app');
+        })
+        .catch(err => Swal.fire('Error', err.message, 'error'));
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.oa-file-input').forEach(input => {
+        input.addEventListener('change', function() {
+            // Remove any existing error message
+            const parent = this.closest('.oa-doc-card');
+            if (parent) {
+                let errEl = parent.querySelector('.error-msg-file');
+                if (errEl) errEl.remove();
+
+                const file = this.files[0];
+                if (!file) return;
+
+                const name = this.name;
+                const maxMB = name === 'attendance_list' ? 5 : 2;
+                const maxBytes = maxMB * 1024 * 1024;
+
+                if (file.size > maxBytes) {
+                    // Clear input to enforce strictness
+                    this.value = '';
+                    
+                    // Add red warning message below the field
+                    errEl = document.createElement('div');
+                    errEl.className = 'error-msg-file';
+                    errEl.style.color = '#ef4444';
+                    errEl.style.fontSize = '12px';
+                    errEl.style.marginTop = '6px';
+                    errEl.style.fontWeight = '600';
+                    errEl.style.fontFamily = "'Inter', sans-serif";
+                    errEl.innerText = `Must be smaller than ${maxMB}MB.`;
+                    parent.appendChild(errEl);
+                }
+            }
+        });
+    });
+});
