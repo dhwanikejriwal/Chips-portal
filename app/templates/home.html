@@ -827,11 +827,18 @@
       <div style="font-size: 13px; color: var(--color-text-muted);">Applicant Name</div>
       <div id="resName" style="font-weight: 600; margin-bottom: 12px;"></div>
 
-      <div style="font-size: 13px; color: var(--color-text-muted);">Request Code</div>
-      <div id="resCode" style="font-family: monospace; font-size: 15px; margin-bottom: 12px;"></div>
+      <div style="font-size: 13px; color: var(--color-text-muted);">Email</div>
+      <div id="resEmail" style="font-weight: 600; margin-bottom: 12px;"></div>
 
       <div style="font-size: 13px; color: var(--color-text-muted);">Status</div>
       <div id="resStatusBadge" class="track-status-badge"></div>
+      
+      <div id="resStatusNote" style="font-size: 13px; margin-top: 12px; font-weight: normal; display: none;"></div>
+
+      <div id="resRejectReasonWrapper" style="display: none; margin-top: 12px;">
+        <div style="font-size: 13px; color: var(--color-text-muted);">Reject Reason</div>
+        <div id="resRejectReason" style="font-size: 14px; color: #991b1b; background-color: #fee2e2; padding: 8px; border-radius: 4px; margin-top: 4px;"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -871,17 +878,35 @@
 
       if (response.ok && data.success) {
         document.getElementById('resName').textContent = data.name;
-        document.getElementById('resCode').textContent = data.request_code;
+        document.getElementById('resEmail').textContent = data.email;
         
         const badge = document.getElementById('resStatusBadge');
         badge.textContent = data.status;
         
+        const note = document.getElementById('resStatusNote');
+        const rejectWrapper = document.getElementById('resRejectReasonWrapper');
+        
+        note.style.display = 'none';
+        rejectWrapper.style.display = 'none';
+        
         if (data.status.toLowerCase() === 'approved') {
           badge.style.backgroundColor = '#dcfce7'; badge.style.color = '#166534';
+          note.textContent = "Please check your registered email for credentials to login into the portal.";
+          note.style.color = '#166534';
+          note.style.display = 'block';
         } else if (data.status.toLowerCase() === 'rejected') {
           badge.style.backgroundColor = '#fee2e2'; badge.style.color = '#991b1b';
+          if (data.reject_reason) {
+            document.getElementById('resRejectReason').textContent = data.reject_reason;
+            rejectWrapper.style.display = 'block';
+          }
         } else {
           badge.style.backgroundColor = '#fef9c3'; badge.style.color = '#854d0e';
+          if (data.status.toLowerCase() === 'pending') {
+            note.textContent = "Please wait while administration looks into your application.";
+            note.style.color = '#854d0e';
+            note.style.display = 'block';
+          }
         }
 
         res.style.display = 'block';

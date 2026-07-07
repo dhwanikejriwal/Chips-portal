@@ -13,6 +13,7 @@ from backend.models.operator_activation import (
     ActivationDocument,
     OperatorActivationRemark,
 )
+from backend.models.district import District
 
 from backend.utils.ocr_utils import (
     extract_text_from_file, 
@@ -28,7 +29,7 @@ from backend.routers.auth import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
-UPLOAD_BASE = "activation_uploads"
+UPLOAD_BASE = "uploads/operator_activation"
 
 VALID_DOC_TYPES = [
     "hard_copy_form",
@@ -175,7 +176,9 @@ def submit_operator_activation(
         "excel_sheet": excel_sheet,
     }
 
-    folder = f"{UPLOAD_BASE}/{dc_id}/{new_request.id}"
+    dist = db.query(District).filter(District.district_code == new_request.district_id).first()
+    dist_name = dist.district_name if dist else f"DISTRICT_{new_request.district_id}"
+    folder = f"{UPLOAD_BASE}/{dist_name}/{new_request.request_no}"
     os.makedirs(folder, exist_ok=True)
 
     for doc_type, upload in uploaded_files.items():
@@ -565,8 +568,8 @@ def approve_request(
 
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
-    if r.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Request is already {r.status}.")
+    if r.status not in ["pending", "reapplied", "sent_to_uidai"]:
+        raise HTTPException(status_code=400, detail=f"Cannot approve a request with status: {r.status}.")
 
     r.status = "approved"
     r.reviewed_by = reviewed_by
@@ -603,7 +606,7 @@ def reject_request(
 
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
-    if r.status not in ["pending", "sent_to_uidai"]:
+    if r.status not in ["pending", "sent_to_uidai", "reapplied"]:
         raise HTTPException(
             status_code=400, detail=f"Cannot revert a request with status: {r.status}"
         )
@@ -818,7 +821,7 @@ def reapply_request(
 
     # Reset status
     r.status = "reapplied"
-    r.reviewed_at = None
+    r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
     # Handle files
     uploaded_files = {
@@ -830,7 +833,9 @@ def reapply_request(
         "excel_sheet": excel_sheet,
     }
     
-    folder = f"{UPLOAD_BASE}/{r.dc_id}/{r.id}"
+    dist = db.query(District).filter(District.district_code == r.district_id).first()
+    dist_name = dist.district_name if dist else f"DISTRICT_{r.district_id}"
+    folder = f"{UPLOAD_BASE}/{dist_name}/{r.request_no}"
     os.makedirs(folder, exist_ok=True)
 
     for doc_type, upload in uploaded_files.items():
@@ -870,7 +875,10 @@ def reapply_request(
     db.add(remark)
     db.commit()
 
-    return {"message": "Request reapplied successfully.", "request_id": r.id}
+    return {
+        "status": "success",
+        "redirect_url": "/auth/dc/operator-activation?reapplied=true"
+    }
 
 
 # ─────────────────────────────────────────────

@@ -67,6 +67,24 @@ window.switchReactivationView = function (targetPanel, shouldReset = false) {
             document.querySelectorAll('.doc-required-star').forEach(star => {
                 star.style.display = 'inline';
             });
+            document.querySelectorAll('.prev-doc-indicator').forEach(el => {
+                el.style.display = 'none';
+                el.innerText = '';
+            });
+            const titleEl = document.getElementById('reactivation-form-title');
+            if (titleEl) {
+                titleEl.innerText = 'Submit Operator Reactivation Request';
+            }
+            const remarkEl = document.getElementById('reapply-remark-section');
+            if (remarkEl) remarkEl.style.display = 'none';
+            const remarksField = document.getElementById('reapply_remarks_field');
+            if (remarksField) remarksField.value = '';
+            
+            window.isReapplyBatchReverted = false;
+            const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
+            if (p1BatchContainer) p1BatchContainer.style.display = 'none';
+            const p2BatchContainer = document.getElementById('batch-revert-reason-container-p2');
+            if (p2BatchContainer) p2BatchContainer.style.display = 'none';
             if (typeof resetEntireNewRequestForm === 'function') {
                 resetEntireNewRequestForm();
             } else {
@@ -162,9 +180,27 @@ function addOperatorRecordToExcelLog() {
         }
     }
 
-    if (hasValidationError) return;
+    if (hasValidationError) {
+        const firstErrorEl = Array.from(document.querySelectorAll('.error-msg')).find(el => el.innerText.trim() !== '');
+        if (firstErrorEl) {
+            const parentGroup = firstErrorEl.closest('.form-group') || firstErrorEl.parentElement;
+            if (parentGroup) {
+                parentGroup.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        return;
+    }
+
+    const opId = document.getElementById('editing_op_id') ? document.getElementById('editing_op_id').value : '';
+    const opStatus = document.getElementById('editing_op_status') ? document.getElementById('editing_op_status').value : '';
+    const opRejectReason = document.getElementById('editing_op_reject_reason') ? document.getElementById('editing_op_reject_reason').value : '';
 
     const verifiedRecord = {
+        id: opId,
+        status: opStatus,
+        reject_reason: opRejectReason,
         role: fields.role, name: fields.name, reg: fields.reg, ea: fields.ea,
         user: fields.user, cert: fields.cert, mobile: fields.mobile,
         email: fields.email, aadhar: fields.aadhar, certDate: fields.certDate,
@@ -227,6 +263,26 @@ function removeOperatorFromStateArray(index) {
 }
 
 function editOperatorInStateArray(index) {
+    if (window.isCurrentlyEditingOperator) {
+        Swal.fire({
+            title: 'Unsaved Operator Changes',
+            text: 'You are currently editing an operator and have not added it back to the list. If you proceed, those changes will be lost (canceled). Do you want to proceed?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, proceed',
+            cancelButtonText: 'No, stay'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.isCurrentlyEditingOperator = false;
+                editOperatorInStateArray(index);
+            }
+        });
+        return;
+    }
+    window.isCurrentlyEditingOperator = true;
+
     const op = structuredOperatorList[index];
 
     // Populate form fields
@@ -243,6 +299,28 @@ function editOperatorInStateArray(index) {
     if (document.getElementById('op_model')) document.getElementById('op_model').value = op.model || '';
     if (document.getElementById('op_lms_id')) document.getElementById('op_lms_id').value = op.lmsId || '';
     if (document.getElementById('op_remarks')) document.getElementById('op_remarks').value = op.remarks || '';
+    
+    if (document.getElementById('editing_op_id')) document.getElementById('editing_op_id').value = op.id || '';
+    if (document.getElementById('editing_op_status')) document.getElementById('editing_op_status').value = op.status || '';
+    if (document.getElementById('editing_op_reject_reason')) document.getElementById('editing_op_reject_reason').value = op.reject_reason || '';
+
+    // Show operator revert reason if present
+    const reasonContainer = document.getElementById('operator-revert-reason-container');
+    const reasonText = document.getElementById('operator-revert-reason-text');
+    const reasonLabel = document.getElementById('operator-revert-reason-label');
+    
+    if (!window.isReapplyBatchReverted && reasonContainer && reasonText && reasonLabel && op.reject_reason) {
+        reasonText.innerText = op.reject_reason;
+        const statusLower = (op.status || '').toLowerCase();
+        if (statusLower.includes('reject')) {
+            reasonLabel.innerText = 'REJECT REASON / REMARKS';
+        } else {
+            reasonLabel.innerText = 'REVERT REASON / REMARKS';
+        }
+        reasonContainer.style.display = 'block';
+    } else if (reasonContainer) {
+        reasonContainer.style.display = 'none';
+    }
 
     // Remove from array and re-render
     structuredOperatorList.splice(index, 1);
@@ -254,6 +332,10 @@ function editOperatorInStateArray(index) {
 
 // 🧙‍♂️ WIZARD PAGE SWITCH PANEL CONTROL
 function navigateWizardStep(stepTarget) {
+    if (stepTarget === 2 && window.isCurrentlyEditingOperator) {
+        Swal.fire('Unsaved Changes', 'Please add or update the operator currently being edited to the list before proceeding.', 'warning');
+        return;
+    }
     const s1Form = document.getElementById('section-operator-form-view');
     const s2Docs = document.getElementById('section-documents-upload-view');
     const node1 = document.getElementById('node-step-1');
@@ -293,6 +375,11 @@ function navigateWizardStep(stepTarget) {
 function handleFormSubmissionPipeline(event) {
     event.preventDefault();
 
+    if (window.isCurrentlyEditingOperator) {
+        Swal.fire('Unsaved Changes', 'Please add or update the operator currently being edited to the list before submitting.', 'warning');
+        return;
+    }
+
     if (structuredOperatorList.length === 0) {
         Swal.fire({ title: 'Submission Refused', text: 'Staged operator spreadsheet matrix cannot be empty.', icon: 'error' });
         return;
@@ -301,6 +388,7 @@ function handleFormSubmissionPipeline(event) {
     const dateField = document.getElementById('doc_training_date');
     if (!dateField || !dateField.value) {
         Swal.fire({ title: 'Validation Error', text: 'Training completion date is required.', icon: 'warning' });
+        if (dateField) dateField.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
     }
 
@@ -312,6 +400,7 @@ function handleFormSubmissionPipeline(event) {
     
     if (dateField.value > todayStr) {
         Swal.fire({ title: 'Validation Error', text: 'Training completion date cannot be in the future.', icon: 'warning' });
+        dateField.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
     }
 
@@ -336,6 +425,8 @@ function handleFormSubmissionPipeline(event) {
                 continue;
             }
             Swal.fire({ title: 'Missing Document', text: `Please upload the ${fileDef.label}.`, icon: 'warning' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
 
@@ -343,6 +434,8 @@ function handleFormSubmissionPipeline(event) {
         const maxBytes = fileDef.maxMB * 1024 * 1024;
         if (fileObj.size > maxBytes) {
             Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${fileDef.maxMB}MB.`, icon: 'error' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
 
@@ -351,6 +444,8 @@ function handleFormSubmissionPipeline(event) {
         const hasValidExt = fileDef.exts.some(ext => fileName.endsWith(ext));
         if (!hasValidExt) {
             Swal.fire({ title: 'Invalid File Format', text: `The ${fileDef.label} must end with one of: ${fileDef.exts.join(', ')}`, icon: 'error' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
     }
@@ -377,9 +472,10 @@ function handleFormSubmissionPipeline(event) {
                 });
             })
             .then(data => {
+                const isReapply = !!window.currentReapplyCode;
                 Swal.fire({
-                    title: 'Submitted Successfully',
-                    text: 'Reactivation request submitted successfully.',
+                    title: isReapply ? 'Reapplied!' : 'Submitted Successfully',
+                    text: isReapply ? 'Your corrected request has been sent back to CHiPS Admin.' : 'Reactivation request submitted successfully.',
                     icon: 'success',
                     confirmButtonColor: '#007bff',
                     allowOutsideClick: false,
@@ -399,32 +495,15 @@ function handleFormSubmissionPipeline(event) {
     if (window.currentReapplyCode) {
         formData.append('reapply_request_code', window.currentReapplyCode);
         
-        // Show mandatory remark pop up before submitting reapplication
-        Swal.fire({
-            title: `<span style="font-family:'Inter',sans-serif; font-weight:800; color:#1e293b;">Reapplication Remarks</span>`,
-            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
-                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Please enter remarks/reasons for reapplying this request.</div>
-                    <label style="font-weight:600; font-size:12px; color:#c2410c;">REMARKS (MANDATORY) *</label>
-                    <textarea id="swal-textarea-reapply-remarks" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter reapplication remarks here..."></textarea>
-                </div>`,
-            showCancelButton: true,
-            confirmButtonText: 'Submit Reapplication',
-            confirmButtonColor: '#2563eb',
-            cancelButtonText: 'Cancel',
-            focusConfirm: false,
-            preConfirm: () => {
-                const remarks = document.getElementById('swal-textarea-reapply-remarks').value.trim();
-                if (!remarks) {
-                    Swal.showValidationMessage('Please enter reapplication remarks.');
-                    return false;
-                }
-                return remarks;
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                submitRequestAction(result.value);
-            }
-        });
+        // Validate the reapply remarks field in the form itself
+        const remarksField = document.getElementById('reapply_remarks_field');
+        const remarks = remarksField ? remarksField.value.trim() : '';
+        if (!remarks) {
+            Swal.fire({ title: 'Validation Error', text: 'Please enter reapplication remarks.', icon: 'warning' });
+            if (remarksField) remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        submitRequestAction(remarks);
     } else {
         submitRequestAction(null);
     }
@@ -597,12 +676,14 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
     window.currentReapplyCode = requestCode;
     const noticeEl = document.getElementById('reapply-file-notice');
     if (noticeEl) noticeEl.style.display = 'block';
+    const remarkEl = document.getElementById('reapply-remark-section');
+    if (remarkEl) remarkEl.style.display = 'block';
     document.querySelectorAll('.doc-required-star').forEach(star => {
         star.style.display = 'none';
     });
-    const titleEl = document.querySelector('.container-title');
+    const titleEl = document.getElementById('reactivation-form-title');
     if (titleEl) {
-        titleEl.innerText = `Reapplying Batch: ${requestCode}`;
+        titleEl.innerText = `Modify & Reapply Operator Reactivation Request`;
     }
 
     if (trainingDate) {
@@ -622,6 +703,56 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
         })
         .then(payload => {
             Swal.close();
+            
+            // Clear previous documents display first
+            document.querySelectorAll('.prev-doc-indicator').forEach(el => {
+                el.style.display = 'none';
+                el.innerText = '';
+            });
+
+            // Populate previous documents
+            if (payload.documents) {
+                for (const [docType, docInfo] of Object.entries(payload.documents)) {
+                    const docEl = document.getElementById(`prev-${docType}`);
+                    if (docEl && docInfo && docInfo.original_filename) {
+                        docEl.innerText = `✓ ${docInfo.original_filename}`;
+                        docEl.style.display = 'block';
+                    }
+                }
+            }
+
+            // Toggle batch revert reason displays
+            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes(payload.batch_status);
+            const batchReason = payload.batch_revert_reason || '';
+
+            const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
+            const p1BatchText = document.getElementById('batch-revert-reason-text-p1');
+            const p1BatchLabel = document.getElementById('batch-revert-reason-label-p1');
+
+            const p2BatchContainer = document.getElementById('batch-revert-reason-container-p2');
+            const p2BatchText = document.getElementById('batch-revert-reason-text-p2');
+            const p2BatchLabel = document.getElementById('batch-revert-reason-label-p2');
+
+            if (isBatchRevertedOrRejected && batchReason) {
+                window.isReapplyBatchReverted = true;
+                const labelText = payload.batch_status === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
+                
+                if (p1BatchContainer && p1BatchText && p1BatchLabel) {
+                    p1BatchText.innerText = batchReason;
+                    p1BatchLabel.innerText = labelText;
+                    p1BatchContainer.style.display = 'block';
+                }
+                if (p2BatchContainer && p2BatchText && p2BatchLabel) {
+                    p2BatchText.innerText = batchReason;
+                    p2BatchLabel.innerText = labelText;
+                    p2BatchContainer.style.display = 'block';
+                }
+            } else {
+                window.isReapplyBatchReverted = false;
+                if (p1BatchContainer) p1BatchContainer.style.display = 'none';
+                if (p2BatchContainer) p2BatchContainer.style.display = 'none';
+            }
+
             structuredOperatorList = [];
             const operators = payload.operators || [];
             operators.forEach(op => {
@@ -640,7 +771,10 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
                         lmsId: op.lms_certificate_id || '',
                         cert: op.certificate_number || '',
                         certDate: op.certification_date || '',
-                        remarks: op.remarks || ''
+                        remarks: op.remarks || '',
+                        reject_reason: op.reject_reason || '',
+                        status: op.status || '',
+                        aadhar: op.aadhaar_number || ''
                     });
                 }
             });
@@ -944,6 +1078,10 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                         <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Primary Email ID</div>
                         <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(emailAddress)}</div>
                     </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Aadhaar Number</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${(op.aadhaar_number || op.aadhar) ? 'XXXX-XXXX-' + escapeHtmlString(String(op.aadhaar_number || op.aadhar).slice(-4)) : '—'}</div>
+                    </div>
                 </div>
             </div>
 
@@ -1169,6 +1307,13 @@ function clearFormInputs() {
     document.getElementById('op_model').value = '';
     document.getElementById('op_lms_id').value = '';
     document.querySelectorAll('.error-msg').forEach(el => el.innerText = '');
+
+    if (document.getElementById('editing_op_id')) document.getElementById('editing_op_id').value = '';
+    if (document.getElementById('editing_op_status')) document.getElementById('editing_op_status').value = '';
+    if (document.getElementById('editing_op_reject_reason')) document.getElementById('editing_op_reject_reason').value = '';
+    const reasonContainer = document.getElementById('operator-revert-reason-container');
+    if (reasonContainer) reasonContainer.style.display = 'none';
+    window.isCurrentlyEditingOperator = false;
 }
 
 function resetEntireNewRequestForm() {
@@ -1195,6 +1340,21 @@ function resetEntireNewRequestForm() {
     }
 
     window.currentReapplyCode = null;
+    const remarkEl = document.getElementById('reapply-remark-section');
+    if (remarkEl) remarkEl.style.display = 'none';
+    const remarksField = document.getElementById('reapply_remarks_field');
+    if (remarksField) remarksField.value = '';
+    
+    window.isReapplyBatchReverted = false;
+    const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
+    if (p1BatchContainer) p1BatchContainer.style.display = 'none';
+    const p2BatchContainer = document.getElementById('batch-revert-reason-container-p2');
+    if (p2BatchContainer) p2BatchContainer.style.display = 'none';
+    
+    document.querySelectorAll('.prev-doc-indicator').forEach(el => {
+        el.style.display = 'none';
+        el.innerText = '';
+    });
     const titleEl = document.querySelector('.container-title');
     if (titleEl) {
         titleEl.innerText = 'AADHAAR OPERATOR REACTIVATION';
@@ -1681,12 +1841,14 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
     window.currentReapplyCode = requestCode;
     const noticeEl = document.getElementById('reapply-file-notice');
     if (noticeEl) noticeEl.style.display = 'block';
+    const remarkEl = document.getElementById('reapply-remark-section');
+    if (remarkEl) remarkEl.style.display = 'block';
     document.querySelectorAll('.doc-required-star').forEach(star => {
         star.style.display = 'none';
     });
-    const titleEl = document.querySelector('.container-title');
+    const titleEl = document.getElementById('reactivation-form-title');
     if (titleEl) {
-        titleEl.innerText = `Reapplying Batch: ${requestCode}`;
+        titleEl.innerText = `Modify & Reapply Operator Reactivation Request`;
     }
 
     if (trainingDate) {
@@ -1706,6 +1868,56 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
         })
         .then(payload => {
             Swal.close();
+            
+            // Clear previous documents display first
+            document.querySelectorAll('.prev-doc-indicator').forEach(el => {
+                el.style.display = 'none';
+                el.innerText = '';
+            });
+
+            // Populate previous documents
+            if (payload.documents) {
+                for (const [docType, docInfo] of Object.entries(payload.documents)) {
+                    const docEl = document.getElementById(`prev-${docType}`);
+                    if (docEl && docInfo && docInfo.original_filename) {
+                        docEl.innerText = `✓ ${docInfo.original_filename}`;
+                        docEl.style.display = 'block';
+                    }
+                }
+            }
+
+            // Toggle batch revert reason displays
+            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes(payload.batch_status);
+            const batchReason = payload.batch_revert_reason || '';
+
+            const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
+            const p1BatchText = document.getElementById('batch-revert-reason-text-p1');
+            const p1BatchLabel = document.getElementById('batch-revert-reason-label-p1');
+
+            const p2BatchContainer = document.getElementById('batch-revert-reason-container-p2');
+            const p2BatchText = document.getElementById('batch-revert-reason-text-p2');
+            const p2BatchLabel = document.getElementById('batch-revert-reason-label-p2');
+
+            if (isBatchRevertedOrRejected && batchReason) {
+                window.isReapplyBatchReverted = true;
+                const labelText = payload.batch_status === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
+                
+                if (p1BatchContainer && p1BatchText && p1BatchLabel) {
+                    p1BatchText.innerText = batchReason;
+                    p1BatchLabel.innerText = labelText;
+                    p1BatchContainer.style.display = 'block';
+                }
+                if (p2BatchContainer && p2BatchText && p2BatchLabel) {
+                    p2BatchText.innerText = batchReason;
+                    p2BatchLabel.innerText = labelText;
+                    p2BatchContainer.style.display = 'block';
+                }
+            } else {
+                window.isReapplyBatchReverted = false;
+                if (p1BatchContainer) p1BatchContainer.style.display = 'none';
+                if (p2BatchContainer) p2BatchContainer.style.display = 'none';
+            }
+
             structuredOperatorList = [];
             const operators = payload.operators || [];
             // Find only this specific operator!
@@ -1724,7 +1936,10 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
                     lmsId: op.lms_certificate_id || '',
                     cert: op.certificate_number || '',
                     certDate: op.certification_date || '',
-                    remarks: op.remarks || ''
+                    remarks: op.remarks || '',
+                    reject_reason: op.reject_reason || '',
+                    status: op.status || '',
+                    aadhar: op.aadhaar_number || ''
                 });
             }
             renderOperatorSpreadsheetRows();

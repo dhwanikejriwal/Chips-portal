@@ -115,6 +115,7 @@ async def send_approval_email(email_to: str, name: str, username: str, raw_passw
         await fm.send_message(message)
     except Exception as e:
         print(f"Failed to send email to {email_to}: {e}")
+        raise e
 
 async def send_rejection_email(email_to: str, name: str, reason: str):
     """
@@ -209,6 +210,7 @@ async def send_rejection_email(email_to: str, name: str, reason: str):
         await fm.send_message(message)
     except Exception as e:
         print(f"Failed to send email to {email_to}: {e}")
+        raise e
 
 async def send_password_reset_email(email_to: str, name: str, reset_link: str):
     """

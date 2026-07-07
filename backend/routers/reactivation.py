@@ -367,9 +367,28 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
         for rm in remarks_hist
     ]
     
+    docs = db.query(ReactivationDocument).filter(ReactivationDocument.request_id == req.id).all()
+    docs_data = {
+        doc.doc_type: {
+            "original_filename": doc.original_filename,
+            "path": doc.path
+        }
+        for doc in docs
+    }
+    
+    # Get batch revert/rejection reason
+    latest_revert_log = db.query(ReactivationRemarkHistory).filter(
+        ReactivationRemarkHistory.request_id == req.id,
+        ReactivationRemarkHistory.status_after_code.in_(["RV", "RJ"])
+    ).order_by(ReactivationRemarkHistory.timestamp.desc()).first()
+    batch_revert_reason = latest_revert_log.remark_history if latest_revert_log else ""
+
     return {
         "operators": ops_data,
-        "timeline_logs": timeline_logs
+        "timeline_logs": timeline_logs,
+        "documents": docs_data,
+        "batch_status": req.status,
+        "batch_revert_reason": batch_revert_reason
     }
 
 
@@ -692,6 +711,7 @@ def export_operators_to_excel_stream(request_code: str, db: Session = Depends(ge
         "S.No": i + 1,
         "Role": o.role,
         "Name As Per Aadhaar": o.operator_name,
+        "Aadhaar Number": o.aadhaar_number,
         "Registrar Code": o.registrar_code,
         "EA Code": o.ea_code,
         "User Code": o.user_code,
@@ -748,6 +768,7 @@ def export_all_operators_to_csv_stream(ids: str = None, db: Session = Depends(ge
             "district_name": dist_name,
             "role": o.role,
             "operator_name": o.operator_name,
+            "aadhaar_number": o.aadhaar_number,
             "registrar_code": o.registrar_code,
             "ea_code": o.ea_code,
             "user_code": o.user_code,
@@ -766,6 +787,7 @@ def export_all_operators_to_csv_stream(ids: str = None, db: Session = Depends(ge
         "district_name": "District Name",
         "role": "Role Profile", 
         "operator_name": "Name As Per Aadhaar", 
+        "aadhaar_number": "Aadhaar Number",
         "registrar_code": "Registrar Code",
         "ea_code": "EA Code", 
         "user_code": "User Code", 
@@ -818,6 +840,7 @@ def export_uidai_operators_to_csv_stream(ids: str = None, db: Session = Depends(
             "district_name": dist_name,
             "role": o.role,
             "operator_name": o.operator_name,
+            "aadhaar_number": o.aadhaar_number,
             "registrar_code": o.registrar_code,
             "ea_code": o.ea_code,
             "user_code": o.user_code,
@@ -836,6 +859,7 @@ def export_uidai_operators_to_csv_stream(ids: str = None, db: Session = Depends(
         "district_name": "District Name",
         "role": "Role Profile", 
         "operator_name": "Name As Per Aadhaar", 
+        "aadhaar_number": "Aadhaar Number",
         "registrar_code": "Registrar Code",
         "ea_code": "EA Code", 
         "user_code": "User Code", 

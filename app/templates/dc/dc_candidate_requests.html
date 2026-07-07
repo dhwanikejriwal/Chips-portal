@@ -8,13 +8,6 @@
 {% endblock %}
 
 {% block content %}
-<div class="dash-header">
-    <div>
-        <h2 class="dash-title">CANDIDATE ONBOARDING REQUESTS</h2>
-        <p class="dash-subtitle">Verify and manage candidate onboarding requests</p>
-    </div>
-</div>
-
 
 {% set total_requests = pending_requests | length + approved_requests | length %}
 {% set pending_count = pending_requests | length %}
@@ -25,14 +18,16 @@
 <!-- Gradient Admin Banner -->
 <div class="chips-header-banner">
     <div style="display: flex; align-items: center; gap: 15px;">
-        <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+        <div
+            style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
         </div>
         <div>
             <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">Candidate Onboarding Dashboard</h1>
-            <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Manage and process incoming candidate onboarding requests</p>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Manage and process incoming candidate
+                onboarding requests</p>
         </div>
     </div>
     <div class="chips-banner-metrics" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
@@ -50,7 +45,8 @@
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
+            </div>
         </div>
     </div>
 </div>
@@ -92,7 +88,8 @@
     <h3>Pending Onboarding Requests</h3>
     <span class="section-count" id="pending-count">–</span>
     <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <button type="button" onclick="exportBackend('admin-pending-table')" class="btn btn-sm" style="display: inline-flex; align-items: center; background-color: #007bff; color: white; border: none; cursor: pointer;">
+        <button type="button" onclick="exportBackend('admin-pending-table')" class="btn btn-sm"
+            style="display: inline-flex; align-items: center; background-color: #007bff; color: white; border: none; cursor: pointer;">
             Export to CSV
         </button>
     </div>
@@ -144,9 +141,12 @@
                             onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')">Approve</button>
                         <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
                             onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')">Reject</button>
-                        <button type="button" class="btn-details"
-                            onclick="openDetailsModal(this.closest('tr'), false)">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                        <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'), false)">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
                             Details
                         </button>
                     </div>
@@ -175,7 +175,8 @@
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
         </select>
-        <button type="button" onclick="exportBackend('admin-approved-table')" class="btn btn-sm" style="display: inline-flex; align-items: center; background-color: #007bff; color: white; border: none; cursor: pointer;">
+        <button type="button" onclick="exportBackend('admin-approved-table')" class="btn btn-sm"
+            style="display: inline-flex; align-items: center; background-color: #007bff; color: white; border: none; cursor: pointer;">
             Export to CSV
         </button>
     </div>
@@ -225,14 +226,33 @@
                     {% else %}
                     <span class="badge" style="background: #e2e8f0; color: #4a5568;">{{ req.status }}</span>
                     {% endif %}
+                    
+                    {% set has_email_fail = false %}
+                    {% if req.remarks_history %}
+                        {% for r in req.remarks_history %}
+                            {% if r.remark and '[Email Failed]' in r.remark %}
+                                {% set has_email_fail = true %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% if has_email_fail %}
+                    <div style="margin-top: 4px;">
+                        <span class="badge" style="background: #f59e0b; color: white; font-size: 10px; border-radius: 4px; padding: 2px 6px;" title="Email delivery failed for this action">Email Failed</span>
+                    </div>
+                    {% endif %}
                 </td>
                 <td>{{ req.created_at }}</td>
                 <td>{{ req.updated_at or req.created_at }}</td>
                 <td style="text-align: center;">
                     <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-                            Details
-                        </button>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Details
+                    </button>
                 </td>
             </tr>
             {% endfor %}
@@ -428,7 +448,7 @@
         if (pendingCountEl) pendingCountEl.textContent = pendingCount;
         const approvedCountEl = document.getElementById('approved-count');
         if (approvedCountEl) approvedCountEl.textContent = approvedCount;
-        
+
         const pendingTable = document.getElementById('admin-pending-table');
         const pendingEmptyMsg = document.getElementById('pending-empty-msg');
         if (pendingEmptyMsg) pendingEmptyMsg.style.display = (pendingCount === 0) ? 'block' : 'none';
@@ -469,37 +489,78 @@
             }
         }).then((result) => {
             if (result.isConfirmed) {
-                const payload = new URLSearchParams();
-                payload.append("remark", result.value.remark);
+                const remark = result.value.remark;
+                
+                function submitApprove(force_without_email) {
+                    Swal.fire({
+                        title: 'Processing...',
+                        html: force_without_email ? 'Approving candidate...' : 'Approving candidate and checking email delivery...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
 
-                fetch(`/auth/dc/approve-candidate/${rId}`, {
-                    method: 'POST',
-                    body: payload,
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
+                    const payload = new URLSearchParams();
+                    payload.append("remark", remark);
+                    if (force_without_email) {
+                        payload.append("force_without_email", "true");
                     }
-                }).then(response => {
-                    if (response.ok) {
-                        Swal.fire({
-                            title: 'Onboarding Approved!',
-                            text: 'The candidate onboarding request was successfully approved.',
-                            icon: 'success',
-                            confirmButtonColor: '#28a745',
-                            timer: 2500,
-                            timerProgressBar: true
-                        }).then(() => {
-                            sessionStorage.setItem('dc_action_reloading', 'true');
-                            window.location.reload();
-                        });
-                    } else {
-                        response.json().then(data => {
-                            const errorDetail = data.detail || 'Failed to approve. Please try again.';
-                            Swal.fire('Error', errorDetail, 'error');
-                        }).catch(() => {
-                            Swal.fire('Error', 'Failed to approve candidate request.', 'error');
-                        });
-                    }
-                });
+    
+                    fetch(`/auth/dc/approve-candidate/${rId}`, {
+                        method: 'POST',
+                        body: payload,
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        }
+                    }).then(response => {
+                        if (response.ok) {
+                            const msg = force_without_email 
+                                ? 'The candidate was successfully approved (Email was not sent).' 
+                                : 'The candidate was successfully approved and has been informed via email.';
+                            
+                            Swal.fire({
+                                title: 'Onboarding Approved!',
+                                text: msg,
+                                icon: 'success',
+                                confirmButtonColor: '#28a745',
+                                timer: 3000,
+                                timerProgressBar: true
+                            }).then(() => {
+                                sessionStorage.setItem('dc_action_reloading', 'true');
+                                window.location.reload();
+                            });
+                        } else {
+                            response.json().then(data => {
+                                if (data.email_failed) {
+                                    Swal.fire({
+                                        title: 'Email Delivery Failed',
+                                        text: "The candidate couldn't be notified via email at the moment. Do you still want to proceed?",
+                                        icon: 'warning',
+                                        showDenyButton: true,
+                                        showCancelButton: true,
+                                        confirmButtonText: 'Retry Email',
+                                        denyButtonText: 'Proceed Without Email',
+                                        cancelButtonText: 'Cancel'
+                                    }).then((res) => {
+                                        if (res.isConfirmed) {
+                                            submitApprove(false); // Retry
+                                        } else if (res.isDenied) {
+                                            submitApprove(true); // Proceed without email
+                                        }
+                                    });
+                                } else {
+                                    const errorDetail = data.detail || 'Failed to approve. Please try again.';
+                                    Swal.fire('Error', errorDetail, 'error');
+                                }
+                            }).catch(() => {
+                                Swal.fire('Error', 'Failed to approve candidate request.', 'error');
+                            });
+                        }
+                    });
+                }
+                
+                submitApprove(false);
             }
         });
     }
@@ -535,36 +596,77 @@
             }
         }).then((result) => {
             if (result.isConfirmed) {
-                const payload = new URLSearchParams();
-                payload.append("revert_reason", result.value.reject_reason);
+                const reject_reason = result.value.reject_reason;
 
-                fetch(`/auth/dc/reject-candidate/${rId}`, {
-                    method: 'POST',
-                    body: payload,
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
+                function submitReject(force_without_email) {
+                    Swal.fire({
+                        title: 'Processing...',
+                        html: force_without_email ? 'Rejecting candidate...' : 'Rejecting candidate and checking email delivery...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    const payload = new URLSearchParams();
+                    payload.append("revert_reason", reject_reason);
+                    if (force_without_email) {
+                        payload.append("force_without_email", "true");
                     }
-                }).then(response => {
-                    if (response.ok) {
-                        Swal.fire({
-                            title: 'Onboarding Rejected!',
-                            text: 'The request has been rejected and logged.',
-                            icon: 'warning',
-                            confirmButtonColor: '#dc3545',
-                            timer: 2500,
-                            timerProgressBar: true
-                        }).then(() => {
-                            sessionStorage.setItem('dc_action_reloading', 'true');
-                            window.location.reload();
-                        });
-                    } else {
-                        response.json().then(data => {
-                            Swal.fire('Error', data.detail || 'Failed to reject request.', 'error');
-                        }).catch(() => {
-                            Swal.fire('Error', 'Failed to reject request.', 'error');
-                        });
-                    }
-                });
+    
+                    fetch(`/auth/dc/reject-candidate/${rId}`, {
+                        method: 'POST',
+                        body: payload,
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        }
+                    }).then(response => {
+                        if (response.ok) {
+                            const msg = force_without_email 
+                                ? 'The request has been rejected (Email was not sent).' 
+                                : 'The request has been rejected and the candidate was informed via email.';
+
+                            Swal.fire({
+                                title: 'Onboarding Rejected!',
+                                text: msg,
+                                icon: 'warning',
+                                confirmButtonColor: '#dc3545',
+                                timer: 3000,
+                                timerProgressBar: true
+                            }).then(() => {
+                                sessionStorage.setItem('dc_action_reloading', 'true');
+                                window.location.reload();
+                            });
+                        } else {
+                            response.json().then(data => {
+                                if (data.email_failed) {
+                                    Swal.fire({
+                                        title: 'Email Delivery Failed',
+                                        text: "The candidate couldn't be notified via email at the moment. Do you still want to proceed?",
+                                        icon: 'warning',
+                                        showDenyButton: true,
+                                        showCancelButton: true,
+                                        confirmButtonText: 'Retry Email',
+                                        denyButtonText: 'Proceed Without Email',
+                                        cancelButtonText: 'Cancel'
+                                    }).then((res) => {
+                                        if (res.isConfirmed) {
+                                            submitReject(false); // Retry
+                                        } else if (res.isDenied) {
+                                            submitReject(true); // Proceed without email
+                                        }
+                                    });
+                                } else {
+                                    Swal.fire('Error', data.detail || 'Failed to reject request.', 'error');
+                                }
+                            }).catch(() => {
+                                Swal.fire('Error', 'Failed to reject candidate request.', 'error');
+                            });
+                        }
+                    });
+                }
+                
+                submitReject(false);
             }
         });
     }
@@ -840,6 +942,35 @@
         const maskedAadhaar = d.aadhaar ? `XXXX XXXX ${d.aadhaar.slice(-4)}` : 'N/A';
 
         if (activeView === 'details') {
+            let adminRemarkHtml = '';
+            if (showRemarks && d.remarksStr && d.remarksStr !== '[]') {
+                try {
+                    const remarksArray = JSON.parse(d.remarksStr);
+                    if (remarksArray && remarksArray.length > 0) {
+                        let latestRemark = remarksArray[0].remark;
+                        
+                        let emailFailedBadgeHtml = '';
+                        if (latestRemark.includes('[Email Failed]')) {
+                            latestRemark = latestRemark.replace('[Email Failed]', '').trim();
+                            emailFailedBadgeHtml = '<span class="badge" style="background: #f59e0b; color: white; font-size: 11px; margin-left: 8px; padding: 3px 6px;">Email Failed</span>';
+                            // Append this to the header statusBadge
+                            statusBadge += emailFailedBadgeHtml;
+                        }
+
+                        const badgeColor = (d.status === 'Approved') ? '#16a34a' : ((d.status === 'Rejected') ? '#dc2626' : '#888');
+                        const badgeBg = (d.status === 'Approved') ? '#dcfce7' : ((d.status === 'Rejected') ? '#fee2e2' : '#f1f5f9');
+                        const titleText = (d.status === 'Approved') ? 'Approval Remark' : ((d.status === 'Rejected') ? 'Rejection Remark' : 'Admin Remark');
+                        
+                        adminRemarkHtml = `
+                        <div style="margin-bottom: 15px; padding: 12px; border-radius: 8px; background-color: ${badgeBg}; border-left: 4px solid ${badgeColor}; font-size: 13px;">
+                            <div style="font-weight: 700; color: ${badgeColor}; margin-bottom: 4px;">${titleText}:</div>
+                            <div style="color: #334155;">${escapeHtml(latestRemark)}</div>
+                        </div>
+                        `;
+                    }
+                } catch (e) {}
+            }
+
             let htmlContent = `
                 <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
@@ -849,6 +980,8 @@
                     <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
                         Registered At: <strong>${d.created}</strong>
                     </div>
+
+                    ${adminRemarkHtml}
 
                     ${d.photo ? `<div style="text-align:center;margin-bottom:14px;"><img src="${d.photo}" alt="Profile Photo" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;cursor:pointer;" onclick="zoomPhoto('${d.photo}')"></div>` : ''}
 
@@ -921,10 +1054,9 @@
                         </div>
                     </div>
 
-                    <!-- View Documents and View Remarks Buttons -->
+                    <!-- View Documents Button -->
                     <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
                         <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Documents</button>
-                        <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
                     </div>
                 </div>
                 `;
@@ -943,9 +1075,6 @@
                 didOpen: () => {
                     document.getElementById('btn-show-docs').onclick = () => {
                         window.showCandidateDetails(d, 'documents', showRemarks);
-                    };
-                    document.getElementById('btn-show-remarks').onclick = () => {
-                        window.showCandidateDetails(d, 'remarks', showRemarks);
                     };
                 }
             });
@@ -1117,20 +1246,16 @@
         window.showCandidateDetails(d, 'details', showRemarks);
     }
 
-    // Export helper function to redirect to server-side Excel export
-    function exportTableToExcel(tableID, filename = 'export.xlsx') {
-        const table = document.getElementById(tableID);
+    function exportBackend(tableId) {
+        const table = document.getElementById(tableId);
         if (!table) return;
 
-        const bodyRows = table.querySelectorAll('tbody tr');
         const ids = [];
-        bodyRows.forEach(row => {
-            if (row.style.display !== 'none') {
-                const dataId = row.getAttribute('data-id');
-                if (dataId) {
-                    ids.push(dataId);
-                }
-            }
+        table.querySelectorAll('tbody tr').forEach(row => {
+            if (row.style.display === 'none') return;
+            if (row.cells.length <= 1) return; // skip empty-state rows
+            const rowId = row.getAttribute('data-id');
+            if (rowId) ids.push(rowId);
         });
 
         if (ids.length === 0) {
@@ -1142,38 +1267,9 @@
             return;
         }
 
-        window.location.href = `/auth/dc/candidate-requests/export?ids=${ids.join(',')}`;
+        const baseUrl = "{{ url_for('auth.proxy_backend_excel_export', module_endpoint='candidate-requests') }}";
+        window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
     }
-</script>
-
-<script>
-function exportBackend(tableId) {
-    const table = document.getElementById(tableId);
-    let ids = [];
-    const rows = table.querySelectorAll('tr');
-    
-    for (let i = 0; i < rows.length; i++) {
-        if (rows[i].style.display === 'none') continue;
-        if (rows[i].cells.length <= 1) continue; // Skip empty message rows
-        
-        const rowId = rows[i].getAttribute('data-id');
-        if (rowId) {
-            ids.push(rowId);
-        }
-    }
-    
-    if (ids.length === 0) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'No records to export',
-            text: 'There are no visible records in the table to export.'
-        });
-        return;
-    }
-    
-    const baseUrl = "{{ url_for('auth.proxy_backend_excel_export', module_endpoint='candidate-requests') }}";
-    window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
-}
 </script>
 
 {% endblock %}

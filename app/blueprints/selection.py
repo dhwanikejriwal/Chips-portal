@@ -47,6 +47,7 @@ def approve_candidate(r_id):
     username = request.form.get("generated_login_id")
     password = request.form.get("generated_password_raw")
     remark = request.form.get("remark")
+    force_without_email = request.form.get("force_without_email") == "true"
     by_user_id = session.get("user_id")
     
     if not by_user_id:
@@ -58,9 +59,13 @@ def approve_candidate(r_id):
             "username": username,
             "password": password,
             "remark": remark,
-            "by_user_id": by_user_id
+            "by_user_id": by_user_id,
+            "force_without_email": force_without_email
         }, headers=_headers())
         if response.status_code == 200:
+            res_json = response.json()
+            if not res_json.get("success", True):
+                return res_json, 400
             return {"success": True}
         else:
             return response.json(), response.status_code
@@ -74,6 +79,7 @@ def reject_candidate(r_id):
         return {"detail": "Unauthorized"}, 401
         
     remark = request.form.get("revert_reason")
+    force_without_email = request.form.get("force_without_email") == "true"
     by_user_id = session.get("user_id")
     
     if not by_user_id:
@@ -83,9 +89,13 @@ def reject_candidate(r_id):
     try:
         response = requests.post(backend_url, json={
             "remark": remark,
-            "by_user_id": by_user_id
+            "by_user_id": by_user_id,
+            "force_without_email": force_without_email
         }, headers=_headers())
         if response.status_code == 200:
+            res_json = response.json()
+            if not res_json.get("success", True):
+                return res_json, 400
             return {"success": True}
         else:
             return response.json(), response.status_code

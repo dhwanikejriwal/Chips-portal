@@ -3,7 +3,7 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, model_validator , field_validator, EmailStr
 from sqlalchemy.orm import Session
-
+from sqlalchemy import desc
 from backend.database import get_db
 from backend.models import District, Candidate
 from backend.models.otp_verification import OtpVerification
@@ -208,10 +208,22 @@ def track_application(payload: TrackRequest, db: Session = Depends(get_db)):
     if not candidate:
         raise HTTPException(status_code=404, detail="No application found with this email or mobile number.")
         
+    from backend.models.dc_remark import DCRemark
+    reject_reason = None
+    if candidate.status_code == "RJ":
+        latest_remark = db.query(DCRemark).filter(
+            DCRemark.r_id == candidate.r_id, 
+            DCRemark.status_after_code == "RJ"
+        ).order_by(desc(DCRemark.time)).first()
+        if latest_remark:
+            reject_reason = latest_remark.remark
+
     return {
         "success": True,
         "request_code": candidate.request_code,
+        "email": candidate.email,
         "name": candidate.name,
         "district": candidate.district_rel.district_name if candidate.district_rel else candidate.district,
-        "status": candidate.status
+        "status": candidate.status,
+        "reject_reason": reject_reason
     }

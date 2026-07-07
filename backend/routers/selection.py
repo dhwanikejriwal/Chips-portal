@@ -2,6 +2,7 @@ import bcrypt
 import secrets
 import string
 from datetime import datetime, timedelta
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy import func, String, Integer, Date, ForeignKey, DateTime
@@ -21,10 +22,12 @@ class CandidateApproveRequest(BaseModel):
     password: str | None = None
     remark: str | None = None
     by_user_id: int
+    force_without_email: bool = False
 
 class CandidateRejectRequest(BaseModel):
     remark: str
     by_user_id: int
+    force_without_email: bool = False
 
 @router.get("/candidates")
 def get_dc_candidates(district_code: str | None = None, db: Session = Depends(get_db)):
@@ -107,6 +110,15 @@ def export_candidates_excel(ids: str = None, db: Session = Depends(get_db)):
             login_id = c.login.user_id
             password_raw = "Test@123"
 
+        # Fetch the latest remark from DC for this candidate
+        latest_remark = (
+            db.query(DCRemark)
+            .filter(DCRemark.r_id == c.r_id)
+            .order_by(DCRemark.time.desc())
+            .first()
+        )
+        dc_remark = latest_remark.remark if latest_remark else ""
+
         export_data.append({
             "s_no": idx + 1,
             "request_code": c.request_code,
@@ -123,8 +135,7 @@ def export_candidates_excel(ids: str = None, db: Session = Depends(get_db)):
             "lms_id": c.lms_id or "",
             "nseit_id": c.nseit_id or "",
             "status": c.status,
-            "generated_login_id": login_id,
-            "generated_password_raw": password_raw,
+            "dc_remark": dc_remark,
             "submitted_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else "",
             "updated_at": (c.updated_at or c.created_at).strftime("%Y-%m-%d %H:%M:%S") if (c.updated_at or c.created_at) else "",
         })
@@ -145,8 +156,7 @@ def export_candidates_excel(ids: str = None, db: Session = Depends(get_db)):
         "lms_id": "LMS ID",
         "nseit_id": "NSEIT ID",
         "status": "Status",
-        "generated_login_id": "Generated Login ID",
-        "generated_password_raw": "Generated Password",
+        "dc_remark": "DC Remark (Approve/Reject Reason)",
         "submitted_at": "Submitted At",
         "updated_at": "Updated At",
     }
@@ -184,6 +194,9 @@ def approve_candidate(r_id: int, payload: CandidateApproveRequest, background_ta
     candidate.status = "Approved"
     
     remark_text = payload.remark or "Application reviewed and approved."
+    if payload.force_without_email:
+        remark_text = f"[Email Failed] {remark_text}"
+
     new_remark = DCRemark(
         r_id=r_id,
         remark=remark_text,
@@ -192,17 +205,22 @@ def approve_candidate(r_id: int, payload: CandidateApproveRequest, background_ta
     )
     db.add(new_remark)
     
-    db.commit()
-    
-    # Schedule the approval email in the background if the candidate has an email
+    # Try sending email synchronously before committing
     if candidate.email:
-        background_tasks.add_task(
-            send_approval_email,
-            email_to=candidate.email,
-            name=candidate.name,
-            username=username,
-            raw_password=password
-        )
+        try:
+            asyncio.run(send_approval_email(
+                email_to=candidate.email,
+                name=candidate.name,
+                username=username,
+                raw_password=password
+            ))
+        except Exception as e:
+            if not payload.force_without_email:
+                db.rollback()
+                return {"success": False, "email_failed": True, "detail": f"Failed to send email: {str(e)}"}
+            # If forced, we ignore the error and proceed (the remark is already flagged)
+
+    db.commit()
     
     return {"success": True, "detail": "Candidate successfully approved."}
 
@@ -214,22 +232,30 @@ def reject_candidate(r_id: int, payload: CandidateRejectRequest, background_task
         
     candidate.status = "Rejected"
     
+    remark_text = payload.remark
+    if payload.force_without_email:
+        remark_text = f"[Email Failed] {remark_text}"
+
     new_remark = DCRemark(
         r_id=r_id,
-        remark=payload.remark,
+        remark=remark_text,
         by=payload.by_user_id,
         status_after="Rejected"
     )
     db.add(new_remark)
     
-    db.commit()
-    
     if candidate.email:
-        background_tasks.add_task(
-            send_rejection_email,
-            email_to=candidate.email,
-            name=candidate.name,
-            reason=payload.remark
-        )
+        try:
+            asyncio.run(send_rejection_email(
+                email_to=candidate.email,
+                name=candidate.name,
+                reason=payload.remark
+            ))
+        except Exception as e:
+            if not payload.force_without_email:
+                db.rollback()
+                return {"success": False, "email_failed": True, "detail": f"Failed to send email: {str(e)}"}
+    
+    db.commit()
     
     return {"success": True, "detail": "Candidate onboarding request rejected."}

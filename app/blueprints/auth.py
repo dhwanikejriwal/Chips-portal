@@ -103,13 +103,21 @@ def proxy_backend_excel_export(module_endpoint):
         backend_url = f"{current_app.config['BACKEND_API_URL']}/lms_manage/export-excel"
     elif module_endpoint == 'nseit-requests':
         backend_url = f"{current_app.config['BACKEND_API_URL']}/nseit_manage/export-excel"
+    elif module_endpoint == 'candidate-requests':
+        backend_url = f"{current_app.config['BACKEND_API_URL']}/selection/export-excel"
     else:
         backend_url = f"{current_app.config['BACKEND_API_URL']}/candidate/export-download/{module_endpoint}"
     
     params = request.args.to_dict()
+    access_token = session.get("access_token", "")
 
     try:
-        response = requests.get(backend_url, params=params, stream=True)
+        response = requests.get(
+            backend_url,
+            params=params,
+            headers={"Authorization": f"Bearer {access_token}"},
+            stream=True
+        )
         if response.status_code == 200:
             return Response(
                 response.raw.read(),
