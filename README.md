@@ -8,14 +8,14 @@ The project uses a decoupled microservice-like architecture:
 *   **Flask Frontend Proxy (Port 5000)**: Serves HTML layouts using modular **Vanilla CSS** + **Tailwind CSS**. Uses **SweetAlert2** for interactive popups and native `fetch` API for dynamic data interactions without full page reloads.
 *   **FastAPI Backend Gateway (Port 8000)**: A high-performance REST API handling business logic, Pydantic validation, JWT authentication, background email tasks, and **SQLAlchemy ORM** connected to **PostgreSQL**.
 
-```mermaid
-graph LR
-    User([Browser Client]) <-->|Fetch API / HTML| Flask[Flask Proxy Server (5000)]
-    Flask <-->|REST API / JWT| FastAPI[FastAPI Core Server (8000)]
-    FastAPI <-->|SQLAlchemy| DB[(PostgreSQL Database)]
-```
 
----
+
+    User([Browser Client]) <-->|Fetch API / HTML| Flask[Flask Proxy Server (5000)]
+    
+    Flask <-->|REST API / JWT| FastAPI[FastAPI Core Server (8000)]
+    
+    FastAPI <-->|SQLAlchemy| DB[(PostgreSQL Database)]
+
 
 ## 🌟 Key Features
 
@@ -39,7 +39,7 @@ graph LR
 
 ## 🛠️ Technology Stack
 
-*   **Language**: Python 3.10+
+*   **Language**: Python 3.12+
 *   **Frontend**: Flask, JavaScript (Fetch), Tailwind CSS, Vanilla CSS, SweetAlert2
 *   **Backend**: FastAPI, Pydantic, Jose (JWT), Bcrypt, FastMail
 *   **Database**: PostgreSQL, SQLAlchemy ORM, Alembic migrations
@@ -49,7 +49,7 @@ graph LR
 ## 🚀 Getting Started
 
 ### Prerequisites
-*   Python 3.10+ installed
+*   Python 3.12+ installed
 *   PostgreSQL running locally
 
 ### Installation & Setup
