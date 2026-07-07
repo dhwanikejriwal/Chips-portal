@@ -6,13 +6,8 @@
 
 {% if reapply_id and request_data %}
 <div style="margin-bottom: 20px;">
-    <div
-        style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
-        <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">⚠ Action Required — Request
-            Reverted</div>
-        <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below, update your details and submit
-            the reapplication.</div>
-    </div>
+    {% set is_rejected = (request_data.status == 'rejected') %}
+
 
     {% set revert_log = request_data.remarks_history | reverse | selectattr('status_after', 'in', ['reverted',
     'rejected', 'reverted_by_chips']) | list | first %}
@@ -27,7 +22,7 @@
                     d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z">
                 </path>
             </svg>
-            REVERT / REJECTION REASON
+            {{ 'REJECT REASON' if is_rejected else 'REVERT REASON / REMARKS' }}
         </div>
         <div style="font-size:13px;color:#7f1d1d;font-weight:500;line-height:1.4;">
             {{ revert_log.remark | trim }}
@@ -237,7 +232,7 @@
             <div class="oa-nav-actions" style="margin-top: 24px;">
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <button type="button" class="oa-btn oa-btn-cancel"
-                        onclick="window.location.href='/auth/dc/operator-activation/list'"
+                        onclick="clearDraftAndForm(); window.location.href='/auth/dc/operator-activation/list'"
                         style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -263,6 +258,11 @@
                     style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
                     UPLOAD DOCUMENTS
                 </h2>
+                {% if reapply_id %}
+                <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; text-align: left;">
+                    <span style="font-size: 13px; color: #1e40af;"><strong style="font-weight: 700;">Note:</strong> Only upload files if you want to replace/update the existing ones; otherwise, previously submitted documents will be kept as-is.</span>
+                </div>
+                {% endif %}
                 <div class="oa-docs-grid">
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">Consent Form <span class="required-star">*</span></label>
@@ -372,7 +372,7 @@
                 </button>
                 <div class="oa-nav-actions-right" style="display: flex; gap: 12px;">
                     <button type="button" class="oa-btn oa-btn-cancel"
-                        onclick="window.location.href='/auth/dc/operator-activation/list'"
+                        onclick="clearDraftAndForm(); window.location.href='/auth/dc/operator-activation/list'"
                         style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -524,9 +524,17 @@
                         icon: 'success',
                         title: 'Success!',
                         text: 'Operator activation request submitted.',
-                        timer: 1500,
-                        showConfirmButton: false
+                        confirmButtonColor: '#4f46e5',
+                        showConfirmButton: true,
+                        timer: 3000,
+                        timerProgressBar: true
                     }).then(() => {
+                        if (typeof window.clearDraftAndForm === 'function') {
+                            window.clearDraftAndForm();
+                        } else if (typeof window.clearFormFields === 'function') {
+                            window.clearFormFields();
+                        }
+                        if (oaForm) oaForm.reset();
                         window.location.href = data.redirect_url;
                     });
                 } else {
@@ -795,6 +803,9 @@
     }
 
     window.clearFormFields = function () {
+        if (typeof DRAFT_KEY !== 'undefined') {
+            sessionStorage.removeItem(DRAFT_KEY);
+        }
         const form = document.getElementById('oa-activation-form');
         if (form) {
             const inputs = form.querySelectorAll('input:not([type="hidden"]):not([readonly]), textarea');
@@ -826,4 +837,81 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
+
+    // Draft saving and restoring logic
+    const DRAFT_KEY = 'oa_activation_draft';
+    const isReapplyMode = {{ 'true' if reapply_id else 'false' }};
+
+    window.saveDraft = function() {
+        if (isReapplyMode) return;
+        const form = document.getElementById('oa-activation-form');
+        if (!form) return;
+        const formData = new FormData(form);
+        const draft = {};
+        for (let [key, value] of formData.entries()) {
+            if (value instanceof File) continue; // Skip files
+            draft[key] = value;
+        }
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    };
+
+    window.loadDraft = function() {
+        if (isReapplyMode) return;
+        const draftStr = sessionStorage.getItem(DRAFT_KEY);
+        if (!draftStr) return;
+        try {
+            const draft = JSON.parse(draftStr);
+            for (let key in draft) {
+                const el = document.getElementById(key) || document.getElementsByName(key)[0];
+                if (el && el.type !== 'file' && el.type !== 'hidden') {
+                    el.value = draft[key];
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+        } catch (e) {
+            console.error("Error loading draft", e);
+        }
+    };
+
+    window.clearDraftAndForm = function() {
+        sessionStorage.removeItem(DRAFT_KEY);
+        if (typeof window.clearFormFields === 'function') {
+            window.clearFormFields();
+        }
+        const form = document.getElementById('oa-activation-form');
+        if (form) form.reset();
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('oa-activation-form');
+        if (form) {
+            form.addEventListener('input', window.saveDraft);
+            form.addEventListener('change', window.saveDraft);
+        }
+
+        // Check if navigation was via Reload or Back/Forward
+        let isReloadOrBack = false;
+        const navEntries = performance.getEntriesByType('navigation');
+        if (navEntries.length > 0) {
+            const navType = navEntries[0].type;
+            isReloadOrBack = (navType === 'reload' || navType === 'back_forward');
+        } else if (window.performance && window.performance.navigation) {
+            const t = window.performance.navigation.type;
+            isReloadOrBack = (t === 1 || t === 2); // 1: TYPE_RELOAD, 2: TYPE_BACK_FORWARD
+        }
+
+        if (isReloadOrBack) {
+            if (!isReapplyMode) {
+                window.clearDraftAndForm();
+            }
+            return;
+        }
+        
+        // Otherwise try to load the draft
+        if (!isReapplyMode) {
+            window.loadDraft();
+        }
+    });
+
 </script>

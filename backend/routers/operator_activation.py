@@ -197,6 +197,16 @@ def submit_operator_activation(
         )
         db.add(doc)
 
+    db.flush()
+    initial_remark = OperatorActivationRemark(
+        request_id=new_request.id,
+        author_id=dc_id,
+        author_role="dc",
+        remark="Activation request submitted by District Coordinator.",
+        status_after="pending"
+    )
+    db.add(initial_remark)
+
     db.commit()
     db.refresh(new_request)
 
@@ -246,6 +256,9 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
                 "operator_mobile": r.operator_mobile,
                 "operator_aadhaar": r.operator_aadhaar,
                 "operator_pan": r.pan_number,
+                "primary_email": r.primary_email,
+                "ea_code": r.ea_code,
+                "user_code": r.user_code,
                 "district_name": dist_name,
                 "status": clean_status,
                 "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
@@ -288,8 +301,11 @@ def get_all_requests(db: Session = Depends(get_db)):
                 "operator_mobile": r.operator_mobile,
                 "operator_aadhaar": r.operator_aadhaar,
                 "operator_pan": r.pan_number,
+                "primary_email": r.primary_email,
+                "ea_code": r.ea_code,
+                "user_code": r.user_code,
                 "status": clean_status,
-                "remark_to_uidai": r.remark_to_uidai,
+                "remark_to_uidai": r.remarks[-1].remark if r.remarks else "—",
                 "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
                 "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
                 "reviewed_by": r.reviewed_by,
@@ -324,7 +340,7 @@ def export_to_excel(ids: str = None, db: Session = Depends(get_db)):
         "Name as per Aadhaar", "Registrar Code", "EA Code", "User Code", 
         "NSEIT Certificate Number", "Mobile Number", "Primary Email ID", 
         "Aadhaar Number", "PAN Number", "Pincode", "Status", 
-        "Submitted At Timestamp", "Reviewed At Timestamp", "UIDAI Action Remarks"
+        "Submitted At Timestamp", "Reviewed At Timestamp"
     ]
     writer.writerow(headers)
 
@@ -347,8 +363,7 @@ def export_to_excel(ids: str = None, db: Session = Depends(get_db)):
             r.pincode if r.pincode else "—",
             r.status,
             str(r.submitted_at)[:19] if r.submitted_at else "—",
-            str(r.reviewed_at)[:16] if r.reviewed_at else "—",
-            r.remark_to_uidai if r.remark_to_uidai else "—"
+            str(r.reviewed_at)[:16] if r.reviewed_at else "—"
         ])
 
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
@@ -364,7 +379,7 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
     import io
 
     query = db.query(OperatorActivationRequest).filter(
-        OperatorActivationRequest.status.in_(["pending", "reapplied"])
+        OperatorActivationRequest.status.in_(["pending", "reapplied", "sent_to_uidai"])
     )
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
@@ -379,12 +394,13 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
         "Name as per Aadhaar", "Registrar Code", "EA Code", "User Code", 
         "NSEIT Certificate Number", "Mobile Number", "Primary Email ID", 
         "Aadhaar Number", "PAN Number", "Pincode", "Status", 
-        "Submitted At Timestamp"
+        "Submitted At Timestamp", "Reviewed At Timestamp"
     ]
     writer.writerow(headers)
 
     for idx, r in enumerate(requests_list, start=1):
         dist_name = r.district.district_name if r.district else "—"
+        reviewed_at_val = str(r.reviewed_at)[:19] if (r.status in ["reapplied", "sent_to_uidai"] and r.reviewed_at) else ""
         writer.writerow([
             idx,
             r.request_no or "—",
@@ -401,7 +417,8 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
             f"{r.pan_number}" if r.pan_number else "—",
             r.pincode if r.pincode else "—",
             r.status,
-            str(r.submitted_at)[:19] if r.submitted_at else "—"
+            str(r.submitted_at)[:19] if r.submitted_at else "—",
+            reviewed_at_val
         ])
 
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
@@ -417,7 +434,7 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
     import io
 
     query = db.query(OperatorActivationRequest).filter(
-        OperatorActivationRequest.status.in_(["approved", "rejected", "reverted"])
+        OperatorActivationRequest.status.in_(["approved", "rejected", "reverted", "reverted_by_chips"])
     )
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
@@ -432,7 +449,7 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
         "Name as per Aadhaar", "Registrar Code", "EA Code", "User Code", 
         "NSEIT Certificate Number", "Mobile Number", "Primary Email ID", 
         "Aadhaar Number", "PAN Number", "Pincode", "Status", 
-        "Submitted At Timestamp", "Reviewed At Timestamp", "Audit Activity Remarks"
+        "Submitted At Timestamp", "Reviewed At Timestamp", "Remarks"
     ]
     writer.writerow(headers)
 
@@ -456,7 +473,7 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
             r.status,
             str(r.submitted_at)[:19] if r.submitted_at else "—",
             str(r.reviewed_at)[:19] if r.reviewed_at else "—",
-            r.remark_to_uidai if r.remark_to_uidai else "—"
+            "" if r.status == "approved" else (r.remarks[-1].remark if r.remarks else "—")
         ])
 
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
@@ -524,7 +541,7 @@ def get_request_detail(request_id: int, db: Session = Depends(get_db)):
         "pincode": r.pincode,
         "status": clean_status,
         "rejection_reason": latest_remark,
-        "chips_remarks": r.remark_to_uidai,
+        "chips_remarks": r.remarks[-1].remark if r.remarks else "—",
         "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else None,
         "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
         "reviewed_by": r.reviewed_by,
@@ -630,7 +647,6 @@ def send_to_uidai(
         raise HTTPException(status_code=404, detail="Request not found.")
     r.status = "sent_to_uidai"
     r.reviewed_by = reviewed_by
-    r.remark_to_uidai = uidai_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
     remark_text = uidai_remarks.strip() if uidai_remarks else "Request forwarded to UIDAI."
@@ -664,7 +680,6 @@ def uidai_approve(
     
     r.status = "approved"
     r.reviewed_by = reviewed_by
-    r.remark_to_uidai = uidai_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
     # 🌟 Insert the clean remark log into the remarks history table
@@ -698,7 +713,6 @@ def uidai_reject(
         raise HTTPException(status_code=404, detail="Request not found.")
     r.status = "rejected"
     r.reviewed_by = reviewed_by
-    r.remark_to_uidai = uidai_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
     remark_text = uidai_remarks.strip() if uidai_remarks else "Request rejected by UIDAI."
@@ -757,14 +771,14 @@ def reapply_request(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    if r.status not in ["reverted", "rejected"]:
+    if r.status not in ["reverted", "rejected", "reverted_by_chips"]:
         raise HTTPException(
             status_code=400, detail=f"Cannot reapply a request with status: {r.status}"
         )
 
 
-    if operator_name:
-        r.name_as_per_aadhaar = operator_name
+    if name_as_per_aadhaar:
+        r.name_as_per_aadhaar = name_as_per_aadhaar
 
     if operator_mobile:
         r.operator_mobile = operator_mobile

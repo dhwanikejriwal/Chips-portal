@@ -473,7 +473,7 @@ window.openHistoricalOperatorsModal = function (requestCode) {
         }
     });
 
-    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}`)
+    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}?_t=${Date.now()}`)
         .then(res => {
             if (!res.ok) throw new Error('Server returned an error');
             return res.json();
@@ -522,7 +522,7 @@ window.openHistoricalOperatorsModal = function (requestCode) {
                         }
 
                         const username = log.sender_username || '';
-                        const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+                        const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate' && sender !== 'CHiPS Admin';
 
                         timelineHtml += `
                             <div class="timeline-item ${senderClass}">
@@ -615,7 +615,7 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
         didOpen: () => { Swal.showLoading(); }
     });
 
-    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}`)
+    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}?_t=${Date.now()}`)
         .then(res => {
             if (!res.ok) throw new Error('Failed to load previous operators');
             return res.json();
@@ -911,7 +911,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
 
             ${isRevertable || isRejected ? `
             <div style="background-color: #fffaf0; border: 1px solid #fed7aa; padding: 12px 16px; border-radius: 8px; margin-bottom: 15px; text-align: left;">
-                <h4 style="margin: 0 0 4px 0; color: #b45309; font-size: 14px; font-weight: 700;">Action Required — Request ${isRevertable ? 'Reverted' : 'Rejected'}</h4>
+                <h4 style="margin: 0 0 4px 0; color: #b45309; font-size: 14px; font-weight: 700;">Action Required — Request ${isRejected ? 'Rejected' : 'Reverted'}</h4>
                 <p style="margin: 0; color: #b45309; font-size: 13px;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</p>
             </div>
             ${op.reject_reason ? `
@@ -920,7 +920,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#991b1b" stroke-width="2.5">
                         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
                     </svg>
-                    <span style="font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">REVERT / REJECTION REASON</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">${isRejected ? 'REJECT REASON / REMARKS' : 'REVERT REASON / REMARKS'}</span>
                 </div>
                 <div style="color: #7f1d1d; font-size: 13px; line-height: 1.5; padding-left: 22px;">
                     ${escapeHtmlString(op.reject_reason)}
@@ -1040,7 +1040,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
             didOpen: () => { Swal.showLoading(); }
         });
 
-        fetch(`/auth/dc/reactivation/operators/${requestCode}`)
+        fetch(`/auth/dc/reactivation/operators/${requestCode}?_t=${Date.now()}`)
             .then(res => res.json())
             .then(payload => {
                 Swal.close();
@@ -1091,7 +1091,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                         }
 
                         const username = item.sender_username || '';
-                        const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+                        const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate' && sender !== 'CHiPS Admin';
 
                         timelineHtml += `
                             <div class="timeline-item ${senderClass}">

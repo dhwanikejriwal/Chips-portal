@@ -122,6 +122,7 @@ class ReactivationRemarkHistory(Base):
     timestamp = Column(DateTime(timezone=True), default=get_ist_now, nullable=False)
 
     parent_request = relationship("OperatorReactivationRequest", back_populates="remarks")
+    author = relationship("UserLogin")
 
 
 class ReactivationDocument(Base):

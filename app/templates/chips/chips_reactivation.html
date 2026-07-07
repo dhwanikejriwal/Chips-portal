@@ -1103,7 +1103,7 @@
         if (isReadOnly === undefined) isReadOnly = false;
         rowElement = rowElement || document.querySelector(`[data-code="${requestCode}"]`);
         // Clean direct proxy endpoint map pattern
-        fetch(`/auth/dc/reactivation/operators/${requestCode}`)
+        fetch(`/auth/dc/reactivation/operators/${requestCode}?_t=${Date.now()}`)
             .then(res => {
                 if (!res.ok) throw new Error("Failed to extract target profile array rows.");
                 return res.json();
@@ -1310,6 +1310,8 @@
                 const isDC = log.sender_role === 'DC';
                 const sender = isDC ? 'District Coordinator' : 'CHiPS Admin';
                 const senderClass = isDC ? 'dc' : 'chips';
+                const username = log.sender_username || '';
+                const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
                 const dateObj = new Date(log.timestamp.replace(' ', 'T'));
                 const formattedTime = dateObj.toLocaleDateString('en-GB') + ' ' + dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
@@ -1336,7 +1338,7 @@
                                 <span class="timeline-step-label">Reactivation</span>
                             </div>
                             <div class="timeline-by-row">
-                                <span class="timeline-by">By: <strong>${sender}</strong></span>
+                                <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
                                 <span class="timeline-time">${formattedTime}</span>
                             </div>
                             <div class="timeline-body">${escapeHtml(log.message)}</div>
@@ -2085,7 +2087,7 @@
             didOpen: () => { Swal.showLoading(); }
         });
 
-        fetch(`/auth/dc/reactivation/operators/${requestCode}`)
+        fetch(`/auth/dc/reactivation/operators/${requestCode}?_t=${Date.now()}`)
             .then(res => res.json())
             .then(payload => {
                 Swal.close();
@@ -2262,6 +2264,8 @@
                             const isChips = senderRoleRaw.toLowerCase().includes('chips');
                             const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
                             const senderClass = isChips ? 'chips' : 'dc';
+                            const username = log.sender_username || '';
+                            const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
 
                             let statusAfter = log.status_after || '';
                             const msg = log.message || '';
@@ -2294,7 +2298,7 @@
                                             <span class="timeline-step-label">REACTIVATION</span>${statusBadgeHtmlInline}
                                         </div>
                                         <div class="timeline-by-row">
-                                            <span class="timeline-by">By: <strong>${sender}</strong></span>
+                                            <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
                                             <span class="timeline-time">${escapeHtml(log.timestamp || '')}</span>
                                         </div>
                                         <div class="timeline-body">${escapeHtml(log.message || '')}</div>

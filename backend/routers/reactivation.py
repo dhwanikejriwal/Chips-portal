@@ -297,6 +297,7 @@ async def get_reactivation_requests_with_operators(
                 "id": rm.id,
                 "message": rm.remark_history,
                 "sender_role": rm.sender_role,
+                "sender_username": rm.author.username if rm.author else "",
                 "timestamp": str(rm.timestamp)[:19] if rm.timestamp else "",
                 "status_after": rm.status_after,
                 "operator_id": rm.operator_id,
@@ -358,6 +359,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
             "id": rm.id,
             "message": rm.remark_history,
             "sender_role": rm.sender_role,
+            "sender_username": rm.author.username if rm.author else "",
             "timestamp": str(rm.timestamp)[:19] if rm.timestamp else "",
             "status_after": rm.status_after,
             "operator_id": rm.operator_id,
@@ -384,9 +386,7 @@ async def activate_individual_operator(operator_id: int, reason: Optional[str] =
         if parent:
             parent.updated_at = get_ist_now()
 
-        remark_text = f"Operator '{op.operator_name}' Approved."
-        if reason:
-            remark_text += f" Remarks: {reason}"
+        remark_text = reason.strip() if reason and reason.strip() else "Approved"
         db.add(ReactivationRemarkHistory(
             request_id=op.request_id,
             operator_id=op.id,
@@ -410,12 +410,12 @@ async def send_to_uidai_individual_operator(operator_id: int, remarks: Optional[
         if parent:
             parent.updated_at = get_ist_now()
 
-        remark_text = f"Sent to UIDAI. Remarks: {remarks.strip()}" if remarks and remarks.strip() else "Sent to UIDAI"
+        remark_text = remarks.strip() if remarks and remarks.strip() else "Sent to UIDAI"
         db.add(ReactivationRemarkHistory(
             request_id=op.request_id,
             operator_id=op.id,
             author_id=current_user.id,
-            remark_history=f"Operator '{op.operator_name}' {remark_text}",
+            remark_history=remark_text,
             sender_role="CHIPS_ADMIN",
             status_after=op.status
         ))
@@ -438,7 +438,7 @@ async def revert_individual_operator(operator_id: int, reason: str = Form(...), 
             request_id=op.request_id,
             operator_id=op.id,
             author_id=current_user.id,
-            remark_history=f"Operator '{op.operator_name}' Reverted. Reason: {reason}",
+            remark_history=reason.strip(),
             sender_role="CHIPS_ADMIN",
             status_after=op.status
         ))
@@ -461,7 +461,7 @@ async def reject_individual_operator(operator_id: int, reason: str = Form(...), 
             request_id=op.request_id,
             operator_id=op.id,
             author_id=current_user.id,
-            remark_history=f"Operator '{op.operator_name}' Rejected. Reason: {reason}",
+            remark_history=reason.strip(),
             sender_role="CHIPS_ADMIN",
             status_after=op.status
         ))
@@ -584,8 +584,8 @@ async def revert_batch_request(request_code: str, revert_reason: str = Form(...)
                 request_id=req.id,
                 operator_id=op.id,
                 author_id=current_user.id,
-                remark_history=f"Operator '{op.operator_name}' Reverted via Batch Revert. Reason: {revert_reason}",
-                sender_role="CHIPS_ADMIN",
+                remark_history=revert_reason.strip(),
+                sender_role="CHIPS",
                 status_after="REVERTED"
             ))
             
@@ -607,11 +607,12 @@ async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(
         ).all()
         for op in operators:
             op.status = "SENT_TO_UIDAI"
+            remark_text = remarks.strip() if remarks and remarks.strip() else "Sent to UIDAI"
             db.add(ReactivationRemarkHistory(
                 request_id=req.id,
                 operator_id=op.id,
                 author_id=current_user.id,
-                remark_history=f"Operator '{op.operator_name}' Sent to UIDAI via Batch Send. Remarks: {remarks}",
+                remark_history=remark_text,
                 sender_role="CHIPS",
                 status_after="SENT_TO_UIDAI"
             ))
@@ -634,9 +635,7 @@ async def approve_all_operators_in_batch(request_code: str, reason: Optional[str
             if reason:
                 op.reject_reason = reason
             
-            remark_text = f"Operator '{op.operator_name}' Approved via Bulk Approve."
-            if reason:
-                remark_text += f" Remarks: {reason}"
+            remark_text = reason.strip() if reason and reason.strip() else "Approved"
             db.add(ReactivationRemarkHistory(
                 request_id=req.id,
                 operator_id=op.id,
@@ -667,7 +666,7 @@ async def reject_all_operators_in_batch(request_code: str, reason: str = Form(..
                 request_id=req.id,
                 operator_id=op.id,
                 author_id=current_user.id,
-                remark_history=f"Operator '{op.operator_name}' Rejected via Bulk Reject. Reason: {reason}",
+                remark_history=reason.strip(),
                 sender_role="CHIPS_ADMIN",
                 status_after="REJECTED"
             ))

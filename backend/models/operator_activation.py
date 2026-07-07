@@ -49,7 +49,7 @@ class OperatorActivationRequest(Base):
     def status(cls):
         return get_status_expression(cls.status_code, casing="lower")
         
-    remark_to_uidai = Column(Text, nullable=True)
+
     submitted_at = Column(DateTime, nullable=False, default=get_ist_time, index=True)
     reviewed_at = Column(DateTime, nullable=True)
     reviewed_by = Column(Integer, ForeignKey("user_login_table.id"), nullable=True, index=True)

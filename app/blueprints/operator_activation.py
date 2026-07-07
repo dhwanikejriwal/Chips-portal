@@ -145,7 +145,24 @@ def dc_requests_list():
         requests_list = []
 
     error = request.args.get("error")
-    return render_template("operator_activation/dc_list.html", requests=requests_list, error=error)
+    reapply_id = request.args.get("reapply_id")
+    request_data = None
+    
+    if reapply_id:
+        try:
+            detail_res = requests.get(f"{backend_url()}/{reapply_id}/detail", headers=headers)
+            if detail_res.status_code == 200:
+                request_data = detail_res.json()
+        except requests.exceptions.ConnectionError:
+            pass
+
+    return render_template(
+        "operator_activation/dc_list.html", 
+        requests=requests_list, 
+        error=error,
+        reapply_id=reapply_id,
+        request_data=request_data
+    )
 
 
 @operator_activation_bp.route(

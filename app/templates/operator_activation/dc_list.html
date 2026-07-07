@@ -93,7 +93,7 @@
         <div class="filter-group filter-group-search">
             <label>Search Operator</label>
             <input type="text" id="dc-search-input" class="filter-input"
-                placeholder="Search by name, mobile or request ID..." oninput="filterAllTables()">
+                placeholder="Search by name, ID, mobile, email, EA/user code..." oninput="filterAllTables()">
         </div>
         <div class="filter-group">
             <label>Time Period</label>
@@ -142,8 +142,12 @@
                     <th>Request ID</th>
                     <th>Operator Name</th>
                     <th>Mobile</th>
+                    <th>Email ID</th>
+                    <th>EA Code</th>
+                    <th>User Code</th>
                     <th>Status</th>
                     <th>Submitted At</th>
+                    <th>Reviewed At</th>
                     <th style="text-align: center;">Action</th>
                 </tr>
             </thead>
@@ -151,6 +155,7 @@
                 {% for r in requests if r.status not in ['approved', 'reverted', 'rejected', 'reverted_by_chips'] %}
                 <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
                     data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
+                    data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
                     data-district="{{ r.district_name or 'Raipur' }}" data-aadhaar="{{ r.operator_aadhaar or '' }}"
                     data-pan="{{ r.operator_pan or '' }}" data-status="{{ r.status }}"
                     data-created="{{ r.submitted_at }}" data-remarks='{{ r.remarks_history | tojson | safe }}'>
@@ -159,6 +164,9 @@
                     <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
                     <td>{{ r.operator_name }}</td>
                     <td>{{ r.operator_mobile }}</td>
+                    <td>{{ r.primary_email or '—' }}</td>
+                    <td>{{ r.ea_code or '—' }}</td>
+                    <td>{{ r.user_code or '—' }}</td>
                     <td>
                         {% set badge_class = 'reverted' if 'revert' in r.status else r.status %}
                         <span class="sid-badge sid-badge-{{ badge_class }}">
@@ -168,6 +176,13 @@
                         </span>
                     </td>
                     <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
+                    <td>
+                        {% if r.status in ['reapplied', 'sent_to_uidai'] %}
+                            {{ r.reviewed_at if r.reviewed_at else '—' }}
+                        {% else %}
+                            {# Keep empty for pending status #}
+                        {% endif %}
+                    </td>
                     <td style="text-align: center;">
                         <button class="btn-details" onclick="openActivationDetailsModal(this.closest('tr'))">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -198,7 +213,8 @@
                 style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
                 <option value="all">All Statuses</option>
                 <option value="approved">Approved</option>
-                <option value="reverted">Reverted / Rejected</option>
+                <option value="reverted">Reverted</option>
+                <option value="rejected">Rejected</option>
             </select>
             <button class="btn btn-sm"
                 onclick="exportTableToCSV('approved-requests-table', 'activation_log_history.csv')">Export to
@@ -213,6 +229,9 @@
                     <th>Request ID</th>
                     <th>Operator Name</th>
                     <th>Mobile</th>
+                    <th>Email ID</th>
+                    <th>EA Code</th>
+                    <th>User Code</th>
                     <th>Status</th>
                     <th>Submitted At</th>
                     <th>Updated At</th>
@@ -223,6 +242,7 @@
                 {% for r in requests if r.status in ['approved', 'reverted', 'rejected', 'reverted_by_chips'] %}
                 <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
                     data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
+                    data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
                     data-district="{{ r.district_name or 'Raipur' }}" data-aadhaar="{{ r.operator_aadhaar or '' }}"
                     data-pan="{{ r.operator_pan or '' }}" data-status="{{ r.status }}"
                     data-created="{{ r.submitted_at }}" data-remarks='{{ r.remarks_history | tojson | safe }}'>
@@ -231,6 +251,9 @@
                     <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
                     <td>{{ r.operator_name }}</td>
                     <td>{{ r.operator_mobile }}</td>
+                    <td>{{ r.primary_email or '—' }}</td>
+                    <td>{{ r.ea_code or '—' }}</td>
+                    <td>{{ r.user_code or '—' }}</td>
                     <td>
                         {% set badge_class = 'reverted' if 'revert' in r.status else r.status %}
                         <span class="sid-badge sid-badge-{{ badge_class }}">
@@ -281,6 +304,11 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
+        
+        if (urlParams.get('reapply_id')) {
+            switchActivationView('form');
+        }
+
         if (urlParams.get('reapplied') === 'true') {
             Swal.fire({
                 title: 'Reapplied Successfully!',
@@ -353,17 +381,26 @@
                 const name = (row.getAttribute('data-name') || '').toLowerCase();
                 const mobile = (row.getAttribute('data-mobile') || '').toLowerCase();
                 const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+                const email = (row.getAttribute('data-email') || '').toLowerCase();
+                const eaCode = (row.getAttribute('data-ea-code') || '').toLowerCase();
+                const userCode = (row.getAttribute('data-user-code') || '').toLowerCase();
                 const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
                 const createdDate = row.getAttribute('data-created') || '';
 
-                const matchQuery = !searchQuery || name.includes(searchQuery) || mobile.includes(searchQuery) || reqNo.includes(searchQuery);
+                const matchQuery = !searchQuery || 
+                    name.includes(searchQuery) || 
+                    mobile.includes(searchQuery) || 
+                    reqNo.includes(searchQuery) ||
+                    email.includes(searchQuery) ||
+                    eaCode.includes(searchQuery) ||
+                    userCode.includes(searchQuery);
 
                 let matchStatus = true;
                 if (statusFilter !== 'all') {
                     if (statusFilter === 'pending') {
                         matchStatus = ['pending'].includes(rowStatus);
                     } else if (statusFilter === 'reverted') {
-                        matchStatus = ['reverted', 'rejected'].includes(rowStatus);
+                        matchStatus = ['reverted', 'reverted_by_chips'].includes(rowStatus);
                     } else {
                         matchStatus = rowStatus === statusFilter;
                     }
@@ -711,7 +748,14 @@
         let previewHtml = '';
         let previewButtonHtml = '';
 
-        if (isImage) {
+        if (title.toLowerCase().includes('excel') || ['xls', 'xlsx', 'csv'].includes(extension)) {
+            previewHtml = `
+                <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px;">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+            `;
+            previewButtonHtml = '';
+        } else if (isImage) {
             previewHtml = `<img src="${fileUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">`;
             previewButtonHtml = `
                 <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
@@ -790,6 +834,9 @@
         const remarksHtml = buildRemarksHtml(d.remarks_history || []);
         const normStatus = (d.status || status || '').trim().toLowerCase();
         const isRevertable = ['reverted', 'reverted by chips', 'reverted_by_chips', 'rejected'].includes(normStatus);
+        const isRejected = (normStatus === 'rejected');
+        const alertTitle = isRejected ? 'Action Required — Request Rejected' : 'Action Required — Request Reverted';
+        const reasonHeader = isRejected ? 'REJECT REASON / REMARKS' : 'REVERT REASON / REMARKS';
 
         let latestRevertReason = '';
         if (isRevertable && d.remarks_history && d.remarks_history.length > 0) {
@@ -820,7 +867,7 @@
 
                 ${isRevertable ? `
                 <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
-                    <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;"><i class="fas fa-exclamation-triangle" style="margin-right: 4px;"></i> Action Required — Request Reverted</div>
+                    <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;"><i class="fas fa-exclamation-triangle" style="margin-right: 4px;"></i> ${alertTitle}</div>
                     <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</div>
                 </div>
                 ` : ''}
@@ -829,7 +876,7 @@
                 <div style="background:#fef2f2;border:1px dashed #fca5a5;border-left:4px solid #ef4444;border-radius:6px;padding:12px 14px;margin-top:-6px;margin-bottom:20px;text-align:left;">
                     <div style="font-size:11px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                        REVERT / REJECTION REASON
+                        ${reasonHeader}
                     </div>
                     <div style="font-size:13px;color:#7f1d1d;font-weight:500;line-height:1.4;">
                         ${escapeHtml(latestRevertReason)}
@@ -946,8 +993,7 @@
                 }
             }).then((result) => {
                 if (result.isConfirmed && isRevertable) {
-
-                    openActivationReapplyModal(id, requestNo, d, remarksHtml);
+                    window.location.href = `/auth/dc/operator-activation/list?reapply_id=${id}`;
                 }
             });
         }
@@ -1039,145 +1085,7 @@
 
 
 
-    function openActivationReapplyModal(id, requestNo, d, remarksHtml) {
-        let htmlContent = `
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
-                <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;"><i class="fas fa-exclamation-triangle" style="margin-right: 4px;"></i> Action Required — Request Reverted</div>
-                <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below, make corrections and reapply.</div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;text-align:left;max-height:40vh;overflow-y:auto;padding-right:10px;">
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Mobile Number *</div>
-                    <input id="reapply-mobile" type="text" value="${d.operator_mobile || ''}" maxlength="10"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                </div>
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Aadhaar Last 4 Digits *</div>
-                    <input id="reapply-aadhaar" type="text" value="${d.operator_aadhaar || ''}" maxlength="4"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                </div>
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">PAN Number</div>
-                    <input id="reapply-pan" type="text" value="${d.operator_pan || d.pan_number || ''}" maxlength="10"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;text-transform:uppercase;">
-                </div>
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Primary Email ID</div>
-                    <input id="reapply-email" type="email" value="${d.primary_email || ''}"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                </div>
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Role</div>
-                    <select id="reapply-role" style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                        <option value="Operator" ${d.role === 'Operator' ? 'selected' : ''}>Operator</option>
-                        <option value="Supervisor" ${d.role === 'Supervisor' ? 'selected' : ''}>Supervisor</option>
-                    </select>
-                </div>
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Registrar Code</div>
-                    <input id="reapply-registrar" type="text" value="${d.registrar_code || '986'}"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                </div>
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">EA Code</div>
-                    <select id="reapply-ea" style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                        <option value="2084" ${d.ea_code === '2084' ? 'selected' : ''}>2084 (ECMP)</option>
-                        <option value="4082" ${d.ea_code === '4082' ? 'selected' : ''}>4082 (UCL)</option>
-                    </select>
-                </div>
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">User Code</div>
-                    <input id="reapply-user-code" type="text" value="${d.user_code || ''}"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                </div>
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Pincode</div>
-                    <input id="reapply-pincode" type="text" value="${d.pincode || ''}"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                </div>
-                <div style="grid-column:1/-1;">
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">NSEIT Certificate Number</div>
-                    <input id="reapply-nseit" type="text" value="${d.nseit_certificate_number || ''}"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                </div>
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">NSEIT Cert Date</div>
-                    <input id="reapply-cert-date" type="date" value="${(d.nseit_certification_date || '').substring(0, 10)}"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                </div>
-                <div>
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">NSEIT Expiry Date</div>
-                    <input id="reapply-exp-date" type="date" value="${(d.nseit_certificate_expiry_date || '').substring(0, 10)}"
-                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-                </div>
-            </div>
-            <div style="text-align:left;margin-bottom:12px;">
-                <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Correction Notes * <span style="text-transform:none;font-size:10px;font-weight:400;color:#94a3b8;">(Mandatory — describe what was corrected)</span></div>
-                <textarea id="reapply-remark" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:75px;outline:none;"
-                    placeholder="Explain what changes you made to address the revert reason..."></textarea>
-            </div>
-            ${remarksHtml}
-        `;
 
-        Swal.fire({
-            title: `<span style="color:#dc2626; font-family:inherit; font-weight:800;">Modify & Reapply</span>`,
-            html: htmlContent,
-            showCancelButton: true,
-            confirmButtonText: 'Resubmit Request',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#007bff',
-            width: '560px',
-            focusConfirm: false,
-            preConfirm: () => {
-                const updatedMobile = document.getElementById('reapply-mobile').value.trim();
-                const updatedAadhaar = document.getElementById('reapply-aadhaar').value.trim();
-                const updatedPan = document.getElementById('reapply-pan').value.trim().toUpperCase();
-                const reapplyRemark = document.getElementById('reapply-remark').value.trim();
-
-                if (!updatedMobile || !reapplyRemark) {
-                    Swal.showValidationMessage('Please fill all mandatory fields and update notes.');
-                    return false;
-                }
-
-                const formData = new FormData();
-                formData.append('dc_id', "{{ session.get('user_id', 1) }}");
-                formData.append('operator_mobile', updatedMobile);
-                formData.append('operator_aadhaar', updatedAadhaar);
-                formData.append('operator_pan', updatedPan);
-                formData.append('primary_email', document.getElementById('reapply-email').value.trim());
-                formData.append('role', document.getElementById('reapply-role').value.trim());
-                formData.append('registrar_code', document.getElementById('reapply-registrar').value.trim());
-                formData.append('ea_code', document.getElementById('reapply-ea').value.trim());
-                formData.append('user_code', document.getElementById('reapply-user-code').value.trim());
-                formData.append('pincode', document.getElementById('reapply-pincode').value.trim());
-                formData.append('nseit_certificate_number', document.getElementById('reapply-nseit').value.trim());
-                formData.append('nseit_certification_date', document.getElementById('reapply-cert-date').value.trim());
-                formData.append('nseit_certificate_expiry_date', document.getElementById('reapply-exp-date').value.trim());
-                formData.append('reapply_remark', reapplyRemark);
-
-                return fetch(`/auth/dc/operator-activation/${id}/reapply-json`, {
-                    method: 'POST',
-                    body: formData
-                }).then(res => {
-                    if (!res.ok) throw new Error('Failed to submit updates.');
-                    return res.json();
-                }).catch(err => {
-                    Swal.showValidationMessage(`Submission error: ${err.message}`);
-                });
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    title: 'Reapplied Successfully!',
-                    text: 'Your modifications have been submitted back to CHiPS.',
-                    icon: 'success',
-                    confirmButtonColor: '#007bff'
-                }).then(() => {
-                    window.location.reload();
-                });
-            }
-        });
-    }
 
     function switchActivationView(view) {
         if (view === 'form') {

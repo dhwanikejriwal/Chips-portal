@@ -152,7 +152,7 @@
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
         <label>Search Operator</label>
-        <input type="text" id="global-search" class="filter-input" placeholder="Search by name, mobile, request ID..."
+        <input type="text" id="global-search" class="filter-input" placeholder="Search by name, ID, mobile, email, EA/user code, district..."
             oninput="filterAllTables()">
     </div>
     <div class="filter-group">
@@ -219,8 +219,12 @@
             <tr>
                 <th style="width: 60px;">S.No</th>
                 <th>Request ID</th>
+                <th>District</th>
                 <th>Operator Name</th>
                 <th>Mobile</th>
+                <th>Email ID</th>
+                <th>EA Code</th>
+                <th>User Code</th>
                 <th>Status</th>
                 <th>Submitted At</th>
                 <th style="width: 280px; text-align: center;">Action</th>
@@ -231,11 +235,16 @@
             {% for r in requests if r.status == 'pending' or r.status == 'reapplied' %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
                 data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
+                data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
                 data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}" data-status="{{ r.status }}">
                 <td>{{ ns.count }}</td>
                 <td><strong>{{ r.request_no or '—' }}</strong></td>
+                <td>{{ r.district_name or '—' }}</td>
                 <td>{{ r.operator_name }}</td>
                 <td>{{ r.operator_mobile }}</td>
+                <td>{{ r.primary_email or '—' }}</td>
+                <td>{{ r.ea_code or '—' }}</td>
+                <td>{{ r.user_code or '—' }}</td>
                 <td>
                     <span class="sid-badge sid-badge-{{ r.status }}">
                         {{ r.status | replace('_', ' ') | capitalize }}
@@ -299,10 +308,15 @@
             <tr>
                 <th style="width: 60px;">S.No</th>
                 <th>Request ID</th>
+                <th>District</th>
                 <th>Operator Name</th>
                 <th>Mobile</th>
+                <th>Email ID</th>
+                <th>EA Code</th>
+                <th>User Code</th>
                 <th>Status</th>
                 <th>Submitted At</th>
+                <th>Updated At</th>
                 <th style="width: 300px; text-align: center;">Action</th>
             </tr>
         </thead>
@@ -311,17 +325,23 @@
             {% for r in requests if r.status == 'sent_to_uidai' %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
                 data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
+                data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
                 data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}" data-status="{{ r.status }}">
                 <td>{{ ns3.count }}</td>
                 <td><strong>{{ r.request_no or '—' }}</strong></td>
+                <td>{{ r.district_name or '—' }}</td>
                 <td>{{ r.operator_name }}</td>
                 <td>{{ r.operator_mobile }}</td>
+                <td>{{ r.primary_email or '—' }}</td>
+                <td>{{ r.ea_code or '—' }}</td>
+                <td>{{ r.user_code or '—' }}</td>
                 <td>
                     <span class="sid-badge sid-badge-{{ r.status }}">
                         {{ r.status | replace('_', ' ') | capitalize }}
                     </span>
                 </td>
                 <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+                <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% else %}—{% endif %}</td>
                 <td>
                     <div class="action-group" style="justify-content: center;">
                         <button type="button" class="btn-approve"
@@ -379,8 +399,12 @@
             <tr>
                 <th style="width: 60px;">S.No</th>
                 <th>Request ID</th>
+                <th>District</th>
                 <th>Operator Name</th>
                 <th>Mobile</th>
+                <th>Email ID</th>
+                <th>EA Code</th>
+                <th>User Code</th>
                 <th>Status</th>
                 <th>Submitted At</th>
                 <th>Updated At</th>
@@ -392,11 +416,16 @@
             {% for r in requests if r.status == 'approved' or r.status == 'rejected' or r.status == 'reverted' %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
                 data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
+                data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
                 data-status="{{ r.status }}" data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
                 <td>{{ ns2.count }}</td>
                 <td><strong>{{ r.request_no or '—' }}</strong></td>
+                <td>{{ r.district_name or '—' }}</td>
                 <td>{{ r.operator_name }}</td>
                 <td>{{ r.operator_mobile }}</td>
+                <td>{{ r.primary_email or '—' }}</td>
+                <td>{{ r.ea_code or '—' }}</td>
+                <td>{{ r.user_code or '—' }}</td>
                 <td>
                     <span class="sid-badge sid-badge-{{ r.status }}">
                         {{ r.status | replace('_', ' ') | capitalize }}
@@ -499,10 +528,20 @@
                 const mobile = (row.getAttribute('data-mobile') || '').toLowerCase();
                 const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
                 const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+                const email = (row.getAttribute('data-email') || '').toLowerCase();
+                const eaCode = (row.getAttribute('data-ea-code') || '').toLowerCase();
+                const userCode = (row.getAttribute('data-user-code') || '').toLowerCase();
                 const created = row.getAttribute('data-created') || '';
                 const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
 
-                const matchQuery = !q || name.includes(q) || mobile.includes(q) || reqNo.includes(q);
+                const matchQuery = !q || 
+                    name.includes(q) || 
+                    mobile.includes(q) || 
+                    reqNo.includes(q) ||
+                    dist.includes(q) ||
+                    email.includes(q) ||
+                    eaCode.includes(q) ||
+                    userCode.includes(q);
                 const matchDistrict = selectedDistrict === 'all' || dist === selectedDistrict.toLowerCase();
                 const matchStatus = sec.sf === 'all' || rowStatus === sec.sf;
 
@@ -566,8 +605,8 @@
         const tbody = document.getElementById(tbodyId);
         if (!tbody) return;
 
-        // 🌟 Extracts all background nodes, overriding visual display properties
-        const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+        // Only extract visible/filtered row nodes
+        const rows = Array.from(tbody.querySelectorAll('tr[data-id]')).filter(r => r.style.display !== 'none');
 
         if (rows.length === 0) {
             Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#4f46e5' });
@@ -1131,7 +1170,14 @@
         let previewHtml = '';
         let previewButtonHtml = '';
 
-        if (isImage) {
+        if (title.toLowerCase().includes('excel') || ['xls', 'xlsx', 'csv'].includes(extension)) {
+            previewHtml = `
+                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px;">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    </div>
+                `;
+            previewButtonHtml = '';
+        } else if (isImage) {
             previewHtml = `<img src="${fileUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">`;
             previewButtonHtml = `
                     <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">

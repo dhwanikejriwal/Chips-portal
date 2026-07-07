@@ -43,16 +43,11 @@ function showL1Dashboard() {
 }
 
 function showL1Form() {
-    // 🌟 FIXED: Wipes out cached values from previous operations before rendering the canvas panel
-    if (typeof clearL1Form === 'function') {
-        clearL1Form();
-    } else {
-        const formElement = document.getElementById('l1RegistrationForm');
-        if (formElement) formElement.reset();
-    }
-
     document.getElementById('view-l1-dashboard-panel').style.display = 'none';
     document.getElementById('view-l1-application-panel').style.display = 'block';
+    if (typeof window.loadL1Draft === 'function') {
+        window.loadL1Draft();
+    }
 }
 
 function filterL1Table() {
@@ -184,6 +179,11 @@ function submitL1Registration(event) {
                 timer: 3000,
                 timerProgressBar: true
             }).then(() => {
+                if (typeof window.clearL1DraftAndForm === 'function') {
+                    window.clearL1DraftAndForm();
+                } else if (typeof clearL1Form === 'function') {
+                    clearL1Form();
+                }
                 sessionStorage.setItem('dc_action_reloading', 'true');
                 window.location.reload();
             });
@@ -705,6 +705,7 @@ function openL1DetailsModal(requestCode) {
 }
 
 function clearL1Form() {
+    sessionStorage.removeItem('l1_request_draft');
     document.getElementById('l1RegistrationForm').reset();
 }
 
@@ -739,4 +740,70 @@ function exportTableToExcel(tableID, filename = 'export.csv') {
     // Redirect to the backend export endpoint
     window.location.href = `/auth/l1-registration/export?ids=${ids.join(',')}`;
 }
+
+// Draft saving and restoring logic
+const L1_DRAFT_KEY = 'l1_request_draft';
+
+window.saveL1Draft = function() {
+    const form = document.getElementById('l1RegistrationForm');
+    if (!form) return;
+    const formData = new FormData(form);
+    const draft = {};
+    for (let [key, value] of formData.entries()) {
+        if (value instanceof File) continue;
+        draft[key] = value;
+    }
+    sessionStorage.setItem(L1_DRAFT_KEY, JSON.stringify(draft));
+};
+
+window.loadL1Draft = function() {
+    const draftStr = sessionStorage.getItem(L1_DRAFT_KEY);
+    if (!draftStr) return;
+    try {
+        const draft = JSON.parse(draftStr);
+        for (let key in draft) {
+            const el = document.getElementById(key) || document.getElementsByName(key)[0];
+            if (el && el.type !== 'file' && el.type !== 'hidden') {
+                el.value = draft[key];
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+    } catch (e) {
+        console.error("Error loading L1 draft", e);
+    }
+};
+
+window.clearL1DraftAndForm = function() {
+    sessionStorage.removeItem(L1_DRAFT_KEY);
+    if (typeof clearL1Form === 'function') {
+        clearL1Form();
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('l1RegistrationForm');
+    if (form) {
+        form.addEventListener('input', window.saveL1Draft);
+        form.addEventListener('change', window.saveL1Draft);
+    }
+
+    let isReloadOrBack = false;
+    const navEntries = performance.getEntriesByType('navigation');
+    if (navEntries.length > 0) {
+        const navType = navEntries[0].type;
+        isReloadOrBack = (navType === 'reload' || navType === 'back_forward');
+    } else if (window.performance && window.performance.navigation) {
+        const t = window.performance.navigation.type;
+        isReloadOrBack = (t === 1 || t === 2);
+    }
+
+    const isActionReload = sessionStorage.getItem('dc_action_reloading') === 'true';
+    if (isReloadOrBack && !isActionReload) {
+        window.clearL1DraftAndForm();
+    }
+    
+    // Attempt load if not just cleared
+    window.loadL1Draft();
+});
 
