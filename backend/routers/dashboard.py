@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from backend.database import get_db
 from backend.models.operator_activation import OperatorActivationRequest
-from backend.models.base import User, District, UserRole
+from backend.models import User, District, MasterUserRole
 
 router = APIRouter()
 
@@ -40,9 +40,10 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         func.count(case((OperatorActivationRequest.status == "pending", 1))).label("pending"),
         func.avg(func.extract("epoch", OperatorActivationRequest.reviewed_at - OperatorActivationRequest.submitted_at) / 3600).label("avg_pending_hours")
     ).select_from(User)\
+     .join(MasterUserRole, User.roleid == MasterUserRole.id)\
      .outerjoin(District, User.district_id == District.id)\
      .outerjoin(OperatorActivationRequest, User.id == OperatorActivationRequest.dc_id)\
-     .filter(User.role == UserRole.DC)\
+     .filter(MasterUserRole.role == "DC")\
      .group_by(User.id, User.username, District.name)\
      .all()
 

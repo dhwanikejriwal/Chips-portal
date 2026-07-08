@@ -20,11 +20,11 @@ class StationIDRequest(Base):
 
     number_of_kits = Column(Integer, nullable=False)
 
-    status_code = Column(String(2), nullable=False, default="SC", index=True)
+    status_code = Column(String(2), ForeignKey("master_status.code"), nullable=False, default="SC", index=True)
 
     @hybrid_property
     def status(self) -> str:
-        return to_name(self.status_code, casing="lower")
+        return to_name(self.status_code)
 
     @status.setter
     def status(self, value: str):
@@ -32,7 +32,7 @@ class StationIDRequest(Base):
 
     @status.expression
     def status(cls):
-        return get_status_expression(cls.status_code, casing="lower")
+        return get_status_expression(cls.status_code)
 
     # The actual Station ID string inserted by CHIPS Admin upon approval
     station_id_inserted = Column(Text, nullable=True)
@@ -69,13 +69,13 @@ class StationIDRemark(Base):
     author_role = Column(String(20), nullable=False)  # 'dc' or 'chips_admin'
     remark = Column(Text, nullable=False)
     
-    status_after_code = Column(String(2), nullable=True)
+    status_after_code = Column(String(2), ForeignKey("master_status.code"), nullable=True)
 
     @hybrid_property
     def status_after(self) -> str | None:
         if self.status_after_code is None:
             return None
-        return to_name(self.status_after_code, casing="lower")
+        return to_name(self.status_after_code)
 
     @status_after.setter
     def status_after(self, value: str | None):
@@ -86,7 +86,7 @@ class StationIDRemark(Base):
 
     @status_after.expression
     def status_after(cls):
-        return get_status_expression(cls.status_after_code, casing="lower")
+        return get_status_expression(cls.status_after_code)
         
     created_at = Column(DateTime, nullable=False, default=get_ist_time)
 

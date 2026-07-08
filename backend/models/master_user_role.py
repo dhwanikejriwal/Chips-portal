@@ -1,6 +1,10 @@
 from sqlalchemy import String, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.models.base import Base
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.models.user_login import UserLogin
 
 class MasterUserRole(Base):
     __tablename__ = "master_user_role"

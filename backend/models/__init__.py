@@ -1,5 +1,5 @@
 from backend.models.base import Base, get_ist_time
-from backend.models.lms import RequestStatus, CredentialRequest, LMS, LMSRemark
+from backend.models.lms import LMS, LMSRemark
 
 from backend.models.master_user_role import MasterUserRole
 from backend.models.master_status import MasterStatus
@@ -37,8 +37,7 @@ __all__ = [
     "DCRemark",
     "LMS",
     "LMSRemark",
-    "RequestStatus",
-    "CredentialRequest",
+
     "NSEITRequest",
     "NSEITRemark",
     "L1RegistrationRequest",

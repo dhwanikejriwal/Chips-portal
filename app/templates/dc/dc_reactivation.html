@@ -694,7 +694,11 @@
                                     {% endif %}
                                 </div>
                                 <button type="button"
-                                    onclick='window.currentViewingOperators = {{ req.operators | tojson | safe }}; window.currentViewingRequestCode = "{{ req.request_code }}"; window.currentViewingBatchStatus = "{{ req.status }}"; openIndividualOperatorDetailCard({{ loop.index0 }})'
+                                    data-operators="{{ req.operators | tojson | forceescape }}"
+                                    data-request-code="{{ req.request_code }}"
+                                    data-batch-status="{{ req.status }}"
+                                    data-index="{{ loop.index0 }}"
+                                    onclick='window.currentViewingOperators = JSON.parse(this.dataset.operators); window.currentViewingRequestCode = this.dataset.requestCode; window.currentViewingBatchStatus = this.dataset.batchStatus; openIndividualOperatorDetailCard(parseInt(this.dataset.index, 10));'
                                     style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2.5">
@@ -783,7 +787,9 @@
                             <td><strong>{{ op.request_code }}</strong></td>
                             <td style="text-align: center;">
                                 <button type="button" class="btn-details"
-                                    onclick='window.currentViewingOperators = [{{ op | tojson | safe }}]; window.currentViewingRequestCode = "{{ op.request_code }}"; openIndividualOperatorDetailCard(0)'>
+                                    data-operator="{{ op | tojson | forceescape }}"
+                                    data-request-code="{{ op.request_code }}"
+                                    onclick="window.currentViewingOperators = [JSON.parse(this.getAttribute('data-operator'))]; window.currentViewingRequestCode = this.getAttribute('data-request-code'); openIndividualOperatorDetailCard(0)">
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2.5">
                                         <circle cx="11" cy="11" r="8" />
@@ -811,9 +817,15 @@
 
 </div>
 
+<script id="backend-payload-data" type="application/json">
+    {{ requests | default([]) | tojson | safe }}
+</script>
+<script id="approved-operators-data" type="application/json">
+    {{ activated_operators | default([]) | tojson | safe }}
+</script>
 <script>
-    const rawBackendPayload = {% if requests %}{ { requests | tojson | safe } } {% else %} []{% endif %};
-    const rawApprovedOperators = {% if activated_operators %}{ { activated_operators | tojson | safe } } {% else %} []{% endif %};
+    const rawBackendPayload = JSON.parse(document.getElementById('backend-payload-data').textContent || '[]');
+    const rawApprovedOperators = JSON.parse(document.getElementById('approved-operators-data').textContent || '[]');
     window.historyRequestsPayload = Array.isArray(rawBackendPayload) ? rawBackendPayload.map(req => ({
         request_code: String(req.request_code || ''),
         submitted_at: String(req.created_at || '—'),

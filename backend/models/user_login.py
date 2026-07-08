@@ -2,6 +2,12 @@ from sqlalchemy import String, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.models.base import Base
 
+from backend.models.master_user_role import MasterUserRole
+from backend.models.district import District
+from backend.models.dc_remark import DCRemark
+from backend.models.lms import LMSRemark
+from backend.models.nseit import NSEITRemark
+
 class UserLogin(Base):
     __tablename__ = "user_login_table"
 

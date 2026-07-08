@@ -86,7 +86,11 @@
                     </div>
                     <input type="hidden" id="dob" name="dob" required>
                     <div id="dob_error"
-                        style="color: #e53e3e; font-size: 13px; font-weight: 500; margin-top: 6px; {% if field_errors and field_errors.dob %}display: block;{% else %}display: none;{% endif %}">
+                        {% if field_errors and field_errors.dob %}
+                        style="color: #e53e3e; font-size: 13px; font-weight: 500; margin-top: 6px; display: block;"
+                        {% else %}
+                        style="color: #e53e3e; font-size: 13px; font-weight: 500; margin-top: 6px; display: none;"
+                        {% endif %}>
                         {{ field_errors.dob if field_errors else '' }}
                     </div>
                 </div>
@@ -294,6 +298,9 @@
     </div>
 </div>
 
+<script id="server-form-data" type="application/json">
+{{ form_data|tojson|safe if form_data else 'null' }}
+</script>
 <script>
     const IS_10TH = 'High School (10th)';
 
@@ -610,7 +617,7 @@
 
     // Restore form data if there was a validation error
     document.addEventListener('DOMContentLoaded', () => {
-        const serverFormData = {{ form_data|tojson|safe if form_data else 'null' }};
+        const serverFormData = JSON.parse(document.getElementById('server-form-data').textContent);
         if (serverFormData) {
             for (const [key, value] of Object.entries(serverFormData)) {
                 if (!value) continue;

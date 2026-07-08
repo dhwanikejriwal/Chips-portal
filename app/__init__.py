@@ -39,9 +39,22 @@ def create_app():
 
     @app.route("/")
     def index():
-        from flask import render_template
-        return render_template("home.html")
-
+        from flask import render_template, current_app
+        import requests
+        
+        activated_count = "4,200<span>+</span>"
+        try:
+            backend_url = f"{current_app.config['BACKEND_API_URL']}/dashboard/stats"
+            response = requests.get(backend_url, timeout=2)
+            if response.status_code == 200:
+                data = response.json()
+                approved = data.get("summary", {}).get("approved", 0)
+                if approved >= 0:
+                    activated_count = f"{approved:,}"
+        except Exception:
+            pass
+            
+        return render_template("home.html", activated_count=activated_count)
     @app.route('/favicon.ico')
     def favicon():
         import os

@@ -1,3 +1,8 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.models.candidate import Candidate
+    from backend.models.user_login import UserLogin
 from datetime import datetime
 from sqlalchemy import String, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -12,13 +17,13 @@ class DCRemark(Base):
     remark: Mapped[str] = mapped_column(String(1000), nullable=False)
     time: Mapped[datetime] = mapped_column(DateTime, default=get_ist_now, nullable=False)
     
-    status_after_code: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    status_after_code: Mapped[str | None] = mapped_column(String(2), ForeignKey("master_status.code"), nullable=True)
 
     @hybrid_property
     def status_after(self) -> str | None:
         if self.status_after_code is None:
             return None
-        return to_name(self.status_after_code, casing="title")
+        return to_name(self.status_after_code)
 
     @status_after.setter
     def status_after(self, value: str | None):
@@ -29,7 +34,7 @@ class DCRemark(Base):
 
     @status_after.expression
     def status_after(cls):
-        return get_status_expression(cls.status_after_code, casing="title")
+        return get_status_expression(cls.status_after_code)
 
     by: Mapped[int] = mapped_column(Integer, ForeignKey("user_login_table.id"), nullable=False)
 

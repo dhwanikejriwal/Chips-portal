@@ -1,5 +1,12 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 from sqlalchemy import String, Integer, Date, ForeignKey, DateTime, func, Boolean
+
+if TYPE_CHECKING:
+    from backend.models.district import District
+    from backend.models.lms import LMS, LMSRemark
+    from backend.models.nseit import NSEITRequest, NSEITRemark
+    from backend.models.dc_remark import DCRemark
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 from backend.models.base import Base, get_ist_now, to_code, to_name, get_status_expression
@@ -26,11 +33,11 @@ class Candidate(Base):
     marksheet_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
     tenth_marksheet_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
     
-    status_code: Mapped[str] = mapped_column(String(2), default="PE")
+    status_code: Mapped[str] = mapped_column(String(2), ForeignKey("master_status.code"), default="PE")
 
     @hybrid_property
     def status(self) -> str:
-        return to_name(self.status_code, casing="title")
+        return to_name(self.status_code)
 
     @status.setter
     def status(self, value: str):
@@ -38,7 +45,7 @@ class Candidate(Base):
 
     @status.expression
     def status(cls):
-        return get_status_expression(cls.status_code, casing="title")
+        return get_status_expression(cls.status_code)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=get_ist_now, nullable=False, server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, onupdate=get_ist_now, nullable=True, default=None)

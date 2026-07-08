@@ -6,7 +6,7 @@
 
 {% if reapply_id and request_data %}
 <div style="margin-bottom: 20px;">
-    {% set is_rejected = (request_data.status == 'rejected') %}
+    {% set is_rejected = (request_data.status == 'Rejected') %}
 
 
     {% set revert_log = request_data.remarks_history | reverse | selectattr('status_after', 'in', ['reverted',
@@ -519,7 +519,7 @@
 
                 const data = await response.json();
 
-                if (response.ok && data.status === 'success') {
+                if (response.ok && (data.status || '').toLowerCase().replace(/ /g, '_') === 'success') {
                     const isReapply = !!formData.get('reapply_id');
                     Swal.fire({
                         icon: 'success',
@@ -841,7 +841,7 @@
 
     // Draft saving and restoring logic
     const DRAFT_KEY = 'oa_activation_draft';
-    const isReapplyMode = {{ 'true' if reapply_id else 'false' }};
+    const isReapplyMode = "{{ 'true' if reapply_id else 'false' }}" === "true";
 
     window.saveDraft = function() {
         if (isReapplyMode) return;
@@ -890,6 +890,41 @@
             form.addEventListener('input', window.saveDraft);
             form.addEventListener('change', window.saveDraft);
         }
+
+        // Add file size validation matching reactivation
+        document.querySelectorAll('.oa-file-input').forEach(input => {
+            input.addEventListener('change', function() {
+                // Remove any existing error message
+                const parent = this.closest('.oa-doc-card');
+                if (parent) {
+                    let errEl = parent.querySelector('.error-msg-file');
+                    if (errEl) errEl.remove();
+
+                    const file = this.files[0];
+                    if (!file) return;
+
+                    const name = this.name;
+                    const maxMB = name === 'excel_sheet' ? 5 : 2;
+                    const maxBytes = maxMB * 1024 * 1024;
+
+                    if (file.size > maxBytes) {
+                        // Clear input to enforce strictness
+                        this.value = '';
+                        
+                        // Add red warning message below the field
+                        errEl = document.createElement('div');
+                        errEl.className = 'error-msg-file';
+                        errEl.style.color = '#ef4444';
+                        errEl.style.fontSize = '12px';
+                        errEl.style.marginTop = '6px';
+                        errEl.style.fontWeight = '600';
+                        errEl.style.fontFamily = "'Inter', sans-serif";
+                        errEl.innerText = `Must be smaller than ${maxMB}MB.`;
+                        parent.appendChild(errEl);
+                    }
+                }
+            });
+        });
 
         // Check if navigation was via Reload or Back/Forward
         let isReloadOrBack = false;

@@ -9,10 +9,10 @@
 {% block content %}
 
 {% set total_requests = requests | length %}
-{% set pending_count = requests | selectattr('status', 'equalto', 'pending') | list | length %}
-{% set reapplied_count = requests | selectattr('status', 'equalto', 'reapplied') | list | length %}
-{% set approved_count = requests | selectattr('status', 'equalto', 'approved') | list | length %}
-{% set reverted_count = requests | selectattr('status', 'equalto', 'reverted') | list | length %}
+{% set pending_count = requests | selectattr('status', 'equalto', 'Pending') | list | length %}
+{% set reapplied_count = requests | selectattr('status', 'equalto', 'Reapplied') | list | length %}
+{% set approved_count = requests | selectattr('status', 'equalto', 'Approved') | list | length %}
+{% set reverted_count = requests | selectattr('status', 'equalto', 'Reverted') | list | length %}
 
 <div class="chips-header-banner">
     <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
@@ -133,7 +133,7 @@
             </thead>
             <tbody id="pending-tbody">
                 {% set ns_p = namespace(count=1) %}
-                {% for r in requests if r.status in ['pending', 'reapplied'] %}
+                {% for r in requests if r.status in ['Pending', 'Reapplied'] %}
                 <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
                     data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
                     data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
@@ -147,7 +147,7 @@
                         {{ r.user_type | replace('_', ' ') | capitalize }}
                     </td>
                     <td><strong>{{ r.number_of_kits }}</strong></td>
-                    <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize
+                    <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">{{ r.status | replace('_', ' ') | capitalize
                             }}</span></td>
                     <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
                     <td style="text-align: center;">
@@ -208,7 +208,7 @@
             </thead>
             <tbody id="log-tbody">
                 {% set ns_l = namespace(count=1) %}
-                {% for r in requests if r.status in ['approved', 'reverted'] %}
+                {% for r in requests if r.status in ['Approved', 'Reverted'] %}
                 <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
                     data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
                     data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
@@ -223,7 +223,7 @@
                     <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
                     <td>{{ r.user_type | replace('_', ' ') | capitalize }}</td>
                     <td><strong>{{ r.number_of_kits }}</strong></td>
-                    <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize
+                    <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">{{ r.status | replace('_', ' ') | capitalize
                             }}</span></td>
                     <td>
                         {% if r.assigned_station_id %}
@@ -361,7 +361,7 @@
 
         // Details/Reapply modal popup
         window.showStationIdDetails = function (d, activeView) {
-            const isReverted = d.status === 'reverted';
+            const isReverted = (d.status || '').toLowerCase().replace(/ /g, '_') === 'reverted';
 
             const statusBadge = getStatusBadgeHtml(d.status);
 

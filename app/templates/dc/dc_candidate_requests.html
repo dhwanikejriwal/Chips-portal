@@ -219,9 +219,10 @@
                 <td>{{ req.mobile }}</td>
                 <td>{{ req.email }}</td>
                 <td>
-                    {% if req.status == 'Approved' %}
+                    {% set status_lower = req.status | lower %}
+                    {% if status_lower == 'approved' %}
                     <span class="badge badge-approved">Approved</span>
-                    {% elif req.status == 'Rejected' %}
+                    {% elif status_lower == 'rejected' %}
                     <span class="badge badge-rejected">Rejected</span>
                     {% else %}
                     <span class="badge" style="background: #e2e8f0; color: #4a5568;">{{ req.status }}</span>
@@ -931,9 +932,10 @@
     // Open details modal
     window.showCandidateDetails = function (d, activeView, showRemarks = true) {
         let statusBadge = '';
-        if (d.status === 'Approved') {
+        const dStatus = (d.status || '').toLowerCase();
+        if (dStatus === 'approved') {
             statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>';
-        } else if (d.status === 'Rejected') {
+        } else if (dStatus === 'rejected') {
             statusBadge = '<span class="badge badge-rejected" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Rejected</span>';
         } else {
             statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
@@ -957,9 +959,10 @@
                             statusBadge += emailFailedBadgeHtml;
                         }
 
-                        const badgeColor = (d.status === 'Approved') ? '#16a34a' : ((d.status === 'Rejected') ? '#dc2626' : '#888');
-                        const badgeBg = (d.status === 'Approved') ? '#dcfce7' : ((d.status === 'Rejected') ? '#fee2e2' : '#f1f5f9');
-                        const titleText = (d.status === 'Approved') ? 'Approval Remark' : ((d.status === 'Rejected') ? 'Rejection Remark' : 'Admin Remark');
+                        const dStatusLower = (d.status || '').toLowerCase();
+                        const badgeColor = (dStatusLower === 'approved') ? '#16a34a' : ((dStatusLower === 'rejected') ? '#dc2626' : '#888');
+                        const badgeBg = (dStatusLower === 'approved') ? '#dcfce7' : ((dStatusLower === 'rejected') ? '#fee2e2' : '#f1f5f9');
+                        const titleText = (dStatusLower === 'approved') ? 'Approval Remark' : ((dStatusLower === 'rejected') ? 'Rejection Remark' : 'Admin Remark');
                         
                         adminRemarkHtml = `
                         <div style="margin-bottom: 15px; padding: 12px; border-radius: 8px; background-color: ${badgeBg}; border-left: 4px solid ${badgeColor}; font-size: 13px;">

@@ -4,7 +4,8 @@ import csv
 import bcrypt
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
-from backend.models import MasterUserRole, District, UserLogin
+from backend.models import MasterUserRole, District, UserLogin, MasterStatus
+from backend.models.base import INV_STATUS_MAP_TITLE
 
 CSV_PATH = "LGD - Local Government Directory, Government of India.csv"
 
@@ -36,6 +37,17 @@ def seed_database():
                 db.add(MasterUserRole(id=r["id"], role=r["role"]))
         db.commit()
         print("Roles successfully verified/seeded.")
+
+        # 1.5. Seed Master Status
+        for code, name in INV_STATUS_MAP_TITLE.items():
+            existing_status = db.query(MasterStatus).filter_by(code=code).first()
+            if not existing_status:
+                db.add(MasterStatus(code=code, name=name))
+            else:
+                existing_status.name = name
+        db.commit()
+        print("Master statuses successfully verified/seeded.")
+
 
         # 2. Parse and Seed Districts from CSV
         print("Reading districts from CSV...")

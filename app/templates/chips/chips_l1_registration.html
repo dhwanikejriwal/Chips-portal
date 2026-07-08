@@ -53,11 +53,11 @@
 {% set total_requests = requests|length %}
 {% set metrics = namespace(pending=0, approved=0, reverted=0) %}
 {% for req in requests %}
-{% if req.status in ['PENDING', 'REAPPLIED'] %}
+{% if req.status in ['Pending', 'Reapplied'] %}
 {% set metrics.pending = metrics.pending + 1 %}
-{% elif req.status in ['APPROVED', 'REVIEWED'] %}
+{% elif req.status in ['Approved', 'Reviewed'] %}
 {% set metrics.approved = metrics.approved + 1 %}
-{% elif req.status == 'REVERTED' %}
+{% elif req.status == 'Reverted' %}
 {% set metrics.reverted = metrics.reverted + 1 %}
 {% endif %}
 {% endfor %}
@@ -183,7 +183,7 @@
             <tbody id="pending-tbody">
                 {% set pending_count = 0 %}
                 {% for req in requests %}
-                {% if req.status in ['PENDING', 'REAPPLIED'] %}
+                {% if req.status in ['Pending', 'Reapplied'] %}
                 {% set pending_count = pending_count + 1 %}
                 <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}"
                     data-district="{{ req.district_name or '' }}" data-station-id="{{ req.station_id or '' }}"
@@ -195,7 +195,7 @@
                     <td>{{ req.station_id }}</td>
                     <td>{{ req.model_type }}</td>
                     <td>
-                        {% if req.status == 'REAPPLIED' %}
+                        {% if req.status == 'Reapplied' %}
                         <span class="sid-badge sid-badge-reapplied">Reapplied</span>
                         {% else %}
                         <span class="sid-badge sid-badge-pending">Pending</span>
@@ -275,7 +275,7 @@
                 <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}"
                     data-district="{{ req.district_name or '' }}" data-station-id="{{ req.station_id or '' }}"
                     data-model="{{ req.model_type or '' }}"
-                    data-status="{% if req.status in ['APPROVED', 'REVIEWED'] %}approved{% else %}{{ req.status | lower }}{% endif %}"
+                    data-status="{% if req.status in ['Approved', 'Reviewed'] %}approved{% else %}{{ req.status | lower }}{% endif %}"
                     data-created="{{ req.created_at or '' }}">
                     <td>{{ history_count }}</td>
                     <td><strong>{{ req.request_code }}</strong></td>
@@ -283,7 +283,7 @@
                     <td>{{ req.station_id }}</td>
                     <td>{{ req.model_type }}</td>
                     <td>
-                        {% if req.status in ['APPROVED', 'REVIEWED'] %}
+                        {% if req.status in ['Approved', 'Reviewed'] %}
                         <span class="sid-badge sid-badge-approved">Approved</span>
                         {% else %}
                         <span class="sid-badge sid-badge-reverted">Reverted</span>
@@ -407,7 +407,7 @@
             if (history_sf === 'all') {
                 matchStatus = true;
             } else if (history_sf === 'reverted by chips') {
-                matchStatus = (status === 'reverted');
+                matchStatus = ((status || '').toLowerCase().replace(/ /g, '_') === 'reverted');
             } else {
                 matchStatus = (status === history_sf);
             }

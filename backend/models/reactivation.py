@@ -28,11 +28,11 @@ class OperatorReactivationRequest(Base):
     operator_count = Column(Integer, nullable=False)
     training_date = Column(Date, nullable=False)
     
-    status_code = Column(String(2), default="PE", nullable=False, index=True)
+    status_code = Column(String(2), ForeignKey("master_status.code"), default="PE", nullable=False, index=True)
 
     @hybrid_property
     def status(self) -> str:
-        return to_name(self.status_code, casing="upper")
+        return to_name(self.status_code)
 
     @status.setter
     def status(self, value: str):
@@ -40,7 +40,7 @@ class OperatorReactivationRequest(Base):
 
     @status.expression
     def status(cls):
-        return get_status_expression(cls.status_code, casing="upper")
+        return get_status_expression(cls.status_code)
         
     created_at = Column(DateTime(timezone=True), default=get_ist_now, nullable=False, index=True)
     updated_at = Column(DateTime(timezone=True), default=get_ist_now, onupdate=get_ist_now, nullable=False)
@@ -71,11 +71,11 @@ class ReactivationOperator(Base):
     remarks = Column(String(250), nullable=True)
     model_type = Column(String(50), nullable=True)
     
-    status_code = Column(String(2), default="PE", nullable=False)
+    status_code = Column(String(2), ForeignKey("master_status.code"), default="PE", nullable=False)
 
     @hybrid_property
     def status(self) -> str:
-        return to_name(self.status_code, casing="upper")
+        return to_name(self.status_code)
 
     @status.setter
     def status(self, value: str):
@@ -83,7 +83,7 @@ class ReactivationOperator(Base):
 
     @status.expression
     def status(cls):
-        return get_status_expression(cls.status_code, casing="upper")
+        return get_status_expression(cls.status_code)
         
     reject_reason = Column(String(500), nullable=True)
 
@@ -100,13 +100,13 @@ class ReactivationRemarkHistory(Base):
     sender_role = Column(String(50), nullable=False)
     author_id = Column(Integer, ForeignKey("user_login_table.id"), nullable=True)
     
-    status_after_code = Column(String(2), nullable=True)
+    status_after_code = Column(String(2), ForeignKey("master_status.code"), nullable=True)
 
     @hybrid_property
     def status_after(self) -> str | None:
         if self.status_after_code is None:
             return None
-        return to_name(self.status_after_code, casing="upper")
+        return to_name(self.status_after_code)
 
     @status_after.setter
     def status_after(self, value: str | None):
@@ -117,7 +117,7 @@ class ReactivationRemarkHistory(Base):
 
     @status_after.expression
     def status_after(cls):
-        return get_status_expression(cls.status_after_code, casing="upper")
+        return get_status_expression(cls.status_after_code)
         
     timestamp = Column(DateTime(timezone=True), default=get_ist_now, nullable=False)
 

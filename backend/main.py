@@ -34,6 +34,7 @@ from backend.routers.reactivation import router as reactivation_router
 from backend.routers.l2_registration import router as l2_registration_router
 from backend.routers.operator_activation import router as operator_activation_router
 from backend.routers.station_id import router as station_id_router
+from backend.routers.dashboard import router as dashboard_router
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(candidate_register_router, prefix="/api")
@@ -47,6 +48,7 @@ app.include_router(reactivation_router, prefix="/reactivation")
 app.include_router(l2_registration_router, prefix="/l2-registration")
 app.include_router(operator_activation_router, prefix="/operator-activation")
 app.include_router(station_id_router, prefix="/station-id")
+app.include_router(dashboard_router, prefix="/dashboard")
 
 
 @app.on_event("startup")

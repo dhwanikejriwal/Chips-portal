@@ -81,18 +81,18 @@
     <div class="chips-banner-metrics">
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'in', ['pending', 'reapplied']) | list | length }}</div>
+                selectattr('status', 'in', ['Pending', 'Reapplied']) | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
             </div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'reverted') | list | length }}</div>
+                selectattr('status', 'equalto', 'Reverted') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'approved') | list | length }}</div>
+                selectattr('status', 'equalto', 'Approved') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
         </div>
         <div class="chips-metric-card">
@@ -179,7 +179,7 @@
         </thead>
         <tbody id="pending-tbody">
             {% set ns = namespace(count=1) %}
-            {% for r in requests if r.status in ['pending', 'reapplied'] %}
+            {% for r in requests if r.status in ['Pending', 'Reapplied'] %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
                 data-district="{{ r.district_name or '' }}" data-model="{{ r.model }}"
                 data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}"
@@ -193,7 +193,7 @@
                     {{ r.user_type | replace('_', ' ') | capitalize }}
                 </td>
                 <td><strong>{{ r.number_of_kits }}</strong></td>
-                <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize
+                <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">{{ r.status | replace('_', ' ') | capitalize
                         }}</span></td>
                 <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
                 <td>
@@ -263,7 +263,7 @@
         </thead>
         <tbody id="log-tbody">
             {% set ns2 = namespace(count=1) %}
-            {% for r in requests if r.status in ['approved', 'reverted'] %}
+            {% for r in requests if r.status in ['Approved', 'Reverted'] %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
                 data-district="{{ r.district_name or '' }}" data-model="{{ r.model }}"
                 data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}"
@@ -292,7 +292,7 @@
                     <strong style="color:#16a34a;">—</strong>
                     {% endif %}
                 </td>
-                <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize
+                <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">{{ r.status | replace('_', ' ') | capitalize
                         }}</span></td>
                 <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
                 <td>{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
@@ -509,7 +509,7 @@
             if (log_sf === 'all') {
                 matchStatus = true;
             } else if (log_sf === 'reverted by chips') {
-                matchStatus = (status === 'reverted');
+                matchStatus = ((status || '').toLowerCase().replace(/ /g, '_') === 'reverted');
             } else {
                 matchStatus = (status === log_sf);
             }

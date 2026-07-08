@@ -27,35 +27,7 @@ def backend_url():
 @operator_activation_bp.route("/dc/operator-activation", methods=["GET"])
 def dc_submit_form():
 
-# --- FRIEND'S UPDATED CODE ---
     return redirect(url_for("operator_activation.dc_requests_list"))
-# --- YOUR LOCAL CODE ---
-    jwt_token = session.get("access_token")
-    if not jwt_token:
-        return redirect(url_for("auth.login"))
-        
-    reapply_id = request.args.get("reapply_id")
-    request_data = None
-    
-    if reapply_id:
-        headers = {"Authorization": f"Bearer {jwt_token}"}
-        backend_api_url = backend_url()
-        try:
-            response = requests.get(f"{backend_api_url}/{reapply_id}/detail", headers=headers)
-            if response.status_code == 200:
-                request_data = response.json()
-        except requests.exceptions.ConnectionError:
-            pass
-            
-    return render_template(
-        "operator_activation/submit_form.html",
-        district_name=session.get("district_name", ""),
-        request_data=request_data,
-        reapply_id=reapply_id
-    )
-# ---------------------------
-
-
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["POST"])
 def dc_submit():
@@ -108,14 +80,7 @@ def dc_submit():
         )
         if response.status_code == 200:
 
-# --- FRIEND'S UPDATED CODE ---
             return jsonify({"status": "success", "redirect_url": url_for("operator_activation.dc_requests_list")}), 200
-# --- YOUR LOCAL CODE ---
-            if reapply_id:
-                return redirect(url_for("operator_activation.dc_requests_list", reapplied="true"))
-            return redirect(url_for("operator_activation.dc_requests_list", submitted="true"))
-# ---------------------------
-
         else:
             detail = response.json().get("detail", "Submission failed.")
             if isinstance(detail, dict) and "field_errors" in detail:
@@ -203,34 +168,7 @@ def dc_reapply(request_id):
     return redirect(url_for("operator_activation.dc_requests_list"))
 
 
-# @operator_activation_bp.route(
-#     "/dc/operator-activation/<int:request_id>/reapply-json", methods=["POST"]
-# )
-# def dc_reapply_json(request_id):
-#     jwt_token = session.get("access_token")
-#     if not jwt_token:
-#         return jsonify({"detail": "Unauthorized"}), 401
 
-#     headers = {"Authorization": f"Bearer {jwt_token}"}
-#     form_data = {
-#         "dc_id": session.get("user_id"),
-#         "operator_name": request.form.get("operator_name"),
-#         "operator_mobile": request.form.get("operator_mobile"),
-#         "operator_aadhaar": request.form.get("operator_aadhaar", ""),
-#         "operator_pan": request.form.get("operator_pan", ""),
-#         "reapply_remark": request.form.get("reapply_remark"),
-#     }
-
-#     response = requests.post(
-#         f"{backend_url()}/dc/{request_id}/reapply",
-#         data=form_data,
-#         headers=headers,
-#     )
-#     return Response(
-#         response.content,
-#         status=response.status_code,
-#         content_type=response.headers.get("Content-Type", "application/json"),
-#     )
 
 # ───────────────────────────────────────────────────────────────────
 # 🌟 ADDED MISSING ASYNCHRONOUS JSON REAPPLY BRIDGE HANDLER
