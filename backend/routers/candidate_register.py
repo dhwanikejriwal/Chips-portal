@@ -1,10 +1,13 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+import secrets
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, model_validator , field_validator
+from pydantic import BaseModel, model_validator , field_validator, EmailStr
 from sqlalchemy.orm import Session
-
+from sqlalchemy import desc
 from backend.database import get_db
 from backend.models import District, Candidate
+from backend.models.otp_verification import OtpVerification
+from backend.utils.email_utils import send_otp_email
 
 router = APIRouter(prefix="/candidate_register", tags=["candidate_register"])
 
@@ -59,8 +62,93 @@ def get_districts(db: Session = Depends(get_db)):
         } for d in districts
     ]
 
+class SendOtpRequest(BaseModel):
+    email: EmailStr
+    mobile: str = None
+
+class VerifyOtpRequest(BaseModel):
+    email: EmailStr
+    otp_code: str
+
+@router.post("/send-otp")
+async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
+    email_exists = db.query(Candidate).filter(Candidate.email == payload.email).first()
+    
+    mobile_exists = None
+    if payload.mobile:
+        mobile_exists = db.query(Candidate).filter(Candidate.mobile == payload.mobile).first()
+        
+    if email_exists or mobile_exists:
+        field_errors = {}
+        if email_exists:
+            field_errors["email"] = "Email is already registered"
+        if mobile_exists:
+            field_errors["mobile"] = "Mobile number is already registered"
+        raise HTTPException(status_code=400, detail={"field_errors": field_errors})
+
+    otp = "".join(secrets.choice("0123456789") for _ in range(6))
+    expires = datetime.now() + timedelta(minutes=1)
+
+    existing_record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
+    if existing_record:
+        existing_record.otp_code = otp
+        existing_record.expires_at = expires
+        existing_record.is_verified = False
+    else:
+        new_record = OtpVerification(
+            email=payload.email,
+            otp_code=otp,
+            expires_at=expires,
+            is_verified=False
+        )
+        db.add(new_record)
+    
+    db.commit()
+    
+    # Send email asynchronously
+    await send_otp_email(payload.email, otp)
+    
+    return {"success": True, "message": "OTP sent successfully"}
+
+@router.post("/verify-otp")
+def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
+    record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
+    
+    if not record:
+        raise HTTPException(status_code=400, detail="OTP request not found for this email")
+    
+    if record.is_verified:
+        return {"success": True, "message": "Email is already verified"}
+        
+    if record.otp_code != payload.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid OTP code")
+        
+    if datetime.now() > record.expires_at:
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+        
+    record.is_verified = True
+    db.commit()
+    
+    return {"success": True, "message": "Email verified successfully"}
+
 @router.post("/register-candidate")
 def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(get_db)):
+    # 1. Verify that the email was validated via OTP
+    otp_record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
+    if not otp_record or not otp_record.is_verified:
+        raise HTTPException(status_code=400, detail="Email address has not been verified with OTP.")
+
+    # [DUPLICATE CHECK] You can comment out this block below to allow duplicate registrations during testing
+    existing_candidate = db.query(Candidate).filter(
+        (Candidate.email == payload.email) | (Candidate.mobile == payload.mobile)
+    ).first()
+    if existing_candidate:
+        if existing_candidate.email == payload.email:
+            raise HTTPException(status_code=400, detail="This email address is already registered.")
+        else:
+            raise HTTPException(status_code=400, detail="This mobile number is already registered.")
+    # [/DUPLICATE CHECK]
+
     district_obj = db.query(District).filter(District.district_code == payload.district).first()
     if not district_obj:
         raise HTTPException(status_code=400, detail="Invalid district code")
@@ -96,7 +184,46 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
     db.add(new_candidate)
     db.commit()
     
+    # Clean up OTP record now that registration is successful
+    db.delete(otp_record)
+    db.commit()
+    
     return {
         "success": True,
         "request_code": request_code
+    }
+
+class TrackRequest(BaseModel):
+    identifier: str
+
+@router.post("/track")
+def track_application(payload: TrackRequest, db: Session = Depends(get_db)):
+    identifier = payload.identifier.strip()
+    
+    # Search by email or mobile
+    candidate = db.query(Candidate).filter(
+        (Candidate.email == identifier) | (Candidate.mobile == identifier)
+    ).first()
+    
+    if not candidate:
+        raise HTTPException(status_code=404, detail="No application found with this email or mobile number.")
+        
+    from backend.models.dc_remark import DCRemark
+    reject_reason = None
+    if candidate.status_code == "RJ":
+        latest_remark = db.query(DCRemark).filter(
+            DCRemark.r_id == candidate.r_id, 
+            DCRemark.status_after_code == "RJ"
+        ).order_by(desc(DCRemark.time)).first()
+        if latest_remark:
+            reject_reason = latest_remark.remark
+
+    return {
+        "success": True,
+        "request_code": candidate.request_code,
+        "email": candidate.email,
+        "name": candidate.name,
+        "district": candidate.district_rel.district_name if candidate.district_rel else candidate.district,
+        "status": candidate.status,
+        "reject_reason": reject_reason
     }

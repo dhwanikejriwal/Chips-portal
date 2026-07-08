@@ -1,3 +1,4 @@
+
 from datetime import datetime, timedelta
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import case
@@ -34,7 +35,7 @@ STATUS_MAP = {
     "skipped": "SK",
     "rejected": "RJ",
     "reverted by chips": "RC",
-    "activated": "AC"
+    "approved (legacy)": "AC"
 }
 
 INV_STATUS_MAP_LOWER = {
@@ -53,7 +54,7 @@ INV_STATUS_MAP_LOWER = {
     "SK": "skipped",
     "RJ": "rejected",
     "RC": "reverted by chips",
-    "AC": "activated"
+    "AC": "approved"
 }
 
 INV_STATUS_MAP_UPPER = {k: v.upper() for k, v in INV_STATUS_MAP_LOWER.items()}
@@ -74,35 +75,27 @@ INV_STATUS_MAP_TITLE = {
     "SK": "Skipped",
     "RJ": "Rejected",
     "RC": "Reverted by CHiPS",
-    "AC": "Activated"
+    "AC": "Approved"
 }
 
 def to_code(status_str: str) -> str:
     if not status_str:
         return "PE"
-    clean = str(status_str).strip().lower()
-    if clean in STATUS_MAP:
-        return STATUS_MAP[clean]
-    if clean.replace(" ", "_") in STATUS_MAP:
-        return STATUS_MAP[clean.replace(" ", "_")]
-    if clean.replace("_", " ") in STATUS_MAP:
-        return STATUS_MAP[clean.replace("_", " ")]
-    return "PE"
+    s = status_str.strip().lower()
+    return STATUS_MAP.get(s, "PE")
 
-def to_name(status_code: str, casing="lower") -> str:
+def to_name(status_code: str, casing: str = "title") -> str:
     if not status_code:
-        return "pending" if casing == "lower" else ("PENDING" if casing == "upper" else "Pending")
-    if len(status_code) > 2:
-        return status_code # if it is already a long string, return it
+        return ""
     code = status_code.strip().upper()
     if casing == "lower":
-        return INV_STATUS_MAP_LOWER.get(code, "pending")
+        return INV_STATUS_MAP_LOWER.get(code, code)
     elif casing == "upper":
-        return INV_STATUS_MAP_UPPER.get(code, "PENDING")
+        return INV_STATUS_MAP_UPPER.get(code, code)
     else:
-        return INV_STATUS_MAP_TITLE.get(code, "Pending")
+        return INV_STATUS_MAP_TITLE.get(code, code)
 
-def get_status_expression(status_code_col, casing="lower"):
+def get_status_expression(status_code_col, casing: str = "title"):
     if casing == "lower":
         return case(
             (status_code_col == 'PE', 'pending'),
@@ -120,7 +113,7 @@ def get_status_expression(status_code_col, casing="lower"):
             (status_code_col == 'SK', 'skipped'),
             (status_code_col == 'RJ', 'rejected'),
             (status_code_col == 'RC', 'reverted by chips'),
-            (status_code_col == 'AC', 'activated'),
+            (status_code_col == 'AC', 'approved'),
             else_=status_code_col
         )
     elif casing == "upper":
@@ -140,7 +133,7 @@ def get_status_expression(status_code_col, casing="lower"):
             (status_code_col == 'SK', 'SKIPPED'),
             (status_code_col == 'RJ', 'REJECTED'),
             (status_code_col == 'RC', 'REVERTED BY CHIPS'),
-            (status_code_col == 'AC', 'ACTIVATED'),
+            (status_code_col == 'AC', 'APPROVED'),
             else_=status_code_col
         )
     else: # title casing
@@ -160,7 +153,6 @@ def get_status_expression(status_code_col, casing="lower"):
             (status_code_col == 'SK', 'Skipped'),
             (status_code_col == 'RJ', 'Rejected'),
             (status_code_col == 'RC', 'Reverted by CHiPS'),
-            (status_code_col == 'AC', 'Activated'),
+            (status_code_col == 'AC', 'Approved'),
             else_=status_code_col
         )
-

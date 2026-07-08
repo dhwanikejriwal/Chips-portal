@@ -44,13 +44,13 @@ class L2RegistrationRequest(Base):
     uidai_remarks = Column(Text, nullable=True)
 
     submitted_at = Column(DateTime, nullable=False, default=get_ist_time, index=True)
-    reviewed_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-    reviewed_by = Column(Integer, ForeignKey("user_login_table.id"), nullable=True)
+    # reviewed_at = Column(DateTime, nullable=True) # column does not exist in DB
+    # completed_at = Column(DateTime, nullable=True) # column does not exist in DB
+    # reviewed_by = Column(Integer, ForeignKey("user_login_table.id"), nullable=True) # column does not exist in DB
 
     # Relationships
     dc = relationship("UserLogin", foreign_keys=[dc_id])
-    reviewer = relationship("UserLogin", foreign_keys=[reviewed_by])
+    # reviewer = relationship("UserLogin", foreign_keys=[reviewed_by])
     district = relationship("District", foreign_keys=[district_id])
     remarks = relationship(
         "L2RegistrationRemark",

@@ -63,7 +63,7 @@
                     {% elif status_data.lms_status == 'Forwarded' %}
                     <span class="status-badge forwarded">Forwarded</span>
                     {% elif status_data.lms_status == 'Forwarded Again' %}
-                    <span class="status-badge forwarded-again">Forwarded Again</span>
+                    <span class="status-badge forwarded-again">Forwarded</span>
                     {% elif status_data.lms_status == 'Pending' %}
                     <span class="status-badge pending">Pending Review</span>
                     {% elif status_data.lms_status == 'Reapplied' %}
@@ -71,7 +71,7 @@
                     {% elif status_data.lms_status == 'Reverted' %}
                     <span class="status-badge reverted">Reverted</span>
                     {% elif status_data.lms_status == 'Reverted by CHiPS' %}
-                    <span class="status-badge reverted">Reverted by CHiPS</span>
+                    <span class="status-badge reverted">Reverted</span>
                     {% elif status_data.lms_status == 'Skipped' %}
                     <span class="status-badge skipped" style="background-color: #f3f4f6; color: #4b5563;">Skipped</span>
                     {% else %}
@@ -137,7 +137,7 @@
                     {% elif status_data.nseit_status == 'Forwarded' %}
                     <span class="status-badge forwarded">Forwarded</span>
                     {% elif status_data.nseit_status == 'Forwarded Again' %}
-                    <span class="status-badge forwarded-again">Forwarded Again</span>
+                    <span class="status-badge forwarded-again">Forwarded</span>
                     {% elif status_data.nseit_status == 'Pending' %}
                     <span class="status-badge pending">Pending Review</span>
                     {% elif status_data.nseit_status == 'Reapplied' %}
@@ -145,7 +145,7 @@
                     {% elif status_data.nseit_status == 'Reverted' %}
                     <span class="status-badge reverted">Reverted</span>
                     {% elif status_data.nseit_status == 'Reverted by CHiPS' %}
-                    <span class="status-badge reverted">Reverted by CHiPS</span>
+                    <span class="status-badge reverted">Reverted</span>
                     {% elif status_data.nseit_status == 'Skipped' %}
                     <span class="status-badge skipped" style="background-color: #f3f4f6; color: #4b5563;">Skipped</span>
                     {% else %}
@@ -153,7 +153,8 @@
                     {% endif %}
                 </div>
                 <p class="card-description">
-                    Submit this request to get approval from CHiPS so that you can make the payment for the NSEIT
+                    Submit this request to get approval from Administration so that you can make the payment for the
+                    NSEIT
                     Operator/Supervisor exam. Once approved, you can register and pay for the certification.
                     {% if status_data.nseit_id %}
                     <br><br><strong>NSEIT ID:</strong> {{ status_data.nseit_id }}
@@ -256,4 +257,29 @@
         return false;
     }
 </script>
+
+{% if not session.get('has_changed_password', True) %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        Swal.fire({
+            title: 'Security Alert',
+            text: 'You are currently using the default system-generated password. Please change it immediately for security.',
+            icon: 'warning',
+            showCancelButton: true,
+            cancelButtonText: 'Cancel',
+            confirmButtonText: 'Change Password Now',
+            allowOutsideClick: true,
+            allowEscapeKey: true,
+            customClass: {
+                confirmButton: 'btn-primary',
+                cancelButton: 'btn-secondary'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = "{{ url_for('candidate.change_password') }}";
+            }
+        });
+    });
+</script>
+{% endif %}
 {% endblock %}

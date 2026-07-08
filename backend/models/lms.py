@@ -1,8 +1,47 @@
+import enum
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Boolean, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Column, Integer, String, Enum as SQLEnum, DateTime, ForeignKey, JSON, Boolean, func
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.ext.hybrid import hybrid_property
-from backend.models.base import Base, get_ist_now, to_code, to_name, get_status_expression
+from backend.models.base import Base, get_ist_time, get_ist_now, to_code, to_name, get_status_expression
+
+class RequestStatus(enum.Enum):
+    PENDING = "PENDING"
+    ASSIGNED = "ASSIGNED"
+    REVERTED = "REVERTED"
+    REAPPLIED = "REAPPLIED"
+
+class CredentialRequest(Base):
+    __tablename__ = "credential_requests"
+    
+    id = Column(Integer, primary_key=True)
+    request_code = Column(String(20), unique=True, nullable=True, index=True)
+    
+    # Operator Information parameters
+    operator_first_name = Column(String(100), nullable=False)
+    operator_middle_name = Column(String(100), nullable=True)
+    operator_last_name = Column(String(100), nullable=False)
+    operator_phone = Column(String(15), nullable=False)
+    operator_email = Column(String(150), nullable=False)
+    
+    # Tracking references
+    district_id = Column(Integer, ForeignKey("district_table.id"), nullable=False)
+    submitted_by_id = Column(Integer, ForeignKey("user_login_table.id"), nullable=False)
+    
+    # States
+    status = Column(SQLEnum(RequestStatus, name="requeststatus"), default=RequestStatus.PENDING, nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=get_ist_time, nullable=False, index=True)
+    updated_at = Column(DateTime(timezone=True), default=get_ist_time, onupdate=get_ist_time, nullable=False)
+    
+    # Credentials
+    generated_login_id = Column(String(100), unique=True, nullable=True)
+    generated_password_raw = Column(String(100), nullable=True)
+    revert_reason = Column(String(500), nullable=True)
+    remarks_history = Column(JSON, default=list, nullable=True)
+    
+    # Relationships
+    district_details = relationship("District", foreign_keys=[district_id])
+    submitted_by = relationship("UserLogin", foreign_keys=[submitted_by_id])
 
 class LMS(Base):
     __tablename__ = "LMS_table"
@@ -68,4 +107,3 @@ class LMSRemark(Base):
     
     admin_author: Mapped["UserLogin | None"] = relationship("UserLogin", back_populates="lms_remarks_written", foreign_keys=[admin_by_id])
     candidate_author: Mapped["CandidateLogin | None"] = relationship("CandidateLogin", back_populates="lms_remarks_written", foreign_keys=[candidate_by_id])
-

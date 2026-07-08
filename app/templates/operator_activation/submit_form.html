@@ -2,285 +2,492 @@
 
 
 
-<h2>Submit Operator Activation Request</h2>
+<h2>{{ 'Modify & Reapply Operator Activation Request' if reapply_id else 'Submit Operator Activation Request' }}</h2>
+
+{% if reapply_id and request_data %}
+<div style="margin-bottom: 20px;">
+    {% set is_rejected = (request_data.status == 'rejected') %}
+
+
+    {% set revert_log = request_data.remarks_history | reverse | selectattr('status_after', 'in', ['reverted',
+    'rejected', 'reverted_by_chips']) | list | first %}
+    {% if revert_log %}
+    <div
+        style="background:#fef2f2;border:1px dashed #fca5a5;border-left:4px solid #ef4444;border-radius:6px;padding:12px 14px;text-align:left;">
+        <div
+            style="font-size:11px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path
+                    d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z">
+                </path>
+            </svg>
+            {{ 'REJECT REASON' if is_rejected else 'REVERT REASON / REMARKS' }}
+        </div>
+        <div style="font-size:13px;color:#7f1d1d;font-weight:500;line-height:1.4;">
+            {{ revert_log.remark | trim }}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
 
 {% if error %}
 <div class="oa-error-banner">{{ error }}</div>
 {% endif %}
 
-<div class="table-container">
+<form id="oa-activation-form" action="/auth/dc/operator-activation" method="POST" enctype="multipart/form-data"
+    class="oa-form">
+    {% if reapply_id %}
+    <input type="hidden" name="reapply_id" value="{{ reapply_id }}">
+    {% endif %}
 
-    <form id="oa-activation-form" action="/auth/dc/operator-activation" method="POST" enctype="multipart/form-data"
-        class="oa-form">
-
-        <div class="oa-form-card">
-            <!-- Visual Stepper -->
-            <div class="oa-stepper">
-                <div class="oa-step active" id="step-1-indicator">
-                    <span class="oa-step-num">1</span>
-                    <span class="oa-step-text">Operator Details</span>
-                </div>
-                <div class="oa-step-divider" id="step-divider-1"></div>
-                <div class="oa-step" id="step-2-indicator">
-                    <span class="oa-step-num">2</span>
-                    <span class="oa-step-text">Upload Documents</span>
-                </div>
+    <div class="oa-form-card">
+        <!-- Visual Stepper -->
+        <div class="oa-stepper">
+            <div class="oa-step active" id="step-1-indicator">
+                <span class="oa-step-num">1</span>
+                <span class="oa-step-text">Operator Details</span>
             </div>
-
-            <!-- STEP 1: OPERATOR DETAILS PANEL -->
-            <div class="oa-form-step active" id="step-1-panel">
-
-                <div class="oa-sub-section">
-                    <div class="oa-sub-section-title">1. OPERATOR'S PERSONAL & CONTACT DETAILS</div>
-                    <div class="oa-sub-section-content">
-                        <div class="oa-row">
-                            <div class="oa-field oa-col-6">
-                                <label>Name <span class="oa-required">*</span></label>
-                                <input type="text" id="name_as_per_aadhaar" name="name_as_per_aadhaar" required
-                                    placeholder="Enter Name" oninput="autoFillUserCode()">
-                            </div>
-                            <div class="oa-field oa-col-3">
-                                <label>Mobile Number <span class="oa-required">*</span></label>
-                                <input type="tel" id="operator_mobile" name="operator_mobile" pattern="[6-9][0-9]{9}"
-                                    maxlength="10" required placeholder="10-digit Mobile Number (starts with 6-9)"
-                                    oninput="validateMobile(this)">
-                                <span class="oa-input-hint" id="mobile-hint"
-                                    style="display: none; color: #dc3545; font-size: 11px; margin-top: 2px;">Must start
-                                    with 6-9 and be exactly 10 digits.</span>
-                            </div>
-                            <div class="oa-field oa-col-3">
-                                <label>Primary Email ID <span class="oa-required">*</span></label>
-                                <input type="email" id="primary_email" name="primary_email" required
-                                    placeholder="Enter Email ID (e.g. name@domain.com)" oninput="validateEmail(this)">
-                                <span class="oa-input-hint" id="email-hint"
-                                    style="display: none; color: #dc3545; font-size: 11px; margin-top: 2px;">Please
-                                    enter a valid email.</span>
-                            </div>
-                        </div>
-
-                        <div class="oa-row" style="margin-top: 16px;">
-                            <div class="oa-field oa-col-5">
-                                <label>Last 4 Digits of Aadhaar <span class="oa-required">*</span></label>
-                                <input type="text" id="operator_aadhaar" name="operator_aadhaar" pattern="[0-9]{4}"
-                                    maxlength="4" required placeholder="Enter last 4 digits of Aadhaar"
-                                    oninput="validateAadhaar(this)">
-                                <span class="oa-input-hint" id="aadhaar-hint"
-                                    style="display: none; color: #dc3545; font-size: 11px; margin-top: 2px;">Must be
-                                    exactly 4 numeric digits.</span>
-                            </div>
-                            <div class="oa-field oa-col-7">
-                                <label>PAN Number <span class="oa-required">*</span></label>
-                                <input type="text" id="operator_pan" name="operator_pan"
-                                    pattern="\s*[a-zA-Z]{5}[0-9]{4}[a-zA-Z]{1}\s*" maxlength="10" required
-                                    placeholder="ABCDE1234F" style="text-transform: uppercase;"
-                                    oninput="this.value = this.value.toUpperCase();">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="oa-sub-section">
-                    <div class="oa-sub-section-title">2. OPERATOR'S WORK & CERTIFICATION DETAILS</div>
-                    <div class="oa-sub-section-content">
-                        <div class="oa-row">
-                            <div class="oa-field oa-col-3">
-                                <label>Role <span class="oa-required">*</span></label>
-                                <select id="role" name="role" required>
-                                    <option value="" disabled selected>Select Role</option>
-                                    <option value="Operator">Operator</option>
-                                    <option value="Supervisor">Supervisor</option>
-                                </select>
-                            </div>
-                            <div class="oa-field oa-col-3">
-                                <label>Registrar Code <span class="oa-required">*</span></label>
-                                <input type="text" name="registrar_code" value="986" readonly class="oa-readonly-input">
-                            </div>
-                            <div class="oa-field oa-col-3">
-                                <label>EA Code <span class="oa-required">*</span></label>
-                                <select id="ea_code" name="ea_code" required onchange="autoFillUserCode()">
-                                    <option value="" disabled selected>Select EA Code</option>
-                                    <option value="2084">2084 (ECMP)</option>
-                                    <option value="4082">4082 (UCL)</option>
-                                </select>
-                            </div>
-                            <div class="oa-field oa-col-3">
-                                <label>User Code <span class="oa-required">*</span></label>
-                                <input type="text" id="user_code" name="user_code" required readonly
-                                    class="oa-readonly-input" placeholder="Auto-generated: EACode_Name_DistrictCode">
-                                <span class="oa-field-subtext">Auto-filled — you may edit if needed</span>
-                            </div>
-                        </div>
-
-                        <div class="oa-row" style="margin-top: 16px;">
-                            <div class="oa-field oa-col-6">
-                                <label>NSEIT Certification Number <span class="oa-required">*</span></label>
-                                <input type="text" id="nseit_certificate_number" name="nseit_certificate_number"
-                                    required placeholder="Enter NSEIT Certificate Number">
-                            </div>
-                            <div class="oa-field oa-col-6">
-                                <label>NSEIT Certificate Issue Date <span class="oa-required">*</span></label>
-                                <input type="date" id="nseit_certification_date" name="nseit_certification_date"
-                                    required onchange="autoFillExpiryDate()">
-                            </div>
-                        </div>
-
-                        <div class="oa-row" style="margin-top: 16px;">
-                            <div class="oa-field oa-col-5">
-                                <label>NSEIT Certificate Expiry Date <span class="oa-required">*</span></label>
-                                <input type="date" id="nseit_certificate_expiry_date"
-                                    name="nseit_certificate_expiry_date" required readonly class="oa-readonly-input">
-                                <span class="oa-field-subtext">Auto-set to 3 years from Issue Date</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="oa-sub-section">
-                    <div class="oa-sub-section-title">3. OPERATOR'S LOCATION DETAILS</div>
-                    <div class="oa-sub-section-content">
-                        <div class="oa-row">
-                            <div class="oa-field oa-col-5">
-                                <label>District <span class="oa-required">*</span></label>
-                                <input type="text" name="district" value="{{ session.get('district_name', 'Raipur') }}"
-                                    readonly class="oa-readonly-input">
-                                <span class="oa-field-subtext">Auto-filled from your DC profile</span>
-                            </div>
-                            <div class="oa-field oa-col-7">
-                                <label>Pincode <span class="oa-required">*</span></label>
-                                <input type="text" id="pincode" name="pincode" pattern="[4][9][0-9]{4}" maxlength="6"
-                                    required placeholder="6-digit Pincode">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="oa-nav-actions">
-                    <button type="button" class="oa-btn oa-btn-cancel"
-                        onclick="window.location.href='/auth/dc/operator-activation/list'">Cancel</button>
-                    <div class="oa-nav-actions-right">
-                        <button type="button" id="btn-next" class="oa-btn oa-btn-next">Next Step →</button>
-                    </div>
-                </div>
+            <div class="oa-step-divider" id="step-divider-1"></div>
+            <div class="oa-step" id="step-2-indicator">
+                <span class="oa-step-num">2</span>
+                <span class="oa-step-text">Upload Documents</span>
             </div>
-
-            <!-- STEP 2: DOCUMENTS UPLOAD PANEL -->
-            <div class="oa-form-step" id="step-2-panel">
-                <div class="oa-sub-section">
-                    <div class="oa-sub-section-title">UPLOAD DOCUMENTS</div>
-                    <div class="oa-sub-section-content" style="padding: 24px;">
-                        <div class="oa-docs-grid">
-
-                            <div class="oa-doc-card">
-                                <label class="oa-doc-label">Consent Form <span class="oa-required">*</span></label>
-                                <input type="file" name="hard_copy_form" accept=".pdf,image/*" required
-                                    class="oa-file-input">
-                                <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
-                            </div>
-
-                            <div class="oa-doc-card">
-                                <label class="oa-doc-label">Aadhaar Card <span class="oa-required">*</span></label>
-                                <input type="file" name="aadhaar_photo" accept=".pdf,image/*" required
-                                    class="oa-file-input">
-                                <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
-                            </div>
-
-                            <div class="oa-doc-card">
-                                <label class="oa-doc-label">PAN Card <span class="oa-required">*</span></label>
-                                <input type="file" name="pan_card" accept=".pdf,image/*" required class="oa-file-input">
-                                <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
-                            </div>
-
-                            <div class="oa-doc-card">
-                                <label class="oa-doc-label">Passbook <span class="oa-required">*</span></label>
-                                <input type="file" name="passbook" accept=".pdf,image/*" required class="oa-file-input">
-                                <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
-                            </div>
-
-                            <div class="oa-doc-card">
-                                <label class="oa-doc-label">NSEIT Certificate <span class="oa-required">*</span></label>
-                                <input type="file" name="nseit_certificate" accept=".pdf,image/*" required
-                                    class="oa-file-input">
-                                <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
-                            </div>
-
-                            <div class="oa-doc-card">
-                                <label class="oa-doc-label">Excel Sheet (Operator Details) <span
-                                        class="oa-required">*</span></label>
-                                <input type="file" name="excel_sheet" accept=".xls,.xlsx,.csv" required
-                                    class="oa-file-input">
-                                <span class="oa-doc-helper">XLSX, XLS, CSV (Max. 5MB)</span>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-
-                <div class="oa-nav-actions">
-                    <button type="button" id="btn-back" class="oa-btn oa-btn-back">← Back</button>
-                    <div class="oa-nav-actions-right">
-                        <button type="button" class="oa-btn oa-btn-cancel"
-                            onclick="window.location.href='/auth/dc/operator-activation/list'">Cancel</button>
-                        <button type="submit" id="btn-submit" class="oa-btn oa-btn-submit">Submit Request</button>
-                    </div>
-                </div>
-            </div>
-
         </div>
 
-    </form>
+        <!-- STEP 1: OPERATOR DETAILS PANEL -->
+        <div class="oa-form-step active" id="step-1-panel">
 
-</div>
+
+            <div style="margin-bottom: 30px;">
+                <h2 class="container-sub-title"
+                    style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+                    1. Personal & Contact Details</h2>
+
+                <div class="form-grid-3x">
+                    <div class="input-group">
+                        <label>Name <span class="required-star">*</span></label>
+                        <input type="text" id="name_as_per_aadhaar" name="name_as_per_aadhaar" required
+                            class="form-control-input" placeholder="Enter Name"
+                            oninput="this.value = this.value.replace(/[^a-zA-Z\s]/g, ''); autoFillUserCode();"
+                            value="{{ request_data.operator_name if request_data else '' }}">
+                    </div>
+                    <div class="input-group">
+                        <label>Mobile Number <span class="required-star">*</span></label>
+                        <input type="tel" id="operator_mobile" name="operator_mobile" pattern="[6-9][0-9]{9}"
+                            maxlength="10" required class="form-control-input" placeholder="10-digit Mobile Number"
+                            oninput="validateMobile(this)"
+                            value="{{ request_data.operator_mobile if request_data else '' }}">
+                        <span class="oa-input-hint" id="mobile-hint"
+                            style="display: none; color: #dc3545; font-size: 11px; margin-top: 4px; font-weight: 600;">Must
+                            start
+                            with 6-9 and be exactly 10 digits.</span>
+                    </div>
+                    <div class="input-group">
+                        <label>Primary Email ID <span class="required-star">*</span></label>
+                        <input type="email" id="primary_email" name="primary_email" required class="form-control-input"
+                            placeholder="Enter Email ID" oninput="validateEmail(this)"
+                            value="{{ request_data.primary_email if request_data else '' }}">
+                        <span class="oa-input-hint" id="email-hint"
+                            style="display: none; color: #dc3545; font-size: 11px; margin-top: 4px; font-weight: 600;">Please
+                            enter a valid email.</span>
+                    </div>
+                </div>
+
+                <div class="form-grid-2x" style="margin-top: 15px;">
+                    <div class="input-group">
+                        <label>Aadhaar Number <span class="required-star">*</span></label>
+                        <div class="aadhaar-input-wrapper"
+                            style="position: relative; display: flex; align-items: center; width: 100%;">
+                            <span class="aadhaar-mask-prefix"
+                                style="position: absolute; left: 12px; color: #475569; font-family: monospace; font-size: 14px; font-weight: 700; pointer-events: none; letter-spacing: 1px; top: 50%; transform: translateY(-50%);">
+                                XXXX - XXXX -
+                            </span>
+                            <input type="text" id="operator_aadhaar" name="operator_aadhaar" pattern="[0-9]{4}"
+                                maxlength="4" required class="form-control-input" placeholder="0000"
+                                style="padding-left: 130px !important; font-family: monospace; font-size: 14px; font-weight: 600; letter-spacing: 1px; width: 100%; height: 38px; box-sizing: border-box;"
+                                oninput="validateAadhaar(this)"
+                                value="{{ request_data.operator_aadhaar[-4:] if request_data and request_data.operator_aadhaar else '' }}">
+
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>PAN Number <span class="required-star">*</span></label>
+                        <input type="text" id="operator_pan" name="operator_pan"
+                            pattern="\s*[a-zA-Z]{5}[0-9]{4}[a-zA-Z]{1}\s*" maxlength="10" required
+                            class="form-control-input" placeholder="ABCDE1234F" style="text-transform: uppercase;"
+                            oninput="this.value = this.value.toUpperCase();"
+                            value="{{ request_data.operator_pan if request_data else '' }}">
+
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <h2 class="container-sub-title"
+                    style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+                    2. OPERATOR'S WORK & CERTIFICATION DETAILS</h2>
+
+                <div class="form-grid-4x">
+                    <div class="input-group">
+                        <label>Role <span class="required-star">*</span></label>
+                        <select id="role" name="role" required class="form-control-input"
+                            style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
+                            <option value="" disabled>Select Role</option>
+                            <option value="Operator" {{ 'selected' if request_data and request_data.role=='Operator' }}>
+                                Operator</option>
+                            <option value="Supervisor" {{ 'selected' if not request_data or
+                                request_data.role=='Supervisor' }}>Supervisor</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Registrar Code <span class="required-star">*</span></label>
+                        <input type="text" name="registrar_code" value="986" readonly class="form-control-input"
+                            style="background-color: #f8fafc; color: #64748b; cursor: not-allowed;">
+                    </div>
+                    <div class="input-group">
+                        <label>EA Code <span class="required-star">*</span></label>
+                        <select id="ea_code" name="ea_code" required onchange="autoFillUserCode()"
+                            class="form-control-input"
+                            style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
+                            <option value="" disabled {{ 'selected' if not request_data }}>Select EA Code</option>
+                            <option value="2084" {{ 'selected' if request_data and request_data.ea_code=='2084' }}>2084
+                                (ECMP)</option>
+                            <option value="4082" {{ 'selected' if request_data and request_data.ea_code=='4082' }}>4082
+                                (UCL)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>User Code <span class="required-star">*</span></label>
+                        <input type="text" id="user_code" name="user_code" required class="form-control-input"
+                            placeholder="Auto-generated: EACode_Name_DistrictCode"
+                            oninput="this.dataset.userEdited = 'true';"
+                            value="{{ request_data.user_code if request_data else '' }}">
+                        <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Auto-filled —
+                            you may edit if needed</span>
+                    </div>
+                </div>
+
+                <div class="form-grid-3x" style="margin-top: 15px;">
+                    <div class="input-group">
+                        <label>NSEIT Certificate Number <span class="required-star">*</span></label>
+                        <input type="text" id="nseit_certificate_number" name="nseit_certificate_number" required
+                            class="form-control-input" placeholder="Enter Certificate Number"
+                            value="{{ request_data.nseit_certificate_number if request_data else '' }}">
+                    </div>
+                    <div class="input-group">
+                        <label>NSEIT Certificate Issue Date <span class="required-star">*</span></label>
+                        <input type="date" id="nseit_certification_date" name="nseit_certification_date" required
+                            onchange="autoFillExpiryDate()" onkeydown="return false;" class="form-control-input"
+                            value="{{ request_data.nseit_certification_date if request_data else '' }}">
+                        <span class="oa-input-hint" id="issue-error"
+                            style="display: none; color: #dc3545; font-size: 11px; margin-top: 4px; font-weight: 600;">Issue
+                            Date cannot be in the future.</span>
+                    </div>
+                    <div class="input-group">
+                        <label>NSEIT Certificate Expiry Date <span class="required-star">*</span></label>
+                        <input type="date" id="nseit_certificate_expiry_date" name="nseit_certificate_expiry_date"
+                            required readonly class="form-control-input"
+                            style="background-color: #f8fafc; color: #64748b; cursor: not-allowed;"
+                            value="{{ request_data.nseit_certificate_expiry_date if request_data else '' }}">
+                        <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Auto-set to 3
+                            years from Issue Date</span>
+                        <span class="oa-input-hint" id="expiry-error"
+                            style="display: none; color: #dc3545; font-size: 11px; margin-top: 4px; font-weight: 600;">Certificate
+                            has expired.</span>
+                    </div>
+                </div>
+            </div>
+
+
+            <div style="margin-bottom: 30px;">
+                <h2 class="container-sub-title"
+                    style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+                    3. Operator's Location Details</h2>
+
+                <div class="form-grid-2x">
+                    <div class="input-group">
+                        <label>District <span class="required-star">*</span></label>
+                        <input type="text" name="district" value="{{ session.get('district_name', 'Raipur') }}" readonly
+                            class="form-control-input"
+                            style="background-color: #f8fafc; color: #64748b; cursor: not-allowed;">
+                        <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">Auto-filled from
+                            your DC profile</span>
+                    </div>
+                    <div class="input-group">
+                        <label>Pincode <span class="required-star">*</span></label>
+                        <input type="text" id="pincode" name="pincode" pattern="[4][9][0-9]{4}" maxlength="6" required
+                            class="form-control-input" placeholder="6-digit Pincode" oninput="validatePincode(this)"
+                            value="{{ request_data.pincode if request_data else '' }}">
+                        <span class="oa-input-hint" id="pincode-hint"
+                            style="display: none; color: #dc3545; font-size: 11px; margin-top: 4px; font-weight: 600;">Please
+                            enter a valid pincode of Chhattisgarh</span>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="oa-nav-actions" style="margin-top: 24px;">
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <button type="button" class="oa-btn oa-btn-cancel"
+                        onclick="clearDraftAndForm(); window.location.href='/auth/dc/operator-activation/list'"
+                        style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Cancel</button>
+                    <button type="button" class="oa-btn" onclick="clearFormFields()"
+                        style="display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box; background-color: #64748b; color: white; border: none; border-radius: 6px; padding: 0 16px; cursor: pointer;">
+                        Clear Fields</button>
+                </div>
+                <div class="oa-nav-actions-right">
+                    <button type="button" id="btn-next" class="oa-btn oa-btn-next" onclick="nextStep()">Next Step
+                        →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2: DOCUMENTS UPLOAD PANEL -->
+        <div class="oa-form-step" id="step-2-panel">
+            <div style="padding: 0; margin-bottom: 30px;">
+                <h2 class="container-sub-title"
+                    style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+                    UPLOAD DOCUMENTS
+                </h2>
+                {% if reapply_id %}
+                <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; text-align: left;">
+                    <span style="font-size: 13px; color: #1e40af;"><strong style="font-weight: 700;">Note:</strong> Only upload files if you want to replace/update the existing ones; otherwise, previously submitted documents will be kept as-is.</span>
+                </div>
+                {% endif %}
+                <div class="oa-docs-grid">
+                    <div class="oa-doc-card">
+                        <label class="oa-doc-label">Consent Form <span class="required-star">*</span></label>
+                        <input type="file" name="hard_copy_form" accept=".pdf,image/*" {{ 'required' if not request_data
+                            }} class="oa-file-input">
+                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                        {% if request_data and request_data.documents %}
+                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'hard_copy_form') | list
+                        | first %}
+                        {% if doc %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <div class="oa-doc-card">
+                        <label class="oa-doc-label">Aadhaar Card <span class="required-star">*</span></label>
+                        <input type="file" name="aadhaar_photo" accept=".pdf,image/*" {{ 'required' if not request_data
+                            }} class="oa-file-input">
+                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                        {% if request_data and request_data.documents %}
+                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'aadhaar_photo') | list
+                        | first %}
+                        {% if doc %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <div class="oa-doc-card">
+                        <label class="oa-doc-label">PAN Card <span class="required-star">*</span></label>
+                        <input type="file" name="pan_card" accept=".pdf,image/*" {{ 'required' if not request_data }}
+                            class="oa-file-input">
+                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                        {% if request_data and request_data.documents %}
+                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'pan_card') | list |
+                        first %}
+                        {% if doc %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <div class="oa-doc-card">
+                        <label class="oa-doc-label">Passbook <span class="required-star">*</span></label>
+                        <input type="file" name="passbook" accept=".pdf,image/*" {{ 'required' if not request_data }}
+                            class="oa-file-input">
+                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                        {% if request_data and request_data.documents %}
+                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'passbook') | list |
+                        first %}
+                        {% if doc %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <div class="oa-doc-card">
+                        <label class="oa-doc-label">NSEIT Certificate <span class="required-star">*</span></label>
+                        <input type="file" name="nseit_certificate" accept=".pdf,image/*" {{ 'required' if not
+                            request_data }} class="oa-file-input">
+                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                        {% if request_data and request_data.documents %}
+                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'nseit_certificate') |
+                        list | first %}
+                        {% if doc %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <div class="oa-doc-card">
+                        <label class="oa-doc-label">Excel Sheet (Operator Details) <span
+                                class="required-star">*</span></label>
+                        <input type="file" name="excel_sheet" accept=".xls,.xlsx,.csv" {{ 'required' if not request_data
+                            }} class="oa-file-input">
+                        <span class="oa-doc-helper">XLSX, XLS, CSV (Max. 5MB)</span>
+                        {% if request_data and request_data.documents %}
+                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'excel_sheet') | list |
+                        first %}
+                        {% if doc %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+
+                </div>
+            </div>
+
+            {% if reapply_id %}
+            <div style="margin-bottom: 30px; margin-top:20px;">
+                <h2 class="container-sub-title"
+                    style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+                    Reapply Remark <span class="required-star">*</span></h2>
+                <div style="margin-top:10px;">
+                    <textarea name="reapply_remark" required class="form-control-input"
+                        style="width:100%; height:80px; padding:10px; resize:vertical; border:1px solid #cbd5e1; border-radius:4px;"
+                        placeholder="Explain the corrections you made to resolve CHiPS Admin's remarks..."></textarea>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="oa-nav-actions" style="margin-top: 24px;">
+                <button type="button" class="oa-btn oa-btn-cancel" onclick="prevStep();"
+                    style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                    ← Back
+                </button>
+                <div class="oa-nav-actions-right" style="display: flex; gap: 12px;">
+                    <button type="button" class="oa-btn oa-btn-cancel"
+                        onclick="clearDraftAndForm(); window.location.href='/auth/dc/operator-activation/list'"
+                        style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Cancel
+                    </button>
+
+                    <button type="submit" class="oa-btn oa-btn-primary"
+                        style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Submit Request
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</form>
 
 <script>
-    // ─── Visual Stepper Navigation ───────────────────────────────────────────
-    const step1Indicator = document.getElementById('step-1-indicator');
-    const step2Indicator = document.getElementById('step-2-indicator');
-    const stepDivider1 = document.getElementById('step-divider-1');
+    window.nextStep = function () {
+        const step1Panel = document.getElementById('step-1-panel');
+        const step2Panel = document.getElementById('step-2-panel');
 
-    const step1Panel = document.getElementById('step-1-panel');
-    const step2Panel = document.getElementById('step-2-panel');
+        const inputs = step1Panel.querySelectorAll('input[required], select[required], textarea[required]');
+        let isValid = true;
+        for (const input of inputs) {
+            if (!input.checkValidity()) {
+                input.reportValidity();
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                input.focus();
+                isValid = false;
+                break;
+            }
+        }
 
-    const btnNext = document.getElementById('btn-next');
-    const btnBack = document.getElementById('btn-back');
+        // Check Issue Date validation
+        if (isValid) {
+            const issueDateEl = document.getElementById('nseit_certification_date');
+            if (issueDateEl && issueDateEl.value) {
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                const todayStr = `${yyyy}-${mm}-${dd}`;
 
-    if (btnNext && btnBack) {
-        btnNext.addEventListener('click', () => {
-            // Find all input/select fields inside step-1-panel
-            const inputs = step1Panel.querySelectorAll('input[required], select[required]');
-            let isValid = true;
-            for (const input of inputs) {
-                if (!input.checkValidity()) {
-                    input.reportValidity();
+                if (issueDateEl.value > todayStr) {
+                    const issueError = document.getElementById('issue-error');
+                    if (issueError) issueError.style.display = 'block';
+
+                    issueDateEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     isValid = false;
-                    break;
                 }
             }
+        }
 
-            if (isValid) {
-                // Transition panels
-                step1Panel.classList.remove('active');
-                step2Panel.classList.add('active');
+        // Check Expiry Date validation
+        if (isValid) {
+            const expiryDateEl = document.getElementById('nseit_certificate_expiry_date');
+            if (expiryDateEl && expiryDateEl.value) {
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                const todayStr = `${yyyy}-${mm}-${dd}`;
 
-                // Update stepper markers
-                step1Indicator.classList.remove('active');
-                step1Indicator.classList.add('completed');
-                stepDivider1.classList.add('completed');
-                step2Indicator.classList.add('active');
+                if (expiryDateEl.value < todayStr) {
+                    const expiryError = document.getElementById('expiry-error');
+                    if (expiryError) expiryError.style.display = 'block';
+
+                    expiryDateEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    isValid = false;
+                }
             }
-        });
+        }
 
-        btnBack.addEventListener('click', () => {
+        if (isValid) {
             // Transition panels
-            step2Panel.classList.remove('active');
-            step1Panel.classList.add('active');
+            step1Panel.classList.remove('active');
+            step2Panel.classList.add('active');
 
             // Update stepper markers
-            step2Indicator.classList.remove('active');
-            stepDivider1.classList.remove('completed');
-            step1Indicator.classList.remove('completed');
-            step1Indicator.classList.add('active');
-        });
-    }
+            document.getElementById('step-1-indicator').classList.remove('active');
+            document.getElementById('step-1-indicator').classList.add('completed');
+            document.getElementById('step-divider-1').classList.add('completed');
+            document.getElementById('step-2-indicator').classList.add('active');
+
+            // Scroll to top of step 2
+            document.getElementById('step-2-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    window.prevStep = function () {
+        const step1Panel = document.getElementById('step-1-panel');
+        const step2Panel = document.getElementById('step-2-panel');
+
+        // Transition panels
+        step2Panel.classList.remove('active');
+        step1Panel.classList.add('active');
+
+        // Update stepper markers
+        document.getElementById('step-2-indicator').classList.remove('active');
+        document.getElementById('step-divider-1').classList.remove('completed');
+        document.getElementById('step-1-indicator').classList.remove('completed');
+        document.getElementById('step-1-indicator').classList.add('active');
+
+        // Scroll to top of step 1
+        document.getElementById('step-1-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
     // 3. Form Submission SweetAlert2 Popup (AJAX)
     const oaForm = document.getElementById('oa-activation-form');
@@ -309,25 +516,34 @@
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok && data.status === 'success') {
+                    const isReapply = !!formData.get('reapply_id');
                     Swal.fire({
                         icon: 'success',
-                        title: 'Success!',
-                        text: 'Operator activation request submitted.',
-                        timer: 1500,
-                        showConfirmButton: false
+                        title: isReapply ? 'Reapplied!' : 'Success!',
+                        text: isReapply ? 'Your corrected request has been sent back to CHiPS Admin.' : 'Operator activation request submitted.',
+                        confirmButtonColor: '#4f46e5',
+                        showConfirmButton: true,
+                        timer: 3000,
+                        timerProgressBar: true
                     }).then(() => {
+                        if (typeof window.clearDraftAndForm === 'function') {
+                            window.clearDraftAndForm();
+                        } else if (typeof window.clearFormFields === 'function') {
+                            window.clearFormFields();
+                        }
+                        if (oaForm) oaForm.reset();
                         window.location.href = data.redirect_url;
                     });
                 } else {
                     Swal.close();
-                    
+
                     // Clear previous field errors
                     document.querySelectorAll('.oa-field-error').forEach(el => el.remove());
-                    
+
                     if (data.field_errors) {
                         let firstErrorEl = null;
                         for (const [field, errorMsg] of Object.entries(data.field_errors)) {
@@ -339,7 +555,7 @@
                                 errorDiv.style.fontSize = '12px';
                                 errorDiv.style.marginTop = '4px';
                                 errorDiv.textContent = errorMsg;
-                                
+
                                 // Insert after the file-upload-design or input
                                 const wrapper = inputEl.closest('.file-upload-wrapper');
                                 if (wrapper) {
@@ -347,15 +563,15 @@
                                 } else {
                                     inputEl.parentNode.insertBefore(errorDiv, inputEl.nextSibling);
                                 }
-                                
+
                                 if (!firstErrorEl) firstErrorEl = errorDiv;
                             }
                         }
-                        
+
                         if (firstErrorEl) {
                             firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }
-                        
+
                         // Ensure we are on the step that has the error
                         const firstErrorInput = document.querySelector('.oa-field-error').previousElementSibling;
                         const errorStep = firstErrorInput ? firstErrorInput.closest('.oa-form-step') : null;
@@ -365,7 +581,7 @@
                                 goToStep(stepIndex);
                             }
                         }
-                        
+
                     } else {
                         // Show general error in banner
                         let errorBanner = document.querySelector('.oa-error-banner');
@@ -396,6 +612,7 @@
 
     // Validate Mobile
     function validateMobile(input) {
+        input.value = input.value.replace(/\D/g, '').slice(0, 10);
         const val = input.value;
         const hint = document.getElementById('mobile-hint');
         const valid = /^[6-9][0-9]{9}$/.test(val);
@@ -403,6 +620,24 @@
         if (val.length > 0 && (!partialOk || (val.length === 10 && !valid))) {
             hint.style.display = 'block';
             input.setCustomValidity('Invalid Mobile Number');
+        } else {
+            hint.style.display = 'none';
+            input.setCustomValidity('');
+        }
+    }
+
+    // Validate Pincode
+    function validatePincode(input) {
+        input.value = input.value.replace(/\D/g, '').slice(0, 6);
+        const val = input.value;
+        const hint = document.getElementById('pincode-hint');
+
+        const valid = /^49[0-9]{4}$/.test(val);
+        const partialOk = val.length === 0 || /^49?/.test(val);
+
+        if (val.length > 0 && (!partialOk || (val.length === 6 && !valid))) {
+            hint.style.display = 'block';
+            input.setCustomValidity('Please enter a valid pincode of Chhattisgarh');
         } else {
             hint.style.display = 'none';
             input.setCustomValidity('');
@@ -505,21 +740,179 @@
         userCodeEl.value = `${eaCode}_${firstName}_${districtCode}`;
     }
 
-    document.addEventListener('DOMContentLoaded', autoFillUserCode);
+    document.addEventListener('DOMContentLoaded', function () {
+        autoFillUserCode();
+
+        // Restrict NSEIT Certificate Issue Date to not allow future dates
+        const issueDateEl = document.getElementById('nseit_certification_date');
+        if (issueDateEl) {
+            const today = new Date().toISOString().split('T')[0];
+            issueDateEl.setAttribute('max', today);
+        }
+    });
 
     // Auto-fill Expiry Date
     function autoFillExpiryDate() {
         const issueDateEl = document.getElementById('nseit_certification_date');
         const expiryDateEl = document.getElementById('nseit_certificate_expiry_date');
-        if (!issueDateEl || !expiryDateEl || !issueDateEl.value) return;
+        const issueError = document.getElementById('issue-error');
 
-        const issue = new Date(issueDateEl.value);
-        const expiry = new Date(issue);
+        if (!issueDateEl || !issueDateEl.value) return;
+
+        const today = new Date();
+        const yyyyT = today.getFullYear();
+        const mmT = String(today.getMonth() + 1).padStart(2, '0');
+        const ddT = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${yyyyT}-${mmT}-${ddT}`;
+
+        if (issueDateEl.value > todayStr) {
+            if (issueError) issueError.style.display = 'block';
+            if (expiryDateEl) expiryDateEl.value = '';
+
+            const expiryError = document.getElementById('expiry-error');
+            if (expiryError) expiryError.style.display = 'none';
+            return;
+        } else {
+            if (issueError) issueError.style.display = 'none';
+        }
+
+        if (!expiryDateEl) return;
+
+        const expiry = new Date(issueDateEl.value);
         expiry.setFullYear(expiry.getFullYear() + 3);
 
         const yyyy = expiry.getFullYear();
         const mm = String(expiry.getMonth() + 1).padStart(2, '0');
         const dd = String(expiry.getDate()).padStart(2, '0');
         expiryDateEl.value = `${yyyy}-${mm}-${dd}`;
+
+        // Validation check
+        const expiryError = document.getElementById('expiry-error');
+        if (expiryError) {
+            const todayD = new Date();
+            const yyyyTD = todayD.getFullYear();
+            const mmTD = String(todayD.getMonth() + 1).padStart(2, '0');
+            const ddTD = String(todayD.getDate()).padStart(2, '0');
+            const todayStrD = `${yyyyTD}-${mmTD}-${ddTD}`;
+
+            if (expiryDateEl.value < todayStrD) {
+                expiryError.style.display = 'block';
+            } else {
+                expiryError.style.display = 'none';
+            }
+        }
     }
+
+    window.clearFormFields = function () {
+        if (typeof DRAFT_KEY !== 'undefined') {
+            sessionStorage.removeItem(DRAFT_KEY);
+        }
+        const form = document.getElementById('oa-activation-form');
+        if (form) {
+            const inputs = form.querySelectorAll('input:not([type="hidden"]):not([readonly]), textarea');
+            inputs.forEach(input => {
+                if (input.type === 'checkbox' || input.type === 'radio') {
+                    input.checked = false;
+                } else {
+                    input.value = '';
+                }
+            });
+
+            // Explicitly clear derived readonly fields
+            const expiryDateEl = document.getElementById('nseit_certificate_expiry_date');
+            if (expiryDateEl) expiryDateEl.value = '';
+
+            const errors = form.querySelectorAll('.error-msg, .oa-input-hint');
+            errors.forEach(e => e.style.display = 'none');
+
+            // clear form selects to default
+            const selects = form.querySelectorAll('select');
+            selects.forEach(s => {
+                if (s.id === 'role') {
+                    s.value = 'Supervisor';
+                } else {
+                    s.selectedIndex = 0;
+                }
+            });
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    // Draft saving and restoring logic
+    const DRAFT_KEY = 'oa_activation_draft';
+    const isReapplyMode = {{ 'true' if reapply_id else 'false' }};
+
+    window.saveDraft = function() {
+        if (isReapplyMode) return;
+        const form = document.getElementById('oa-activation-form');
+        if (!form) return;
+        const formData = new FormData(form);
+        const draft = {};
+        for (let [key, value] of formData.entries()) {
+            if (value instanceof File) continue; // Skip files
+            draft[key] = value;
+        }
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    };
+
+    window.loadDraft = function() {
+        if (isReapplyMode) return;
+        const draftStr = sessionStorage.getItem(DRAFT_KEY);
+        if (!draftStr) return;
+        try {
+            const draft = JSON.parse(draftStr);
+            for (let key in draft) {
+                const el = document.getElementById(key) || document.getElementsByName(key)[0];
+                if (el && el.type !== 'file' && el.type !== 'hidden') {
+                    el.value = draft[key];
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+        } catch (e) {
+            console.error("Error loading draft", e);
+        }
+    };
+
+    window.clearDraftAndForm = function() {
+        sessionStorage.removeItem(DRAFT_KEY);
+        if (typeof window.clearFormFields === 'function') {
+            window.clearFormFields();
+        }
+        const form = document.getElementById('oa-activation-form');
+        if (form) form.reset();
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('oa-activation-form');
+        if (form) {
+            form.addEventListener('input', window.saveDraft);
+            form.addEventListener('change', window.saveDraft);
+        }
+
+        // Check if navigation was via Reload or Back/Forward
+        let isReloadOrBack = false;
+        const navEntries = performance.getEntriesByType('navigation');
+        if (navEntries.length > 0) {
+            const navType = navEntries[0].type;
+            isReloadOrBack = (navType === 'reload' || navType === 'back_forward');
+        } else if (window.performance && window.performance.navigation) {
+            const t = window.performance.navigation.type;
+            isReloadOrBack = (t === 1 || t === 2); // 1: TYPE_RELOAD, 2: TYPE_BACK_FORWARD
+        }
+
+        if (isReloadOrBack) {
+            if (!isReapplyMode) {
+                window.clearDraftAndForm();
+            }
+            return;
+        }
+        
+        // Otherwise try to load the draft
+        if (!isReapplyMode) {
+            window.loadDraft();
+        }
+    });
+
 </script>

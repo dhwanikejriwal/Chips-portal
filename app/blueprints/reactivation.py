@@ -15,24 +15,37 @@ def view_reactivation_dashboard():
         return redirect("/auth/login")
         
     try:
-        headers = {}
-        if session.get("access_token"):
-            headers["Authorization"] = f"Bearer {session.get('access_token')}"
+        # 🌟 FIXED: Cleanly handles token extraction strings just like your working station_id.py file
+        raw_token = session.get("access_token", "")
+        if isinstance(raw_token, dict):
+            raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+            
+        headers = {"Authorization": f"Bearer {str(raw_token).strip()}"}
             
         is_dc = request.path.startswith("/dc")
         api_endpoint = f"{FASTAPI_URL}/requests-with-operators"
         response = requests.get(api_endpoint, headers=headers, timeout=5)
+        
         if response.status_code == 401:
-            session.clear()
-            return redirect("/auth/login")
+            print("⚠️ WARNING: Reactivation microservice token rejected the authorization context.")
+            return redirect("/auth/logout")
         raw_history = response.json() if response.status_code == 200 else []
         with open("debug_chips.txt", "w") as f:
             f.write(f"Status: {response.status_code}\nText: {response.text[:500]}\n")
         
         # 🟢 BULLETPROOF DATA MAPPER: Safe parsing with multi-layered schema fallbacks
+        normalized_history_list = []
+        if isinstance(raw_history, dict):
+            # Inspect common payload root wrapper keys used by the reactivation microservice
+            normalized_history_list = raw_history.get("requests") or raw_history.get("operators") or raw_history.get("data") or []
+            if not normalized_history_list and "request_code" in raw_history:
+                normalized_history_list = [raw_history]
+        elif isinstance(raw_history, list):
+            normalized_history_list = raw_history
+
         requests_history = []
-        if isinstance(raw_history, list):
-            for req in raw_history:
+        if isinstance(normalized_history_list, list):
+            for req in normalized_history_list:
                 if not isinstance(req, dict):
                     continue
 
@@ -133,6 +146,9 @@ def submit_reactivation_form():
         
         if request.form.get("reapply_request_code"):
             form_data["reapply_request_code"] = request.form.get("reapply_request_code")
+            
+        if request.form.get("reapply_remarks"):
+            form_data["dc_remark"] = request.form.get("reapply_remarks")
 
         # Capture file streams
         files_payload = {}
@@ -206,58 +222,56 @@ def proxy_export_operators_excel(request_code):
     except Exception as excel_err:
         return f"Excel compilation transport failure: {str(excel_err)}", 500
 
-@reactivation_bp.route("/reactivation/export-all", methods=["GET"])
-def proxy_export_operators_excel_all():
-    if not session.get("username"):
-        return "Unauthorized profile session.", 401
-
+@reactivation_bp.route("/reactivation/export-csv-all", methods=["GET"])
+def proxy_export_all_reactivation():
+    if not session.get("username") or session.get("role") not in ["DC", "EDM", "Admin"]:
+        return "Unauthorized", 401
+        
+    ids = request.args.get("ids", "")
+    backend_target_url = f"{FASTAPI_URL}/export-csv-all"
+    
     try:
-        headers = {}
-        if session.get("access_token"):
-            headers["Authorization"] = f"Bearer {session.get('access_token')}"
-
-        backend_url = f"{FASTAPI_URL}/export-csv-all"
-        file_response = requests.get(backend_url, headers=headers, stream=True, timeout=20)
-
-        if file_response.status_code == 200:
+        # Forward request to FastAPI backend and stream the chunked CSV data back
+        response = requests.get(backend_target_url, params={"ids": ids}, headers={"Authorization": f"Bearer {session.get('access_token')}"}, stream=True)
+        if response.status_code == 200:
             return Response(
-                file_response.iter_content(chunk_size=4096),
-                content_type="text/csv",
+                response.iter_content(chunk_size=4096),
+                mimetype="text/csv",
                 headers={
-                    "Content-Disposition": f"attachment; filename=All_Pending_Operators.csv",
+                    "Content-Disposition": response.headers.get("Content-Disposition", "attachment; filename=All_Pending_Reactivation_Operators.csv"),
                     "Cache-Control": "no-cache"
                 }
             )
-        return f"CSV export failed. Backend status: {file_response.status_code}", file_response.status_code
-    except Exception as export_err:
-        return f"CSV compilation transport failure: {str(export_err)}\n"
+        else:
+            return f"Backend Error: {response.status_code}", response.status_code
+    except Exception as e:
+        return f"Proxy Request Failed: {str(e)}", 500
 
-@reactivation_bp.route("/chips/reactivation/export-uidai", methods=["GET"])
-def proxy_export_operators_excel_uidai():
-    if not session.get("username"):
-        return "Unauthorized profile session.", 401
 
+@reactivation_bp.route("/reactivation/export-csv-uidai", methods=["GET"])
+def proxy_export_uidai_reactivation():
+    if not session.get("username") or session.get("role") not in ["DC", "EDM", "Admin"]:
+        return "Unauthorized", 401
+        
+    ids = request.args.get("ids", "")
+    backend_target_url = f"{FASTAPI_URL}/export-csv-uidai"
+    
     try:
-        headers = {}
-        if session.get("access_token"):
-            headers["Authorization"] = f"Bearer {session.get('access_token')}"
-
-        backend_url = f"{FASTAPI_URL}/export-csv-uidai"
-        file_response = requests.get(backend_url, headers=headers, stream=True, timeout=20)
-
-        if file_response.status_code == 200:
+        # Forward request to FastAPI backend and stream the chunked CSV data back
+        response = requests.get(backend_target_url, params={"ids": ids}, headers={"Authorization": f"Bearer {session.get('access_token')}"}, stream=True)
+        if response.status_code == 200:
             return Response(
-                file_response.iter_content(chunk_size=4096),
-                content_type="text/csv",
+                response.iter_content(chunk_size=4096),
+                mimetype="text/csv",
                 headers={
-                    "Content-Disposition": f"attachment; filename=UIDAI_Sent_Operators.csv",
+                    "Content-Disposition": response.headers.get("Content-Disposition", "attachment; filename=UIDAI_Sent_Reactivation_Operators.csv"),
                     "Cache-Control": "no-cache"
                 }
             )
-        return f"CSV export failed. Backend status: {file_response.status_code}", file_response.status_code
-    except Exception as export_err:
-        return f"CSV compilation transport failure: {str(export_err)}", 500
-
+        else:
+            return f"Backend Error: {response.status_code}", response.status_code
+    except Exception as e:
+        return f"Proxy Request Failed: {str(e)}", 500
 
 @reactivation_bp.route("/reactivation/requests/<request_code>/files/<file_type>", methods=["GET"])
 def proxy_reactivation_file(request_code, file_type):
@@ -294,7 +308,7 @@ def proxy_activate_operator(operator_id):
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
         backend_target = f"{FASTAPI_URL}/operator/{operator_id}/activate"
-        response = requests.post(backend_target, headers=headers, timeout=10)
+        response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -309,7 +323,7 @@ def proxy_send_to_uidai_operator(operator_id):
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
         backend_target = f"{FASTAPI_URL}/operator/{operator_id}/send-to-uidai"
-        response = requests.post(backend_target, headers=headers, timeout=10)
+        response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -354,7 +368,7 @@ def proxy_finalize_batch(request_code):
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
         backend_target = f"{FASTAPI_URL}/requests/{request_code}/finalize"
-        response = requests.post(backend_target, headers=headers, timeout=10)
+        response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -384,6 +398,36 @@ def proxy_send_to_uidai_batch(request_code):
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
         backend_target = f"{FASTAPI_URL}/requests/{request_code}/send-to-uidai"
+        response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@reactivation_bp.route("/reactivation/requests/<request_code>/approve-all", methods=["POST"])
+def proxy_approve_all_batch(request_code):
+    if not session.get("username"):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        headers = {}
+        if session.get("access_token"):
+            headers["Authorization"] = f"Bearer {session.get('access_token')}"
+        backend_target = f"{FASTAPI_URL}/requests/{request_code}/approve-all"
+        response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@reactivation_bp.route("/reactivation/requests/<request_code>/reject-all", methods=["POST"])
+def proxy_reject_all_batch(request_code):
+    if not session.get("username"):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        headers = {}
+        if session.get("access_token"):
+            headers["Authorization"] = f"Bearer {session.get('access_token')}"
+        backend_target = f"{FASTAPI_URL}/requests/{request_code}/reject-all"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:

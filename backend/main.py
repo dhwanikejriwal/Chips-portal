@@ -19,7 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers
+
+
+# Register routers (Friend's / Shared)
 from backend.routers.auth import router as auth_router
 from backend.routers.candidate_register import router as candidate_register_router
 from backend.routers.selection import router as selection_router
@@ -51,30 +53,33 @@ app.include_router(station_id_router, prefix="/station-id")
 def run_migrations():
     print("Automatically checking and applying database migrations...")
     try:
-        # Paths relative to backend folder
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         ini_path = os.path.join(base_dir, "alembic.ini")
         
-        # Load and configure Alembic
         alembic_cfg = Config(ini_path)
         alembic_cfg.set_main_option("script_location", os.path.join(base_dir, "migrations"))
         
-        # Run Alembic upgrade head programmatically
-        command.upgrade(alembic_cfg, "head")
-        print("Success: Database schema automatically synchronized to latest revision!")
-        
-        # Manually verify/ensure exam_unique_code exists
         try:
             from backend.database import engine
             from sqlalchemy import text
+            from backend.models.base import Base
+            Base.metadata.create_all(bind=engine)
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE candidate_table ADD COLUMN IF NOT EXISTS exam_unique_code VARCHAR(100);"))
-            print("Success: Checked and added exam_unique_code column if missing!")
+                conn.execute(text("ALTER TABLE candidate_login_table ADD COLUMN IF NOT EXISTS has_changed_password BOOLEAN DEFAULT FALSE;"))
+            print("Success: Checked and added new columns if missing!")
         except Exception as e:
-            print(f"Error checking/adding exam_unique_code column: {e}", file=sys.stderr)
+            with open("migration_error.log", "w") as f:
+                f.write(f"Error checking/adding columns: {str(e)}")
+            print(f"Error checking/adding columns: {e}", file=sys.stderr)
+
+        try:
+            command.upgrade(alembic_cfg, "head")
+            print("Success: Database schema automatically synchronized to latest revision!")
+        except Exception as e:
+            print(f"Alembic upgrade failed: {e}", file=sys.stderr)
     except Exception as e:
         print(f"Migration error: {e}", file=sys.stderr)
-        print("If you haven't generated your first migration script yet, run: .venv/Scripts/alembic revision --autogenerate -m 'initial'", file=sys.stderr)
 
 @app.get("/")
 def read_root():

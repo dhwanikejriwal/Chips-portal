@@ -1,14 +1,18 @@
 # backend/routers/l2_registration.py
+import re
 import io
 import openpyxl
 from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import StreamingResponse
+from backend.utils.exporter import generate_excel_export
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
 from backend.models import L2RegistrationRequest, L2RegistrationRemark, User, District
 from backend.models.base import get_ist_time
 
-router = APIRouter()
+from backend.routers.auth import get_current_user
+
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # Dependency to get db session
 def get_db():
@@ -63,14 +67,38 @@ def submit_l2_request(
         unique_id=unique_id.strip() if unique_id else "",
         block=block,
         address_of_govt_premises=address_of_govt_premises,
-        status="sent_to_chips"
+        status="pending"
     )
     db.add(new_req)
     db.commit()
     db.refresh(new_req)
 
-    # Format Request Number L2-A0001
-    new_req.request_no = f"L2-A{new_req.id:04d}"
+    # Generate request_no sequentially based on the highest existing number (not id)
+    # This prevents gaps caused by rolled-back transactions or deleted dev data
+    last_req = db.query(L2RegistrationRequest).filter(
+        L2RegistrationRequest.request_no.isnot(None),
+        L2RegistrationRequest.id != new_req.id
+    ).order_by(L2RegistrationRequest.id.desc()).first()
+
+    if last_req and last_req.request_no:
+        try:
+            # Remove the L2-A prefix so we don't accidentally capture the '2' in 'L2'
+            num_str = last_req.request_no.replace("L2-A", "")
+            last_num = int(re.sub(r'[^\d]', '', num_str)) if num_str else 0
+        except (ValueError, TypeError):
+            last_num = 0
+    else:
+        last_num = 0
+    new_req.request_no = f"L2-A{last_num + 1:04d}"
+    initial_remark = L2RegistrationRemark(
+        request_id=new_req.id,
+        author_id=dc_id,
+        author_role="dc",
+        remark="Request submitted by DC.",
+        status_after="pending"  # 🌟 Direct alignment with frontend layout mapping tags
+    )
+    db.add(initial_remark)
+    
     db.commit()
     db.refresh(new_req)
 
@@ -94,7 +122,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
         
         # 🌟 UNIFORM SCHEMA FIX: Map strictly to district_name & clean lowercase status keys
         dist_name = r.district.district_name if r.district else "—"
-        clean_status = str(r.status or "sent_to_chips").strip().lower()
+        clean_status = str(r.status or "pending").strip().lower()
         
         result.append({
             "id": r.id,
@@ -117,9 +145,12 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
             "address_of_govt_premises": r.address_of_govt_premises,
             "status": clean_status,
             "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
-            "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
+            "updated_at": remarks_history[-1]["created_at"] if remarks_history else (str(r.submitted_at)[:16] if r.submitted_at else ""),
             "remarks_history": remarks_history
         })
+
+    # Sort descending by latest action
+    result.sort(key=lambda x: x["updated_at"] or x["submitted_at"], reverse=True)
     return result
 
 @router.get("/all")
@@ -140,7 +171,7 @@ def get_all_requests(db: Session = Depends(get_db)):
         
         # 🌟 UNIFORM SCHEMA FIX: Map strictly to district_name & clean lowercase status keys
         dist_name = r.district.district_name if r.district else "—"
-        clean_status = str(r.status or "sent_to_chips").strip().lower()
+        clean_status = str(r.status or "pending").strip().lower()
         
         result.append({
             "id": r.id,
@@ -163,9 +194,12 @@ def get_all_requests(db: Session = Depends(get_db)):
             "address_of_govt_premises": r.address_of_govt_premises,
             "status": clean_status,
             "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
-            "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
+            "updated_at": remarks_history[-1]["created_at"] if remarks_history else (str(r.submitted_at)[:16] if r.submitted_at else ""),
             "remarks_history": remarks_history
         })
+
+    # Sort descending by latest action
+    result.sort(key=lambda x: x["updated_at"] or x["submitted_at"], reverse=True)
     return result
 
 # 🌟 ROUTE ROUTING SIGNATURE FIXED: Keeps endpoint paths perfectly synchronized
@@ -189,7 +223,7 @@ def get_request_details(request_id: int, db: Session = Depends(get_db)):
 
     # 🌟 UNIFORM SCHEMA FIX: Map strictly to district_name & clean lowercase status keys
     dist_name = r.district.district_name if r.district else "—"
-    clean_status = str(r.status or "sent_to_chips").strip().lower()
+    clean_status = str(r.status or "pending").strip().lower()
 
     return {
         "id": r.id,
@@ -215,7 +249,7 @@ def get_request_details(request_id: int, db: Session = Depends(get_db)):
         "status": clean_status,
         "uidai_remarks": r.uidai_remarks,
         "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
-        "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
+        "updated_at": remarks_history[-1]["created_at"] if remarks_history else (str(r.submitted_at)[:16] if r.submitted_at else ""),
         "remarks_history": remarks_history
     }
 
@@ -235,16 +269,13 @@ def send_to_uidai(
     r.reviewed_at = get_ist_time()
     r.uidai_remarks = uidai_remarks
 
-    if uidai_remarks and uidai_remarks.strip():
-        remark = L2RegistrationRemark(
-            request_id=r.id,
-            author_id=reviewed_by,
-            author_role="chips_admin",
-            remark=f"Sent to UIDAI: {uidai_remarks.strip()}",
-            status_after="sent_to_uidai"
-        )
-        db.add(remark)
-
+    remark_text = uidai_remarks.strip() if uidai_remarks and uidai_remarks.strip() else "Request forwarded to UIDAI for processing."
+    remark = L2RegistrationRemark(
+        request_id=r.id, author_id=reviewed_by, author_role="chips_admin",
+        remark=remark_text,
+        status_after="sent_to_uidai"
+    )
+    db.add(remark)
     db.commit()
     return {"message": "Status updated to sent_to_uidai."}
 
@@ -265,13 +296,10 @@ def uidai_approve(
     r.uidai_remarks = uidai_remarks
 
     # Add approval remark to history
-    remark_text = f"UIDAI Approved. Remarks: {uidai_remarks}" if uidai_remarks else "UIDAI Approved."
+    remark_text = uidai_remarks.strip() if uidai_remarks and uidai_remarks.strip() else "Request successfully approved by UIDAI."
     remark = L2RegistrationRemark(
-        request_id=r.id,
-        author_id=reviewed_by,
-        author_role="chips_admin",
-        remark=remark_text,
-        status_after="approved"
+        request_id=r.id, author_id=reviewed_by, author_role="chips_admin",
+        remark=remark_text, status_after="approved"
     )
     db.add(remark)
     db.commit()
@@ -295,10 +323,8 @@ def uidai_reject(
 
     # Add rejection remark to history
     remark = L2RegistrationRemark(
-        request_id=r.id,
-        author_id=reviewed_by,
-        author_role="chips_admin",
-        remark=f"UIDAI Rejected. Remarks: {uidai_remarks}",
+        request_id=r.id, author_id=reviewed_by, author_role="chips_admin",
+        remark=uidai_remarks.strip(),  # 🌟 FIXED: Dropped manual 'UIDAI Rejected. Remarks:' prefix string layout
         status_after="rejected"
     )
     db.add(remark)
@@ -322,10 +348,8 @@ def revert_request(
 
     # Log Revert Remark
     remark = L2RegistrationRemark(
-        request_id=r.id,
-        author_id=reviewed_by,
-        author_role="chips_admin",
-        remark=f"Reverted back to DC: {revert_reason.strip()}",
+        request_id=r.id, author_id=reviewed_by, author_role="chips_admin",
+        remark=revert_reason.strip(),  # 🌟 FIXED: Dropped manual 'Reverted back to DC:' prefix string layout
         status_after="reverted"
     )
     db.add(remark)
@@ -395,64 +419,76 @@ def reapply_l2_request(
     return {"message": "L2 Request reapplied successfully."}
 
 # Helper to generate Excel Workbook
-# Helper to generate Excel Workbook
-def make_excel_sheet(requests_list, sheet_title):
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = sheet_title
-    
+# Helper to generate un-truncated CSV Streaming Responses
+def make_csv_stream(requests_list, report_filename):
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+
+    # 🌟 EXPANDED PROFILE COLUMNS MATRIX 
     headers = [
-        "S.NO.", "Client Version", "New Station Id", "EA Code", "Reg Code", "New Machine Id", "Client Type", 
-        "Old Station ID(If Any)", "Reason For L2 Registration In Case of New Station Idis sent against the Old Station ID", 
-        "Old Machine ID", "Tech Cenetr Remarks", "Operator name", "Operator Id", "Unique Id", "District", 
-        "Block", "Address of Govt premises"
+        "S.No", "Request ID","District Name", "Block", "Govt Premises Address",
+        "Operator Name", "Operator ID", "Unique ID", "Client Version", "Client Type",
+        "New Station ID", "New Machine ID", "EA Code", "Registrar Code",
+        "Old Station ID", "Old Machine ID", "Reason for L2 Registration", 
+        "Tech Center Remarks", "Status", "Submission Timestamp"
     ]
-    ws.append(headers)
+    
+    # Conditionally include 'Review Timestamp' if exporting historical/processed records
+    include_review_time = any(str(r.status).lower() not in ["pending", "reapplied", "sent_to_uidai"] for r in requests_list)
+    if include_review_time:
+        headers.append("Review Timestamp")
+        
+    writer.writerow(headers)
+
     for idx, r in enumerate(requests_list, start=1):
-        # 🌟 UNIFORM SCHEMA FIX: Change r.district.name to r.district.district_name to prevent corruption errors
         dist_name = r.district.district_name if r.district else "—"
         
-        ws.append([
+        row_data = [
             idx,
-            r.client_version or "—",
-            r.new_station_id or "—",
-            r.ea_code or "—",
-            r.reg_code or "—",
-            r.new_machine_id or "—",
-            r.client_type or "—",
-            r.old_station_id or "—",
-            r.reason_for_l2_registration or "—",
-            r.old_machine_id or "—",
-            r.tech_center_remarks or "—",
-            r.operator_name or "—",
-            r.operator_id or "—",
-            r.unique_id or "—",
+            r.request_no or "",
             dist_name,
-            r.block or "—",
-            r.address_of_govt_premises or "—"
-        ])
-    
-    stream = io.BytesIO()
-    wb.save(stream)
-    file_bytes = stream.getvalue()
-    stream.close()
-    return file_bytes
+            r.block or "",
+            r.address_of_govt_premises or "",
+            r.operator_name,
+            r.operator_id,
+            r.unique_id or "",
+            r.client_version,
+            r.client_type,
+            r.new_station_id,
+            r.new_machine_id,
+            r.ea_code,
+            r.reg_code,
+            r.old_station_id or "",
+            r.old_machine_id or "",
+            r.reason_for_l2_registration or "",
+            r.tech_center_remarks or "",
+            str(r.status).upper().strip(),
+            str(r.submitted_at)[:19] if r.submitted_at else "—"
+        ]
+        
+        if include_review_time:
+            row_data.append(str(r.updated_at)[:19] if getattr(r, 'updated_at', None) else "—")
+            
+        writer.writerow(row_data)
+
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = f"attachment; filename={report_filename}.csv"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 @router.get("/export-excel/pending")
 def export_pending_excel(ids: str = None, db: Session = Depends(get_db)):
-    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status.in_(["sent_to_chips", "reapplied"]))
+    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status.in_(["pending", "reapplied", "sent_to_uidai"]))
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
         if id_list:
             query = query.filter(L2RegistrationRequest.id.in_(id_list))
     reqs = query.order_by(L2RegistrationRequest.submitted_at.desc()).all()
-    file_data = make_excel_sheet(reqs, "Pending Queue")
-    
-    return StreamingResponse(
-        io.BytesIO(file_data),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=pending_l2_queue.xlsx"}
-    )
+    return make_csv_stream(reqs, "pending_l2_queue_report")
 
 @router.get("/export-excel/uidai")
 def export_uidai_excel(ids: str = None, db: Session = Depends(get_db)):
@@ -462,13 +498,7 @@ def export_uidai_excel(ids: str = None, db: Session = Depends(get_db)):
         if id_list:
             query = query.filter(L2RegistrationRequest.id.in_(id_list))
     reqs = query.order_by(L2RegistrationRequest.submitted_at.desc()).all()
-    file_data = make_excel_sheet(reqs, "Sent to UIDAI Queue")
-    
-    return StreamingResponse(
-        io.BytesIO(file_data),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=uidai_l2_queue.xlsx"}
-    )
+    return make_csv_stream(reqs, "uidai_pipeline_l2_report")
 
 @router.get("/export-excel/credentials")
 def export_creds_excel(ids: str = None, db: Session = Depends(get_db)):
@@ -478,10 +508,4 @@ def export_creds_excel(ids: str = None, db: Session = Depends(get_db)):
         if id_list:
             query = query.filter(L2RegistrationRequest.id.in_(id_list))
     reqs = query.order_by(L2RegistrationRequest.submitted_at.desc()).all()
-    file_data = make_excel_sheet(reqs, "Processed Log History")
-    
-    return StreamingResponse(
-        io.BytesIO(file_data),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=processed_l2_history.xlsx"}
-    )
+    return make_csv_stream(reqs, "credentials_history_l2_report")

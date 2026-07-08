@@ -5,9 +5,17 @@ import requests
 l2_registration_bp = Blueprint("l2_registration", __name__)
 BACKEND = "http://127.0.0.1:8000/l2-registration"
 
+def get_valid_token():
+    from flask import session
+    raw_token = session.get("access_token", "")
+    if isinstance(raw_token, dict):
+        return raw_token.get("token", "") or raw_token.get("access_token", "")
+    return str(raw_token).strip()
+
+
 @l2_registration_bp.route("/dc/l2-registration/list", methods=["GET"])
 def dc_list():
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     if not jwt_token:
         return redirect(url_for("login_view"))
     
@@ -15,15 +23,18 @@ def dc_list():
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
         response = requests.get(f"{BACKEND}/dc/{dc_id}", headers=headers)
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         requests_list = response.json() if response.status_code == 200 else []
     except requests.exceptions.ConnectionError:
         requests_list = []
         
+    requests_list.sort(key=lambda x: x.get("updated_at") or x.get("completed_at") or x.get("reviewed_at") or x.get("submitted_at") or "", reverse=True)
     return render_template("l2_registration/dc_list.html", requests=requests_list)
 
 @l2_registration_bp.route("/dc/l2-registration/new", methods=["GET", "POST"])
 def dc_new():
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     if not jwt_token:
         return redirect(url_for("login_view"))
     
@@ -75,7 +86,7 @@ def dc_new():
 
 @l2_registration_bp.route("/dc/l2-registration/<int:request_id>/reapply", methods=["POST"])
 def dc_reapply(request_id):
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     if not jwt_token:
         return jsonify({"detail": "Unauthorized"}), 401
         
@@ -111,13 +122,15 @@ def dc_reapply(request_id):
 
 @l2_registration_bp.route("/chips/l2-registration", methods=["GET"])
 def chips_list():
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     if not jwt_token:
         return redirect(url_for("login_view"))
         
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
         response = requests.get(f"{BACKEND}/all", headers=headers)
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         requests_list = response.json() if response.status_code == 200 else []
     except requests.exceptions.ConnectionError:
         requests_list = []
@@ -126,7 +139,7 @@ def chips_list():
 
 @l2_registration_bp.route("/chips/l2-registration/<int:request_id>/detail-json", methods=["GET"])
 def chips_detail_json(request_id):
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     if not jwt_token:
         return jsonify({"detail": "Unauthorized"}), 401
     
@@ -143,7 +156,7 @@ def chips_detail_json(request_id):
 
 @l2_registration_bp.route("/chips/l2-registration/<int:request_id>/send-to-uidai", methods=["POST"])
 def chips_send_to_uidai(request_id):
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     if not jwt_token:
         return redirect(url_for("login_view"))
         
@@ -157,7 +170,7 @@ def chips_send_to_uidai(request_id):
 
 @l2_registration_bp.route("/chips/l2-registration/<int:request_id>/uidai-approve", methods=["POST"])
 def chips_uidai_approve(request_id):
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     if not jwt_token:
         return redirect(url_for("login_view"))
         
@@ -171,7 +184,7 @@ def chips_uidai_approve(request_id):
 
 @l2_registration_bp.route("/chips/l2-registration/<int:request_id>/uidai-reject", methods=["POST"])
 def chips_uidai_reject(request_id):
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     if not jwt_token:
         return redirect(url_for("login_view"))
         
@@ -185,7 +198,7 @@ def chips_uidai_reject(request_id):
 
 @l2_registration_bp.route("/chips/l2-registration/<int:request_id>/revert", methods=["POST"])
 def chips_revert(request_id):
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     if not jwt_token:
         return redirect(url_for("login_view"))
         
@@ -199,39 +212,68 @@ def chips_revert(request_id):
 
 @l2_registration_bp.route("/chips/l2-registration/export-excel", methods=["GET"])
 def export_uidai():
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     headers = {"Authorization": f"Bearer {jwt_token}"}
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
-    response = requests.get(f"{BACKEND}/export-excel/uidai", headers=headers, params=params)
+    response = requests.get(f"{BACKEND}/export-excel/uidai", headers=headers, params=params, stream=True)
     return Response(
         response.content,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=uidai_l2_queue.xlsx"}
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=uidai_l2_queue.csv"}
     )
 
 @l2_registration_bp.route("/chips/l2-registration/export-excel/pending", methods=["GET"])
 def export_pending():
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     headers = {"Authorization": f"Bearer {jwt_token}"}
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
-    response = requests.get(f"{BACKEND}/export-excel/pending", headers=headers, params=params)
+    response = requests.get(f"{BACKEND}/export-excel/pending", headers=headers, params=params, stream=True)
     return Response(
         response.content,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=pending_l2_queue.xlsx"}
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=pending_l2_queue.csv"}
     )
 
 @l2_registration_bp.route("/chips/l2-registration/export-excel/credentials", methods=["GET"])
 def export_creds():
-    jwt_token = session.get("access_token")
+    jwt_token = get_valid_token()
     headers = {"Authorization": f"Bearer {jwt_token}"}
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
-    response = requests.get(f"{BACKEND}/export-excel/credentials", headers=headers, params=params)
+    response = requests.get(f"{BACKEND}/export-excel/credentials", headers=headers, params=params, stream=True)
     return Response(
         response.content,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=processed_l2_history.xlsx"}
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=processed_l2_history.csv"}
+    )
+
+
+@l2_registration_bp.route("/dc/l2-registration/export-excel/pending", methods=["GET"])
+def dc_export_pending():
+    jwt_token = get_valid_token()
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    ids = request.args.get("ids", "")
+    params = {"ids": ids} if ids else {}
+    response = requests.get(f"{BACKEND}/export-excel/pending", headers=headers, params=params, stream=True)
+    from flask import Response
+    return Response(
+        response.content,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=pending_l2_queue.csv"}
+    )
+
+@l2_registration_bp.route("/dc/l2-registration/export-excel/credentials", methods=["GET"])
+def dc_export_creds():
+    jwt_token = get_valid_token()
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    ids = request.args.get("ids", "")
+    params = {"ids": ids} if ids else {}
+    response = requests.get(f"{BACKEND}/export-excel/credentials", headers=headers, params=params, stream=True)
+    from flask import Response
+    return Response(
+        response.content,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=history_l2_queue.csv"}
     )

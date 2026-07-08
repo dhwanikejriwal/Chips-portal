@@ -3,6 +3,12 @@ from flask import Blueprint, render_template, redirect, url_for, request, sessio
 
 nseit_manage_bp = Blueprint("nseit_manage", __name__)
 
+def _headers():
+    raw_token = session.get("access_token", "")
+    if isinstance(raw_token, dict):
+        raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+    return {"Authorization": f"Bearer {str(raw_token).strip()}"}
+
 @nseit_manage_bp.route("/dc/nseit")
 def dc_nseit():
     if "access_token" not in session or session.get("role") not in ["DC", "EDM"]:
@@ -13,7 +19,9 @@ def dc_nseit():
     pending_requests = []
     processed_requests = []
     try:
-        response = requests.get(backend_url, params={"district_code": session.get("district_id")})
+        response = requests.get(backend_url, params={"district_code": session.get("district_id")}, headers=_headers())
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         if response.status_code == 200:
             requests_list = response.json()
             pending_requests = [r for r in requests_list if r["nseit_status"] in ["Pending", "Reapplied"]]
@@ -38,7 +46,9 @@ def chips_nseit():
     pending_requests = []
     processed_requests = []
     try:
-        response = requests.get(backend_url)
+        response = requests.get(backend_url, headers=_headers())
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         if response.status_code == 200:
             requests_list = response.json()
             for r in requests_list:
@@ -74,7 +84,7 @@ def forward_nseit(r_id):
         response = requests.post(backend_url, json={
             "remark": remark,
             "by_user_id": by_user_id
-        })
+        }, headers=_headers())
         if response.status_code == 200:
             return {"success": True}
         else:
@@ -101,7 +111,7 @@ def approve_nseit(r_id):
         response = requests.post(backend_url, json={
             "remark": remark,
             "by_user_id": by_user_id
-        })
+        }, headers=_headers())
         if response.status_code == 200:
             return {"success": True}
         else:
@@ -127,7 +137,7 @@ def revert_nseit(r_id):
         response = requests.post(backend_url, json={
             "remark": remark,
             "by_user_id": by_user_id
-        })
+        }, headers=_headers())
         if response.status_code == 200:
             return {"success": True}
         else:
@@ -142,7 +152,9 @@ def export_nseit_proxy():
     ids = request.args.get("ids", "")
     backend_url = f"{current_app.config['BACKEND_API_URL']}/nseit_manage/export-excel"
     try:
-        response = requests.get(backend_url, params={"ids": ids}, stream=True)
+        response = requests.get(backend_url, params={"ids": ids}, headers=_headers(), stream=True)
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         if response.status_code == 200:
             return Response(
                 response.iter_content(chunk_size=4096),

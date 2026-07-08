@@ -1,4 +1,5 @@
 # backend/routers/operator_activation.py
+import re
 import os
 import shutil
 from datetime import datetime
@@ -12,6 +13,8 @@ from backend.models.operator_activation import (
     ActivationDocument,
     OperatorActivationRemark,
 )
+from backend.models.district import District
+
 from backend.utils.ocr_utils import (
     extract_text_from_file, 
     validate_aadhaar, 
@@ -21,7 +24,10 @@ from backend.utils.ocr_utils import (
     validate_nseit_certificate,
     validate_excel_sheet
 )
-router = APIRouter()
+
+from backend.routers.auth import get_current_user
+
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 UPLOAD_BASE = "uploads/operator_activation"
 
@@ -95,12 +101,26 @@ def submit_operator_activation(
         nseit_certification_date=cert_date,
         nseit_certificate_expiry_date=expiry_date,
         pincode=pincode,
-        status="sent_to_chips",
+        status="pending",
     )
     db.add(new_request)
+    # Generate request_no sequentially based on the highest existing number (not id)
+    # This prevents gaps caused by rolled-back transactions or deleted dev data
+    last_req = db.query(OperatorActivationRequest).filter(
+        OperatorActivationRequest.request_no.isnot(None),
+        OperatorActivationRequest.id != new_request.id
+    ).order_by(OperatorActivationRequest.id.desc()).first()
+
+    if last_req and last_req.request_no:
+        try:
+            last_num = int(re.sub(r'[^\d]', '', last_req.request_no))
+        except (ValueError, TypeError):
+            last_num = 0
+    else:
+        last_num = 0
+    new_request.request_no = f"RP-A{last_num + 1:04d}"
     db.flush()
-    new_request.request_no = f"RP-A{new_request.id:04d}"
-    db.flush()
+
 
     # --- OCR Validation Logic ---
     try:
@@ -145,6 +165,7 @@ def submit_operator_activation(
         raise
     # --- End OCR Validation Logic ---
 
+
     # 2. Save each file to disk and create a document row
     uploaded_files = {
         "hard_copy_form": hard_copy_form,
@@ -155,7 +176,9 @@ def submit_operator_activation(
         "excel_sheet": excel_sheet,
     }
 
-    folder = f"{UPLOAD_BASE}/{dc_id}/{new_request.id}"
+    dist = db.query(District).filter(District.district_code == new_request.district_id).first()
+    dist_name = dist.district_name if dist else f"DISTRICT_{new_request.district_id}"
+    folder = f"{UPLOAD_BASE}/{dist_name}/{new_request.request_no}"
     os.makedirs(folder, exist_ok=True)
 
     for doc_type, upload in uploaded_files.items():
@@ -177,6 +200,16 @@ def submit_operator_activation(
         )
         db.add(doc)
 
+    db.flush()
+    initial_remark = OperatorActivationRemark(
+        request_id=new_request.id,
+        author_id=dc_id,
+        author_role="dc",
+        remark="Activation request submitted by District Coordinator.",
+        status_after="pending"
+    )
+    db.add(initial_remark)
+
     db.commit()
     db.refresh(new_request)
 
@@ -197,7 +230,6 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
     requests = (
         db.query(OperatorActivationRequest)
         .filter(OperatorActivationRequest.dc_id == dc_id)
-        .order_by(OperatorActivationRequest.submitted_at.desc())
         .all()
     )
 
@@ -217,7 +249,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
         # 🌟 UNIFORM SCHEMA FIX: Query district name dynamically using relationship attributes
         dist_name = r.district.district_name if r.district else "—"
         # 🌟 UNIFORM SCHEMA FIX: Normalize status to lowercase for accurate template matching
-        clean_status = str(r.status or "sent_to_chips").strip().lower()
+        clean_status = str(r.status or "pending").strip().lower()
 
         result.append(
             {
@@ -227,6 +259,9 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
                 "operator_mobile": r.operator_mobile,
                 "operator_aadhaar": r.operator_aadhaar,
                 "operator_pan": r.pan_number,
+                "primary_email": r.primary_email,
+                "ea_code": r.ea_code,
+                "user_code": r.user_code,
                 "district_name": dist_name,
                 "status": clean_status,
                 "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
@@ -234,6 +269,9 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
                 "remarks_history": remarks_history,
             }
         )
+
+    # Sort descending by latest action (reviewed_at if it exists, else submitted_at)
+    result.sort(key=lambda x: x["reviewed_at"] or x["submitted_at"], reverse=True)
     return result
 
 # ─────────────────────────────────────────────
@@ -252,7 +290,7 @@ def get_all_requests(db: Session = Depends(get_db)):
     result = []
     for r in requests:
         dist_name = r.district.district_name if r.district else "—"
-        clean_status = str(r.status or "sent_to_chips").strip().lower()
+        clean_status = str(r.status or "pending").strip().lower()
 
         result.append(
             {
@@ -266,43 +304,55 @@ def get_all_requests(db: Session = Depends(get_db)):
                 "operator_mobile": r.operator_mobile,
                 "operator_aadhaar": r.operator_aadhaar,
                 "operator_pan": r.pan_number,
+                "primary_email": r.primary_email,
+                "ea_code": r.ea_code,
+                "user_code": r.user_code,
                 "status": clean_status,
-                "remark_to_uidai": r.remark_to_uidai,
+                "remark_to_uidai": r.remarks[-1].remark if r.remarks else "—",
                 "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
                 "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
                 "reviewed_by": r.reviewed_by,
             }
         )
+
+    # Sort descending by latest action (reviewed_at if it exists, else submitted_at)
+    result.sort(key=lambda x: x["reviewed_at"] or x["submitted_at"], reverse=True)
     return result
 
 
 
 @router.get("/export-excel")
-def export_to_excel(db: Session = Depends(get_db)):
+def export_to_excel(ids: str = None, db: Session = Depends(get_db)):
+    """🌟 FIXED: Export Sent to UIDAI pipeline records including all profile fields."""
     from fastapi.responses import StreamingResponse
     import csv
     import io
 
-    requests_list = (
-        db.query(OperatorActivationRequest)
-        .filter(OperatorActivationRequest.status == "sent_to_uidai")
-        .order_by(OperatorActivationRequest.submitted_at.desc())
-        .all()
-    )
+    query = db.query(OperatorActivationRequest).filter(OperatorActivationRequest.status == "sent_to_uidai")
+    if ids:
+        id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
+        query = query.filter(OperatorActivationRequest.id.in_(id_list))
+    requests_list = query.order_by(OperatorActivationRequest.submitted_at.desc()).all()
 
     stream = io.StringIO()
     writer = csv.writer(stream)
 
+    # 🌟 EXPANDED MASTER HEADERS MATRIX
     headers = [
-        "Sl. No", "Role", "Name as per Aadhaar", "Registrar Code",
-        "EA Code", "User code", "Certificate Number", "Mobile Number",
-        "Primary E-mail ID", "Aadhaar Number", "Certification Date", "Any Remarks"
+        "S.No", "Request ID", "District Name", "Role", 
+        "Name as per Aadhaar", "Registrar Code", "EA Code", "User Code", 
+        "NSEIT Certificate Number", "Mobile Number", "Primary Email ID", 
+        "Aadhaar Number", "PAN Number", "Pincode", "Status", 
+        "Submitted At Timestamp", "Reviewed At Timestamp"
     ]
     writer.writerow(headers)
 
     for idx, r in enumerate(requests_list, start=1):
+        dist_name = r.district.district_name if r.district else "—"
         writer.writerow([
             idx,
+            r.request_no or "—",
+            dist_name,
             r.role if r.role else "—",
             r.name_as_per_aadhaar,
             r.registrar_code if r.registrar_code else "—",
@@ -311,53 +361,53 @@ def export_to_excel(db: Session = Depends(get_db)):
             r.nseit_certificate_number if r.nseit_certificate_number else "—",
             r.operator_mobile,
             r.primary_email if r.primary_email else "—",
-            r.operator_aadhaar if r.operator_aadhaar else "—",
-            str(r.nseit_certification_date)[:10] if r.nseit_certification_date else "—",
-            r.remark_to_uidai if hasattr(r, "remark_to_uidai") and r.remark_to_uidai else "—",
+            f"{r.operator_aadhaar}" if r.operator_aadhaar else "—",
+            f"{r.pan_number}" if r.pan_number else "—",
+            r.pincode if r.pincode else "—",
+            r.status,
+            str(r.submitted_at)[:19] if r.submitted_at else "—",
+            str(r.reviewed_at)[:16] if r.reviewed_at else "—"
         ])
 
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
-    response.headers["Content-Disposition"] = "attachment; filename=sent_to_uidai_all_fields.csv"
-    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Content-Disposition"] = "attachment; filename=uidai_pipeline_complete_report.csv"
     return response
 
 
 @router.get("/export-excel/pending")
 def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
-    """Export Pending Operator Activation Queue to CSV.
-    Optional ?ids=1,2,3 to export only specific (filtered) rows.
-    """
+    """🌟 FIXED: Export Pending activation queue records including all profile fields."""
     from fastapi.responses import StreamingResponse
     import csv
     import io
 
     query = db.query(OperatorActivationRequest).filter(
-        OperatorActivationRequest.status.in_(["sent_to_chips", "pending"])
+        OperatorActivationRequest.status.in_(["pending", "reapplied", "sent_to_uidai"])
     )
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
-        if id_list:
-            query = query.filter(OperatorActivationRequest.id.in_(id_list))
+        query = query.filter(OperatorActivationRequest.id.in_(id_list))
     requests_list = query.order_by(OperatorActivationRequest.submitted_at.desc()).all()
 
     stream = io.StringIO()
     writer = csv.writer(stream)
 
     headers = [
-        "S.No", "Request Number", "DC ID", "District ID", "Role",
-        "Name as per Aadhaar", "Registrar Code", "EA Code", "User Code",
-        "NSEIT Certificate Number", "Operator Mobile", "Primary Email",
-        "Operator Aadhaar", "NSEIT Certification Date", "Pincode",
-        "Current Status", "Submitted At",
+        "S.No", "Request ID", "District Name", "Role", 
+        "Name as per Aadhaar", "Registrar Code", "EA Code", "User Code", 
+        "NSEIT Certificate Number", "Mobile Number", "Primary Email ID", 
+        "Aadhaar Number", "PAN Number", "Pincode", "Status", 
+        "Submitted At Timestamp", "Reviewed At Timestamp"
     ]
     writer.writerow(headers)
 
     for idx, r in enumerate(requests_list, start=1):
+        dist_name = r.district.district_name if r.district else "—"
+        reviewed_at_val = str(r.reviewed_at)[:19] if (r.status in ["reapplied", "sent_to_uidai"] and r.reviewed_at) else ""
         writer.writerow([
             idx,
-            r.request_no if r.request_no else "—",
-            r.dc_id,
-            r.district_id,
+            r.request_no or "—",
+            dist_name,
             r.role if r.role else "—",
             r.name_as_per_aadhaar,
             r.registrar_code if r.registrar_code else "—",
@@ -366,56 +416,52 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
             r.nseit_certificate_number if r.nseit_certificate_number else "—",
             r.operator_mobile,
             r.primary_email if r.primary_email else "—",
-            r.operator_aadhaar if r.operator_aadhaar else "—",
-            str(r.nseit_certification_date)[:10] if r.nseit_certification_date else "—",
-            str(r.nseit_certificate_expiry_date)[:10] if r.nseit_certificate_expiry_date else "—",
+            f"{r.operator_aadhaar}" if r.operator_aadhaar else "—",
+            f"{r.pan_number}" if r.pan_number else "—",
             r.pincode if r.pincode else "—",
             r.status,
-            str(r.submitted_at)[:16] if r.submitted_at else "—",
+            str(r.submitted_at)[:19] if r.submitted_at else "—",
+            reviewed_at_val
         ])
 
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
-    response.headers["Content-Disposition"] = "attachment; filename=pending_activation_queue.csv"
-    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Content-Disposition"] = "attachment; filename=pending_activation_complete_report.csv"
     return response
 
 
 @router.get("/export-excel/credentials")
 def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
-    """Export Credentials Log History (approved / rejected / reverted) to CSV.
-    Optional ?ids=1,2,3 to export only specific (filtered) rows.
-    """
+    """🌟 FIXED: Export historical logs repository including all profile fields."""
     from fastapi.responses import StreamingResponse
     import csv
     import io
 
     query = db.query(OperatorActivationRequest).filter(
-        OperatorActivationRequest.status.in_(["approved", "rejected", "reverted"])
+        OperatorActivationRequest.status.in_(["approved", "rejected", "reverted", "reverted_by_chips"])
     )
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
-        if id_list:
-            query = query.filter(OperatorActivationRequest.id.in_(id_list))
+        query = query.filter(OperatorActivationRequest.id.in_(id_list))
     requests_list = query.order_by(OperatorActivationRequest.submitted_at.desc()).all()
 
     stream = io.StringIO()
     writer = csv.writer(stream)
 
     headers = [
-        "S.No", "Request Number", "DC ID", "District ID", "Role",
-        "Name as per Aadhaar", "Registrar Code", "EA Code", "User Code",
-        "NSEIT Certificate Number", "Operator Mobile", "Primary Email",
-        "Operator Aadhaar", "NSEIT Certificate Issue Date", "NSEIT Certificate Expiry Date",
-        "Pincode", "Final Status", "Submitted At", "Reviewed At", "UIDAI / Admin Remarks",
+        "S.No", "Request ID","District Name", "Role", 
+        "Name as per Aadhaar", "Registrar Code", "EA Code", "User Code", 
+        "NSEIT Certificate Number", "Mobile Number", "Primary Email ID", 
+        "Aadhaar Number", "PAN Number", "Pincode", "Status", 
+        "Submitted At Timestamp", "Reviewed At Timestamp", "Remarks"
     ]
     writer.writerow(headers)
 
     for idx, r in enumerate(requests_list, start=1):
+        dist_name = r.district.district_name if r.district else "—"
         writer.writerow([
             idx,
-            r.request_no if r.request_no else "—",
-            r.dc_id,
-            r.district_id,
+            r.request_no or "—",
+            dist_name,
             r.role if r.role else "—",
             r.name_as_per_aadhaar,
             r.registrar_code if r.registrar_code else "—",
@@ -424,19 +470,17 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
             r.nseit_certificate_number if r.nseit_certificate_number else "—",
             r.operator_mobile,
             r.primary_email if r.primary_email else "—",
-            r.operator_aadhaar if r.operator_aadhaar else "—",
-            str(r.nseit_certification_date)[:10] if r.nseit_certification_date else "—",
-            str(r.nseit_certificate_expiry_date)[:10] if r.nseit_certificate_expiry_date else "—",
+            f"{r.operator_aadhaar}" if r.operator_aadhaar else "—",
+            f"{r.pan_number}" if r.pan_number else "—",
             r.pincode if r.pincode else "—",
             r.status,
-            str(r.submitted_at)[:16] if r.submitted_at else "—",
-            str(r.reviewed_at)[:16] if r.reviewed_at else "—",
-            r.remark_to_uidai if r.remark_to_uidai else "—",
+            str(r.submitted_at)[:19] if r.submitted_at else "—",
+            str(r.reviewed_at)[:19] if r.reviewed_at else "—",
+            "" if r.status == "approved" else (r.remarks[-1].remark if r.remarks else "—")
         ])
 
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
-    response.headers["Content-Disposition"] = "attachment; filename=credentials_log_history.csv"
-    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Content-Disposition"] = "attachment; filename=credentials_history_complete_report.csv"
     return response
 
 
@@ -476,7 +520,7 @@ def get_request_detail(request_id: int, db: Session = Depends(get_db)):
     ]
 
     dist_name = r.district.district_name if r.district else "—"
-    clean_status = str(r.status or "sent_to_chips").strip().lower()
+    clean_status = str(r.status or "pending").strip().lower()
     latest_remark = r.remarks[-1].remark if r.remarks else None
 
     return {
@@ -500,7 +544,7 @@ def get_request_detail(request_id: int, db: Session = Depends(get_db)):
         "pincode": r.pincode,
         "status": clean_status,
         "rejection_reason": latest_remark,
-        "chips_remarks": r.remark_to_uidai,
+        "chips_remarks": r.remarks[-1].remark if r.remarks else "—",
         "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else None,
         "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
         "reviewed_by": r.reviewed_by,
@@ -524,13 +568,23 @@ def approve_request(
 
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
-    if r.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Request is already {r.status}.")
+    if r.status not in ["pending", "reapplied", "sent_to_uidai"]:
+        raise HTTPException(status_code=400, detail=f"Cannot approve a request with status: {r.status}.")
 
     r.status = "approved"
     r.reviewed_by = reviewed_by
     r.chips_remarks = chips_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)  # IST
+
+    remark_text = chips_remarks.strip() if chips_remarks else "Request successfully approved."
+    remark = OperatorActivationRemark(
+        request_id=r.id,
+        author_id=reviewed_by,
+        author_role="chips_admin",
+        remark=remark_text,
+        status_after="approved",
+    )
+    db.add(remark)
 
     db.commit()
     return {"message": "Operator activated successfully.", "request_id": r.id}
@@ -540,7 +594,7 @@ def approve_request(
 def reject_request(
     request_id: int,
     reviewed_by: int = Form(...),
-    rejection_reason: str = Form(...),
+    rejection_reason: str = Form(None),
     chips_remarks: str = Form(None),
     db: Session = Depends(get_db),
 ):
@@ -552,7 +606,7 @@ def reject_request(
 
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
-    if r.status not in ["pending", "sent_to_chips", "sent_to_uidai"]:
+    if r.status not in ["pending", "sent_to_uidai", "reapplied"]:
         raise HTTPException(
             status_code=400, detail=f"Cannot revert a request with status: {r.status}"
         )
@@ -563,11 +617,12 @@ def reject_request(
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)  # IST
 
     # Create a remark record so DC can see the rejection reason
+    remark_text = rejection_reason.strip() if rejection_reason else "Request reverted to District Coordinator."
     remark = OperatorActivationRemark(
         request_id=r.id,
         author_id=reviewed_by,
         author_role="chips_admin",
-        remark=rejection_reason,
+        remark=remark_text,
         status_after="reverted",
     )
     db.add(remark)
@@ -595,24 +650,23 @@ def send_to_uidai(
         raise HTTPException(status_code=404, detail="Request not found.")
     r.status = "sent_to_uidai"
     r.reviewed_by = reviewed_by
-    r.remark_to_uidai = uidai_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
-    if uidai_remarks:
-        remark = OperatorActivationRemark(
-            request_id=r.id,
-            author_id=reviewed_by,
-            author_role="chips_admin",
-            remark=f"Sent to UIDAI: {uidai_remarks}",
-            status_after="sent_to_uidai",
-        )
-        db.add(remark)
+    remark_text = uidai_remarks.strip() if uidai_remarks else "Request forwarded to UIDAI."
+    remark = OperatorActivationRemark(
+        request_id=r.id,
+        author_id=reviewed_by,
+        author_role="chips_admin",
+        remark=remark_text,  # 🌟 Requirement 4: Strip out prefix text safely
+        status_after="sent_to_uidai",
+    )
+    db.add(remark)
 
     db.commit()
     return {"message": "Sent to UIDAI.", "request_id": r.id}
 
 
-@router.patch("/{request_id}/uidai-approve")
+@router.patch("/{request_id}/uidai-approve")  # 🌟 Kept as PATCH to maintain codebase uniformity
 def uidai_approve(
     request_id: int,
     reviewed_by: int = Form(...),
@@ -626,19 +680,31 @@ def uidai_approve(
     )
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
+    
     r.status = "approved"
     r.reviewed_by = reviewed_by
-    r.remark_to_uidai = uidai_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
+
+    # 🌟 Insert the clean remark log into the remarks history table
+    remark_text = uidai_remarks.strip() if uidai_remarks else "Request successfully approved by UIDAI."
+    
+    approved_remark = OperatorActivationRemark(
+        request_id=r.id,
+        author_id=reviewed_by,
+        author_role="chips_admin",
+        remark=remark_text,
+        status_after="approved"
+    )
+    db.add(approved_remark)
+    
     db.commit()
     return {"message": "Approved by UIDAI.", "request_id": r.id}
-
 
 @router.patch("/{request_id}/uidai-reject")
 def uidai_reject(
     request_id: int,
     reviewed_by: int = Form(...),
-    uidai_remarks: str = Form(...),
+    uidai_remarks: str = Form(None),
     db: Session = Depends(get_db),
 ):
     r = (
@@ -650,14 +716,14 @@ def uidai_reject(
         raise HTTPException(status_code=404, detail="Request not found.")
     r.status = "rejected"
     r.reviewed_by = reviewed_by
-    r.remark_to_uidai = uidai_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
+    remark_text = uidai_remarks.strip() if uidai_remarks else "Request rejected by UIDAI."
     remark = OperatorActivationRemark(
         request_id=r.id,
         author_id=reviewed_by,
         author_role="chips_admin",
-        remark=f"Rejected by UIDAI: {uidai_remarks}",
+        remark=remark_text,  # 🌟 Requirement 4: Strip out prefix text safely
         status_after="rejected",
     )
     db.add(remark)
@@ -675,20 +741,29 @@ def get_request_detail_full(request_id: int, db: Session = Depends(get_db)):
 def reapply_request(
     request_id: int,
     dc_id: int = Form(...),
-    operator_name: str = Form(None),
-    operator_mobile: str = Form(...),
-    operator_aadhaar: str = Form(None),
-    operator_pan: str = Form(None),
-    primary_email: str = Form(None),
-    pincode: str = Form(None),
+    district_id: str = Form(None),
     role: str = Form(None),
+    name_as_per_aadhaar: str = Form(None),
     registrar_code: str = Form(None),
     ea_code: str = Form(None),
     user_code: str = Form(None),
     nseit_certificate_number: str = Form(None),
+    operator_mobile: str = Form(None),
+    primary_email: str = Form(None),
+    operator_aadhaar: str = Form(None),
+    operator_pan: str = Form(None),
+
+    pincode: str = Form(None),
     nseit_certification_date: str = Form(None),
     nseit_certificate_expiry_date: str = Form(None),
     reapply_remark: str = Form(...),
+    hard_copy_form: UploadFile = File(None),
+    aadhaar_photo: UploadFile = File(None),
+    pan_card: UploadFile = File(None),
+    passbook: UploadFile = File(None),
+    nseit_certificate: UploadFile = File(None),
+    excel_sheet: UploadFile = File(None),
+
     db: Session = Depends(get_db),
 ):
     r = (
@@ -699,18 +774,21 @@ def reapply_request(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    if r.status not in ["reverted", "rejected"]:
+    if r.status not in ["reverted", "rejected", "reverted_by_chips"]:
         raise HTTPException(
             status_code=400, detail=f"Cannot reapply a request with status: {r.status}"
         )
 
-    if operator_name:
-        r.name_as_per_aadhaar = operator_name
+
+    if name_as_per_aadhaar:
+        r.name_as_per_aadhaar = name_as_per_aadhaar
+
     if operator_mobile:
         r.operator_mobile = operator_mobile
     if operator_aadhaar:
         r.operator_aadhaar = operator_aadhaar
     if operator_pan:
+
         r.pan_number = operator_pan.upper()
     if primary_email:
         r.primary_email = primary_email
@@ -720,33 +798,87 @@ def reapply_request(
         r.role = role
     if registrar_code:
         r.registrar_code = registrar_code
+
     if ea_code:
         r.ea_code = ea_code
     if user_code:
         r.user_code = user_code
     if nseit_certificate_number:
         r.nseit_certificate_number = nseit_certificate_number
+
     if nseit_certification_date:
         r.nseit_certification_date = nseit_certification_date
     if nseit_certificate_expiry_date:
         r.nseit_certificate_expiry_date = nseit_certificate_expiry_date
 
-    # Reset status back to sent_to_chips so CHIPS admin receives the corrected request
-    r.status = "sent_to_chips"
-    r.reviewed_at = None
 
-    # Save DC remark to the conversation history model tracking table
+    cert_date = parse_optional_date(nseit_certification_date)
+    expiry_date = parse_optional_date(nseit_certificate_expiry_date)
+    if cert_date:
+        r.nseit_certification_date = cert_date
+    if expiry_date:
+        r.nseit_certificate_expiry_date = expiry_date
+
+    # Reset status
+    r.status = "reapplied"
+    r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
+
+    # Handle files
+    uploaded_files = {
+        "hard_copy_form": hard_copy_form,
+        "aadhaar_photo": aadhaar_photo,
+        "pan_card": pan_card,
+        "passbook": passbook,
+        "nseit_certificate": nseit_certificate,
+        "excel_sheet": excel_sheet,
+    }
+    
+    dist = db.query(District).filter(District.district_code == r.district_id).first()
+    dist_name = dist.district_name if dist else f"DISTRICT_{r.district_id}"
+    folder = f"{UPLOAD_BASE}/{dist_name}/{r.request_no}"
+    os.makedirs(folder, exist_ok=True)
+
+    for doc_type, upload in uploaded_files.items():
+        if upload and upload.filename:
+            ext = os.path.splitext(upload.filename)[-1]
+            file_path = f"{folder}/{doc_type}{ext}"
+            
+            with open(file_path, "wb") as f:
+                import shutil
+                shutil.copyfileobj(upload.file, f)
+            
+            file_size = os.path.getsize(file_path)
+            
+            # Update existing or create new document record
+            doc = db.query(ActivationDocument).filter_by(request_id=r.id, doc_type=doc_type).first()
+            if not doc:
+                doc = ActivationDocument(
+                    request_id=r.id,
+                    doc_type=doc_type,
+                )
+                db.add(doc)
+            
+            doc.file_path = file_path
+            doc.original_filename = upload.filename
+            doc.file_size_bytes = file_size
+            doc.mime_type = upload.content_type
+
+    # Save DC remark
+    remark_text = reapply_remark.strip() if reapply_remark else "Request modified and reapplied."
     remark = OperatorActivationRemark(
         request_id=r.id,
         author_id=dc_id,
         author_role="dc",
-        remark=reapply_remark,
-        status_after="sent_to_chips",
+        remark=remark_text,
+        status_after="reapplied",
     )
     db.add(remark)
     db.commit()
 
-    return {"message": "Request reapplied successfully.", "request_id": r.id}
+    return {
+        "status": "success",
+        "redirect_url": "/auth/dc/operator-activation?reapplied=true"
+    }
 
 
 # ─────────────────────────────────────────────

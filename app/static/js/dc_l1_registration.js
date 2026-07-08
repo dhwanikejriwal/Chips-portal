@@ -3,6 +3,37 @@
 document.addEventListener("DOMContentLoaded", () => {
     // Show dashboard by default
     showL1Dashboard();
+
+    const isActionReload = sessionStorage.getItem('dc_action_reloading') === 'true';
+    sessionStorage.removeItem('dc_action_reloading');
+
+    if (!isActionReload) {
+        sessionStorage.removeItem('dc_l1_search');
+        sessionStorage.removeItem('dc_l1_date');
+        sessionStorage.removeItem('dc_l1_pending_status');
+        sessionStorage.removeItem('dc_l1_log_status');
+    }
+
+    if (sessionStorage.getItem('dc_l1_search') !== null) {
+        const searchInput = document.getElementById('l1-search-input');
+        if (searchInput) searchInput.value = sessionStorage.getItem('dc_l1_search');
+        const dateInput = document.getElementById('l1-date-filter');
+        if (dateInput) dateInput.value = sessionStorage.getItem('dc_l1_date');
+        const pendingStatusEl = document.getElementById('pending-status-filter');
+        if (pendingStatusEl) pendingStatusEl.value = sessionStorage.getItem('dc_l1_pending_status');
+        const logStatusEl = document.getElementById('log-status-filter');
+        if (logStatusEl) logStatusEl.value = sessionStorage.getItem('dc_l1_log_status');
+    } else {
+        const searchInput = document.getElementById('l1-search-input');
+        if (searchInput) searchInput.value = '';
+        const dateInput = document.getElementById('l1-date-filter');
+        if (dateInput) dateInput.value = 'month';
+        const pendingStatusEl = document.getElementById('pending-status-filter');
+        if (pendingStatusEl) pendingStatusEl.value = 'all';
+        const logStatusEl = document.getElementById('log-status-filter');
+        if (logStatusEl) logStatusEl.value = 'all';
+    }
+
     filterL1Table();
 });
 
@@ -14,6 +45,9 @@ function showL1Dashboard() {
 function showL1Form() {
     document.getElementById('view-l1-dashboard-panel').style.display = 'none';
     document.getElementById('view-l1-application-panel').style.display = 'block';
+    if (typeof window.loadL1Draft === 'function') {
+        window.loadL1Draft();
+    }
 }
 
 function filterL1Table() {
@@ -22,6 +56,12 @@ function filterL1Table() {
 
     const dateFilterEl = document.getElementById('l1-date-filter');
     const dateFilter = dateFilterEl ? dateFilterEl.value : 'month'; // default to month
+
+    // Save current filter criteria to sessionStorage dynamically
+    sessionStorage.setItem('dc_l1_search', input ? input.value : '');
+    sessionStorage.setItem('dc_l1_date', dateFilter);
+    sessionStorage.setItem('dc_l1_pending_status', document.getElementById('pending-status-filter') ? document.getElementById('pending-status-filter').value : 'all');
+    sessionStorage.setItem('dc_l1_log_status', document.getElementById('log-status-filter') ? document.getElementById('log-status-filter').value : 'all');
 
     const now = new Date();
     const y = now.getFullYear();
@@ -59,19 +99,17 @@ function filterL1Table() {
                     matchDate = false;
                 } else {
                     const rowDate = new Date(createdDate.replace(' ', 'T'));
-                    const startOfWeek = new Date(now);
-                    const day = startOfWeek.getDay();
-                    startOfWeek.setDate(now.getDate() - day);
-                    startOfWeek.setHours(0, 0, 0, 0);
-
-                    const endOfWeek = new Date(startOfWeek);
-                    endOfWeek.setDate(startOfWeek.getDate() + 6);
-                    endOfWeek.setHours(23, 59, 59, 999);
-
-                    matchDate = rowDate >= startOfWeek && rowDate <= endOfWeek;
+                    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    matchDate = rowDate >= sevenDaysAgo;
                 }
             } else if (dateFilter === 'month') {
-                matchDate = createdDate.startsWith(monthPrefix);
+                if (!createdDate) {
+                    matchDate = false;
+                } else {
+                    const rowDate = new Date(createdDate.replace(' ', 'T'));
+                    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    matchDate = rowDate >= thirtyDaysAgo;
+                }
             }
 
             if (matchQuery && matchStatus && matchDate) {
@@ -86,7 +124,6 @@ function filterL1Table() {
         const emg = document.getElementById(`${sec}-empty-msg`);
         const cnt = document.getElementById(`${sec}-count`);
 
-        if (tbl) tbl.style.display = (visibleCount === 0 && rows.length > 0) ? 'none' : '';
         if (emg) emg.style.display = (visibleCount === 0) ? 'block' : 'none';
         if (cnt) cnt.textContent = visibleCount;
     });
@@ -134,11 +171,20 @@ function submitL1Registration(event) {
         .then(() => {
             Swal.fire({
                 title: 'Submitted Successfully',
-                text: 'Your L1 registration request has been sent to CHIPS.',
+                text: 'Your L1 registration request has been submitted successfully.',
                 icon: 'success',
                 confirmButtonColor: '#007bff',
-                allowOutsideClick: false
+                allowOutsideClick: false,
+                showConfirmButton: true,
+                timer: 3000,
+                timerProgressBar: true
             }).then(() => {
+                if (typeof window.clearL1DraftAndForm === 'function') {
+                    window.clearL1DraftAndForm();
+                } else if (typeof clearL1Form === 'function') {
+                    clearL1Form();
+                }
+                sessionStorage.setItem('dc_action_reloading', 'true');
                 window.location.reload();
             });
         })
@@ -220,6 +266,12 @@ function openL1ReapplyModal(requestCode) {
                             </div>
                         </div>
                     </div>
+                    </div>
+                    <!-- 🌟 ADDED: Requirement 1 — Mandatory Correction Notes UI Box Container -->
+                    <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-top: 10px; text-align: left;">
+                        <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:6px;">Correction Notes * <span style="text-transform:none; font-size:10px; font-weight:400; color:#ef4444;">(Mandatory)</span></div>
+                        <textarea id="ra-reapply-remark" name="reapply_remark" style="width:100%; padding:10px; border:1.5px solid #fca5a5; border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; min-height:75px; outline:none; box-sizing: border-box;" placeholder="Explain what updates you made to fix this request..."></textarea>
+                    </div>
                 </form>
             </div>
         `;
@@ -232,21 +284,34 @@ function openL1ReapplyModal(requestCode) {
                 confirmButtonText: 'Reapply',
                 confirmButtonColor: '#007bff',
                 preConfirm: () => {
+                    // 🌟 ADDED: Front-end Validation to ensure text isn't empty
+                    const reapplyRemark = document.getElementById('ra-reapply-remark').value.trim();
+                    if (!reapplyRemark) {
+                        Swal.showValidationMessage('Correction notes are mandatory before resubmitting.');
+                        return false;
+                    }
+
                     const form = document.getElementById('reapplyL1Form');
                     const formData = new FormData(form);
                     const payload = new URLSearchParams();
                     for (const pair of formData) {
                         payload.append(pair[0], pair[1]);
                     }
+                    // Explicitly bundle validation string value into final query params stream
+                    payload.append('reapply_remark', reapplyRemark);
+
                     return fetch(`/auth/l1-registration/requests/${requestCode}/reapply`, { method: 'PUT', body: payload })
                         .then(response => {
-                            if (!response.ok) throw new Error("Failed to reapply");
+                            if (!response.ok) throw new Error("Failed to reapply request parameters");
                             return response.json();
                         });
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    Swal.fire('Success', 'Request reapplied successfully.', 'success').then(() => window.location.reload());
+                    Swal.fire({ title: 'Success', text: 'Request reapplied successfully.', icon: 'success', showConfirmButton: true, timer: 3000, timerProgressBar: true }).then(() => {
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                        window.location.reload();
+                    });
                 }
             });
         })
@@ -267,11 +332,12 @@ function getStatusBadgeHtml(status) {
 
 function buildL1RemarksHtml(remarks) {
     if (!remarks || remarks.length === 0) return '';
-    let html = `<div class="remarks-timeline" style="margin-top: 15px;">
-        <div class="timeline-title">Audit Action History Log</div>
-        <div class="timeline-track">`;
+    let html = `<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto; margin-top: 15px;">
+        <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div>
+        <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">`;
     remarks.forEach(r => {
-        const isChips = r.user_role === 'chips' || r.user_role === 'CHIPS_ADMIN';
+        const uRole = (r.user_role || '').toUpperCase();
+        const isChips = uRole.includes('CHIPS') || uRole.includes('ADMIN');
         const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
         const senderClass = isChips ? 'chips' : 'dc';
 
@@ -287,15 +353,24 @@ function buildL1RemarksHtml(remarks) {
             else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
         }
 
+        const username = r.author_username || '';
+        // Only show username if it's a DC (hide CHiPS Admin username from DC panel)
+        const hasUsername = !isChips && username && username !== 'system';
+        
+        // Assume escapeHtml function exists globally or in the file, if not we can use a basic fallback inline
+        // Wait, dc_l1_registration.js has an escapeHtml inside showL1Details but here it's outside. Let's just use a simple escape inline or define it if not present.
+        // Actually, we can just use the global one or a small inline replace.
+        const safeUsername = username.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
         html += `
             <div class="timeline-item ${senderClass}">
-                <div class="timeline-marker ${markerClass}"></div>
+                <div class="timeline-marker ${markerClass}" style="left: -31px !important;"></div>
                 <div class="timeline-content">
                     <div class="timeline-section-row">
                         <span class="timeline-step-label">L1 Registration</span>${statusBadgeHtmlInline}
                     </div>
                     <div class="timeline-by-row">
-                        <span class="timeline-by">By: <strong>${sender}</strong></span>
+                        <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + safeUsername + ')' : ''}</span>
                         <span class="timeline-time">${r.timestamp}</span>
                     </div>
                     <div class="timeline-body">${r.remark}</div>
@@ -310,18 +385,149 @@ function buildL1RemarksHtml(remarks) {
 window.showL1Details = function (d, activeView) {
     const statusBadge = getStatusBadgeHtml(d.status);
 
+    const escapeHtml = (unsafe) => {
+        return (unsafe || '').toString()
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    };
+
+    const isReverted = d.status === 'REVERTED';
+
     if (activeView === 'details') {
-        const infoHtml = `
+        let htmlContent = '';
+        if (isReverted) {
+            htmlContent = `
             <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
                     <span style="font-size: 14px; color: #666; font-weight: 600;">Request: ${d.request_code}</span>
                     <span>${statusBadge}</span>
                 </div>
                 <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
-                    Submitted At: <strong>${d.created_at || '—'}</strong><br>
-                    Reviewed At: <strong>${d.reviewed_at || '—'}</strong>
+                    Submitted At: <strong>${d.created_at || '—'}</strong>
                 </div>
+
+                <!-- Action Required Notification Box -->
+                <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;">
+                    <div style="font-size: 14px; font-weight: 700; color: #c2410c; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                        <span>⚠️</span> Action Required — Request Reverted
+                    </div>
+                    <div style="font-size: 13px; color: #9a3412; font-weight: 500;">
+                        Review CHiPS Admin's remarks below, update details and click "Resubmit".
+                    </div>
+                </div>
+
+                <!-- Revert Reason / Remark Box -->
+                <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                        <span>💬</span> REVERT REASON / REMARK
+                    </div>
+                    <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
+                        ${escapeHtml(d.revert_reason || 'No reason note provided.')}
+                    </div>
+                </div>
+
+                <form id="reapplyL1Form" style="margin-bottom: 0;">
+                    <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                        <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Modify Specifications</div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Station ID *</label>
+                                <input type="text" name="station_id" value="${d.station_id}" style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px;">
+                            </div>
+                            <div>
+                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Machine ID *</label>
+                                <input type="text" name="machine_id" value="${d.machine_id}" style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px;">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Operator Name</label>
+                                <input type="text" name="operator_name" value="${d.operator_name || ''}" style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px;">
+                            </div>
+                            <div>
+                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Operator ID</label>
+                                <input type="text" name="operator_id" value="${d.operator_id || ''}" style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px;">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Model Type *</label>
+                                <select name="model_type" style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px; background:#fff;">
+                                    <option value="ECMP" ${d.model_type === 'ECMP' ? 'selected' : ''}>ECMP</option>
+                                    <option value="UCL" ${d.model_type === 'UCL' ? 'selected' : ''}>UCL</option>
+                                    <option value="VLE" ${d.model_type === 'VLE' ? 'selected' : ''}>VLE</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Software Version *</label>
+                                <input type="text" name="software_version" value="${d.software_version}" style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px;">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">UV ID *</label>
+                                <input type="text" name="uv_id" value="${d.uv_id}" style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px;">
+                            </div>
+                            <div>
+                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">UV Password *</label>
+                                <div style="position: relative;">
+                                    <input type="password" id="reapply_uv_password_input_details" name="uv_password" value="${d.uv_password}" style="width: 100%; height:38px; padding: 8px; padding-right: 40px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px;">
+                                    <button type="button" id="btn-toggle-pw" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; color: #64748b;">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Correction Notes -->
+                    <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                        <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Reapply Correction Notes</div>
+                        <div style="text-align:left;">
+                            <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-bottom:6px;">Correction Notes * <span style="text-transform:none; font-size:10px; font-weight:400; color:#94a3b8;">(Mandatory — describe what was corrected)</span></div>
+                            <textarea id="ra-reapply-remark-details" name="reapply_remark" style="width:100%; padding:10px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; min-height:75px; outline:none; box-sizing: border-box;" placeholder="Explain what updates you made to fix this request..."></textarea>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- View Remarks Button for Reapply Details -->
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Audit History Log</button>
+                </div>
+            </div>
+            `;
+        } else {
+            htmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666; font-weight: 600;">Request: ${d.request_code}</span>
+                    <span>${statusBadge}</span>
+                </div>
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                    Submitted At: <strong>${d.created_at || '—'}</strong>
+                </div>
+
+                ${d.status === 'REVERTED' ? `
+                <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; border-top: 1px dashed #fca5a5; padding-top: 8px;">
+                        <span>💬</span> REVERT REASON / REMARK
+                    </div>
+                    <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
+                        ${escapeHtml(d.revert_reason || 'No reason note provided.')}
+                    </div>
+                </div>` : ''}
                 
+
                 <!-- Hardware & User Details Card -->
                 <div style="margin-bottom: 20px;">
                     <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Hardware &amp; User Details</div>
@@ -380,15 +586,18 @@ window.showL1Details = function (d, activeView) {
                     <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
                 </div>
             </div>`;
+        }
 
         Swal.fire({
             title: `<span style="font-family:inherit; font-weight:800;">L1 Request Details</span>`,
-            html: infoHtml,
+            html: htmlContent,
             width: '600px',
-            showCancelButton: false, // NO Cancel button
-            confirmButtonText: 'Close',
+            showCancelButton: isReverted,
+            confirmButtonText: isReverted ? 'Resubmit to CHiPS' : 'Close',
+            cancelButtonText: 'Cancel',
             customClass: {
-                confirmButton: 'swal-btn-close'
+                confirmButton: 'swal-btn-close',
+                cancelButton: 'swal-btn-back'
             },
             focusConfirm: false,
             didOpen: () => {
@@ -398,6 +607,47 @@ window.showL1Details = function (d, activeView) {
                         window.showL1Details(d, 'remarks');
                     };
                 }
+                
+                const btnTogglePw = document.getElementById('btn-toggle-pw');
+                if (btnTogglePw) {
+                    btnTogglePw.onclick = () => {
+                        togglePasswordVisibility('reapply_uv_password_input_details', btnTogglePw);
+                    };
+                }
+            },
+            preConfirm: () => {
+                if (isReverted) {
+                    const reapplyRemark = document.getElementById('ra-reapply-remark-details').value.trim();
+                    if (!reapplyRemark) {
+                        Swal.showValidationMessage('Correction notes are mandatory before resubmitting.');
+                        return false;
+                    }
+
+                    const form = document.getElementById('reapplyL1Form');
+                    const formData = new FormData(form);
+                    const payload = new URLSearchParams();
+                    for (const pair of formData) {
+                        payload.append(pair[0], pair[1]);
+                    }
+                    payload.append('reapply_remark', reapplyRemark);
+
+                    return fetch(`/auth/l1-registration/requests/${d.request_code}/reapply`, { method: 'PUT', body: payload })
+                        .then(response => {
+                            if (!response.ok) throw new Error("Failed to reapply request parameters");
+                            return response.json();
+                        })
+                        .catch(err => {
+                            Swal.showValidationMessage(`Error: ${err.message}`);
+                            return false;
+                        });
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed && isReverted) {
+                Swal.fire({ title: 'Success', text: 'Request reapplied successfully.', icon: 'success', showConfirmButton: true, timer: 3000, timerProgressBar: true }).then(() => {
+                    sessionStorage.setItem('dc_action_reloading', 'true');
+                    window.location.reload();
+                });
             }
         });
     }
@@ -405,8 +655,8 @@ window.showL1Details = function (d, activeView) {
         const remarksHtml = buildL1RemarksHtml(d.remarks);
 
         const remarksHtmlContent = `
-            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                     <span style="font-size: 14px; color: #666; font-weight: 600;">Request: ${d.request_code}</span>
                     <span>${statusBadge}</span>
                 </div>
@@ -455,6 +705,7 @@ function openL1DetailsModal(requestCode) {
 }
 
 function clearL1Form() {
+    sessionStorage.removeItem('l1_request_draft');
     document.getElementById('l1RegistrationForm').reset();
 }
 
@@ -469,15 +720,13 @@ function togglePasswordVisibility(inputId, btn) {
     }
 }
 
-// Export helper function to fetch Excel stream from backend
-function exportTableToExcel(tableID, filename = 'export.xlsx') {
+function exportTableToExcel(tableID, filename = 'export.csv') {
     const table = document.getElementById(tableID);
     if (!table) return;
 
-    const bodyRows = table.querySelectorAll('tbody tr');
     const ids = [];
-    bodyRows.forEach(row => {
-        if (row.style.display !== 'none' && row.cells.length > 1) {
+    table.querySelectorAll('tbody tr[data-id]').forEach(row => {
+        if (row.style.display !== 'none') {
             const id = row.getAttribute('data-id');
             if (id) ids.push(id);
         }
@@ -488,6 +737,73 @@ function exportTableToExcel(tableID, filename = 'export.xlsx') {
         return;
     }
 
-    window.location.href = `/auth/l1-registration/export-v2?ids=${ids.join(',')}`;
+    // Redirect to the backend export endpoint
+    window.location.href = `/auth/l1-registration/export?ids=${ids.join(',')}`;
 }
+
+// Draft saving and restoring logic
+const L1_DRAFT_KEY = 'l1_request_draft';
+
+window.saveL1Draft = function() {
+    const form = document.getElementById('l1RegistrationForm');
+    if (!form) return;
+    const formData = new FormData(form);
+    const draft = {};
+    for (let [key, value] of formData.entries()) {
+        if (value instanceof File) continue;
+        draft[key] = value;
+    }
+    sessionStorage.setItem(L1_DRAFT_KEY, JSON.stringify(draft));
+};
+
+window.loadL1Draft = function() {
+    const draftStr = sessionStorage.getItem(L1_DRAFT_KEY);
+    if (!draftStr) return;
+    try {
+        const draft = JSON.parse(draftStr);
+        for (let key in draft) {
+            const el = document.getElementById(key) || document.getElementsByName(key)[0];
+            if (el && el.type !== 'file' && el.type !== 'hidden') {
+                el.value = draft[key];
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+    } catch (e) {
+        console.error("Error loading L1 draft", e);
+    }
+};
+
+window.clearL1DraftAndForm = function() {
+    sessionStorage.removeItem(L1_DRAFT_KEY);
+    if (typeof clearL1Form === 'function') {
+        clearL1Form();
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('l1RegistrationForm');
+    if (form) {
+        form.addEventListener('input', window.saveL1Draft);
+        form.addEventListener('change', window.saveL1Draft);
+    }
+
+    let isReloadOrBack = false;
+    const navEntries = performance.getEntriesByType('navigation');
+    if (navEntries.length > 0) {
+        const navType = navEntries[0].type;
+        isReloadOrBack = (navType === 'reload' || navType === 'back_forward');
+    } else if (window.performance && window.performance.navigation) {
+        const t = window.performance.navigation.type;
+        isReloadOrBack = (t === 1 || t === 2);
+    }
+
+    const isActionReload = sessionStorage.getItem('dc_action_reloading') === 'true';
+    if (isReloadOrBack && !isActionReload) {
+        window.clearL1DraftAndForm();
+    }
+    
+    // Attempt load if not just cleared
+    window.loadL1Draft();
+});
 

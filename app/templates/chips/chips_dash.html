@@ -1,64 +1,121 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHiPS Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/css/common.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/chips/chips_dash.css">
 
-{% block title %}CHiPS Dashboard - CHiPS Portal{% endblock %}
+    <!-- Tab Session Enforcer -->
+    {% if session.get('access_token') %}
+    <script>
+        (function () {
+            var referrer = document.referrer || "";
+            var isLoginRedirect = referrer.indexOf("/auth/login") !== -1;
+            if (isLoginRedirect) {
+                sessionStorage.setItem('session_active', 'true');
+            } else if (!sessionStorage.getItem('session_active')) {
+                // Tab closed & reopened or opened in a new tab: log out to clear server session
+                window.location.href = "{{ url_for('auth.logout') }}";
+            }
+        })();
+    </script>
+    {% endif %}
+</head>
+<body>
 
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/chips/chips_dash.css') }}">
-{% endblock %}
+    <!-- Header -->
+    {% include "partials/header.html" %}
 
-{% block content %}
-<div class="dashboard-header">
-    <h1 class="page-title">State Coordinator Dashboard (CHiPS)</h1>
-    <p class="page-subtitle">Oversee all districts, verify final operator activations, and sync with UIDAI.</p>
-</div>
+    <!-- Main Layout -->
+    <div class="main-layout">
 
-<div class="metrics-grid">
-    <div class="metric-card">
-        <h3 class="metric-title">Active Operators</h3>
-        <p class="metric-value">342</p>
+        <!-- Sidebar -->
+        {% include "partials/sidebar.html" %}
+
+        <!-- Content -->
+        <main class="content">
+
+            <h2>Admin Dashboard Overview</h2>
+
+            <!-- Cards -->
+            <div class="cards">
+                <div class="card">
+                    <h3>Total Requests</h3>
+                    <span>{{ total_count }}</span>
+                </div>
+                <div class="card">
+                    <h3>Pending</h3>
+                    <span>{{ pending_count }}</span>
+                </div>
+                <div class="card">
+                    <h3>Approved</h3>
+                    <span>{{ approved_count }}</span>
+                </div>
+                <div class="card">
+                    <h3>Rejected</h3>
+                    <span>{{ rejected_count }}</span>
+                </div>
+            </div>
+
+            <!-- Requests Table -->
+            <div class="table-container">
+                <h3 style="margin-bottom: 15px;">Recent Requests Queue</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Request ID</th>
+                            <th>Operator Name</th>
+                            <th>District</th>
+                            <th>Request Type</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in recent_requests %}
+                        <tr>
+                            <td>{{ req.id }}</td>
+                            <td><strong>{{ req.operator_first_name }}{% if req.operator_middle_name %} {{ req.operator_middle_name }}{% endif %} {{ req.operator_last_name }}</strong></td>
+                            <td>{{ req.district_name }}</td>
+                            <td>LMS</td>
+                            <td>
+                                {% if req.status == 'assigned' %}
+                                <span class="badge badge-approved">Approved</span>
+                                {% elif req.status == 'reapplied' %}
+                                <span class="badge badge-reapplied">Reapplied</span>
+                                {% else %}
+                                <span class="badge badge-pending">Pending</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #888;">No recent requests found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </main>
+
     </div>
-    <div class="metric-card" onclick="window.location.href='/auth/chips/dc-monitoring'" style="cursor: pointer; border-color: #3182ce; hover: transform translateY(-2px);">
-        <h3 class="metric-title" style="color: #3182ce; text-decoration: underline;">Total Districts</h3>
-        <p class="metric-value">33</p>
-    </div>
-    <div class="metric-card">
-        <h3 class="metric-title">Pending Activations</h3>
-        <p class="metric-value">27</p>
-    </div>
-</div>
 
-<div class="dashboard-card">
-    <h2 class="card-title">Recent District Submissions</h2>
-    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Below is the summary of recent operator applications uploaded by District Coordinators for state approval.</p>
-    
-    <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>District</th>
-                    <th>Candidate Name</th>
-                    <th>LMS Status</th>
-                    <th>NSEIT Status</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Raipur (RYP)</td>
-                    <td>Priya Sharma</td>
-                    <td><span class="badge badge-success">Approved</span></td>
-                    <td><span class="badge badge-success">Approved</span></td>
-                    <td><a href="#" class="btn btn-sm btn-outline">Send to UIDAI</a></td>
-                </tr>
-                <tr>
-                    <td>Bilaspur (BSP)</td>
-                    <td>Rahul Kumar</td>
-                    <td><span class="badge badge-success">Approved</span></td>
-                    <td><span class="badge badge-warning">Pending DC</span></td>
-                    <td><a href="#" class="btn btn-sm btn-outline disabled" style="opacity: 0.5; pointer-events: none;">Incomplete</a></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endblock %}
+    <script>
+        // Sidebar Toggle Collapse/Expand persistence
+        const sidebar = document.querySelector('.sidebar');
+        const toggleBtn = document.getElementById('sidebar-toggle');
+        
+        if (localStorage.getItem('sidebar-collapsed') === 'true') {
+            sidebar.classList.add('collapsed');
+        }
+        
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+        });
+    </script>
+</body>
+</html>

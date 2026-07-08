@@ -26,7 +26,35 @@ def backend_url():
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["GET"])
 def dc_submit_form():
+
+# --- FRIEND'S UPDATED CODE ---
     return redirect(url_for("operator_activation.dc_requests_list"))
+# --- YOUR LOCAL CODE ---
+    jwt_token = session.get("access_token")
+    if not jwt_token:
+        return redirect(url_for("auth.login"))
+        
+    reapply_id = request.args.get("reapply_id")
+    request_data = None
+    
+    if reapply_id:
+        headers = {"Authorization": f"Bearer {jwt_token}"}
+        backend_api_url = backend_url()
+        try:
+            response = requests.get(f"{backend_api_url}/{reapply_id}/detail", headers=headers)
+            if response.status_code == 200:
+                request_data = response.json()
+        except requests.exceptions.ConnectionError:
+            pass
+            
+    return render_template(
+        "operator_activation/submit_form.html",
+        district_name=session.get("district_name", ""),
+        request_data=request_data,
+        reapply_id=reapply_id
+    )
+# ---------------------------
+
 
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["POST"])
@@ -55,47 +83,39 @@ def dc_submit():
         "operator_pan": request.form.get("operator_pan"),
         "pincode": request.form.get("pincode"),
     }
+    
+    reapply_id = request.form.get("reapply_id")
+    if reapply_id:
+        form_data["reapply_remark"] = request.form.get("reapply_remark")
 
-    # Collect 6 uploaded files
-    files = {
-        "hard_copy_form": (
-            request.files["hard_copy_form"].filename,
-            request.files["hard_copy_form"].read(),
-            request.files["hard_copy_form"].content_type,
-        ),
-        "aadhaar_photo": (
-            request.files["aadhaar_photo"].filename,
-            request.files["aadhaar_photo"].read(),
-            request.files["aadhaar_photo"].content_type,
-        ),
-        "pan_card": (
-            request.files["pan_card"].filename,
-            request.files["pan_card"].read(),
-            request.files["pan_card"].content_type,
-        ),
-        "passbook": (
-            request.files["passbook"].filename,
-            request.files["passbook"].read(),
-            request.files["passbook"].content_type,
-        ),
-        "nseit_certificate": (
-            request.files["nseit_certificate"].filename,
-            request.files["nseit_certificate"].read(),
-            request.files["nseit_certificate"].content_type,
-        ),
-        "excel_sheet": (
-            request.files["excel_sheet"].filename,
-            request.files["excel_sheet"].read(),
-            request.files["excel_sheet"].content_type,
-        ),
-    }
+    # Collect 6 uploaded files safely
+    files = {}
+    for field in ["hard_copy_form", "aadhaar_photo", "pan_card", "passbook", "nseit_certificate", "excel_sheet"]:
+        file_obj = request.files.get(field)
+        if file_obj and file_obj.filename:
+            files[field] = (file_obj.filename, file_obj.read(), file_obj.content_type)
+
+    
+
 
     try:
+        url = f"{backend_url()}/submit"
+        if reapply_id:
+            url = f"{backend_url()}/dc/{reapply_id}/reapply"
+            
         response = requests.post(
-            f"{backend_url()}/submit", data=form_data, files=files, headers=headers
+            url, data=form_data, files=files if files else None, headers=headers
         )
         if response.status_code == 200:
+
+# --- FRIEND'S UPDATED CODE ---
             return jsonify({"status": "success", "redirect_url": url_for("operator_activation.dc_requests_list")}), 200
+# --- YOUR LOCAL CODE ---
+            if reapply_id:
+                return redirect(url_for("operator_activation.dc_requests_list", reapplied="true"))
+            return redirect(url_for("operator_activation.dc_requests_list", submitted="true"))
+# ---------------------------
+
         else:
             detail = response.json().get("detail", "Submission failed.")
             if isinstance(detail, dict) and "field_errors" in detail:
@@ -118,12 +138,31 @@ def dc_requests_list():
 
     try:
         response = requests.get(f"{backend_url()}/dc/{dc_id}", headers=headers)
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         requests_list = response.json() if response.status_code == 200 else []
     except requests.exceptions.ConnectionError:
         requests_list = []
 
     error = request.args.get("error")
-    return render_template("operator_activation/dc_list.html", requests=requests_list, error=error)
+    reapply_id = request.args.get("reapply_id")
+    request_data = None
+    
+    if reapply_id:
+        try:
+            detail_res = requests.get(f"{backend_url()}/{reapply_id}/detail", headers=headers)
+            if detail_res.status_code == 200:
+                request_data = detail_res.json()
+        except requests.exceptions.ConnectionError:
+            pass
+
+    return render_template(
+        "operator_activation/dc_list.html", 
+        requests=requests_list, 
+        error=error,
+        reapply_id=reapply_id,
+        request_data=request_data
+    )
 
 
 @operator_activation_bp.route(
@@ -253,6 +292,8 @@ def chips_all_requests():
 
     try:
         response = requests.get(f"{backend_url()}/all", headers=headers)
+        if response.status_code == 401:
+            return redirect(url_for("auth.logout"))
         requests_list = response.json() if response.status_code == 200 else []
     except requests.exceptions.ConnectionError:
         requests_list = []
@@ -286,7 +327,7 @@ def chips_approve(request_id):
 def chips_reject(request_id):
     jwt_token = session.get("access_token")
     if not jwt_token:
-        return redirect(url_for("auth.login"))
+        return jsonify({"status": "error", "message": "Session expired."}), 401
 
     headers = {"Authorization": f"Bearer {jwt_token}"}
     form_data = {
@@ -295,8 +336,18 @@ def chips_reject(request_id):
         "chips_remarks": request.form.get("chips_remarks", ""),
     }
 
-    requests.patch(f"{backend_url()}/{request_id}/reject", data=form_data, headers=headers)
-    return redirect(url_for("operator_activation.chips_all_requests"))
+    try:
+        resp = requests.patch(f"{backend_url()}/{request_id}/reject", data=form_data, headers=headers)
+        if resp.status_code in (200, 201):
+            return jsonify({"status": "success", "message": "Request rejected successfully."})
+        else:
+            try:
+                detail = resp.json().get("detail", "Backend validation error.")
+            except Exception:
+                detail = resp.text or "Unknown backend error."
+            return jsonify({"status": "error", "message": str(detail)}), resp.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({"status": "error", "message": "Backend service is offline."}), 503
 
 
 @operator_activation_bp.route(
@@ -404,15 +455,27 @@ def chips_send_to_uidai(request_id):
 )
 def chips_uidai_approve(request_id):
     jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Session expired."}), 401
     headers = {"Authorization": f"Bearer {jwt_token}"}
     form_data = {
         "reviewed_by": session.get("user_id"),
         "uidai_remarks": request.form.get("uidai_remarks", ""),
     }
-    requests.patch(
-        f"{backend_url()}/{request_id}/uidai-approve", data=form_data, headers=headers
-    )
-    return redirect(url_for("operator_activation.chips_all_requests"))
+    try:
+        resp = requests.patch(
+            f"{backend_url()}/{request_id}/uidai-approve", data=form_data, headers=headers
+        )
+        if resp.status_code in (200, 201):
+            return jsonify({"status": "success", "message": "UIDAI approval recorded."})
+        else:
+            try:
+                detail = resp.json().get("detail", "Backend validation error.")
+            except Exception:
+                detail = resp.text or "Unknown backend error."
+            return jsonify({"status": "error", "message": str(detail)}), resp.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({"status": "error", "message": "Backend service is offline."}), 503
 
 
 @operator_activation_bp.route(
@@ -420,15 +483,27 @@ def chips_uidai_approve(request_id):
 )
 def chips_uidai_reject(request_id):
     jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Session expired."}), 401
     headers = {"Authorization": f"Bearer {jwt_token}"}
     form_data = {
         "reviewed_by": session.get("user_id"),
         "uidai_remarks": request.form.get("uidai_remarks"),
     }
-    requests.patch(
-        f"{backend_url()}/{request_id}/uidai-reject", data=form_data, headers=headers
-    )
-    return redirect(url_for("operator_activation.chips_all_requests"))
+    try:
+        resp = requests.patch(
+            f"{backend_url()}/{request_id}/uidai-reject", data=form_data, headers=headers
+        )
+        if resp.status_code in (200, 201):
+            return jsonify({"status": "success", "message": "UIDAI rejection recorded."})
+        else:
+            try:
+                detail = resp.json().get("detail", "Backend validation error.")
+            except Exception:
+                detail = resp.text or "Unknown backend error."
+            return jsonify({"status": "error", "message": str(detail)}), resp.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({"status": "error", "message": "Backend service is offline."}), 503
 
 
 @operator_activation_bp.route(
@@ -486,4 +561,33 @@ def chips_export_credentials():
         headers={
             "Content-Disposition": "attachment; filename=credentials_log_history.csv"
         },
+    )
+
+
+@operator_activation_bp.route("/dc/operator-activation/export-excel/pending", methods=["GET"])
+def dc_export_pending():
+    jwt_token = session.get("access_token")
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    ids = request.args.get("ids", "")
+    params = {"ids": ids} if ids else {}
+    response = requests.get(f"{backend_url()}/export-excel/pending", headers=headers, params=params)
+    from flask import Response
+    return Response(
+        response.content,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=pending_activation_queue.csv"}
+    )
+
+@operator_activation_bp.route("/dc/operator-activation/export-excel/credentials", methods=["GET"])
+def dc_export_credentials():
+    jwt_token = session.get("access_token")
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    ids = request.args.get("ids", "")
+    params = {"ids": ids} if ids else {}
+    response = requests.get(f"{backend_url()}/export-excel/credentials", headers=headers, params=params)
+    from flask import Response
+    return Response(
+        response.content,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=credentials_log_history.csv"}
     )

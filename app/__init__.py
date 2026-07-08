@@ -1,11 +1,14 @@
-from flask import Flask
+from flask import Flask, render_template, request, redirect, url_for, session
 from app.config import Config
+import requests
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Register blueprints
+
+
+    # Register blueprints (Friend's / Shared)
     from app.blueprints.auth import auth_bp
     from app.blueprints.dashboard import dashboard_bp
     from app.blueprints.candidate_register import candidate_register_bp
@@ -38,5 +41,18 @@ def create_app():
     def index():
         from flask import render_template
         return render_template("home.html")
+
+    @app.route('/favicon.ico')
+    def favicon():
+        import os
+        from flask import send_from_directory
+        return send_from_directory(os.path.join(app.root_path, 'static', 'css', 'images'),
+                                   'chips_logo.jpg', mimetype='image/jpeg')
+
+    @app.route('/candidate_uploads/<path:filename>')
+    def candidate_uploads(filename):
+        import os
+        from flask import send_from_directory
+        return send_from_directory(os.path.join(app.root_path, '..', 'uploads', 'candidate'), filename)
 
     return app

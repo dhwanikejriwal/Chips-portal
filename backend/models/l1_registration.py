@@ -35,9 +35,13 @@ class L1RegistrationRequest(Base):
     
     created_at = Column(DateTime, default=get_ist_now)
     updated_at = Column(DateTime, default=get_ist_now, onupdate=get_ist_now)
-    reviewed_at = Column(DateTime, nullable=True)
+
+    dc_id = Column(Integer, ForeignKey("user_login_table.id"), nullable=True, index=True)
+    reviewed_by = Column(Integer, ForeignKey("user_login_table.id"), nullable=True)
 
     district = relationship("District")
+    dc = relationship("UserLogin", foreign_keys=[dc_id])
+    reviewer = relationship("UserLogin", foreign_keys=[reviewed_by])
     remarks = relationship("L1RegistrationRemarkHistory", back_populates="parent_request", cascade="all, delete-orphan", order_by="L1RegistrationRemarkHistory.timestamp")
 
 
@@ -45,7 +49,7 @@ class L1RegistrationRemarkHistory(Base):
     __tablename__ = "l1_registration_remark_history"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    request_code = Column(String, ForeignKey("l1_registration_requests.request_code", ondelete="CASCADE"), nullable=False, index=True)
+    request_id = Column(Integer, ForeignKey("l1_registration_requests.id", ondelete="CASCADE"), nullable=False, index=True)
     remark = Column(String, nullable=False)
     
     status_after_code = Column(String(2), nullable=True)
@@ -76,6 +80,9 @@ class L1RegistrationRemarkHistory(Base):
         self.status_after = value
 
     user_role = Column(String, nullable=False) # e.g. dc, chips_admin
+    author_id = Column(Integer, ForeignKey("user_login_table.id"), nullable=True)
     timestamp = Column(DateTime, default=get_ist_now, nullable=False)
 
     parent_request = relationship("L1RegistrationRequest", back_populates="remarks")
+    author = relationship("UserLogin", foreign_keys=[author_id])
+

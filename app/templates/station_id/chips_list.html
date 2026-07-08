@@ -56,22 +56,6 @@
         border-radius: 5px;
         margin-left: 5px;
     }
-
-    .empty-state {
-        padding: 36px 20px;
-        text-align: center;
-        color: #94a3b8;
-    }
-
-    .empty-state-icon {
-        font-size: 32px;
-        margin-bottom: 8px;
-    }
-
-    .empty-state p {
-        font-size: 13px;
-        margin: 0;
-    }
 </style>
 {% endblock %}
 
@@ -97,7 +81,7 @@
     <div class="chips-banner-metrics">
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'in', ['sent_to_chips', 'reapplied']) | list | length }}</div>
+                selectattr('status', 'in', ['pending', 'reapplied']) | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
             </div>
         </div>
@@ -124,27 +108,57 @@
 <!-- ═══════════════ SECTION 1: PENDING ═══════════════ -->
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
-        <label>Search Requests</label>
-        <input type="text" id="pending-search" class="filter-input" placeholder="Search by request ID, district, model…"
-            oninput="filterSection('pending')">
+        <label>Search Request</label>
+        <input type="text" id="admin-search-input" placeholder="Search by code, district, or model..." class="filter-input" oninput="filterAdminQueues()">
+    </div>
+    <div class="filter-group">
+        <label>District</label>
+        <select id="admin-district-filter" class="filter-input" onchange="filterAdminQueues()">
+            <option value="all">All Districts</option>
+            {% for d in [
+            'Balod', 'Baloda Bazar-Bhatapara', 'Balrampur-Ramanujganj', 'Bastar', 'Bemetara',
+            'Bijapur', 'Bilaspur', 'Dantewada', 'Dhamtari', 'Durg', 'Gariaband',
+            'Gaurela-Pendra-Marwahi', 'Janjgir-Champa', 'Jashpur', 'Kabirdham', 'Kanker',
+            'Khairagarh-Chhuikhadan-Gandai', 'Kondagaon', 'Korba', 'Koriya', 'Mahasamund',
+            'Manendragarh-Chirmiri-Bharatpur', 'Mohla-Manpur-Ambagarh Chowki', 'Mungeli',
+            'Narayanpur', 'Raigarh', 'Raipur', 'Rajnandgaon', 'Sakti', 'Sarangarh-Bilaigarh',
+            'Sukma', 'Surajpur', 'Surguja'
+            ] %}
+            <option value="{{ d | lower | trim }}">{{ d }}</option>
+            {% endfor %}
+        </select>
     </div>
     <div class="filter-group">
         <label>Time Period</label>
-        <select id="pending-date" class="filter-input" onchange="filterSection('pending')">
-            <option value="all" selected>All Time</option>
+        <select id="admin-date-filter" class="filter-input" onchange="filterAdminQueues()">
+            <option value="all">All Time</option>
             <option value="today">Today</option>
-            <option value="month">This Month</option>
-            <option value="year">This Year</option>
+            <option value="week">Week</option>
+            <option value="month" selected>Month</option>
         </select>
+    </div>
+    <div class="filter-group-button" style="flex: 0 0 auto;">
+        <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Clear Filters
+        </button>
     </div>
 </div>
 
-<div class="sec-header">
-    <div class="sec-dot" style="background:#f59e0b;"></div>
-    <h3 class="sec-title">Pending Approval Queue</h3>
-    <span class="sec-count" id="pending-count">–</span>
-    <div style="margin-left: auto;">
-        <button class="btn btn-sm" onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.xlsx')">Export to CSV</button>
+<div class="section-heading">
+    <div class="section-heading-dot" style="background:#f59e0b;"></div>
+    <h2>Pending Station ID Requests</h2>
+    <span class="section-count" id="pending-count">–</span>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <select id="admin-pending-status-filter" class="table-input" style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="reapplied">Reapplied</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportTableToExcel('admin-pending-table', 'pending_station_id_requests.csv')">Export to CSV</button>
     </div>
 </div>
 
@@ -157,58 +171,38 @@
                 <th>District</th>
                 <th>Model</th>
                 <th>User Type</th>
-                <th># Kits</th>
+                <th>No. of Kits</th>
                 <th>Status</th>
                 <th>Submitted At</th>
-                <th>Actions</th>
+                <th style="text-align: center;">Actions</th>
             </tr>
         </thead>
         <tbody id="pending-tbody">
             {% set ns = namespace(count=1) %}
-            {% for r in requests if r.status in ['sent_to_chips', 'reapplied'] %}
+            {% for r in requests if r.status in ['pending', 'reapplied'] %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
                 data-district="{{ r.district_name or '' }}" data-model="{{ r.model }}"
                 data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}"
                 data-kits="{{ r.number_of_kits }}" data-status="{{ r.status }}"
                 data-created="{{ r.submitted_at or '' }}">
-                <td style="color:#94a3b8;font-size:12px;">{{ ns.count }}</td>
-                <td>
-                    <strong style="color:#4f46e5;">{{ r.request_no or '—' }}</strong>
-                    {% if r.status == 'reapplied' %}
-                    <span class="reapplied-chip">↩ Reapplied</span>
-                    {% endif %}
-                </td>
+                <td>{{ ns.count }}</td>
+                <td><strong>{{ r.request_no or '—' }}</strong></td>
                 <td>{{ r.district_name or '—' }}</td>
+                <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
                 <td>
-                    <span
-                        style="font-weight:700;{% if r.model == 'ECMP' %}color:#1d4ed8;{% else %}color:#16a34a;{% endif %}">{{
-                        r.model }}</span>
-                </td>
-                <td>
-                    {% if r.user_type == 'new_user' %}New User
-                    {% elif r.user_type == 'machine_id' %}Machine ID
-                    {% else %}<span style="color:#9333ea;">Custom</span>{% endif %}
+                    {{ r.user_type | replace('_', ' ') | capitalize }}
                 </td>
                 <td><strong>{{ r.number_of_kits }}</strong></td>
                 <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize
                         }}</span></td>
-                <td style="color:#64748b;font-size:12px;">{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
+                <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
                 <td>
-                    <div class="action-group">
+                    <div class="action-group" style="justify-content: center;">
                         <button class="btn-approve"
                             onclick="showApproveModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.model }}', '{{ r.number_of_kits }}')">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="20 6 9 17 4 12" />
-                            </svg>
                             Approve
                         </button>
                         <button class="btn-revert" onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
                             Revert
                         </button>
                         <button class="btn-details"
@@ -228,42 +222,24 @@
         </tbody>
     </table>
     <div id="pending-empty-msg" class="empty-state" style="display:none;">
-        <div class="empty-state-icon"></div>
-        <p>No pending requests — all caught up!</p>
+        <p>No pending requests </p>
+<!-- ============================= -->
+
     </div>
 </div>
 
 <!-- ═══════════════ SECTION 2: LOG HISTORY ═══════════════ -->
-<div class="filter-bar">
-    <div class="filter-group filter-group-search">
-        <label>Search History</label>
-        <input type="text" id="log-search" class="filter-input" placeholder="Search by request ID, district, model…"
-            oninput="filterSection('log')">
-    </div>
-    <div class="filter-group">
-        <label>Filter by Status</label>
-        <select id="log-status" class="filter-input" onchange="filterSection('log')">
-            <option value="all">All Statuses</option>
-            <option value="approved">Approved</option>
-            <option value="reverted">Reverted</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label>Time Period</label>
-        <select id="log-date" class="filter-input" onchange="filterSection('log')">
-            <option value="all" selected>All Time</option>
-            <option value="today">Today</option>
-            <option value="month">This Month</option>
-            <option value="year">This Year</option>
-        </select>
-    </div>
-</div>
 
 <div class="sec-header">
     <div class="sec-dot" style="background:#16a34a;"></div>
     <h3 class="sec-title">Station ID Log History</h3>
     <span class="sec-count" id="log-count">–</span>
-    <div style="margin-left: auto;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <select id="admin-history-status-filter" class="table-input" style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
+            <option value="all">All Statuses</option>
+            <option value="approved">Approved</option>
+            <option value="reverted">Reverted</option>
+        </select>
         <button class="btn btn-sm" onclick="exportTableToExcel('log-table', 'processed_station_id_history.xlsx')">Export to CSV</button>
     </div>
 </div>
@@ -277,12 +253,12 @@
                 <th>District</th>
                 <th>Model</th>
                 <th>User Type</th>
-                <th># Kits</th>
+                <th>No. of Kits</th>
                 <th>Station ID Assigned</th>
                 <th>Status</th>
-                <th>Submitted</th>
-                <th>Reviewed</th>
-                <th>Action</th>
+                <th>Submitted At</th>
+                <th>Updated At</th>
+                <th style="text-align: center;">Action</th>
             </tr>
         </thead>
         <tbody id="log-tbody">
@@ -293,32 +269,34 @@
                 data-user-type="{{ r.user_type }}" data-custom-reason="{{ r.user_type_custom_reason or '' }}"
                 data-kits="{{ r.number_of_kits }}" data-status="{{ r.status }}"
                 data-created="{{ r.submitted_at or '' }}" data-station-id="{{ r.station_id_inserted or '' }}">
-                <td style="color:#94a3b8;font-size:12px;">{{ ns2.count }}</td>
-                <td><strong style="color:#4f46e5;">{{ r.request_no or '—' }}</strong></td>
+                <td>{{ ns2.count }}</td>
+                <td><strong>{{ r.request_no or '—' }}</strong></td>
                 <td>{{ r.district_name or '—' }}</td>
-                <td><span
-                        style="font-weight:700;{% if r.model == 'ECMP' %}color:#1d4ed8;{% else %}color:#16a34a;{% endif %}">{{
-                        r.model }}</span></td>
+                <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
                 <td>
-                    {% if r.user_type == 'new_user' %}New User
-                    {% elif r.user_type == 'machine_id' %}Machine ID
-                    {% else %}<span style="color:#9333ea;">Custom</span>{% endif %}
+                    {{ r.user_type | replace('_', ' ') | capitalize }}
                 </td>
                 <td><strong>{{ r.number_of_kits }}</strong></td>
                 <td>
                     {% if r.station_id_inserted %}
-                    {% for sid in r.station_id_inserted.split(',') %}
-                    <span
-                        style="font-family:monospace;font-weight:700;color:#15803d;background:#f0fdf4;padding:3px 8px;border-radius:5px;font-size:12px;display:inline-block;margin:2px;">{{
-                        sid.strip() }}</span>
-                    {% endfor %}
-                    {% else %}<span style="color:#94a3b8;">—</span>{% endif %}
+                    {% set ids_list = r.station_id_inserted.split(',') %}
+                    {% if ids_list | length > 3 %}
+                    <strong style="color:#16a34a;">{{ ids_list[:3] | join(',') }}...</strong>
+                    <a href="javascript:void(0)"
+                        style="color: #0F7A50; font-size: 12px; font-weight: 600; text-decoration: underline; margin-left: 5px;"
+                        onclick="showAllStationIds('{{ r.station_id_inserted }}')">See All</a>
+                    {% else %}
+                    <strong style="color:#16a34a;">{{ r.station_id_inserted }}</strong>
+                    {% endif %}
+                    {% else %}
+                    <strong style="color:#16a34a;">—</strong>
+                    {% endif %}
                 </td>
                 <td><span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize
                         }}</span></td>
-                <td style="color:#64748b;font-size:11px;">{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
-                <td style="color:#64748b;font-size:11px;">{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
-                <td>
+                <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
+                <td>{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
+                <td style="text-align: center;">
                     <button class="btn-details"
                         onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -335,8 +313,9 @@
         </tbody>
     </table>
     <div id="log-empty-msg" class="empty-state" style="display:none;">
-        <div class="empty-state-icon"></div>
-        <p>No log history matches your filter.</p>
+        <p>No log history</p>
+<!-- ============================= -->
+
     </div>
 </div>
 
@@ -347,6 +326,7 @@
         if (!t) return '';
         return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
+
     function getDatePrefixes() {
         const now = new Date(), y = now.getFullYear(),
             m = (now.getMonth() + 1).toString().padStart(2, '0'),
@@ -354,31 +334,38 @@
         return { today: `${y}-${m}-${d}`, month: `${y}-${m}`, year: `${y}` };
     }
 
-    // ── Status badge helper (DC-style) ────────────────────────────────────────
     function getStatusBadgeHtml(status) {
         const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
         let badgeClass = 'badge-pending';
         let label = 'Pending';
-        if (s.includes('approve')) { badgeClass = 'badge-approved'; label = 'Approved'; }
-        else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
-        else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
-        else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
-        else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
-        else if (s.includes('sent to chips') || s.includes('sent_to_chips')) { badgeClass = 'badge-pending'; label = 'Sent to CHiPS'; }
+
+        if (s.includes('approve')) {
+            badgeClass = 'badge-approved'; label = 'Approved';
+        } else if (s.includes('revert')) {
+            badgeClass = 'badge-reverted'; label = 'Reverted';
+        } else if (s === 'forwarded' || s.includes('uidai') || s === 'sent_to_uidai' || s === 'sent to uidai') {
+            badgeClass = 'badge-forwarded'; label = 'Sent to UIDAI';
+        } else if (s.includes('reappl')) {
+            badgeClass = 'badge-reapplied'; label = 'Reapplied';
+        } else if (s.includes('reject')) {
+            badgeClass = 'badge-reverted'; label = 'Rejected';
+        } else if (s === 'pending') {
+            badgeClass = 'badge-pending';
+            label = 'Pending';
+        }
         return `<span class="badge ${badgeClass}">${label}</span>`;
     }
 
-    // ── DC-style timeline remarks builder ─────────────────────────────────────
     function buildRemarksHtml(remarks) {
         if (!remarks || remarks.length === 0) {
             return `<div style="text-align:center;padding:20px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or action history logged yet.</div>`;
         }
-        let html = `<div class="remarks-timeline">
-            <div class="timeline-title">Audit Action History Log</div>
-            <div class="timeline-track">`;
+        let html = `<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">
+            <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div>
+            <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">`;
         remarks.forEach(r => {
             const isChips = r.author_role === 'CHIPS_ADMIN' || r.author_role === 'chips' || r.author_role === 'chips_admin';
-            const sender  = isChips ? 'CHiPS Admin' : 'District Coordinator';
+            const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
             const senderClass = isChips ? 'chips' : 'dc';
 
             const statusAfter = r.status_after || '';
@@ -397,6 +384,9 @@
             const username = r.sender_username || '';
             const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
 
+            let cleanRemark = (r.remark || '').trim();
+
+
             html += `
                 <div class="timeline-item ${senderClass}">
                     <div class="timeline-marker ${markerClass}"></div>
@@ -408,7 +398,7 @@
                             <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
                             <span class="timeline-time">${r.created_at}</span>
                         </div>
-                        <div class="timeline-body">${escapeHtml(r.remark)}</div>
+                        <div class="timeline-body">${escapeHtml(cleanRemark)}</div>
                     </div>
                 </div>
             `;
@@ -417,40 +407,141 @@
         return html;
     }
 
-    window.filterSection = function (sec) {
-        const p = getDatePrefixes();
-        const q = (document.getElementById(`${sec}-search`).value || '').toLowerCase().trim();
-        const dateFilt = document.getElementById(`${sec}-date`).value;
-        const statusEl = document.getElementById(`${sec}-status`);
-        const statusFilt = statusEl ? statusEl.value : 'all';
+    document.addEventListener('DOMContentLoaded', () => {
+        // Check if this load was triggered by an action reload
+        const isActionReload = sessionStorage.getItem('chips_action_reloading') === 'true';
+        sessionStorage.removeItem('chips_action_reloading');
 
-        const rows = document.querySelectorAll(`#${sec}-tbody tr[data-id]`);
-        let visible = 0, idx = 1;
-        rows.forEach(row => {
-            const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
-            const dist = (row.getAttribute('data-district') || '').toLowerCase();
-            const model = (row.getAttribute('data-model') || '').toLowerCase();
-            const rowSt = (row.getAttribute('data-status') || '').toLowerCase();
-            const created = row.getAttribute('data-created') || '';
-            const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q);
-            const matchSt = statusFilt === 'all' || rowSt === statusFilt;
-            let matchDate = true;
-            if (dateFilt === 'today') matchDate = created.startsWith(p.today);
-            else if (dateFilt === 'month') matchDate = created.startsWith(p.month);
-            else if (dateFilt === 'year') matchDate = created.startsWith(p.year);
-            const show = matchQ && matchSt && matchDate;
-            row.style.display = show ? '' : 'none';
-            if (show) { if (row.cells[0]) row.cells[0].innerText = idx++; visible++; }
-        });
-        const tbl = document.getElementById(`${sec}-table`);
-        const emg = document.getElementById(`${sec}-empty-msg`);
-        const cnt = document.getElementById(`${sec}-count`);
-        if (tbl) tbl.style.display = (visible === 0 && rows.length > 0) ? 'none' : '';
-        if (emg) emg.style.display = visible === 0 ? 'block' : 'none';
-        if (cnt) cnt.textContent = visible;
+        if (!isActionReload) {
+            // Reset filters to defaults
+            sessionStorage.removeItem('chips_sid_search');
+            sessionStorage.removeItem('chips_sid_district');
+            sessionStorage.removeItem('chips_sid_date');
+            sessionStorage.removeItem('chips_pending_status');
+            sessionStorage.removeItem('chips_log_status');
+        }
+        // Restore the actual Station ID filter controls used by this page.
+        document.getElementById('admin-search-input').value = sessionStorage.getItem('chips_sid_search') || '';
+        document.getElementById('admin-district-filter').value = sessionStorage.getItem('chips_sid_district') || 'all';
+        document.getElementById('admin-date-filter').value = sessionStorage.getItem('chips_sid_date') || 'month';
+        document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('chips_pending_status') || 'all';
+        document.getElementById('admin-history-status-filter').value = sessionStorage.getItem('chips_log_status') || 'all';
+
+    function clearAllFilters() {
+        document.getElementById('admin-search-input').value = '';
+        document.getElementById('admin-district-filter').value = 'all';
+        document.getElementById('admin-pending-status-filter').value = 'all';
+        document.getElementById('admin-history-status-filter').value = 'all';
+        document.getElementById('admin-date-filter').value = 'month';
+        sessionStorage.removeItem('chips_sid_search');
+        filterAdminQueues();
     }
 
-    window.addEventListener('load', () => { filterSection('pending'); filterSection('log'); });
+    // 🌟 FIXED: Created function matching layout calls and applied last 7 and 30 rolling day thresholds safely
+    function filterAdminQueues() {
+        const q = (document.getElementById('admin-search-input').value || '').toLowerCase().trim();
+        const df = document.getElementById('admin-date-filter').value;
+        const selectedDistrict = document.getElementById('admin-district-filter').value;
+        const now = new Date();
+
+        const pending_sf = document.getElementById('admin-pending-status-filter').value.toLowerCase().trim();
+        const log_sf = document.getElementById('admin-history-status-filter').value.toLowerCase().trim();
+
+        sessionStorage.setItem('chips_sid_search', document.getElementById('admin-search-input').value);
+        sessionStorage.setItem('chips_sid_district', selectedDistrict);
+        sessionStorage.setItem('chips_sid_date', df);
+        sessionStorage.setItem('chips_pending_status', pending_sf);
+        sessionStorage.setItem('chips_log_status', log_sf);
+
+        // Process Pending Table
+        let pendingVisible = 0;
+        document.querySelectorAll('#pending-tbody tr[data-id]').forEach(row => {
+            const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+            const model = (row.getAttribute('data-model') || '').toLowerCase();
+            const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
+            const created = row.getAttribute('data-created') || '';
+            const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
+
+            const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
+            const matchStatus = (pending_sf === 'all') || (status === pending_sf);
+            const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
+
+            let matchDate = true;
+            if (created && df !== 'all') {
+                const rowDate = new Date(created.replace(' ', 'T'));
+                if (df === 'today') {
+                    matchDate = rowDate.toDateString() === now.toDateString();
+                } else if (df === 'week') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 7);
+                    matchDate = rowDate >= threshold;
+                } else if (df === 'month') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 30);
+                    matchDate = rowDate >= threshold;
+                }
+            }
+
+            const show = matchQ && matchStatus && matchDistrict && matchDate;
+            row.style.display = show ? '' : 'none';
+            if (show) {
+                pendingVisible++;
+                if (row.cells[0]) row.cells[0].innerText = pendingVisible;
+            }
+        });
+        if (document.getElementById('pending-count')) document.getElementById('pending-count').textContent = pendingVisible;
+        if (document.getElementById('pending-empty-msg')) document.getElementById('pending-empty-msg').style.display = (pendingVisible === 0) ? 'block' : 'none';
+
+        // Process History Table
+        let logVisible = 0;
+        document.querySelectorAll('#log-tbody tr[data-id]').forEach(row => {
+            const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+            const model = (row.getAttribute('data-model') || '').toLowerCase();
+            const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
+            const created = row.getAttribute('data-created') || '';
+            const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
+
+            const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
+            
+            let matchStatus = false;
+            if (log_sf === 'all') {
+                matchStatus = true;
+            } else if (log_sf === 'reverted by chips') {
+                matchStatus = (status === 'reverted');
+            } else {
+                matchStatus = (status === log_sf);
+            }
+
+            const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
+
+            let matchDate = true;
+            if (created && df !== 'all') {
+                const rowDate = new Date(created.replace(' ', 'T'));
+                if (df === 'today') {
+                    matchDate = rowDate.toDateString() === now.toDateString();
+                } else if (df === 'week') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 7);
+                    matchDate = rowDate >= threshold;
+                } else if (df === 'month') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 30);
+                    matchDate = rowDate >= threshold;
+                }
+            }
+
+            const show = matchQ && matchStatus && matchDistrict && matchDate;
+            row.style.display = show ? '' : 'none';
+            if (show) {
+                logVisible++;
+                if (row.cells[0]) row.cells[0].innerText = logVisible;
+            }
+        });
+        if (document.getElementById('log-count')) document.getElementById('log-count').textContent = logVisible;
+        if (document.getElementById('log-empty-msg')) document.getElementById('log-empty-msg').style.display = (logVisible === 0) ? 'block' : 'none';
+    }
 
     function submitDynamicForm(action, fields) {
         const form = document.createElement('form');
@@ -464,7 +555,11 @@
         form.submit();
     }
 
-    // ── Approve Modal ───────────────────────────────────────────────
+    // =========================================================================
+    // 🌟 REPLACE THESE TWO MODALS IN YOUR STATION ID SCRIPTS BLOCK
+    // =========================================================================
+
+    // 1. Station ID Approve Modal (Fixed Asynchronous PATCH Stream)
     window.showApproveModal = function (requestId, requestNo, model, kits) {
         const numKits = parseInt(kits) || 1;
         let stationInputsHtml = '';
@@ -473,11 +568,13 @@
                 <div style="margin-bottom:16px;">
                     <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
                         Station ID to Assign <span style="color:#ef4444;">*</span>
-                        <span style="font-size:10px;text-transform:none;font-weight:400;color:#94a3b8;"> (the actual ID string)</span>
+                        <span style="font-size:10px;text-transform:none;font-weight:400;color:#94a3b8;"> (Must be exactly 5 digits)</span>
                     </div>
                     <input id="swal-station-id-0" class="swal-station-id-input" type="text"
-                        style="width:100%;height:44px;padding:0 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:15px;font-weight:700;letter-spacing:1.5px;font-family:monospace;outline:none;box-sizing:border-box;"
-                        placeholder="e.g. ECMP/RJN/2024/001" autofocus>
+                        inputmode="numeric" pattern="[0-9]*" maxlength="5"
+                        style="width:100%;height:44px;padding:0 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:16px;font-weight:700;letter-spacing:4px;font-family:monospace;outline:none;box-sizing:border-box;"
+                        placeholder="e.g. 42420" autofocus
+                        oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                 </div>`;
         } else {
             stationInputsHtml = `<div style="margin-bottom:16px;">
@@ -488,17 +585,19 @@
             for (let i = 0; i < numKits; i++) {
                 stationInputsHtml += `
                     <div>
-                        <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;">Kit ${i + 1} Station ID:</div>
+                        <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;">Kit ${i + 1} Station ID (5 Digits):</div>
                         <input id="swal-station-id-${i}" class="swal-station-id-input" type="text"
-                            style="width:100%;height:38px;padding:0 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;font-family:monospace;outline:none;box-sizing:border-box;"
-                            placeholder="e.g. ECMP/RJN/2024/${String(i + 1).padStart(3, '0')}" ${i === 0 ? 'autofocus' : ''}>
+                            inputmode="numeric" pattern="[0-9]*" maxlength="5"
+                            style="width:100%;height:38px;padding:0 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:15px;font-weight:700;font-family:monospace;outline:none;box-sizing:border-box;"
+                            placeholder="e.g. 42421" ${i === 0 ? 'autofocus' : ''}
+                            oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                     </div>`;
             }
             stationInputsHtml += `</div></div>`;
         }
 
         Swal.fire({
-            title: `<div style="text-align:left;font-size:18px;">Approve Request</div>`,
+            title: `<div style="text-align:left;font-size:18px;font-weight:800;">Approve Request</div>`,
             html: `
                 <div style="text-align:left;">
                     <div style="background:#f8fafc;border-radius:10px;padding:12px 16px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -524,36 +623,86 @@
             cancelButtonColor: '#64748b',
             width: '520px',
             focusConfirm: false,
+            showLoaderOnConfirm: true,
             preConfirm: () => {
                 const inputs = document.querySelectorAll('.swal-station-id-input');
                 const values = [];
-                let valid = true;
+                const total = inputs.length;
+
+                // ── Pass 1: Check if ALL fields are completely empty ──────────────────
+                const allEmpty = Array.from(inputs).every(inp => inp.value.trim() === '');
+                if (allEmpty) {
+                    Swal.showValidationMessage(
+                        total === 1
+                            ? '⚠️ Please assign a Station ID before submitting.'
+                            : `⚠️ Please assign all ${total} Station IDs before submitting.`
+                    );
+                    return false;
+                }
+
+                // ── Pass 2: Find the first empty or invalid field specifically ────────
+                let errorMsg = null;
                 inputs.forEach((input, index) => {
+                    if (errorMsg) return; // stop at first error
                     const val = input.value.trim();
+                    const label = total === 1 ? 'Station ID' : `Kit ${index + 1} Station ID`;
                     if (!val) {
-                        Swal.showValidationMessage(`Please enter the Station ID for Kit ${index + 1}.`);
-                        valid = false;
+                        errorMsg = `⚠️ ${label} is empty. Please fill it in before submitting.`;
+                    } else if (!/^\d{5}$/.test(val)) {
+                        errorMsg = `⚠️ ${label} must be exactly 5 digits (e.g. 42420). "${val}" is not valid.`;
                     }
                     values.push(val);
                 });
-                if (!valid) return false;
-                return { station_id_value: values.join(', '), chips_remarks: document.getElementById('swal-chips-remarks').value.trim() };
+
+                if (errorMsg) {
+                    Swal.showValidationMessage(errorMsg);
+                    return false;
+                }
+
+                const stationIdValue = values.join(', ');
+                // Use `let` so the default fallback remark can be assigned when left blank
+                let chipsRemarks = document.getElementById('swal-chips-remarks').value.trim();
+                if (!chipsRemarks) {
+                    chipsRemarks = 'Station ID credentials successfully assigned.';
+                }
+
+                const params = new URLSearchParams();
+                params.append('station_id_value', stationIdValue);
+                params.append('chips_remarks', chipsRemarks);
+
+                return fetch(`/auth/chips/station-id/${requestId}/approve`, {
+                    method: 'POST',
+                    body: params
+                }).then(res => {
+                    if (!res.ok && res.status !== 302) throw new Error('Server rejected the approval. Please try again.');
+                    return true;
+                }).catch(error => {
+                    Swal.showValidationMessage(`Request failed: ${error.message}`);
+                    return false;
+                });
             }
         }).then(result => {
             if (result.isConfirmed) {
-                submitDynamicForm(`/auth/chips/station-id/${requestId}/approve`, {
-                    reviewed_by: currentReviewerId,
-                    station_id_value: result.value.station_id_value,
-                    chips_remarks: result.value.chips_remarks,
+                Swal.fire({
+                    title: 'Approved Successfully!',
+                    text: 'Station ID credentials have been generated and allocated.',
+                    icon: 'success',
+                    confirmButtonColor: '#16a34a',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    sessionStorage.setItem('chips_action_reloading', 'true');
+                    window.location.reload();
                 });
             }
         });
     }
 
-    // ── Revert Modal ────────────────────────────────────────────────
+    // 2. Station ID Revert Modal (Fixed Asynchronous PATCH Stream)
     window.showRevertModal = function (requestId, requestNo) {
         Swal.fire({
-            title: `<div style="text-align:left;font-size:18px;color:#dc2626;">Revert Request</div>`,
+            title: `<div style="text-align:left;font-size:18px;color:#dc2626;font-weight:800;">Revert Request</div>`,
             html: `<div style="text-align:left;">
                 <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#c2410c;">
                     Request <strong>${requestNo}</strong> will be sent back to the DC with your remark.
@@ -572,16 +721,41 @@
             cancelButtonColor: '#64748b',
             width: '500px',
             focusConfirm: false,
+            showLoaderOnConfirm: true,
             preConfirm: () => {
                 const reason = document.getElementById('swal-revert-reason').value.trim();
-                if (!reason) { Swal.showValidationMessage('Please enter a revert reason.'); return false; }
-                return reason;
+                if (!reason) {
+                    Swal.showValidationMessage('Please enter a revert reason.');
+                    return false;
+                }
+
+                const formData = new FormData();
+                formData.append('revert_reason', reason);
+
+                return fetch(`/auth/chips/station-id/${requestId}/revert`, {
+                    method: 'POST',
+                    body: formData
+                }).then(res => {
+                    if (!res.ok && res.status !== 302) throw new Error('Server rejected the request.');
+                    return true;
+                }).catch(error => {
+                    Swal.showValidationMessage(`Request failed: ${error.message}`);
+                    return false;
+                });
             }
         }).then(result => {
             if (result.isConfirmed) {
-                submitDynamicForm(`/auth/chips/station-id/${requestId}/revert`, {
-                    reviewed_by: currentReviewerId,
-                    revert_reason: result.value,
+                Swal.fire({
+                    title: 'Reverted Successfully!',
+                    text: 'The request has been sent back to the District Coordinator.',
+                    icon: 'success',
+                    confirmButtonColor: '#dc2626',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    sessionStorage.setItem('chips_action_reloading', 'true');
+                    window.location.reload();
                 });
             }
         });
@@ -619,6 +793,18 @@
             : data.user_type === 'machine_id' ? 'Machine ID'
                 : `Custom — ${escapeHtml(data.user_type_custom_reason || '')}`;
 
+        let latestRevertReason = "No reason note provided.";
+        if (displayStatus === 'reverted' && data.remarks_history) {
+            try {
+                const revertLog = data.remarks_history.slice().reverse().find(r => r.status_after === 'reverted');
+                if (revertLog && revertLog.remark) {
+                    latestRevertReason = revertLog.remark;
+                }
+            } catch (e) {
+                console.error("Error evaluating timeline logs tracking matrix array:", e);
+            }
+        }
+
         if (activeView === 'details') {
             let htmlContent = `
             <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
@@ -629,6 +815,17 @@
                 <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
                     Submitted At: <strong>${data.submitted_at || '—'}</strong>
                 </div>
+
+                ${displayStatus === 'reverted' ? `
+                <!-- Revert Reason / Remark Box -->
+                <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                        <span>💬</span> REVERT REASON / REMARK
+                    </div>
+                    <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
+                        ${escapeHtml(latestRevertReason)}
+                    </div>
+                </div>` : ''}
 
                 <!-- Request Metadata Card -->
                 <div style="margin-bottom: 20px;">
@@ -692,8 +889,8 @@
         }
         else if (activeView === 'remarks') {
             let htmlContent = `
-            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                     <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
                     <span>${statusBadge}</span>
                 </div>
@@ -724,25 +921,50 @@
     }
 
     // Export helper function to fetch Excel stream from backend
-    function exportTableToExcel(tableID, filename = 'export.xlsx') {
-        const table = document.getElementById(tableID);
-        if (!table) return;
-
-        const bodyRows = table.querySelectorAll('tbody tr');
+    function exportTableToExcel(tableID, filename = 'export.csv') {
         const ids = [];
-        bodyRows.forEach(row => {
-            if (row.style.display !== 'none' && row.cells.length > 1) {
-                const id = row.getAttribute('data-id');
-                if (id) ids.push(id);
-            }
+        const selector = (tableID === 'admin-pending-table') ? '#pending-tbody tr' : '#log-tbody tr';
+        const rows = document.querySelectorAll(selector);
+        
+        rows.forEach(row => {
+            const id = row.getAttribute('data-id');
+            if (id && row.style.display !== 'none') ids.push(id);
         });
 
         if (ids.length === 0) {
-            Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#3085d6' });
+            Swal.fire({ title: 'No Records Found', text: 'There is no data loaded in this table queue to export.', icon: 'info', confirmButtonColor: '#4f46e5' });
             return;
         }
 
         window.location.href = `/auth/station-id/export?ids=${ids.join(',')}`;
     }
+
+    function showAllStationIds(idsStr) {
+        if (!idsStr) return;
+        const idsList = idsStr.split(',').map(id => id.trim()).filter(id => id.length > 0);
+        const listHtml = `<div style="text-align:left; max-height: 250px; overflow-y: auto; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <ul style="list-style-type: none; padding-left: 10px; margin: 0; color: #1e293b; font-weight: 500;">
+                ${idsList.map(id => `<li style="padding: 4px 0; border-bottom: 1px solid #e2e8f0; display:flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0F7A50" stroke-width="2" style="margin-right: 8px;"><polyline points="20 6 9 17 4 12"></polyline></svg>${id}</li>`).join('')}
+            </ul>
+        </div>`;
+
+        Swal.fire({
+            title: 'Assigned Station IDs',
+            html: listHtml,
+            icon: 'info',
+            confirmButtonColor: '#0F7A50',
+            confirmButtonText: 'Close',
+            customClass: {
+                confirmButton: 'swal-btn-close'
+            }
+        });
+    }
+
+    window.clearAllFilters = clearAllFilters;
+    window.filterAdminQueues = filterAdminQueues;
+    window.exportTableToExcel = exportTableToExcel;
+    window.showAllStationIds = showAllStationIds;
+    filterAdminQueues();
+    });
 </script>
 {% endblock %}

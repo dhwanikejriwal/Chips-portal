@@ -6,7 +6,9 @@ from backend.database import get_db
 from backend.models import Candidate, NSEITRequest, NSEITRemark, UserLogin, MasterUserRole
 from backend.utils.exporter import generate_csv_export
 
-router = APIRouter(prefix="/nseit_manage", tags=["nseit_manage"])
+from backend.routers.auth import get_current_user
+
+router = APIRouter(prefix="/nseit_manage", tags=["nseit_manage"], dependencies=[Depends(get_current_user)])
 
 class NSEITActionRequest(BaseModel):
     remark: str 
@@ -171,58 +173,75 @@ def revert_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = D
 
 @router.get("/export-excel")
 def export_nseit_excel(ids: str = None, db: Session = Depends(get_db)):
-    query = db.query(NSEITRequest)
+    """
+    🌟 FIXED: Fetches comprehensive profile field values directly from the database context
+    and streams them as a fully itemized, un-truncated CSV report.
+    """
+    # Join Candidate to pull all related columns
+    query = db.query(NSEITRequest).join(Candidate, NSEITRequest.r_id == Candidate.r_id)
     if ids:
         id_list = [int(x) for x in ids.split(",") if x.isdigit()]
         query = query.filter(NSEITRequest.r_id.in_(id_list))
-    nseit_records = query.all()
+        
+    nseit_records = query.order_by(Candidate.request_code.asc()).all()
 
     export_data = []
     for idx, n in enumerate(nseit_records):
         c = n.candidate
         if not c:
             continue
+            
         district_name = c.district_rel.district_name if c.district_rel else "Unknown"
+        
+        # 🌟 Maps ALL backend attributes to ensure all details are fetched
         export_data.append({
             "s_no": idx + 1,
+
             "request_code": c.request_code,
             "district_name": district_name,
+
             "name": c.name,
             "mobile": c.mobile,
             "email": c.email,
+            "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "N/A",
+            "aadhaar": f"{c.aadhaar}" if c.aadhaar else "N/A",  # Escape string formatting
             "qualification": c.qualification,
-            "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "",
-            "aadhaar": c.aadhaar or "",
             "address": c.address or "",
             "pincode": c.pincode or "",
             "is_existing_operator": "Yes" if c.is_existing_operator else "No",
-            "lms_id": c.lms_id or "",
-            "exam_unique_code": c.exam_unique_code or "",
-            "nseit_certificate_id": c.nseit_id or "",
+            "lms_id": c.lms_id or "None",
+            "exam_unique_code": c.exam_unique_code or "None",
+            "nseit_certificate_id": c.nseit_id or "None",
             "nseit_status": n.status,
+     
             "submitted_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else "",
-            "updated_at": n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else (n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else ""),
+            "updated_at": "" if n.status in ["Pending", "Forwarded"] else (n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else "")
         })
 
+    # 🌟 Full column profile headers layout dictionary map
     column_mappings = {
         "s_no": "S.No",
+
         "request_code": "Request Code",
-        "district_name": "District",
+        "district_name": "District Name",
+   
         "name": "Candidate Name",
-        "mobile": "Mobile No",
+        "mobile": "Mobile Number",
         "email": "Email ID",
-        "qualification": "Qualification",
         "dob": "Date of Birth",
-        "aadhaar": "Aadhaar Number",
-        "address": "Address",
-        "pincode": "Pincode",
-        "is_existing_operator": "Is Existing Operator",
+        "aadhaar": "Aadhaar Card Number",
+        "qualification": "Educational Qualification",
+        "address": "Full Permanent Address",
+        "pincode": "Postal Pincode",
+        "is_existing_operator": "Existing Aadhaar Operator Status",
         "lms_id": "LMS ID",
         "exam_unique_code": "Exam Unique Code",
         "nseit_certificate_id": "NSEIT Certificate ID",
-        "nseit_status": "NSEIT Status",
-        "submitted_at": "Submitted At",
-        "updated_at": "Updated At",
+        "nseit_status": "Current Status",
+   
+        "submitted_at": "Submitted at",
+        "updated_at": "Updated at"
     }
 
-    return generate_csv_export(export_data, column_mappings, "nseit_requests")
+    # Pass directly into your central exporter utility for streaming output
+    return generate_csv_export(export_data, column_mappings, "nseit_complete_report")

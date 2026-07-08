@@ -6,7 +6,9 @@ from backend.database import get_db
 from backend.models import Candidate, LMS, LMSRemark, UserLogin, MasterUserRole
 from backend.utils.exporter import generate_csv_export
 
-router = APIRouter(prefix="/lms_manage", tags=["lms_manage"])
+from backend.routers.auth import get_current_user
+
+router = APIRouter(prefix="/lms_manage", tags=["lms_manage"], dependencies=[Depends(get_current_user)])
 
 class LMSActionRequest(BaseModel):
     remark: str 
@@ -165,18 +167,28 @@ def revert_lms_request(r_id: int, payload: LMSActionRequest, db: Session = Depen
 
 @router.get("/export-excel")
 def export_lms_excel(ids: str = None, db: Session = Depends(get_db)):
-    query = db.query(LMS)
+    """
+    🌟 FIXED: Exports all background information corresponding to the requested tracking entries
+    using a centralized matrix map container forwarded to our universal CSV stream pipeline.
+    """
+    # Join Candidate table to guarantee retrieval of all profile attributes
+    query = db.query(LMS).join(Candidate, LMS.r_id == Candidate.r_id)
     if ids:
         id_list = [int(x) for x in ids.split(",") if x.isdigit()]
+        # Filter matching database records against the target table IDs
         query = query.filter(LMS.r_id.in_(id_list))
-    lms_records = query.all()
+        
+    lms_records = query.order_by(Candidate.request_code.asc()).all()
 
     export_data = []
     for idx, l in enumerate(lms_records):
         c = l.candidate
         if not c:
             continue
+            
         district_name = c.district_rel.district_name if c.district_rel else "Unknown"
+        
+        # 🌟 Map EVERY background metadata parameter to download all info safely
         export_data.append({
             "s_no": idx + 1,
             "request_code": c.request_code,
@@ -184,37 +196,39 @@ def export_lms_excel(ids: str = None, db: Session = Depends(get_db)):
             "name": c.name,
             "mobile": c.mobile,
             "email": c.email,
-            "qualification": c.qualification,
             "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "",
-            "aadhaar": c.aadhaar or "",
+            "aadhaar": f"{c.aadhaar}" if c.aadhaar else "",  # Added apostrophe to keep Excel from altering string truncation bounds
+            "qualification": c.qualification,
             "address": c.address or "",
             "pincode": c.pincode or "",
             "is_existing_operator": "Yes" if c.is_existing_operator else "No",
-            "lms_credential_id": c.lms_id or "",
-            "nseit_id": c.nseit_id or "",
+            "nseit_id": c.nseit_id or "None",
+            "lms_credential_id": c.lms_id or "None",
             "lms_status": l.status,
             "submitted_at": l.created_at.strftime("%Y-%m-%d %H:%M:%S") if l.created_at else "",
-            "updated_at": l.updated_at.strftime("%Y-%m-%d %H:%M:%S") if l.updated_at else (l.created_at.strftime("%Y-%m-%d %H:%M:%S") if l.created_at else ""),
+            "updated_at": "" if l.status in ["Pending", "Forwarded"] else (l.updated_at.strftime("%Y-%m-%d %H:%M:%S") if l.updated_at else "")
         })
 
+    # 🌟 Centralized structural column headers dictionary
     column_mappings = {
         "s_no": "S.No",
         "request_code": "Request Code",
-        "district_name": "District",
+        "district_name": "District Name",
         "name": "Candidate Name",
-        "mobile": "Mobile No",
+        "mobile": "Mobile Number",
         "email": "Email ID",
-        "qualification": "Qualification",
         "dob": "Date of Birth",
-        "aadhaar": "Aadhaar Number",
-        "address": "Address",
-        "pincode": "Pincode",
-        "is_existing_operator": "Is Existing Operator",
-        "lms_credential_id": "LMS Credential ID",
-        "nseit_id": "NSEIT ID",
-        "lms_status": "LMS Status",
-        "submitted_at": "Submitted At",
-        "updated_at": "Updated At",
+        "aadhaar": "Aadhaar Card Number",
+        "qualification": "Educational Qualification",
+        "address": "Full Permanent Address",
+        "pincode": "Postal Pincode",
+        "is_existing_operator": "Existing Aadhaar Operator Status",
+        "nseit_id": "NSEIT Certificate ID",
+        "lms_credential_id": "LMS ID",
+        "lms_status": "Current Status",
+        "submitted_at": "Submitted at",
+        "updated_at": "Updated at"
     }
 
-    return generate_csv_export(export_data, column_mappings, "lms_requests")
+    # Forward directly to your centralized exporter utility for a streaming CSV download
+    return generate_csv_export(export_data, column_mappings, "lms_complete_report")

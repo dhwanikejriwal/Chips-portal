@@ -9,7 +9,7 @@ window.currentViewingOperators = [];
 
 // 🟢 INITIALIZATION ADAPTER: SET LIMIT BOUNDARIES AND TAB PERSISTENCE
 document.addEventListener("DOMContentLoaded", () => {
-    window.switchReactivationView('dashboard');
+    window.switchReactivationView('dashboard', true);
 
     // Capture precise local calendar boundary configurations (YYYY-MM-DD)
     const todayIsoString = new Date().toISOString().split("T")[0];
@@ -26,12 +26,27 @@ document.addEventListener("DOMContentLoaded", () => {
         certDateInput.max = todayIsoString;
     }
 
-    // 3. Initialize counts by running the filter pipeline
+    // 3. Check if page is reloaded (F5) and reset filters to defaults
+    const navEntries = performance.getEntriesByType("navigation");
+    const isReload = navEntries.length > 0 && navEntries[0].type === "reload";
+
+    if (isReload) {
+        const searchOperatorInput = document.getElementById("filter-search-operator");
+        if (searchOperatorInput) searchOperatorInput.value = "";
+
+        const statusInput = document.getElementById("filter-status");
+        if (statusInput) statusInput.value = "ALL";
+
+        const datePeriodInput = document.getElementById("filter-date-period");
+        if (datePeriodInput) datePeriodInput.value = "month";
+    }
+
+    // 4. Initialize counts by running the filter pipeline
     applyHistoryPanelFiltersPipeline();
 });
 
 // 🔄 DYNAMIC VIEW PANEL ROUTER (Bound to global context)
-window.switchReactivationView = function (targetPanel) {
+window.switchReactivationView = function (targetPanel, shouldReset = false) {
     const dashboardView = document.getElementById('view-reactivation-dashboard-panel');
     const appView = document.getElementById('view-workspace-application-panel');
     const historyView = document.getElementById('view-workspace-history-panel');
@@ -43,7 +58,53 @@ window.switchReactivationView = function (targetPanel) {
     if (targetPanel === 'dashboard') {
         if (dashboardView) dashboardView.style.display = 'block';
         if (historyView) historyView.style.display = 'block';
-        window.currentReapplyCode = null;
+
+        // Reset the form when returning to dashboard ONLY if shouldReset is true
+        if (shouldReset) {
+            window.currentReapplyCode = null;
+            const noticeEl = document.getElementById('reapply-file-notice');
+            if (noticeEl) noticeEl.style.display = 'none';
+            document.querySelectorAll('.doc-required-star').forEach(star => {
+                star.style.display = 'inline';
+            });
+            document.querySelectorAll('.prev-doc-indicator').forEach(el => {
+                el.style.display = 'none';
+                el.innerText = '';
+            });
+            const titleEl = document.getElementById('reactivation-form-title');
+            if (titleEl) {
+                titleEl.innerText = 'Submit Operator Reactivation Request';
+            }
+            const remarkEl = document.getElementById('reapply-remark-section');
+            if (remarkEl) remarkEl.style.display = 'none';
+            const remarksField = document.getElementById('reapply_remarks_field');
+            if (remarksField) remarksField.value = '';
+            
+            window.isReapplyBatchReverted = false;
+            const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
+            if (p1BatchContainer) p1BatchContainer.style.display = 'none';
+            const p2BatchContainer = document.getElementById('batch-revert-reason-container-p2');
+            if (p2BatchContainer) p2BatchContainer.style.display = 'none';
+            if (typeof resetEntireNewRequestForm === 'function') {
+                resetEntireNewRequestForm();
+            } else {
+                clearFormInputs();
+                structuredOperatorList = [];
+                renderOperatorSpreadsheetRows();
+                const nextBtn = document.getElementById('next-step-trigger-btn');
+                if (nextBtn) nextBtn.disabled = true;
+                ['training_photo', 'nodal_letter', 'om_letter', 'attendance_list', 'training_date'].forEach(name => {
+                    const el = document.getElementsByName(name)[0];
+                    if (el) el.value = '';
+                });
+                const s1Form = document.getElementById('section-operator-form-view');
+                const s2Docs = document.getElementById('section-documents-upload-view');
+                if (s1Form) s1Form.style.display = 'block';
+                if (s2Docs) s2Docs.style.display = 'none';
+            }
+            window.currentReapplyCode = null;
+        }
+
         const titleEl = document.querySelector('.container-title');
         if (titleEl) {
             titleEl.innerText = 'AADHAAR OPERATOR REACTIVATION';
@@ -106,14 +167,40 @@ function addOperatorRecordToExcelLog() {
         hasValidationError = true;
     }
 
-    if (fields.certDate && new Date(fields.certDate) > new Date().setHours(23, 59, 59, 999)) {
-        document.getElementById('err_op_cert_date').innerText = 'Certification date cannot be in the future.';
-        hasValidationError = true;
+    if (fields.certDate) {
+        const todayD = new Date();
+        const yyyy = todayD.getFullYear();
+        const mm = String(todayD.getMonth() + 1).padStart(2, '0');
+        const dd = String(todayD.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        
+        if (fields.certDate > todayStr) {
+            document.getElementById('err_op_cert_date').innerText = 'Certification date cannot be in the future.';
+            hasValidationError = true;
+        }
     }
 
-    if (hasValidationError) return;
+    if (hasValidationError) {
+        const firstErrorEl = Array.from(document.querySelectorAll('.error-msg')).find(el => el.innerText.trim() !== '');
+        if (firstErrorEl) {
+            const parentGroup = firstErrorEl.closest('.form-group') || firstErrorEl.parentElement;
+            if (parentGroup) {
+                parentGroup.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        return;
+    }
+
+    const opId = document.getElementById('editing_op_id') ? document.getElementById('editing_op_id').value : '';
+    const opStatus = document.getElementById('editing_op_status') ? document.getElementById('editing_op_status').value : '';
+    const opRejectReason = document.getElementById('editing_op_reject_reason') ? document.getElementById('editing_op_reject_reason').value : '';
 
     const verifiedRecord = {
+        id: opId,
+        status: opStatus,
+        reject_reason: opRejectReason,
         role: fields.role, name: fields.name, reg: fields.reg, ea: fields.ea,
         user: fields.user, cert: fields.cert, mobile: fields.mobile,
         email: fields.email, aadhar: fields.aadhar, certDate: fields.certDate,
@@ -135,7 +222,7 @@ function renderOperatorSpreadsheetRows() {
         tbody.innerHTML = `
             <tr id="empty-state-row">
                 <td colspan="15" style="text-align: center; color: #94a3b8; padding: 30px; font-style: italic;">
-                    No operator entries added to the tracking index matrix yet. Use the data form container inputs above.
+                    No operator entry added yet.
                 </td>
             </tr>`;
         document.getElementById('next-step-trigger-btn').disabled = true;
@@ -176,6 +263,26 @@ function removeOperatorFromStateArray(index) {
 }
 
 function editOperatorInStateArray(index) {
+    if (window.isCurrentlyEditingOperator) {
+        Swal.fire({
+            title: 'Unsaved Operator Changes',
+            text: 'You are currently editing an operator and have not added it back to the list. If you proceed, those changes will be lost (canceled). Do you want to proceed?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, proceed',
+            cancelButtonText: 'No, stay'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.isCurrentlyEditingOperator = false;
+                editOperatorInStateArray(index);
+            }
+        });
+        return;
+    }
+    window.isCurrentlyEditingOperator = true;
+
     const op = structuredOperatorList[index];
 
     // Populate form fields
@@ -192,6 +299,28 @@ function editOperatorInStateArray(index) {
     if (document.getElementById('op_model')) document.getElementById('op_model').value = op.model || '';
     if (document.getElementById('op_lms_id')) document.getElementById('op_lms_id').value = op.lmsId || '';
     if (document.getElementById('op_remarks')) document.getElementById('op_remarks').value = op.remarks || '';
+    
+    if (document.getElementById('editing_op_id')) document.getElementById('editing_op_id').value = op.id || '';
+    if (document.getElementById('editing_op_status')) document.getElementById('editing_op_status').value = op.status || '';
+    if (document.getElementById('editing_op_reject_reason')) document.getElementById('editing_op_reject_reason').value = op.reject_reason || '';
+
+    // Show operator revert reason if present
+    const reasonContainer = document.getElementById('operator-revert-reason-container');
+    const reasonText = document.getElementById('operator-revert-reason-text');
+    const reasonLabel = document.getElementById('operator-revert-reason-label');
+    
+    if (!window.isReapplyBatchReverted && reasonContainer && reasonText && reasonLabel && op.reject_reason) {
+        reasonText.innerText = op.reject_reason;
+        const statusLower = (op.status || '').toLowerCase();
+        if (statusLower.includes('reject')) {
+            reasonLabel.innerText = 'REJECT REASON / REMARKS';
+        } else {
+            reasonLabel.innerText = 'REVERT REASON / REMARKS';
+        }
+        reasonContainer.style.display = 'block';
+    } else if (reasonContainer) {
+        reasonContainer.style.display = 'none';
+    }
 
     // Remove from array and re-render
     structuredOperatorList.splice(index, 1);
@@ -203,6 +332,10 @@ function editOperatorInStateArray(index) {
 
 // 🧙‍♂️ WIZARD PAGE SWITCH PANEL CONTROL
 function navigateWizardStep(stepTarget) {
+    if (stepTarget === 2 && window.isCurrentlyEditingOperator) {
+        Swal.fire('Unsaved Changes', 'Please add or update the operator currently being edited to the list before proceeding.', 'warning');
+        return;
+    }
     const s1Form = document.getElementById('section-operator-form-view');
     const s2Docs = document.getElementById('section-documents-upload-view');
     const node1 = document.getElementById('node-step-1');
@@ -242,6 +375,11 @@ function navigateWizardStep(stepTarget) {
 function handleFormSubmissionPipeline(event) {
     event.preventDefault();
 
+    if (window.isCurrentlyEditingOperator) {
+        Swal.fire('Unsaved Changes', 'Please add or update the operator currently being edited to the list before submitting.', 'warning');
+        return;
+    }
+
     if (structuredOperatorList.length === 0) {
         Swal.fire({ title: 'Submission Refused', text: 'Staged operator spreadsheet matrix cannot be empty.', icon: 'error' });
         return;
@@ -250,6 +388,19 @@ function handleFormSubmissionPipeline(event) {
     const dateField = document.getElementById('doc_training_date');
     if (!dateField || !dateField.value) {
         Swal.fire({ title: 'Validation Error', text: 'Training completion date is required.', icon: 'warning' });
+        if (dateField) dateField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    
+    if (dateField.value > todayStr) {
+        Swal.fire({ title: 'Validation Error', text: 'Training completion date cannot be in the future.', icon: 'warning' });
+        dateField.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
     }
 
@@ -257,28 +408,34 @@ function handleFormSubmissionPipeline(event) {
     const formData = new FormData(formElement);
 
     // 📁 STRICT DOCUMENT VALIDATION LAYER
-    const MAX_FILE_SIZE_MB = 5;
-    const MAX_FILE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-    
     const requiredFiles = [
-        { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'] },
-        { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'] },
-        { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'] },
-        { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'] }
+        { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'], maxMB: 2 },
+        { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'], maxMB: 2 },
+        { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'], maxMB: 2 },
+        { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'], maxMB: 5 }
     ];
 
     for (const fileDef of requiredFiles) {
         const fileObj = formData.get(fileDef.name);
-        
+
         // Check presence
         if (!fileObj || fileObj.size === 0) {
+            if (window.currentReapplyCode) {
+                // Documents are optional when reapplying; skip presence checks
+                continue;
+            }
             Swal.fire({ title: 'Missing Document', text: `Please upload the ${fileDef.label}.`, icon: 'warning' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
-        
+
         // Check size boundaries
-        if (fileObj.size > MAX_FILE_BYTES) {
-            Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${MAX_FILE_SIZE_MB}MB.`, icon: 'error' });
+        const maxBytes = fileDef.maxMB * 1024 * 1024;
+        if (fileObj.size > maxBytes) {
+            Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${fileDef.maxMB}MB.`, icon: 'error' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
 
@@ -287,44 +444,78 @@ function handleFormSubmissionPipeline(event) {
         const hasValidExt = fileDef.exts.some(ext => fileName.endsWith(ext));
         if (!hasValidExt) {
             Swal.fire({ title: 'Invalid File Format', text: `The ${fileDef.label} must end with one of: ${fileDef.exts.join(', ')}`, icon: 'error' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
     }
 
     formData.append('manual_operators', JSON.stringify(structuredOperatorList));
 
+    const submitRequestAction = (remarksValue) => {
+        if (remarksValue) {
+            formData.append('reapply_remarks', remarksValue);
+        }
+
+        Swal.fire({
+            title: 'Submitting Request...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        const routingTargetUrl = '/auth/dc/submit';
+        fetch(routingTargetUrl, { method: 'POST', body: formData })
+            .then(res => {
+                return res.json().then(data => {
+                    if (!res.ok) throw new Error(data.error || "Server transaction processing failure.");
+                    return data;
+                });
+            })
+            .then(data => {
+                const isReapply = !!window.currentReapplyCode;
+                Swal.fire({
+                    title: isReapply ? 'Reapplied!' : 'Submitted Successfully',
+                    text: isReapply ? 'Your corrected request has been sent back to CHiPS Admin.' : 'Reactivation request submitted successfully.',
+                    icon: 'success',
+                    confirmButtonColor: '#007bff',
+                    allowOutsideClick: false,
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            })
+            .catch(err => {
+                Swal.close();
+                Swal.fire({ title: 'Submission Error', text: err.message, icon: 'error' });
+            });
+    };
+
     if (window.currentReapplyCode) {
         formData.append('reapply_request_code', window.currentReapplyCode);
+        
+        // Validate the reapply remarks field in the form itself
+        const remarksField = document.getElementById('reapply_remarks_field');
+        const remarks = remarksField ? remarksField.value.trim() : '';
+        if (!remarks) {
+            Swal.fire({ title: 'Validation Error', text: 'Please enter reapplication remarks.', icon: 'warning' });
+            if (remarksField) remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        submitRequestAction(remarks);
+    } else {
+        submitRequestAction(null);
     }
-
-    // Dynamic destination URL resolution preventing deployment proxy collisions
-    const routingTargetUrl = '/auth/dc/submit';
-
-    fetch(routingTargetUrl, { method: 'POST', body: formData })
-        .then(res => {
-            return res.json().then(data => {
-                if (!res.ok) throw new Error(data.error || "Server transaction processing failure.");
-                return data;
-            });
-        })
-        .then(data => {
-            Swal.fire({ title: 'Submitted', text: 'Reactivation request sent to CHIPS successfully.', icon: 'success' }).then(() => {
-                window.location.reload();
-            });
-        })
-        .catch(err => {
-            Swal.close();
-            Swal.fire({ title: 'Submission Error', text: err.message, icon: 'error' });
-        });
 }
 
 function getStatusBadgeHtml(status) {
     const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
     let badgeClass = 'badge-pending';
     let label = 'Pending';
-    if (s.includes('approve') || s.includes('active') || s.includes('activated')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+    if (s.includes('approve')) { badgeClass = 'badge-approved'; label = 'Approved'; }
     else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
-    else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
+    else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Sent to UIDAI Again' : 'Sent to UIDAI'; }
     else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
     else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
     return `<span class="badge ${badgeClass}">${label}</span>`;
@@ -361,7 +552,7 @@ window.openHistoricalOperatorsModal = function (requestCode) {
         }
     });
 
-    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}`)
+    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}?_t=${Date.now()}`)
         .then(res => {
             if (!res.ok) throw new Error('Server returned an error');
             return res.json();
@@ -389,28 +580,28 @@ window.openHistoricalOperatorsModal = function (requestCode) {
                     <div class="remarks-timeline">
                         <div class="timeline-title">Reactivation Log Timeline</div>
                         <div class="timeline-track">`;
-                    
+
                     timelineLogs.forEach(log => {
                         const dateObj = new Date(log.timestamp.replace(' ', 'T'));
                         const formattedTime = dateObj.toLocaleDateString('en-GB') + ' ' + dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                         const isDC = log.sender_role === 'DC';
                         const sender = isDC ? 'District Coordinator' : 'CHiPS Admin';
                         const senderClass = isDC ? 'dc' : 'chips';
-                        
+
                         const statusAfter = log.status_after || '';
                         let statusBadgeHtmlInline = '';
                         let markerClass = 'marker-pending';
                         if (statusAfter) {
                             statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
                             const sLower = statusAfter.toLowerCase();
-                            if (sLower.includes('approve') || sLower.includes('active') || sLower.includes('activated')) markerClass = 'marker-approved';
+                            if (sLower.includes('approve')) markerClass = 'marker-approved';
                             else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
                             else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
                             else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
                         }
 
                         const username = log.sender_username || '';
-                        const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+                        const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate' && sender !== 'CHiPS Admin';
 
                         timelineHtml += `
                             <div class="timeline-item ${senderClass}">
@@ -428,7 +619,7 @@ window.openHistoricalOperatorsModal = function (requestCode) {
                             </div>
                         `;
                     });
-                    
+
                     timelineHtml += `</div></div>`;
                     timelineContainer.innerHTML = timelineHtml;
                 } else {
@@ -449,16 +640,21 @@ window.openHistoricalOperatorsModal = function (requestCode) {
 
                 if (normalizedStatus === 'sent to uidai' || normalizedStatus === 'sent_to_uidai') {
                     statusStyle = "color: #0369a1; font-weight: 700; background: #e0f2fe; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
-                } else if (normalizedStatus === 'active' || normalizedStatus === 'activated') {
+                } else if (normalizedStatus === 'approved') {
                     statusStyle = "color: #065f46; font-weight: 700; background: #d1fae5; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
                 } else if (normalizedStatus === 'reverted' || normalizedStatus === 'revert back') {
                     statusStyle = "color: #991b1b; font-weight: 700; background: #fee2e2; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
                 }
 
+                let displayStatusText = String(op.status || 'PENDING').toUpperCase();
+                if (displayStatusText === 'APPROVED') {
+                    displayStatusText = 'APPROVED';
+                }
+
                 row.innerHTML = `
                 <td style="padding: 10px; text-align: center; color: #64748b;">${idx + 1}</td>
                 <td style="padding: 10px; padding-left: 15px; color: #1e293b;"><strong>${escapeHtmlString(op.operator_name)}</strong></td>
-                <td style="padding: 10px; text-align: center;"><span style="${statusStyle}">${String(op.status).toUpperCase()}</span></td>
+                <td style="padding: 10px; text-align: center;"><span style="${statusStyle}">${displayStatusText}</span></td>
                 <td style="padding: 10px; text-align: center;">
                     <button type="button" class="btn-details" 
                             style="padding: 4px 12px; font-size: 11px;"
@@ -478,9 +674,16 @@ window.openHistoricalOperatorsModal = function (requestCode) {
 
 window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
     window.currentReapplyCode = requestCode;
-    const titleEl = document.querySelector('.container-title');
+    const noticeEl = document.getElementById('reapply-file-notice');
+    if (noticeEl) noticeEl.style.display = 'block';
+    const remarkEl = document.getElementById('reapply-remark-section');
+    if (remarkEl) remarkEl.style.display = 'block';
+    document.querySelectorAll('.doc-required-star').forEach(star => {
+        star.style.display = 'none';
+    });
+    const titleEl = document.getElementById('reactivation-form-title');
     if (titleEl) {
-        titleEl.innerText = `Reapplying Batch: ${requestCode}`;
+        titleEl.innerText = `Modify & Reapply Operator Reactivation Request`;
     }
 
     if (trainingDate) {
@@ -493,30 +696,87 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
         didOpen: () => { Swal.showLoading(); }
     });
 
-    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}`)
+    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}?_t=${Date.now()}`)
         .then(res => {
             if (!res.ok) throw new Error('Failed to load previous operators');
             return res.json();
         })
         .then(payload => {
             Swal.close();
+            
+            // Clear previous documents display first
+            document.querySelectorAll('.prev-doc-indicator').forEach(el => {
+                el.style.display = 'none';
+                el.innerText = '';
+            });
+
+            // Populate previous documents
+            if (payload.documents) {
+                for (const [docType, docInfo] of Object.entries(payload.documents)) {
+                    const docEl = document.getElementById(`prev-${docType}`);
+                    if (docEl && docInfo && docInfo.original_filename) {
+                        docEl.innerText = `✓ ${docInfo.original_filename}`;
+                        docEl.style.display = 'block';
+                    }
+                }
+            }
+
+            // Toggle batch revert reason displays
+            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes(payload.batch_status);
+            const batchReason = payload.batch_revert_reason || '';
+
+            const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
+            const p1BatchText = document.getElementById('batch-revert-reason-text-p1');
+            const p1BatchLabel = document.getElementById('batch-revert-reason-label-p1');
+
+            const p2BatchContainer = document.getElementById('batch-revert-reason-container-p2');
+            const p2BatchText = document.getElementById('batch-revert-reason-text-p2');
+            const p2BatchLabel = document.getElementById('batch-revert-reason-label-p2');
+
+            if (isBatchRevertedOrRejected && batchReason) {
+                window.isReapplyBatchReverted = true;
+                const labelText = payload.batch_status === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
+                
+                if (p1BatchContainer && p1BatchText && p1BatchLabel) {
+                    p1BatchText.innerText = batchReason;
+                    p1BatchLabel.innerText = labelText;
+                    p1BatchContainer.style.display = 'block';
+                }
+                if (p2BatchContainer && p2BatchText && p2BatchLabel) {
+                    p2BatchText.innerText = batchReason;
+                    p2BatchLabel.innerText = labelText;
+                    p2BatchContainer.style.display = 'block';
+                }
+            } else {
+                window.isReapplyBatchReverted = false;
+                if (p1BatchContainer) p1BatchContainer.style.display = 'none';
+                if (p2BatchContainer) p2BatchContainer.style.display = 'none';
+            }
+
             structuredOperatorList = [];
             const operators = payload.operators || [];
             operators.forEach(op => {
-                structuredOperatorList.push({
-                    name: op.operator_name || '',
-                    mobile: op.operator_mobile || '',
-                    role: op.role || 'Operator',
-                    email: op.email_id || '',
-                    reg: op.registrar_code || '986',
-                    ea: op.ea_code || '',
-                    user: op.user_code || '',
-                    model: op.model_type || '',
-                    lmsId: op.lms_certificate_id || '',
-                    cert: op.certificate_number || '',
-                    certDate: op.certification_date || '',
-                    remarks: op.remarks || ''
-                });
+                const status = (op.status || '').toLowerCase().replace(/_/g, ' ');
+                if (['reverted', 'revert back', 'rejected'].includes(status)) {
+                    structuredOperatorList.push({
+                        id: op.id,
+                        name: op.operator_name || '',
+                        mobile: op.operator_mobile || '',
+                        role: op.role || 'Operator',
+                        email: op.email_id || '',
+                        reg: op.registrar_code || '986',
+                        ea: op.ea_code || '',
+                        user: op.user_code || '',
+                        model: op.model_type || '',
+                        lmsId: op.lms_certificate_id || '',
+                        cert: op.certificate_number || '',
+                        certDate: op.certification_date || '',
+                        remarks: op.remarks || '',
+                        reject_reason: op.reject_reason || '',
+                        status: op.status || '',
+                        aadhar: op.aadhaar_number || ''
+                    });
+                }
             });
             renderOperatorSpreadsheetRows();
             window.switchReactivationView('app');
@@ -525,16 +785,16 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
 }
 
 // 💳 DETAILS MODAL MAPPING INTERFACE CARD BUILDER
-window.zoomPhoto = function(url) {
+window.zoomPhoto = function (url) {
     viewDocument('Profile Photo', url, 'jpg');
 };
 
-window.viewDocument = function(title, fileUrl, extension) {
+window.viewDocument = function (title, fileUrl, extension) {
     if (!fileUrl) return;
-    
+
     const ext = (extension || '').toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || fileUrl.startsWith('data:image/');
-    
+
     const overlay = document.createElement('div');
     overlay.style.position = 'fixed';
     overlay.style.top = '0';
@@ -546,7 +806,7 @@ window.viewDocument = function(title, fileUrl, extension) {
     overlay.style.justifyContent = 'center';
     overlay.style.alignItems = 'center';
     overlay.style.zIndex = '99999';
-    
+
     const modal = document.createElement('div');
     modal.style.width = '90%';
     modal.style.maxWidth = '800px';
@@ -559,7 +819,7 @@ window.viewDocument = function(title, fileUrl, extension) {
     modal.style.flexDirection = 'column';
     modal.style.overflow = 'hidden';
     modal.style.animation = 'swal2-show 0.3s ease-out';
-    
+
     const header = document.createElement('div');
     header.style.backgroundColor = '#1e3a8a';
     header.style.padding = '12px 20px';
@@ -567,12 +827,12 @@ window.viewDocument = function(title, fileUrl, extension) {
     header.style.justifyContent = 'space-between';
     header.style.alignItems = 'center';
     header.style.color = 'white';
-    
+
     const headerTitle = document.createElement('span');
     headerTitle.innerText = title;
     headerTitle.style.fontWeight = '700';
     headerTitle.style.fontSize = '16px';
-    
+
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
@@ -590,10 +850,10 @@ window.viewDocument = function(title, fileUrl, extension) {
     closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
     closeBtn.onclick = () => document.body.removeChild(overlay);
     closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-    
+
     header.appendChild(headerTitle);
     header.appendChild(closeBtn);
-    
+
     const body = document.createElement('div');
     body.style.flex = '1';
     body.style.padding = '20px';
@@ -602,7 +862,7 @@ window.viewDocument = function(title, fileUrl, extension) {
     body.style.justifyContent = 'center';
     body.style.alignItems = 'center';
     body.style.overflow = 'hidden';
-    
+
     if (isImage) {
         const img = document.createElement('img');
         img.src = fileUrl;
@@ -620,7 +880,7 @@ window.viewDocument = function(title, fileUrl, extension) {
         iframe.style.borderRadius = '4px';
         body.appendChild(iframe);
     }
-    
+
     const footer = document.createElement('div');
     footer.style.padding = '12px 20px';
     footer.style.borderTop = '1px solid #edf2f7';
@@ -629,7 +889,7 @@ window.viewDocument = function(title, fileUrl, extension) {
     footer.style.alignItems = 'center';
     footer.style.gap = '12px';
     footer.style.backgroundColor = 'white';
-    
+
     const downloadLink = document.createElement('a');
     downloadLink.href = fileUrl;
     downloadLink.download = title;
@@ -648,7 +908,7 @@ window.viewDocument = function(title, fileUrl, extension) {
     downloadLink.onmouseenter = () => downloadLink.style.backgroundColor = '#d1fae5';
     downloadLink.onmouseleave = () => downloadLink.style.backgroundColor = '#ecfdf5';
     downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
-    
+
     const closeBtnFooter = document.createElement('button');
     closeBtnFooter.type = 'button';
     closeBtnFooter.style.padding = '8px 24px';
@@ -664,33 +924,33 @@ window.viewDocument = function(title, fileUrl, extension) {
     closeBtnFooter.onmouseleave = () => closeBtnFooter.style.backgroundColor = '#4f46e5';
     closeBtnFooter.onclick = () => document.body.removeChild(overlay);
     closeBtnFooter.innerText = 'Close';
-    
+
     footer.appendChild(downloadLink);
     footer.appendChild(closeBtnFooter);
-    
+
     modal.appendChild(header);
     modal.appendChild(body);
     modal.appendChild(footer);
     overlay.appendChild(modal);
-    
+
     overlay.onclick = (e) => {
         if (e.target === overlay) {
             document.body.removeChild(overlay);
         }
     };
-    
+
     document.body.appendChild(overlay);
 };
 
-window.buildDocumentCard = function(title, fileUrl, defaultName) {
+window.buildDocumentCard = function (title, fileUrl, defaultName) {
     if (!fileUrl) return '';
-    
+
     const extension = (defaultName || '').split('.').pop().toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
-    
+
     let previewHtml = '';
     let previewButtonHtml = '';
-    
+
     if (isImage) {
         previewHtml = `<img src="${fileUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">`;
         previewButtonHtml = `
@@ -699,27 +959,34 @@ window.buildDocumentCard = function(title, fileUrl, defaultName) {
             </button>
         `;
     } else {
+        const isExcel = ['xls', 'xlsx'].includes(extension);
+        const clickAttr = isExcel ? '' : `onclick="viewDocument('${title}', '${fileUrl}', '${extension}')"`;
+        const cursorStyle = isExcel ? 'default' : 'pointer';
+
         previewHtml = `
-            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">
+            <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: ${cursorStyle};" ${clickAttr}>
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
             </div>
         `;
-        previewButtonHtml = `
-            <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
-        `;
+
+        if (!isExcel) {
+            previewButtonHtml = `
+                <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            `;
+        }
     }
-    
+
     const shortFileName = defaultName.length > 22 ? defaultName.substring(0, 19) + '...' : defaultName;
-    
+
     return `
         <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
             <div style="height: 100px; width: 100%; background: #f8fafc; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #edf2f7;">
                 ${previewHtml}
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
-                <div style="text-align: left; overflow: hidden; flex-grow: 1;">
+                <div style="text-align: left; overflow: hidden; flex-grow: 1; min-width: 0;">
                     <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
                     <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${defaultName}">${shortFileName}</div>
                 </div>
@@ -741,7 +1008,10 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
         return;
     }
 
-    const statusBadge = getStatusBadgeHtml(op.status);
+    const requestCode = window.currentViewingRequestCode;
+    const reqObj = (window.historyRequestsPayload || []).find(r => r.request_code === requestCode);
+    const requestStatus = reqObj ? reqObj.status : op.status;
+    const statusBadge = getStatusBadgeHtml(requestStatus);
 
     const fullName = op.operator_name || op.name || '—';
     const roleProfile = op.role || 'Operator';
@@ -756,23 +1026,40 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
     const certificationDate = op.certification_date || '—';
     const explicitRemarks = op.remarks || '—';
 
-    const requestCode = window.currentViewingRequestCode;
+    const cardEl = document.querySelector(`[data-request-id="${requestCode}"]`);
+    const submittedAt = cardEl ? cardEl.getAttribute('data-created') || '—' : '—';
     const statusUpper = (op.status || '').toUpperCase().trim();
     const isRevertable = (statusUpper === 'REVERTED' || statusUpper === 'REVERT BACK');
+    const isRejected = (statusUpper === 'REJECTED');
 
     if (activeView === 'details') {
         let htmlContent = `
         <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 14px; color: #666;">Request ID: <strong>${requestCode}</strong></span>
                 <span>${statusBadge}</span>
             </div>
-
-            ${isRevertable ? `
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
-                <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">Action Required — Request Reverted</div>
-                <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below. Click "Quick Edit" to modify details.</div>
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                Submitted At: <strong style="color: #475569;">${submittedAt}</strong>
             </div>
+
+            ${isRevertable || isRejected ? `
+            <div style="background-color: #fffaf0; border: 1px solid #fed7aa; padding: 12px 16px; border-radius: 8px; margin-bottom: 15px; text-align: left;">
+                <h4 style="margin: 0 0 4px 0; color: #b45309; font-size: 14px; font-weight: 700;">Action Required — Request ${isRejected ? 'Rejected' : 'Reverted'}</h4>
+                <p style="margin: 0; color: #b45309; font-size: 13px;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</p>
+            </div>
+            ${op.reject_reason ? `
+            <div style="background-color: #fef2f2; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; text-align: left;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#991b1b" stroke-width="2.5">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                    </svg>
+                    <span style="font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">${isRejected ? 'REJECT REASON / REMARKS' : 'REVERT REASON / REMARKS'}</span>
+                </div>
+                <div style="color: #7f1d1d; font-size: 13px; line-height: 1.5; padding-left: 22px;">
+                    ${escapeHtmlString(op.reject_reason)}
+                </div>
+            </div>` : ''}
             ` : ''}
 
             <!-- Personal Information Card -->
@@ -790,6 +1077,10 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
                         <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Primary Email ID</div>
                         <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(emailAddress)}</div>
+                    </div>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Aadhaar Number</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #495057;">${(op.aadhaar_number || op.aadhar) ? 'XXXX-XXXX-' + escapeHtmlString(String(op.aadhaar_number || op.aadhar).slice(-4)) : '—'}</div>
                     </div>
                 </div>
             </div>
@@ -834,17 +1125,15 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                         <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Remarks</div>
                         <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtmlString(explicitRemarks)}</div>
                     </div>
-                    ${op.reject_reason ? `
-                    <div style="grid-column: 1/-1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Revert Reason</div>
-                        <div style="font-size: 13px; font-weight: 600; color: #b91c1c;">${escapeHtmlString(op.reject_reason)}</div>
-                    </div>` : ''}
                 </div>
             </div>
 
-            <!-- View Documents and View Remarks Buttons -->
-            <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-                <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Documents</button>
+            <!-- View Action Buttons -->
+            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                ${(document.getElementById('view-approved-container') && document.getElementById('view-approved-container').style.display !== 'none') ? `
+                <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">
+                    <i class="fas fa-file-alt" style="margin-right: 4px;"></i> View Documents
+                </button>` : ''}
                 <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
             </div>
         </div>
@@ -855,8 +1144,8 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
             html: htmlContent,
             showCancelButton: false, // NO Cancel button
             showConfirmButton: true,
-            confirmButtonText: isRevertable ? 'Quick Edit' : 'Close',
-            showDenyButton: isRevertable,
+            confirmButtonText: (isRevertable || isRejected) ? 'Modify & Reapply' : 'Close',
+            showDenyButton: (isRevertable || isRejected),
             denyButtonText: 'Close',
             customClass: {
                 confirmButton: 'swal-btn-close',
@@ -865,60 +1154,23 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
             width: '600px',
             focusConfirm: false,
             didOpen: () => {
-                document.getElementById('btn-show-docs').onclick = () => {
-                    window.showIndividualOperatorDetails(arrayIndex, 'documents');
-                };
                 document.getElementById('btn-show-remarks').onclick = () => {
                     window.showIndividualOperatorDetails(arrayIndex, 'remarks');
                 };
+                const btnShowDocs = document.getElementById('btn-show-docs');
+                if (btnShowDocs) {
+                    btnShowDocs.onclick = () => {
+                        window.viewBatchDocuments(requestCode, arrayIndex);
+                    };
+                }
             }
         }).then((result) => {
-            if (result.isConfirmed && isRevertable) {
-                openIndividualOperatorEditForm(arrayIndex);
+            if (result.isConfirmed && (isRevertable || isRejected)) {
+                const trainingDate = cardEl ? cardEl.getAttribute('data-training-date') || '' : '';
+                window.reapplyIndividualOperator(op.id, requestCode, trainingDate);
             }
         });
-    } 
-    else if (activeView === 'documents') {
-        const trainingPhotoUrl = `/auth/reactivation/requests/${requestCode}/files/training_photo`;
-        const nodalLetterUrl = `/auth/reactivation/requests/${requestCode}/files/nodal_letter`;
-        const omLetterUrl = `/auth/reactivation/requests/${requestCode}/files/om_letter`;
-        const attendanceListUrl = `/auth/reactivation/requests/${requestCode}/files/attendance_list`;
-
-        let htmlContent = `
-        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
-                <span>${statusBadge}</span>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
-                ${buildDocumentCard('Training Photo', trainingPhotoUrl, 'training_photo.jpg')}
-                ${buildDocumentCard('District Nodal Endorsement Letter', nodalLetterUrl, 'nodal_endorsement_letter.pdf')}
-                ${buildDocumentCard('Office Memorandum (OM) Letter', omLetterUrl, 'office_memorandum.pdf')}
-                ${buildDocumentCard('Operator Attendance List', attendanceListUrl, 'attendance_list.xlsx')}
-            </div>
-        </div>
-        `;
-
-        Swal.fire({
-            title: `<span style="font-family:inherit; font-weight:800;">Uploaded Batch Documents</span>`,
-            html: htmlContent,
-            showCancelButton: false, // NO Cancel button
-            showConfirmButton: true,
-            confirmButtonText: 'Close',
-            showDenyButton: true,
-            denyButtonText: 'Back',
-            customClass: {
-                confirmButton: 'swal-btn-close',
-                denyButton: 'swal-btn-back'
-            },
-            width: '600px',
-            focusConfirm: false
-        }).then((result) => {
-            if (result.isDenied) {
-                window.showIndividualOperatorDetails(arrayIndex, 'details');
-            }
-        });
-    } 
+    }
     else if (activeView === 'remarks') {
         Swal.fire({
             title: 'Fetching Remarks...',
@@ -926,22 +1178,25 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
             didOpen: () => { Swal.showLoading(); }
         });
 
-        fetch(`/auth/dc/reactivation/operators/${requestCode}`)
+        fetch(`/auth/dc/reactivation/operators/${requestCode}?_t=${Date.now()}`)
             .then(res => res.json())
             .then(payload => {
                 Swal.close();
                 let timelineHtml = '';
                 const logsRaw = payload.timeline_logs || [];
                 const logs = logsRaw.filter(log => {
+                    if (log.operator_id) {
+                        return String(log.operator_id) === String(op.id);
+                    }
                     const msg = log.message || '';
                     return !msg.includes("Operator '") || msg.includes(`Operator '${op.operator_name}'`);
                 });
 
                 if (logs.length > 0) {
                     timelineHtml += `
-                    <div class="remarks-timeline">
-                        <div class="timeline-title">Audit Action History Log</div>
-                        <div class="timeline-track">
+                    <div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">
+                        <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div>
+                        <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">
                     `;
                     logs.forEach(item => {
                         const sender = (item.sender_role === 'CHIPS' || item.sender_role === 'CHIPS_ADMIN') ? 'CHiPS Admin' :
@@ -951,29 +1206,30 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
 
                         let statusAfter = item.status_after || '';
                         const msg = item.message || item.remark || '';
-                        
+
                         // Fallback override for older logs where status_after was incorrectly logged as PENDING
                         if (statusAfter.toUpperCase() === 'PENDING' || !statusAfter) {
                             const m = msg.toLowerCase();
+                            // Prevent 'reactivation' from triggering 'activat' match
                             if (m.includes('reject')) statusAfter = 'REJECTED';
                             else if (m.includes('revert')) statusAfter = 'REVERTED';
-                            else if (m.includes('activat') || m.includes('approve')) statusAfter = 'ACTIVATED';
+                            else if ((m.includes('approv') && !m.includes('reactivat')) || m.includes('approve')) statusAfter = 'APPROVED';
                             else if (m.includes('uidai')) statusAfter = 'SENT_TO_UIDAI';
                         }
-                        
+
                         let statusBadgeHtmlInline = '';
                         let markerClass = 'marker-pending';
                         if (statusAfter) {
                             statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
                             const sLower = statusAfter.toLowerCase();
-                            if (sLower.includes('approve') || sLower.includes('active') || sLower.includes('activated')) markerClass = 'marker-approved';
+                            if (sLower.includes('approve')) markerClass = 'marker-approved';
                             else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
                             else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
                             else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
                         }
 
                         const username = item.sender_username || '';
-                        const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+                        const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate' && sender !== 'CHiPS Admin';
 
                         timelineHtml += `
                             <div class="timeline-item ${senderClass}">
@@ -998,8 +1254,8 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
 
                 Swal.fire({
                     title: `<span style="font-family:inherit; font-weight:800;">Action History</span>`,
-                    html: `<div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    html: `<div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                             <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
                             <span>${statusBadge}</span>
                         </div>
@@ -1038,7 +1294,7 @@ function clearFormInputs() {
     document.getElementById('op_name').value = '';
     document.getElementById('op_reg').value = '986';
     document.getElementById('op_ea').value = '';
-    
+
     const opUserEl = document.getElementById('user_code');
     opUserEl.value = '';
 
@@ -1051,6 +1307,58 @@ function clearFormInputs() {
     document.getElementById('op_model').value = '';
     document.getElementById('op_lms_id').value = '';
     document.querySelectorAll('.error-msg').forEach(el => el.innerText = '');
+
+    if (document.getElementById('editing_op_id')) document.getElementById('editing_op_id').value = '';
+    if (document.getElementById('editing_op_status')) document.getElementById('editing_op_status').value = '';
+    if (document.getElementById('editing_op_reject_reason')) document.getElementById('editing_op_reject_reason').value = '';
+    const reasonContainer = document.getElementById('operator-revert-reason-container');
+    if (reasonContainer) reasonContainer.style.display = 'none';
+    window.isCurrentlyEditingOperator = false;
+}
+
+function resetEntireNewRequestForm() {
+    clearFormInputs();
+    structuredOperatorList = [];
+    renderOperatorSpreadsheetRows();
+    const nextBtn = document.getElementById('next-step-trigger-btn');
+    if (nextBtn) nextBtn.disabled = true;
+    const countBadge = document.getElementById('operator-count-badge');
+    if (countBadge) countBadge.innerText = '0 Operators';
+
+    ['training_photo', 'nodal_letter', 'om_letter', 'attendance_list', 'training_date'].forEach(name => {
+        const el = document.getElementsByName(name)[0];
+        if (el) el.value = '';
+    });
+
+    if (typeof navigateWizardStep === 'function') {
+        navigateWizardStep(1);
+    } else {
+        const s1Form = document.getElementById('section-operator-form-view');
+        const s2Docs = document.getElementById('section-documents-upload-view');
+        if (s1Form) s1Form.style.display = 'block';
+        if (s2Docs) s2Docs.style.display = 'none';
+    }
+
+    window.currentReapplyCode = null;
+    const remarkEl = document.getElementById('reapply-remark-section');
+    if (remarkEl) remarkEl.style.display = 'none';
+    const remarksField = document.getElementById('reapply_remarks_field');
+    if (remarksField) remarksField.value = '';
+    
+    window.isReapplyBatchReverted = false;
+    const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
+    if (p1BatchContainer) p1BatchContainer.style.display = 'none';
+    const p2BatchContainer = document.getElementById('batch-revert-reason-container-p2');
+    if (p2BatchContainer) p2BatchContainer.style.display = 'none';
+    
+    document.querySelectorAll('.prev-doc-indicator').forEach(el => {
+        el.style.display = 'none';
+        el.innerText = '';
+    });
+    const titleEl = document.querySelector('.container-title');
+    if (titleEl) {
+        titleEl.innerText = 'AADHAAR OPERATOR REACTIVATION';
+    }
 }
 
 // 🛡️ SECURITY STRING ESCAPER
@@ -1075,21 +1383,23 @@ function switchMainView(viewType, btnElement) {
 
     if (viewType === 'batches') {
         document.getElementById('view-batches-container').style.display = 'block';
-        document.getElementById('view-activated-container').style.display = 'none';
+        document.getElementById('view-approved-container').style.display = 'none';
     } else {
         document.getElementById('view-batches-container').style.display = 'none';
-        document.getElementById('view-activated-container').style.display = 'block';
+        document.getElementById('view-approved-container').style.display = 'block';
     }
 }
 
-function filterFlatActivatedOperators() {
+function filterFlatApprovedOperators() {
     const searchInput = document.getElementById('flat-op-search');
     const searchText = searchInput ? searchInput.value.toLowerCase().trim() : "";
 
     const rows = document.querySelectorAll('.flat-op-row');
     rows.forEach(row => {
         const opName = row.getAttribute('data-name') || "";
-        if (opName.includes(searchText)) {
+        const opMobile = row.getAttribute('data-mobile') || "";
+        const opEmail = row.getAttribute('data-email') || "";
+        if (opName.includes(searchText) || opMobile.includes(searchText) || opEmail.includes(searchText)) {
             row.style.display = "";
         } else {
             row.style.display = "none";
@@ -1110,6 +1420,15 @@ function applyHistoryPanelFiltersPipeline() {
 
     const rows = document.querySelectorAll(".history-data-row");
     let matchCount = 0;
+    let totalVisibleOperators = 0;
+
+    // Track status counts of matching operators based on active time period and search operator filters
+    let opPendingCount = 0;
+    let opReappliedCount = 0;
+    let opSentToUidaiCount = 0;
+    let opRevertedCount = 0;
+    let opRejectedCount = 0;
+    let opApprovedCount = 0;
 
     window.currentReapplyCode = null;
 
@@ -1122,39 +1441,30 @@ function applyHistoryPanelFiltersPipeline() {
 
     rows.forEach(row => {
         const rowId = row.getAttribute("data-request-id") || "";
-        let rowStatus = row.getAttribute("data-status") || "";
         const rowCreated = row.getAttribute("data-created") || "";
 
-        rowStatus = rowStatus.toUpperCase().replace(" ", "_").trim();
         const cleanStatusFilter = statusValue.toUpperCase().replace(" ", "_").trim();
 
-        const matchesStatus = (statusValue === "ALL") || (rowStatus === cleanStatusFilter);
-
-        let matchesDate = true;
+        let matchesDate = (dateFilter === 'all');
         if (dateFilter === 'today') {
             matchesDate = rowCreated.startsWith(todayPrefix);
         } else if (dateFilter === 'week') {
-            if (!rowCreated) {
-                matchesDate = false;
-            } else {
+            if (rowCreated) {
                 const rowDate = new Date(rowCreated.replace(' ', 'T'));
-                const startOfWeek = new Date(now);
-                const day = startOfWeek.getDay();
-                startOfWeek.setDate(now.getDate() - day);
-                startOfWeek.setHours(0, 0, 0, 0);
-
-                const endOfWeek = new Date(startOfWeek);
-                endOfWeek.setDate(startOfWeek.getDate() + 6);
-                endOfWeek.setHours(23, 59, 59, 999);
-
-                matchesDate = rowDate >= startOfWeek && rowDate <= endOfWeek;
+                const threshold = new Date();
+                threshold.setDate(now.getDate() - 7);
+                matchesDate = rowDate >= threshold;
             }
         } else if (dateFilter === 'month') {
-            matchesDate = rowCreated.startsWith(monthPrefix);
+            if (rowCreated) {
+                const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                const threshold = new Date();
+                threshold.setDate(now.getDate() - 30);
+                matchesDate = rowDate >= threshold;
+            }
         }
 
-        // If batch-level filters match, evaluate individual operators inside the card
-        if (matchesStatus && matchesDate) {
+        if (matchesDate) {
             let isBatchMatch = !searchQuery || rowId.toLowerCase().includes(searchQuery);
             let visibleOpsCount = 0;
             const opRows = row.querySelectorAll('.op-row-item');
@@ -1162,10 +1472,24 @@ function applyHistoryPanelFiltersPipeline() {
             opRows.forEach(opRow => {
                 const opName = (opRow.getAttribute('data-name') || "").toLowerCase();
                 const opMobile = (opRow.getAttribute('data-mobile') || "").toLowerCase();
+                const opEmail = (opRow.getAttribute('data-email') || "").toLowerCase();
+                const opStatus = (opRow.getAttribute('data-status') || "").toUpperCase();
 
-                const matchesOperator = opName.includes(searchQuery) || opMobile.includes(searchQuery);
+                const matchesSearch = isBatchMatch || opName.includes(searchQuery) || opMobile.includes(searchQuery) || opEmail.includes(searchQuery);
 
-                if (isBatchMatch || matchesOperator) {
+                // Dashboard metrics update: only count if matches date filter and search query
+                if (matchesSearch) {
+                    if (opStatus === 'PENDING') opPendingCount++;
+                    else if (opStatus === 'REAPPLIED') opReappliedCount++;
+                    else if (opStatus === 'SENT_TO_UIDAI') opSentToUidaiCount++;
+                    else if (opStatus === 'REVERTED') opRevertedCount++;
+                    else if (opStatus === 'REJECTED') opRejectedCount++;
+                    else if (opStatus === 'APPROVED') opApprovedCount++;
+                }
+
+                const matchesOpStatus = (statusValue === "ALL") || (opStatus === cleanStatusFilter);
+
+                if (matchesSearch && matchesOpStatus) {
                     opRow.style.display = "flex";
                     visibleOpsCount++;
                 } else {
@@ -1173,10 +1497,10 @@ function applyHistoryPanelFiltersPipeline() {
                 }
             });
 
-            // Show card if search matches the batch ID or at least one operator inside
-            if (!searchQuery || visibleOpsCount > 0 || (opRows.length === 0 && isBatchMatch)) {
+            if (visibleOpsCount > 0 || (opRows.length === 0 && isBatchMatch && statusValue === "ALL")) {
                 row.style.display = "";
                 matchCount++;
+                totalVisibleOperators += visibleOpsCount;
             } else {
                 row.style.display = "none";
             }
@@ -1196,17 +1520,37 @@ function applyHistoryPanelFiltersPipeline() {
         standardEmptyState.style.display = (rows.length === 0) ? "" : "none";
     }
 
+    // Beside the table heading, display the count of matching visible operators
     const countEl = document.getElementById('batches-count');
-    if (countEl) countEl.textContent = matchCount;
+    if (countEl) countEl.textContent = totalVisibleOperators;
+
+    // Dynamically update dashboard metric cards
+    const pendingEl = document.getElementById('metric-pending');
+    const reappliedEl = document.getElementById('metric-reapplied');
+    const sentToUidaiEl = document.getElementById('metric-sent-to-uidai');
+    const revertedEl = document.getElementById('metric-reverted');
+    const rejectedEl = document.getElementById('metric-rejected');
+    const approvedEl = document.getElementById('metric-approved');
+    const totalEl = document.getElementById('metric-total-requests');
+
+    const totalAllStatuses = opPendingCount + opReappliedCount + opSentToUidaiCount + opRevertedCount + opRejectedCount + opApprovedCount;
+
+    if (pendingEl) pendingEl.textContent = opPendingCount;
+    if (reappliedEl) reappliedEl.textContent = opReappliedCount;
+    if (sentToUidaiEl) sentToUidaiEl.textContent = opSentToUidaiCount;
+    if (revertedEl) revertedEl.textContent = opRevertedCount;
+    if (rejectedEl) rejectedEl.textContent = opRejectedCount;
+    if (approvedEl) approvedEl.textContent = opApprovedCount;
+    if (totalEl) totalEl.textContent = totalAllStatuses;
 }
 
 function resetHistoryPanelFilters() {
     const searchOperatorInput = document.getElementById("filter-search-operator");
     if (searchOperatorInput) searchOperatorInput.value = "";
-    
+
     const statusInput = document.getElementById("filter-status");
     if (statusInput) statusInput.value = "ALL";
-    
+
     const datePeriodInput = document.getElementById("filter-date-period");
     if (datePeriodInput) datePeriodInput.value = "month";
 
@@ -1332,7 +1676,16 @@ window.submitOperatorReapplication = function (data) {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                Swal.fire('Success', 'Operator reapplied successfully!', 'success').then(() => {
+                Swal.fire({
+                    title: 'Success',
+                    text: 'Operator reapplied successfully!',
+                    icon: 'success',
+                    confirmButtonColor: '#007bff',
+                    allowOutsideClick: false,
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
                     window.location.reload();
                 });
             } else {
@@ -1388,85 +1741,245 @@ const DISTRICT_CODES = {
     'Gaurela Pendra Marwahi': 'GRL',
 };
 
-window.autoFillUserCode = function() {
-    const eaSelect = document.getElementById('op_ea');
-    const nameInput = document.getElementById('op_name');
-    const districtEl = document.getElementById('dc_district_name');
-    const userCodeEl = document.getElementById('user_code');
-
-    if (!eaSelect || !nameInput || !districtEl || !userCodeEl) return;
-
-    // Do not auto-fill if the user has manually edited the field (and it is not empty)
-    if (userCodeEl.value.trim() === '') {
-        delete userCodeEl.dataset.userEdited;
-    }
-    if (userCodeEl.dataset.userEdited === 'true') return;
-
-    const eaCode = eaSelect.value.trim();
-    const fullName = nameInput.value.trim();
-    const districtVal = districtEl.value.trim();
-
-    if (!eaCode || !fullName || !districtVal) {
-        userCodeEl.value = '';
-        return;
-    }
-
-    const firstName = fullName.split(/\s+/)[0];
-    const districtCode = DISTRICT_CODES[districtVal] || districtVal.toUpperCase().slice(0, 3);
-
-    userCodeEl.value = `${eaCode}_${firstName}_${districtCode}`;
+window.autoFillUserCode = function () {
+    // Auto-fill logic removed as per user request
 };
 
-// Export helper function to XLSX format using SheetJS (XLSX) library
-function exportTableToExcel(tableID, filename = 'export.xlsx') {
-    const table = document.getElementById(tableID);
-    if (!table) return;
-
-    // Find headers and valid indices
-    const headerRow = table.querySelector('thead tr');
-    const headers = headerRow ? headerRow.querySelectorAll('th') : [];
-    const validIndices = [];
-    const headerData = [];
-    
-    headers.forEach((th, idx) => {
-        const text = th.innerText.trim();
-        if (text !== "Actions" && text !== "Action") {
-            validIndices.push(idx);
-            headerData.push(text);
-        }
-    });
-
-    const rowsData = [headerData];
-
-    // Find visible body rows
-    const bodyRows = table.querySelectorAll('tbody tr');
-    bodyRows.forEach(row => {
-        // Only export visible rows and rows with actual data (cells.length > 1)
-        if (row.style.display !== 'none' && row.cells.length > 1) {
-            const rowData = [];
-            const cells = row.querySelectorAll('td');
-            validIndices.forEach(idx => {
-                if (cells[idx]) {
-                    let text = cells[idx].innerText.trim();
-                    text = text.replace(/\s+/g, ' ');
-                    rowData.push(text);
-                } else {
-                    rowData.push('');
+window.exportReactivationHistoryToExcel = function () {
+    const cards = document.querySelectorAll(".history-data-row.request-card");
+    const ids = [];
+    cards.forEach(card => {
+        if (card.style.display !== 'none') {
+            const opRows = card.querySelectorAll(".op-row-item");
+            opRows.forEach(opRow => {
+                if (opRow.style.display !== 'none') {
+                    const id = opRow.getAttribute('data-id');
+                    if (id) ids.push(id.trim());
                 }
             });
-            rowsData.push(rowData);
         }
     });
 
-    if (typeof XLSX === 'undefined') {
-        alert("Excel export library is not loaded yet. Please wait a moment or refresh the page.");
+    if (ids.length === 0) {
+        Swal.fire({
+            title: 'No Data',
+            text: 'No records found to export.',
+            icon: 'warning',
+            confirmButtonColor: '#3085d6'
+        });
         return;
     }
 
-    const ws = XLSX.utils.aoa_to_sheet(rowsData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-    XLSX.writeFile(wb, filename);
-}
+    // Forward to Flask proxy which streams CSV from FastAPI central exporter
+    window.location.href = `/auth/reactivation/export-csv-all?ids=${ids.join(',')}`;
+};
+
+window.exportApprovedOperatorsCSV = function () {
+    const rows = document.querySelectorAll(".flat-op-row");
+    const ids = [];
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const id = row.getAttribute('data-id');
+            if (id) ids.push(id.trim());
+        }
+    });
+
+    if (ids.length === 0) {
+        Swal.fire({
+            title: 'No Data',
+            text: 'No records found to export.',
+            icon: 'warning',
+            confirmButtonColor: '#3085d6'
+        });
+        return;
+    }
+
+    // Forward to Flask proxy which streams CSV from FastAPI central exporter for approved (UIDAI sent) reactivation records
+    window.location.href = `/auth/reactivation/export-csv-uidai?ids=${ids.join(',')}`;
+};
 
 
+window.viewBatchDocuments = function (requestCode, backIndex = null) {
+    const trainingPhotoUrl = `/auth/reactivation/requests/${requestCode}/files/training_photo`;
+    const nodalLetterUrl = `/auth/reactivation/requests/${requestCode}/files/nodal_letter`;
+    const omLetterUrl = `/auth/reactivation/requests/${requestCode}/files/om_letter`;
+    const attendanceListUrl = `/auth/reactivation/requests/${requestCode}/files/attendance_list`;
+
+    let htmlContent = `
+    <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto;">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px;">
+            ${buildDocumentCard('Training Photo', trainingPhotoUrl, 'training_photo.jpg')}
+            ${buildDocumentCard('District Nodal Endorsement Letter', nodalLetterUrl, 'nodal_endorsement_letter.pdf')}
+            ${buildDocumentCard('Office Memorandum (OM) Letter', omLetterUrl, 'office_memorandum.pdf')}
+            ${buildDocumentCard('Operator Attendance List', attendanceListUrl, 'attendance_list.xlsx')}
+        </div>
+    </div>
+    `;
+
+    Swal.fire({
+        title: `<span style="font-family:inherit; font-weight:800; font-size: 18px;">Uploaded Batch Documents</span>`,
+        html: htmlContent,
+        showCancelButton: false,
+        showConfirmButton: true,
+        confirmButtonText: 'Close',
+        showDenyButton: backIndex !== null,
+        denyButtonText: 'Back',
+        customClass: {
+            confirmButton: 'swal-btn-close',
+            denyButton: 'swal-btn-back'
+        },
+        width: '600px',
+        focusConfirm: false
+    }).then((result) => {
+        if (result.isDenied && backIndex !== null) {
+            window.showIndividualOperatorDetails(backIndex, 'details');
+        }
+    });
+}; 
+
+window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDate) {
+    window.currentReapplyCode = requestCode;
+    const noticeEl = document.getElementById('reapply-file-notice');
+    if (noticeEl) noticeEl.style.display = 'block';
+    const remarkEl = document.getElementById('reapply-remark-section');
+    if (remarkEl) remarkEl.style.display = 'block';
+    document.querySelectorAll('.doc-required-star').forEach(star => {
+        star.style.display = 'none';
+    });
+    const titleEl = document.getElementById('reactivation-form-title');
+    if (titleEl) {
+        titleEl.innerText = `Modify & Reapply Operator Reactivation Request`;
+    }
+
+    if (trainingDate) {
+        document.getElementById('doc_training_date').value = trainingDate;
+    }
+
+    Swal.fire({
+        title: 'Loading Operator Data...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}`)
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to load previous operators');
+            return res.json();
+        })
+        .then(payload => {
+            Swal.close();
+            
+            // Clear previous documents display first
+            document.querySelectorAll('.prev-doc-indicator').forEach(el => {
+                el.style.display = 'none';
+                el.innerText = '';
+            });
+
+            // Populate previous documents
+            if (payload.documents) {
+                for (const [docType, docInfo] of Object.entries(payload.documents)) {
+                    const docEl = document.getElementById(`prev-${docType}`);
+                    if (docEl && docInfo && docInfo.original_filename) {
+                        docEl.innerText = `✓ ${docInfo.original_filename}`;
+                        docEl.style.display = 'block';
+                    }
+                }
+            }
+
+            // Toggle batch revert reason displays
+            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes(payload.batch_status);
+            const batchReason = payload.batch_revert_reason || '';
+
+            const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
+            const p1BatchText = document.getElementById('batch-revert-reason-text-p1');
+            const p1BatchLabel = document.getElementById('batch-revert-reason-label-p1');
+
+            const p2BatchContainer = document.getElementById('batch-revert-reason-container-p2');
+            const p2BatchText = document.getElementById('batch-revert-reason-text-p2');
+            const p2BatchLabel = document.getElementById('batch-revert-reason-label-p2');
+
+            if (isBatchRevertedOrRejected && batchReason) {
+                window.isReapplyBatchReverted = true;
+                const labelText = payload.batch_status === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
+                
+                if (p1BatchContainer && p1BatchText && p1BatchLabel) {
+                    p1BatchText.innerText = batchReason;
+                    p1BatchLabel.innerText = labelText;
+                    p1BatchContainer.style.display = 'block';
+                }
+                if (p2BatchContainer && p2BatchText && p2BatchLabel) {
+                    p2BatchText.innerText = batchReason;
+                    p2BatchLabel.innerText = labelText;
+                    p2BatchContainer.style.display = 'block';
+                }
+            } else {
+                window.isReapplyBatchReverted = false;
+                if (p1BatchContainer) p1BatchContainer.style.display = 'none';
+                if (p2BatchContainer) p2BatchContainer.style.display = 'none';
+            }
+
+            structuredOperatorList = [];
+            const operators = payload.operators || [];
+            // Find only this specific operator!
+            const op = operators.find(o => String(o.id) === String(operatorId));
+            if (op) {
+                structuredOperatorList.push({
+                    id: op.id,
+                    name: op.operator_name || '',
+                    mobile: op.operator_mobile || '',
+                    role: op.role || 'Operator',
+                    email: op.email_id || '',
+                    reg: op.registrar_code || '986',
+                    ea: op.ea_code || '',
+                    user: op.user_code || '',
+                    model: op.model_type || '',
+                    lmsId: op.lms_certificate_id || '',
+                    cert: op.certificate_number || '',
+                    certDate: op.certification_date || '',
+                    remarks: op.remarks || '',
+                    reject_reason: op.reject_reason || '',
+                    status: op.status || '',
+                    aadhar: op.aadhaar_number || ''
+                });
+            }
+            renderOperatorSpreadsheetRows();
+            window.switchReactivationView('app');
+        })
+        .catch(err => Swal.fire('Error', err.message, 'error'));
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.oa-file-input').forEach(input => {
+        input.addEventListener('change', function() {
+            // Remove any existing error message
+            const parent = this.closest('.oa-doc-card');
+            if (parent) {
+                let errEl = parent.querySelector('.error-msg-file');
+                if (errEl) errEl.remove();
+
+                const file = this.files[0];
+                if (!file) return;
+
+                const name = this.name;
+                const maxMB = name === 'attendance_list' ? 5 : 2;
+                const maxBytes = maxMB * 1024 * 1024;
+
+                if (file.size > maxBytes) {
+                    // Clear input to enforce strictness
+                    this.value = '';
+                    
+                    // Add red warning message below the field
+                    errEl = document.createElement('div');
+                    errEl.className = 'error-msg-file';
+                    errEl.style.color = '#ef4444';
+                    errEl.style.fontSize = '12px';
+                    errEl.style.marginTop = '6px';
+                    errEl.style.fontWeight = '600';
+                    errEl.style.fontFamily = "'Inter', sans-serif";
+                    errEl.innerText = `Must be smaller than ${maxMB}MB.`;
+                    parent.appendChild(errEl);
+                }
+            }
+        });
+    });
+});

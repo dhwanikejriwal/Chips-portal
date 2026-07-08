@@ -29,105 +29,373 @@ mermaid.initialize({
   er: { diagramPadding: 20, layoutDirection: 'TB', minEntityWidth: 100, minEntityHeight: 75, entityPadding: 15, useMaxWidth: true },
 });
 const diagram = `erDiagram
-    master_user_role {
-        int id PK
-        string role
-    }
-    district_table {
-        string district_code PK
-        int id
-        string district_name
-        string district_short_name
-    }
-    user_login_table {
-        int id PK
-        string username
-        string password
-        string district_id FK
-        int roleid FK
-    }
-    candidate_table {
-        int r_id PK
-        string request_code
-        string name
-        string mobile
-        string email
-        string district FK
-        string qualification
-        string lms_id
-        string nseit_id
-        string exam_unique_code
-        date dob
-        string aadhaar
-        string marksheet_upload
-        string status
+    credential_requests {
+        integer id PK
+        varchar request_code
+        varchar operator_first_name
+        varchar operator_middle_name
+        varchar operator_last_name
+        varchar operator_phone
+        varchar operator_email
+        integer district_id FK
+        integer submitted_by_id FK
+        varchar status
         datetime created_at
         datetime updated_at
-    }
-    candidate_login_table {
-        int id PK
-        int r_id FK
-        string user_id
-        string password
+        varchar generated_login_id
+        varchar generated_password_raw
+        varchar revert_reason
+        json remarks_history
     }
     LMS_table {
-        int id PK
-        int r_id FK
-        string status
+        integer id PK
+        integer R_Id FK
+        varchar status_code
         datetime created_at
         datetime updated_at
     }
     lms_remark_table {
-        int id PK
-        int lms_id FK
-        string remark
+        integer id PK
+        integer R_id FK
+        varchar remark
         datetime time
-        int admin_by_id FK
-        int candidate_by_id FK
+        varchar status_after_code
+        integer admin_by_id FK
+        integer candidate_by_id FK
         boolean is_public
     }
+    noc_requests {
+        integer id PK
+        varchar request_code
+        varchar operator_unique_id
+        varchar operator_first_name
+        varchar operator_middle_name
+        varchar operator_last_name
+        integer district_id FK
+        integer submitted_by_id FK
+        varchar status
+        datetime created_at
+        datetime updated_at
+        varchar revert_reason
+        json remarks_history
+    }
+    station_kit_details {
+        integer id PK
+        integer district_id FK
+        varchar station_id
+        varchar kit_number
+        varchar status
+        datetime created_at
+    }
+    approval_history {
+        integer id PK
+        varchar request_type
+        integer request_id
+        integer action_by_user_id FK
+        varchar action_taken
+        varchar comments
+        datetime action_at
+    }
+    master_user_role {
+        integer id PK
+        varchar role
+    }
+    master_status {
+        varchar code PK
+        varchar name
+    }
+    user_login_table {
+        integer id PK
+        varchar username
+        varchar password
+        varchar district_id FK
+        integer roleid FK
+    }
+    candidate_table {
+        integer r_id PK
+        varchar request_code
+        varchar name
+        varchar mobile
+        varchar email
+        varchar district FK
+        varchar qualification
+        varchar lms_id
+        varchar nseit_id
+        varchar exam_unique_code
+        date dob
+        varchar aadhaar
+        varchar address
+        varchar pincode
+        boolean is_existing_operator
+        varchar photo_upload
+        varchar marksheet_upload
+        varchar tenth_marksheet_upload
+        varchar status_code
+        datetime created_at
+        datetime updated_at
+    }
+    candidate_login_table {
+        integer id PK
+        integer r_id FK
+        varchar user_id
+        varchar password
+        boolean has_changed_password
+    }
     dc_remark_table {
-        int id PK
-        int r_id FK
-        string remark
+        integer id PK
+        integer r_id FK
+        varchar remark
         datetime time
-        int by FK
+        varchar status_after_code
+        integer by FK
     }
     nseit_request_table {
-        int id PK
-        int r_id FK
-        string status
+        integer id PK
+        integer R_Id FK
+        varchar status_code
         datetime created_at
         datetime updated_at
     }
     nseit_request_remark_table {
-        int id PK
-        int nseit_id FK
-        string remark
+        integer id PK
+        integer R_Id FK
+        varchar remark
         datetime time
-        int admin_by_id FK
-        int candidate_by_id FK
+        varchar status_after_code
+        integer admin_by_id FK
+        integer candidate_by_id FK
         boolean is_public
     }
-
-    master_user_role ||--o{ user_login_table : "roleid"
-    district_table ||--o{ user_login_table : "district_id"
-    district_table ||--o{ candidate_table : "district"
-    
+    l1_registration_requests {
+        integer id PK
+        varchar request_code
+        varchar district_id FK
+        varchar station_id
+        varchar machine_id
+        varchar operator_name
+        varchar operator_id
+        varchar model_type
+        varchar software_version
+        varchar uv_id
+        varchar uv_password
+        varchar status_code
+        datetime created_at
+        datetime updated_at
+    }
+    l1_registration_remark_history {
+        integer id PK
+        varchar request_code FK
+        varchar remark
+        varchar status_after_code
+        varchar user_role
+        datetime timestamp
+    }
+    operator_reactivation_requests {
+        integer id PK
+        varchar request_code
+        integer dc_id FK
+        varchar district_id FK
+        integer operator_count
+        date training_date
+        varchar status_code
+        datetime created_at
+        datetime updated_at
+        varchar reject_reason
+    }
+    reactivation_operators {
+        integer id PK
+        varchar request_code FK
+        varchar role
+        varchar operator_name
+        varchar registrar_code
+        varchar ea_code
+        varchar user_code
+        varchar certificate_number
+        varchar lms_certificate_id
+        varchar operator_mobile
+        varchar email_id
+        varchar aadhaar_number
+        date certification_date
+        varchar remarks
+        varchar model_type
+        varchar status_code
+        varchar reject_reason
+    }
+    reactivation_remark_history {
+        integer id PK
+        varchar request_code FK
+        text remark_history
+        varchar sender_role
+        varchar status_after_code
+        datetime timestamp
+    }
+    reactivation_documents {
+        integer id PK
+        varchar request_code FK
+        varchar doc_type
+        varchar path
+        varchar original_filename
+        integer file_size
+    }
+    l2_registration_requests {
+        integer id PK
+        varchar request_no
+        integer dc_id FK
+        varchar district_id FK
+        varchar client_version
+        varchar new_station_id
+        varchar ea_code
+        varchar reg_code
+        varchar new_machine_id
+        varchar client_type
+        varchar old_station_id
+        text reason_for_l2_registration
+        varchar old_machine_id
+        text tech_center_remarks
+        varchar operator_name
+        varchar operator_id
+        varchar unique_id
+        varchar block
+        text address_of_govt_premises
+        varchar status_code
+        text uidai_remarks
+        datetime submitted_at
+    }
+    l2_registration_remarks {
+        integer id PK
+        integer request_id FK
+        integer author_id FK
+        varchar author_role
+        text remark
+        varchar status_after_code
+        datetime created_at
+    }
+    operator_activation_requests {
+        integer id PK
+        varchar request_no
+        integer dc_id FK
+        varchar district_id FK
+        varchar role
+        varchar name_as_per_aadhaar
+        varchar registrar_code
+        varchar ea_code
+        varchar user_code
+        varchar nseit_certificate_number
+        varchar operator_mobile
+        varchar primary_email
+        varchar operator_aadhaar
+        varchar pan_number
+        datetime nseit_certification_date
+        datetime nseit_certificate_expiry_date
+        varchar pincode
+        varchar status_code
+        text remark_to_uidai
+        datetime submitted_at
+        datetime reviewed_at
+        integer reviewed_by FK
+    }
+    activation_documents {
+        integer id PK
+        integer request_id FK
+        varchar doc_type
+        text file_path
+        varchar original_filename
+        integer file_size_bytes
+        varchar mime_type
+        datetime uploaded_at
+    }
+    operator_activation_remarks {
+        integer id PK
+        integer request_id FK
+        integer author_id FK
+        varchar author_role
+        text remark
+        varchar status_after_code
+        datetime created_at
+    }
+    station_id_requests {
+        integer id PK
+        varchar request_no
+        integer dc_id FK
+        varchar district_id FK
+        varchar model
+        varchar user_type
+        text user_type_custom_reason
+        integer number_of_kits
+        varchar status_code
+        text station_id_inserted
+        datetime submitted_at
+        datetime reviewed_at
+        integer reviewed_by FK
+    }
+    station_id_remarks {
+        integer id PK
+        integer request_id FK
+        integer author_id FK
+        varchar author_role
+        text remark
+        varchar status_after_code
+        datetime created_at
+    }
+    otp_verification_table {
+        varchar email PK
+        varchar otp_code
+        datetime expires_at
+        boolean is_verified
+        datetime created_at
+        datetime updated_at
+    }
+    district_table {
+        varchar district_code PK
+        integer id
+        varchar district_name
+        varchar district_short_name
+        varchar dc_name
+        varchar dc_email
+        varchar dc_phone
+    }
+    district_table ||--o{ credential_requests : "district_id"
+    user_login_table ||--o{ credential_requests : "submitted_by_id"
+    candidate_table ||--o{ LMS_table : "R_Id"
+    LMS_table ||--o{ lms_remark_table : "R_id"
     user_login_table ||--o{ lms_remark_table : "admin_by_id"
-    user_login_table ||--o{ nseit_request_remark_table : "admin_by_id"
-    user_login_table ||--o{ dc_remark_table : "by"
-    
     candidate_login_table ||--o{ lms_remark_table : "candidate_by_id"
-    candidate_login_table ||--o{ nseit_request_remark_table : "candidate_by_id"
-
+    district_table ||--o{ noc_requests : "district_id"
+    user_login_table ||--o{ noc_requests : "submitted_by_id"
+    district_table ||--o{ station_kit_details : "district_id"
+    user_login_table ||--o{ approval_history : "action_by_user_id"
+    district_table ||--o{ user_login_table : "district_id"
+    master_user_role ||--o{ user_login_table : "roleid"
+    district_table ||--o{ candidate_table : "district"
     candidate_table ||--o{ candidate_login_table : "r_id"
-    candidate_table ||--o{ LMS_table : "r_id"
     candidate_table ||--o{ dc_remark_table : "r_id"
-    candidate_table ||--o{ nseit_request_table : "r_id"
-    LMS_table ||--o{ lms_remark_table : "lms_id"
-    nseit_request_table ||--o{ nseit_request_remark_table : "nseit_id"
-`;
+    user_login_table ||--o{ dc_remark_table : "by"
+    candidate_table ||--o{ nseit_request_table : "R_Id"
+    nseit_request_table ||--o{ nseit_request_remark_table : "R_Id"
+    user_login_table ||--o{ nseit_request_remark_table : "admin_by_id"
+    candidate_login_table ||--o{ nseit_request_remark_table : "candidate_by_id"
+    district_table ||--o{ l1_registration_requests : "district_id"
+    l1_registration_requests ||--o{ l1_registration_remark_history : "request_code"
+    user_login_table ||--o{ operator_reactivation_requests : "dc_id"
+    district_table ||--o{ operator_reactivation_requests : "district_id"
+    operator_reactivation_requests ||--o{ reactivation_operators : "request_code"
+    operator_reactivation_requests ||--o{ reactivation_remark_history : "request_code"
+    operator_reactivation_requests ||--o{ reactivation_documents : "request_code"
+    user_login_table ||--o{ l2_registration_requests : "dc_id"
+    district_table ||--o{ l2_registration_requests : "district_id"
+    l2_registration_requests ||--o{ l2_registration_remarks : "request_id"
+    user_login_table ||--o{ l2_registration_remarks : "author_id"
+    user_login_table ||--o{ operator_activation_requests : "dc_id"
+    district_table ||--o{ operator_activation_requests : "district_id"
+    user_login_table ||--o{ operator_activation_requests : "reviewed_by"
+    operator_activation_requests ||--o{ activation_documents : "request_id"
+    operator_activation_requests ||--o{ operator_activation_remarks : "request_id"
+    user_login_table ||--o{ operator_activation_remarks : "author_id"
+    user_login_table ||--o{ station_id_requests : "dc_id"
+    district_table ||--o{ station_id_requests : "district_id"
+    user_login_table ||--o{ station_id_requests : "reviewed_by"
+    station_id_requests ||--o{ station_id_remarks : "request_id"
+    user_login_table ||--o{ station_id_remarks : "author_id"`;
 const { svg } = await mermaid.render('erd-svg6', diagram);
 document.getElementById('erd6').innerHTML = svg;
 

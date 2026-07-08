@@ -2,56 +2,107 @@
 
 function approveL1Request(requestCode) {
     Swal.fire({
-        title: 'Approve Request?',
-        text: 'Are you sure you want to approve this L1 request?',
-        icon: 'question',
+        title: `<div style="text-align:left; font-size:18px; font-weight:800;">Approve L1 Request</div>`,
+        html: `
+            <div style="text-align:left; font-family:'Inter', sans-serif;">
+                <div style="background:#f8fafc; border-radius:10px; padding:12px 16px; margin-bottom:18px;">
+                    <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px;">Request ID</div>
+                    <div style="font-weight:700; color:#16a34a; margin-top:2px;">${requestCode}</div>
+                </div>
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">
+                        Admin Remarks <span style="font-size:10px; text-transform:none; font-weight:400; color:#94a3b8;">(Optional — default note used if blank)</span>
+                    </div>
+                    <textarea id="swal-chips-l1-remarks"
+                        style="width:100%; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:13px; font-family:inherit; resize:vertical; min-height:80px; outline:none; box-sizing:border-box;"
+                        placeholder="Add optional notes about this approval..."></textarea>
+                </div>
+            </div>`,
         showCancelButton: true,
-        confirmButtonText: 'Approve',
-        confirmButtonColor: '#10b981'
-    }).then((result) => {
+        confirmButtonText: '✓ Approve Request',
+        confirmButtonColor: '#10b981',
+        cancelButtonText: 'Cancel',
+        cancelButtonColor: '#64748b',
+        width: '480px',
+        focusConfirm: false,
+        showLoaderOnConfirm: true,
+        preConfirm: () => {
+            const adminRemarks = document.getElementById('swal-chips-l1-remarks').value.trim();
+            const payload = new URLSearchParams();
+            payload.append('chips_remarks', adminRemarks); // 🌟 Sends raw text (empty strings will trigger the backend default)
+
+            return fetch(`/auth/l1-registration/requests/${requestCode}/perform`, {
+                method: 'POST',
+                body: payload
+            })
+                .then(res => {
+                    if (!res.ok) throw new Error("Approval transaction failed");
+                    return res.json();
+                })
+                .catch(err => {
+                    Swal.showValidationMessage(`Action failed: ${err.message}`);
+                    return false;
+                });
+        }
+    }).then(result => {
         if (result.isConfirmed) {
-            fetch(`/auth/l1-registration/requests/${requestCode}/perform`, { method: 'POST' })
-            .then(res => {
-                if (!res.ok) throw new Error("Approval failed");
-                return res.json();
-            })
-            .then(() => {
-                Swal.fire('Approved!', 'Request has been successfully approved.', 'success').then(() => window.location.reload());
-            })
-            .catch(err => Swal.fire('Error', err.message, 'error'));
+            Swal.fire({ title: 'Approved!', text: 'L1 Request has been successfully processed.', icon: 'success', showConfirmButton: true, timer: 3000, timerProgressBar: true })
+                .then(() => {
+                    sessionStorage.setItem('chips_action_reloading', 'true');
+                    window.location.reload();
+                });
         }
     });
 }
 
 function revertL1Request(requestCode) {
     Swal.fire({
-        title: 'Revert L1 Request',
-        input: 'textarea',
-        inputPlaceholder: 'Enter reason for reverting...',
+        title: `<div style="text-align:left;font-size:18px;color:#dc2626;font-weight:800;">Revert Request</div>`,
+        html: `<div style="text-align:left;">
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#c2410c;">
+                Request <strong>${requestCode}</strong> will be sent back to the DC with your remark.
+            </div>
+            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                Revert Reason <span style="color:#ef4444;">*</span>
+            </div>
+            <textarea id="swal-revert-reason"
+                style="width:100%;padding:10px 14px;border:1.5px solid #fca5a5;border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;min-height:90px;outline:none;box-sizing:border-box;"
+                placeholder="Clearly explain why this request is being reverted so the DC can correct it..." autofocus></textarea>
+        </div>`,
         showCancelButton: true,
-        confirmButtonText: 'Revert',
-        confirmButtonColor: '#ef4444',
-        preConfirm: (reason) => {
-            if (!reason || reason.trim() === '') {
+        confirmButtonText: '↩ Revert Request',
+        confirmButtonColor: '#007bff',
+        cancelButtonText: 'Cancel',
+        cancelButtonColor: '#6c757d',
+        width: '500px',
+        focusConfirm: false,
+        showLoaderOnConfirm: true,
+        preConfirm: () => {
+            const reason = document.getElementById('swal-revert-reason').value.trim();
+            if (!reason) {
                 Swal.showValidationMessage('A revert reason is required.');
                 return false;
             }
-            return reason;
+            
+            const payload = new URLSearchParams();
+            payload.append('revert_reason', reason);
+
+            return fetch(`/auth/l1-registration/requests/${requestCode}/revert`, { method: 'POST', body: payload })
+                .then(res => {
+                    if (!res.ok) throw new Error("Revert failed");
+                    return res.json();
+                })
+                .catch(err => {
+                    Swal.showValidationMessage(`Action failed: ${err.message}`);
+                    return false;
+                });
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            const payload = new URLSearchParams();
-            payload.append('revert_reason', result.value.trim());
-            
-            fetch(`/auth/l1-registration/requests/${requestCode}/revert`, { method: 'POST', body: payload })
-            .then(res => {
-                if (!res.ok) throw new Error("Revert failed");
-                return res.json();
-            })
-            .then(() => {
-                Swal.fire('Reverted!', 'Request has been sent back to the DC.', 'success').then(() => window.location.reload());
-            })
-            .catch(err => Swal.fire('Error', err.message, 'error'));
+            Swal.fire({ title: 'Reverted!', text: 'Request has been sent back to the DC.', icon: 'success', showConfirmButton: true, timer: 3000, timerProgressBar: true }).then(() => {
+                sessionStorage.setItem('chips_action_reloading', 'true');
+                window.location.reload();
+            });
         }
     });
 }
@@ -77,12 +128,12 @@ function buildRemarksHtml(remarks) {
     if (!remarks || remarks.length === 0) {
         return `<div style="text-align:center;padding:20px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or action history logged yet.</div>`;
     }
-    let html = `<div class="remarks-timeline">
-        <div class="timeline-title">Audit Action History Log</div>
-        <div class="timeline-track">`;
+    let html = `<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">
+        <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div>
+        <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">`;
     remarks.forEach(r => {
         const isChips = r.user_role !== 'dc';
-        const sender  = isChips ? 'CHiPS Admin' : 'District Coordinator';
+        const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
         const senderClass = isChips ? 'chips' : 'dc';
 
         const action = r.action || '';
@@ -99,15 +150,18 @@ function buildRemarksHtml(remarks) {
 
         const stepLabel = 'L1 Registration';
 
+        const username = r.author_username || '';
+        const hasUsername = username && username !== 'system';
+
         html += `
             <div class="timeline-item ${senderClass}">
-                <div class="timeline-marker ${markerClass}"></div>
+                <div class="timeline-marker ${markerClass}" style="left: -31px !important;"></div>
                 <div class="timeline-content">
                     <div class="timeline-section-row">
                         <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
                     </div>
                     <div class="timeline-by-row">
-                        <span class="timeline-by">By: <strong>${sender}</strong></span>
+                        <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
                         <span class="timeline-time">${r.timestamp || ''}</span>
                     </div>
                     <div class="timeline-body">${escapeHtml(r.remark)}</div>
@@ -134,14 +188,14 @@ function openL1DetailsModal(requestCode) {
     });
 
     fetch(`/auth/l1-registration/requests/${requestCode}`)
-    .then(res => {
-        if (!res.ok) throw new Error("Failed to extract details.");
-        return res.json();
-    })
-    .then(data => {
-        window.showL1Details(data, 'details');
-    })
-    .catch(err => Swal.fire('Error', err.message, 'error'));
+        .then(res => {
+            if (!res.ok) throw new Error("Failed to extract details.");
+            return res.json();
+        })
+        .then(data => {
+            window.showL1Details(data, 'details');
+        })
+        .catch(err => Swal.fire('Error', err.message, 'error'));
 }
 
 window.showL1Details = function (data, activeView) {
@@ -170,9 +224,19 @@ window.showL1Details = function (data, activeView) {
                 <span>${statusBadge}</span>
             </div>
             <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
-                Submitted At: <strong>${data.created_at || '—'}</strong><br>
-                Reviewed At: <strong>${data.reviewed_at || '—'}</strong>
+                Submitted At: <strong>${data.created_at || '—'}</strong>
             </div>
+
+            ${displayStatus === 'REVERTED' ? `
+            <!-- Revert Reason / Remark Box -->
+            <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
+                <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <span>💬</span> REVERT REASON / REMARK
+                </div>
+                <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
+                    ${escapeHtml(data.revert_reason || 'No reason note provided.')}
+                </div>
+            </div>` : ''}
 
             ${sectionHead('L1 Registration Specs')}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
@@ -232,8 +296,8 @@ window.showL1Details = function (data, activeView) {
     }
     else if (activeView === 'remarks') {
         let htmlContent = `
-        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+        <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                 <span style="font-size: 14px; color: #666;">Request: <strong>${data.request_code}</strong></span>
                 <span>${statusBadge}</span>
             </div>

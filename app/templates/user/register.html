@@ -102,8 +102,19 @@
 
                 <div class="form-group">
                     <label for="email" class="form-label">Email Address *</label>
-                    <input type="email" id="email" name="email" class="form-input" placeholder="name@example.com"
-                        required>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="email" id="email" name="email" class="form-input" placeholder="name@example.com" required>
+                        <button type="button" id="btn-send-otp" class="btn btn-outline" style="white-space: nowrap;">Send OTP</button>
+                    </div>
+                    <div id="email_error" style="color: #e53e3e; font-size: 13px; font-weight: 500; margin-top: 6px; display: none;"></div>
+                    <div id="email_otp_section" style="display: none; margin-top: 10px;">
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="otp_code" class="form-input" placeholder="Enter 6-digit OTP" maxlength="6">
+                            <button type="button" id="btn-verify-otp" class="btn btn-dark-pill" style="white-space: nowrap;">Verify</button>
+                        </div>
+                        <div id="otp_message" style="font-size: 13px; font-weight: 500; margin-top: 6px;"></div>
+                    </div>
+                    <input type="hidden" id="email_verified" name="email_verified" value="{{ form_data.get('email_verified', 'false') if form_data else 'false' }}">
                 </div>
 
                 <div class="form-group">
@@ -213,7 +224,13 @@
                     <div id="photo_error"
                         style="color: #e53e3e; font-size: 13px; font-weight: 500; margin-top: 6px; display: none;">
                     </div>
-                </div>
+                    {% if field_errors and field_errors.get('photo') %}
+                    <div class="text-danger" style="color: #e53e3e; font-size: 13px; margin-top: 5px;">{{ field_errors.get('photo')|safe }}</div>
+                    {% endif %}
+                    {% if form_data and form_data.get('existing_photo') %}
+                    <div style="color: #10b981; font-size: 12px; margin-top: 5px; font-weight: 500;">&#10003; Photo attached successfully. Upload a new one to replace.</div>
+                    <input type="hidden" name="existing_photo" value="{{ form_data.get('existing_photo') }}">
+                    {% endif %}
 
                 <div id="tenth-marksheet-section" class="form-group full-width hidden-upload-group">
                     <label class="form-label">10th Standard Marksheet * <span
@@ -232,6 +249,13 @@
                     <div id="tenth_marksheet_error"
                         style="color: #e53e3e; font-size: 13px; font-weight: 500; margin-top: 6px; display: none;">
                     </div>
+                    {% if field_errors and field_errors.get('tenth_marksheet') %}
+                    <div class="text-danger" style="color: #e53e3e; font-size: 13px; margin-top: 5px;">{{ field_errors.get('tenth_marksheet')|safe }}</div>
+                    {% endif %}
+                    {% if form_data and form_data.get('existing_tenth_marksheet') %}
+                    <div style="color: #10b981; font-size: 12px; margin-top: 5px; font-weight: 500;">&#10003; 10th Marksheet attached successfully. Upload a new one to replace.</div>
+                    <input type="hidden" name="existing_tenth_marksheet" value="{{ form_data.get('existing_tenth_marksheet') }}">
+                    {% endif %}
                 </div>
 
                 <div id="marksheet-section" class="form-group full-width hidden-upload-group">
@@ -251,6 +275,13 @@
                     <div id="marksheet_error"
                         style="color: #e53e3e; font-size: 13px; font-weight: 500; margin-top: 6px; display: none;">
                     </div>
+                    {% if field_errors and field_errors.get('marksheet') %}
+                    <div class="text-danger" style="color: #e53e3e; font-size: 13px; margin-top: 5px;">{{ field_errors.get('marksheet')|safe }}</div>
+                    {% endif %}
+                    {% if form_data and form_data.get('existing_marksheet') %}
+                    <div style="color: #10b981; font-size: 12px; margin-top: 5px; font-weight: 500;">&#10003; Document attached successfully. Upload a new one to replace.</div>
+                    <input type="hidden" name="existing_marksheet" value="{{ form_data.get('existing_marksheet') }}">
+                    {% endif %}
                 </div>
 
             </div>
@@ -285,15 +316,21 @@
             // 🌟 10th Only Path: Render only tenth_marksheet visible to the viewport layout
             tenthSection.className = "form-group full-width visible-upload-group";
             tenthInput.setAttribute('required', 'required');
+            const extTenth = document.querySelector('input[name="existing_tenth_marksheet"]');
+            if (extTenth && extTenth.value) tenthInput.removeAttribute('required');
 
             marksheetInput.value = '';
         } else {
             // 🌟 Higher Degree Path: Require both elements cleanly without focus overlapping errors
             tenthSection.className = "form-group full-width visible-upload-group";
             tenthInput.setAttribute('required', 'required');
+            const extTenth = document.querySelector('input[name="existing_tenth_marksheet"]');
+            if (extTenth && extTenth.value) tenthInput.removeAttribute('required');
 
             marksheetSection.className = "form-group full-width visible-upload-group";
             marksheetInput.setAttribute('required', 'required');
+            const extMarksheet = document.querySelector('input[name="existing_marksheet"]');
+            if (extMarksheet && extMarksheet.value) marksheetInput.removeAttribute('required');
         }
     }
 
@@ -442,12 +479,134 @@
                 document.getElementById('marksheet').value = "";
             }
 
-            if (!isDOBValid || !isMobileValid || !isPincodeValid || !isPhotoOk || !isTenthOk || !isMarksheetOk) {
+            const isEmailVerified = document.getElementById('email_verified').value === 'true';
+
+            if (!isDOBValid || !isMobileValid || !isPincodeValid || !isPhotoOk || !isTenthOk || !isMarksheetOk || !isEmailVerified) {
                 e.preventDefault();
+                if (!isEmailVerified) {
+                    alert("Please verify your email address using OTP before submitting.");
+                }
                 console.log("Validation blocked deployment pipeline loop execution context.");
             }
         });
     }
+
+    // --- OTP Logic ---
+    document.getElementById('btn-send-otp').addEventListener('click', async function() {
+        const emailInput = document.getElementById('email');
+        const email = emailInput.value;
+        const mobileInput = document.getElementById('mobile');
+        const mobile = mobileInput ? mobileInput.value : null;
+        const msgDiv = document.getElementById('otp_message');
+        
+        if (!email || !emailInput.checkValidity()) {
+            msgDiv.textContent = "Please enter a valid email address first.";
+            msgDiv.style.color = "#e53e3e";
+            document.getElementById('email_otp_section').style.display = 'block';
+            return;
+        }
+
+        document.getElementById('mobile_error').style.display = 'none';
+        document.getElementById('email_error').style.display = 'none';
+        this.disabled = true;
+        this.textContent = "Sending...";
+        msgDiv.textContent = "Sending OTP...";
+        msgDiv.style.color = "#3b82f6";
+        document.getElementById('email_otp_section').style.display = 'block';
+
+        try {
+            const response = await fetch("{{ url_for('candidate_register.send_otp') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email, mobile: mobile })
+            });
+            const data = await response.json();
+            
+            if (response.ok) {
+                msgDiv.textContent = "OTP sent successfully to your email.";
+                msgDiv.style.color = "#10b981";
+                emailInput.readOnly = true;
+                
+                // Set to Resend OTP with a 30s cooldown
+                this.textContent = "Wait 30s...";
+                setTimeout(() => {
+                    this.disabled = false;
+                    this.textContent = "Resend OTP";
+                }, 30000);
+            } else {
+                // If it failed due to duplicates, hide the OTP section completely
+                document.getElementById('email_otp_section').style.display = 'none';
+                
+                if (data.detail && data.detail.field_errors) {
+                    if (data.detail.field_errors.email) {
+                        const emailErr = document.getElementById('email_error');
+                        emailErr.textContent = data.detail.field_errors.email;
+                        emailErr.style.display = 'block';
+                    }
+                    if (data.detail.field_errors.mobile) {
+                        const mobErr = document.getElementById('mobile_error');
+                        mobErr.textContent = data.detail.field_errors.mobile;
+                        mobErr.style.display = 'block';
+                    }
+                } else {
+                    const emailErr = document.getElementById('email_error');
+                    emailErr.textContent = typeof data.detail === 'string' ? data.detail : "Failed to send OTP.";
+                    emailErr.style.display = 'block';
+                }
+                this.disabled = false;
+                this.textContent = "Send OTP";
+            }
+        } catch (error) {
+            msgDiv.textContent = "Network error. Please try again.";
+            msgDiv.style.color = "#e53e3e";
+            this.disabled = false;
+            this.textContent = "Send OTP";
+        }
+    });
+
+    document.getElementById('btn-verify-otp').addEventListener('click', async function() {
+        const email = document.getElementById('email').value;
+        const otpCode = document.getElementById('otp_code').value;
+        const msgDiv = document.getElementById('otp_message');
+        
+        if (!otpCode || otpCode.length !== 6) {
+            msgDiv.textContent = "Please enter the 6-digit OTP.";
+            msgDiv.style.color = "#e53e3e";
+            return;
+        }
+
+        this.disabled = true;
+        this.textContent = "Verifying...";
+
+        try {
+            const response = await fetch("{{ url_for('candidate_register.verify_otp') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email, otp_code: otpCode })
+            });
+            const data = await response.json();
+            
+            if (response.ok) {
+                msgDiv.textContent = "Email verified successfully! \u2705";
+                msgDiv.style.color = "#10b981";
+                document.getElementById('email_verified').value = 'true';
+                document.getElementById('btn-send-otp').style.display = 'none';
+                document.getElementById('otp_code').readOnly = true;
+                this.style.display = 'none';
+            } else {
+                msgDiv.textContent = data.detail || "Invalid OTP.";
+                msgDiv.style.color = "#e53e3e";
+                this.disabled = false;
+                this.textContent = "Verify";
+            }
+        } catch (error) {
+            msgDiv.textContent = "Network error. Please try again.";
+            msgDiv.style.color = "#e53e3e";
+            this.disabled = false;
+            this.textContent = "Verify";
+        }
+    });
+    // -----------------
 
     // Restore form data if there was a validation error
     document.addEventListener('DOMContentLoaded', () => {
@@ -476,8 +635,28 @@
                     }
                 }
             }
+            
+            if (serverFormData['email_verified'] === 'true') {
+                document.getElementById('email_verified').value = 'true';
+                document.getElementById('email').readOnly = true;
+                document.getElementById('btn-send-otp').style.display = 'none';
+                document.getElementById('email_otp_section').style.display = 'none';
+                
+                // Show the message section since we hid the container above
+                const newMsg = document.createElement('div');
+                newMsg.textContent = "Email verified successfully! \u2705";
+                newMsg.style.color = "#10b981";
+                newMsg.style.fontSize = "13px";
+                newMsg.style.fontWeight = "500";
+                newMsg.style.marginTop = "6px";
+                document.getElementById('email').parentNode.parentNode.appendChild(newMsg);
+            }
+
             // Trigger qualification change to show correct file inputs
             onQualificationChange();
+            
+            const existingPhoto = document.querySelector('input[name="existing_photo"]');
+            if (existingPhoto && existingPhoto.value) document.getElementById('photo').removeAttribute('required');
             
             // If there's an error banner, scroll to it
             const alert = document.querySelector('.alert');
