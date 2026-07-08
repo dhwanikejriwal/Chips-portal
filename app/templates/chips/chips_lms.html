@@ -22,7 +22,7 @@
 {% endif %}
 {% endfor %}
 
-<div class="container">
+<div class="container-fluid">
 
     <!-- LMS Control Panel Banner -->
     <div class="chips-header-banner">
@@ -1053,7 +1053,7 @@
 
             let timelineHtml = '';
             if (showRemarks && remarks.length > 0) {
-                timelineHtml += '<div class="remarks-timeline"><div class="timeline-title">Audit Action History Log</div><div class="timeline-track">';
+                timelineHtml += '<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;"><div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div><div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">';
                 remarks.forEach(item => {
                     const sender = (item.sender_role === 'CHIPS') ? 'CHIPS Admin' :
                         (item.sender_role === 'DC') ? 'District Coordinator' :
@@ -1077,7 +1077,7 @@
                     const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
 
                     timelineHtml += '<div class="timeline-item ' + senderClass + '">';
-                    timelineHtml += '<div class="timeline-marker ' + markerClass + '"></div>';
+                    timelineHtml += '<div class="timeline-marker ' + markerClass + '" style="left: -31px !important;"></div>';
                     timelineHtml += '<div class="timeline-content">';
                     timelineHtml += '<div class="timeline-section-row"><span class="timeline-step-label">' + stepLabel + '</span>' + (statusAfter ? (' ' + statusBadgeInline) : '') + '</div>';
                     timelineHtml += '<div class="timeline-by-row"><span class="timeline-by">By: <strong>' + sender + '</strong>' + (hasUsername ? ' (' + escapeHtml(username) + ')' : '') + '</span><span class="timeline-time">' + item.created_at + '</span></div>';
@@ -1093,8 +1093,8 @@
             const headerStatusBadge = getStatusBadgeHtml(d.status);
 
             let htmlContent = `
-            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                     <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
                     <span>${headerStatusBadge}</span>
                 </div>
@@ -1164,8 +1164,10 @@
 
         const rows = document.querySelectorAll(rowsSelector);
         rows.forEach(row => {
-            const id = row.getAttribute('data-id');
-            if (id) ids.push(id);
+            if (row.style.display !== 'none' && row.cells.length > 1) {
+                const id = row.getAttribute('data-id');
+                if (id) ids.push(id);
+            }
         });
 
         if (ids.length === 0) {
@@ -1179,7 +1181,8 @@
         }
 
         // Redirects straight to the corresponding backend pipeline router query parameter
-        window.location.href = `/auth/lms-manage/export?ids=${ids.join(',')}`;
+        const baseUrl = "{{ url_for('auth.proxy_backend_excel_export', module_endpoint='lms-requests') }}";
+        window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
     }
 
 </script>

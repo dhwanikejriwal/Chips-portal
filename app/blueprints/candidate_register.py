@@ -215,7 +215,46 @@ def register():
             reg_response = requests.post(register_url, json=payload)
             if reg_response.status_code == 200:
                 data = reg_response.json()
-                session["reg_success_code"] = data["request_code"]
+                request_code = data["request_code"]
+                
+                # Move files to proper directory and update DB
+                import shutil
+                dist_name = "DISTRICT_" + district
+                for d in districts:
+                    if d['district_code'] == district:
+                        dist_name = d['district_name']
+                        break
+                        
+                final_dir = os.path.join(current_app.root_path, "..", "uploads", "candidate", dist_name, request_code)
+                os.makedirs(final_dir, exist_ok=True)
+                
+                def move_file(temp_path):
+                    if not temp_path: return None
+                    filename = temp_path.split("/")[-1]
+                    old_full_path = os.path.join(current_app.root_path, "static", "uploads", filename)
+                    new_full_path = os.path.join(final_dir, filename)
+                    if os.path.exists(old_full_path):
+                        shutil.move(old_full_path, new_full_path)
+                    return f"/candidate_uploads/{dist_name}/{request_code}/{filename}"
+                
+                final_photo = move_file(photo_path)
+                final_marksheet = move_file(marksheet_path)
+                final_tenth = move_file(tenth_marksheet_path)
+                
+                from backend.database import SessionLocal
+                from backend.models import Candidate
+                db = SessionLocal()
+                try:
+                    cand = db.query(Candidate).filter(Candidate.request_code == request_code).first()
+                    if cand:
+                        if final_photo: cand.photo_upload = final_photo
+                        if final_marksheet: cand.marksheet_upload = final_marksheet
+                        if final_tenth: cand.tenth_marksheet_upload = final_tenth
+                        db.commit()
+                finally:
+                    db.close()
+                
+                session["reg_success_code"] = request_code
                 return redirect(url_for("candidate_register.register_success"))
             else:
                 flash(get_backend_error(reg_response), "danger")

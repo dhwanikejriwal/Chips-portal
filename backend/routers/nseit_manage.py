@@ -214,8 +214,8 @@ def export_nseit_excel(ids: str = None, db: Session = Depends(get_db)):
             "nseit_certificate_id": c.nseit_id or "None",
             "nseit_status": n.status,
      
-            "submitted_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else "N/A",
-            "updated_at": n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else "N/A"
+            "submitted_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else "",
+            "updated_at": "" if n.status in ["Pending", "Forwarded"] else (n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else "")
         })
 
     # 🌟 Full column profile headers layout dictionary map
@@ -234,13 +234,13 @@ def export_nseit_excel(ids: str = None, db: Session = Depends(get_db)):
         "address": "Full Permanent Address",
         "pincode": "Postal Pincode",
         "is_existing_operator": "Existing Aadhaar Operator Status",
-        "lms_id": "Assigned LMS ID",
+        "lms_id": "LMS ID",
         "exam_unique_code": "Exam Unique Code",
         "nseit_certificate_id": "NSEIT Certificate ID",
-        "nseit_status": "Current Verification Lifecycle Status",
+        "nseit_status": "Current Status",
    
-        "submitted_at": "Request Creation Timestamp",
-        "updated_at": "Last Audit Status Update Timestamp"
+        "submitted_at": "Submitted at",
+        "updated_at": "Updated at"
     }
 
     # Pass directly into your central exporter utility for streaming output

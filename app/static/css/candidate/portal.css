@@ -227,13 +227,10 @@
     display: grid;
     grid-template-columns: 2fr 1fr;
     gap: 30px;
+    align-items: stretch;
 }
 
-@media (max-width: 768px) {
-    .detail-layout {
-        grid-template-columns: 1fr;
-    }
-}
+
 
 .main-panel,
 .side-panel {
@@ -242,6 +239,13 @@
     border-radius: 12px;
     padding: 24px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.side-panel {
+    height: 0;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .panel-header {
@@ -297,25 +301,38 @@
     box-shadow: 0 0 0 2px rgba(60, 52, 137, 0.15);
 }
 
-/* Remarks History Log Timeline */
 .remarks-timeline {
     position: relative;
     padding-left: 20px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 10px;
+    background: linear-gradient(to right, transparent 7px, #e2e8f0 7px, #e2e8f0 9px, transparent 9px);
+    background-attachment: local;
 }
 
 .remarks-timeline::before {
-    content: '';
-    position: absolute;
-    top: 5px;
-    bottom: 5px;
-    left: 5px;
-    width: 2px;
-    background: #e2e8f0;
+    display: none;
 }
 
 .remark-log-item {
     position: relative;
     margin-bottom: 20px;
+}
+
+/* Downward arrows on the timeline line to indicate reading direction */
+.remark-log-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: calc(50% + 15px);
+    transform: translateY(-50%);
+    left: -18px; /* Perfectly centered with the 8px line */
+    width: 12px;
+    height: 20px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='20'%3E%3Cpath d='M 2 2 L 6 6 L 10 2 M 2 8 L 6 12 L 10 8 M 2 14 L 6 18 L 10 14' fill='none' stroke='%23718096' stroke-width='2'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 .remark-log-item::before {
@@ -531,4 +548,19 @@
 .aadhaar-reminder-content strong {
     font-weight: 700;
     text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .detail-layout {
+        grid-template-columns: 1fr;
+    }
+    .side-panel {
+        height: auto !important;
+        min-height: unset !important;
+        display: block !important; /* Remove flex constraints */
+    }
+    .remarks-timeline {
+        overflow-y: visible !important;
+        flex: none !important;
+    }
 }

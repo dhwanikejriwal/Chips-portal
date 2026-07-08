@@ -176,7 +176,7 @@ def export_lms_excel(ids: str = None, db: Session = Depends(get_db)):
     if ids:
         id_list = [int(x) for x in ids.split(",") if x.isdigit()]
         # Filter matching database records against the target table IDs
-        query = query.filter(LMS.id.in_(id_list))
+        query = query.filter(LMS.r_id.in_(id_list))
         
     lms_records = query.order_by(Candidate.request_code.asc()).all()
 
@@ -205,8 +205,8 @@ def export_lms_excel(ids: str = None, db: Session = Depends(get_db)):
             "nseit_id": c.nseit_id or "None",
             "lms_credential_id": c.lms_id or "None",
             "lms_status": l.status,
-            "submitted_at": l.created_at.strftime("%Y-%m-%d %H:%M:%S") if l.created_at else "N/A",
-            "updated_at": l.updated_at.strftime("%Y-%m-%d %H:%M:%S") if l.updated_at else "N/A"
+            "submitted_at": l.created_at.strftime("%Y-%m-%d %H:%M:%S") if l.created_at else "",
+            "updated_at": "" if l.status in ["Pending", "Forwarded"] else (l.updated_at.strftime("%Y-%m-%d %H:%M:%S") if l.updated_at else "")
         })
 
     # 🌟 Centralized structural column headers dictionary
@@ -224,10 +224,10 @@ def export_lms_excel(ids: str = None, db: Session = Depends(get_db)):
         "pincode": "Postal Pincode",
         "is_existing_operator": "Existing Aadhaar Operator Status",
         "nseit_id": "NSEIT Certificate ID",
-        "lms_credential_id": "Assigned LMS ID",
-        "lms_status": "Current Verification Lifecycle Status",
-        "submitted_at": "Request Creation Timestamp",
-        "updated_at": "Last Audit Status Update Timestamp"
+        "lms_credential_id": "LMS ID",
+        "lms_status": "Current Status",
+        "submitted_at": "Submitted at",
+        "updated_at": "Updated at"
     }
 
     # Forward directly to your centralized exporter utility for a streaming CSV download

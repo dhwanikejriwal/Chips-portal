@@ -265,6 +265,10 @@ def change_password():
         if new_password != confirm_password:
             flash("New passwords do not match.", "danger")
             return render_template("candidate/change_password.html")
+            
+        if current_password == new_password:
+            flash("New password cannot be the same as your current password.", "danger")
+            return render_template("candidate/change_password.html")
 
         backend_url = f"{current_app.config['BACKEND_API_URL']}/auth/change-password"
         headers = {"Authorization": f"Bearer {session.get('access_token')}"}

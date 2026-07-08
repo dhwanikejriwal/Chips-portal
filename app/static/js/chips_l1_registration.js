@@ -128,9 +128,9 @@ function buildRemarksHtml(remarks) {
     if (!remarks || remarks.length === 0) {
         return `<div style="text-align:center;padding:20px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or action history logged yet.</div>`;
     }
-    let html = `<div class="remarks-timeline">
-        <div class="timeline-title">Audit Action History Log</div>
-        <div class="timeline-track">`;
+    let html = `<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">
+        <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div>
+        <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">`;
     remarks.forEach(r => {
         const isChips = r.user_role !== 'dc';
         const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
@@ -155,7 +155,7 @@ function buildRemarksHtml(remarks) {
 
         html += `
             <div class="timeline-item ${senderClass}">
-                <div class="timeline-marker ${markerClass}"></div>
+                <div class="timeline-marker ${markerClass}" style="left: -31px !important;"></div>
                 <div class="timeline-content">
                     <div class="timeline-section-row">
                         <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
@@ -296,8 +296,8 @@ window.showL1Details = function (data, activeView) {
     }
     else if (activeView === 'remarks') {
         let htmlContent = `
-        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+        <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                 <span style="font-size: 14px; color: #666;">Request: <strong>${data.request_code}</strong></span>
                 <span>${statusBadge}</span>
             </div>

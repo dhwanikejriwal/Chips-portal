@@ -332,9 +332,9 @@ function getStatusBadgeHtml(status) {
 
 function buildL1RemarksHtml(remarks) {
     if (!remarks || remarks.length === 0) return '';
-    let html = `<div class="remarks-timeline" style="margin-top: 15px;">
-        <div class="timeline-title">Audit Action History Log</div>
-        <div class="timeline-track">`;
+    let html = `<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto; margin-top: 15px;">
+        <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div>
+        <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">`;
     remarks.forEach(r => {
         const uRole = (r.user_role || '').toUpperCase();
         const isChips = uRole.includes('CHIPS') || uRole.includes('ADMIN');
@@ -364,7 +364,7 @@ function buildL1RemarksHtml(remarks) {
 
         html += `
             <div class="timeline-item ${senderClass}">
-                <div class="timeline-marker ${markerClass}"></div>
+                <div class="timeline-marker ${markerClass}" style="left: -31px !important;"></div>
                 <div class="timeline-content">
                     <div class="timeline-section-row">
                         <span class="timeline-step-label">L1 Registration</span>${statusBadgeHtmlInline}
@@ -655,8 +655,8 @@ window.showL1Details = function (d, activeView) {
         const remarksHtml = buildL1RemarksHtml(d.remarks);
 
         const remarksHtmlContent = `
-            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                     <span style="font-size: 14px; color: #666; font-weight: 600;">Request: ${d.request_code}</span>
                     <span>${statusBadge}</span>
                 </div>

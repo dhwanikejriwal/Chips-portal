@@ -161,6 +161,11 @@ def export_candidates_excel(ids: str = None, db: Session = Depends(get_db)):
         "updated_at": "Updated At",
     }
 
+    # If all requests in the export are Pending, remove updated_at and dc_remark columns
+    if candidates and all(c.status == "Pending" for c in candidates):
+        column_mappings.pop("dc_remark", None)
+        column_mappings.pop("updated_at", None)
+
     return generate_csv_export(export_data, column_mappings, "candidate_requests")
 
 @router.post("/approve-candidate/{r_id}")

@@ -49,4 +49,10 @@ def create_app():
         return send_from_directory(os.path.join(app.root_path, 'static', 'css', 'images'),
                                    'chips_logo.jpg', mimetype='image/jpeg')
 
+    @app.route('/candidate_uploads/<path:filename>')
+    def candidate_uploads(filename):
+        import os
+        from flask import send_from_directory
+        return send_from_directory(os.path.join(app.root_path, '..', 'uploads', 'candidate'), filename)
+
     return app

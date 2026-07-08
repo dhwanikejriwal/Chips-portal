@@ -1194,9 +1194,9 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
 
                 if (logs.length > 0) {
                     timelineHtml += `
-                    <div class="remarks-timeline">
-                        <div class="timeline-title">Audit Action History Log</div>
-                        <div class="timeline-track">
+                    <div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">
+                        <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div>
+                        <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">
                     `;
                     logs.forEach(item => {
                         const sender = (item.sender_role === 'CHIPS' || item.sender_role === 'CHIPS_ADMIN') ? 'CHiPS Admin' :
@@ -1254,8 +1254,8 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
 
                 Swal.fire({
                     title: `<span style="font-family:inherit; font-weight:800;">Action History</span>`,
-                    html: `<div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    html: `<div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                             <span style="font-size: 14px; color: #666;">Request: <strong>${requestCode}</strong></span>
                             <span>${statusBadge}</span>
                         </div>
