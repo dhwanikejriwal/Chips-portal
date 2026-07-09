@@ -10,14 +10,14 @@
 {% block content %}
 <!-- Jinja2 Metric Calculations -->
 {% set total_requests = pending_requests | length + processed_requests | length %}
-{% set pending_count = pending_requests | selectattr('nseit_status', 'equalto', 'Pending') | list | length %}
-{% set reapplied_count = pending_requests | selectattr('nseit_status', 'equalto', 'Reapplied') | list | length %}
-{% set approved_count = processed_requests | selectattr('nseit_status', 'equalto', 'Approved') | list | length %}
-{% set forwarded_count = processed_requests | selectattr('nseit_status', 'equalto', 'Forwarded') | list | length %}
-{% set forwarded_again_count = processed_requests | selectattr('nseit_status', 'equalto', 'Forwarded Again') | list |
+{% set pending_count = pending_requests | selectattr('nseit_status', 'equalto', 'PENDING') | list | length %}
+{% set reapplied_count = pending_requests | selectattr('nseit_status', 'equalto', 'REAPPLIED') | list | length %}
+{% set approved_count = processed_requests | selectattr('nseit_status', 'equalto', 'APPROVED') | list | length %}
+{% set forwarded_count = processed_requests | selectattr('nseit_status', 'equalto', 'FORWARDED') | list | length %}
+{% set forwarded_again_count = processed_requests | selectattr('nseit_status', 'equalto', 'FORWARDED_AGAIN') | list |
 length %}
-{% set reverted_count = processed_requests | selectattr('nseit_status', 'equalto', 'Reverted') | list | length %}
-{% set reverted_by_chips_count = processed_requests | selectattr('nseit_status', 'equalto', 'Reverted by CHiPS') | list
+{% set reverted_count = processed_requests | selectattr('nseit_status', 'equalto', 'REVERTED') | list | length %}
+{% set reverted_by_chips_count = processed_requests | selectattr('nseit_status', 'equalto', 'REVERTED_BY_CHIPS') | list
 | length %}
 
 
@@ -123,6 +123,7 @@ length %}
                 <th>Email ID</th>
                 <th>Status</th>
                 <th>Submitted At</th>
+                <th>Updated At</th>
                 <th style="text-align: center;">Action</th>
             </tr>
         </thead>
@@ -137,7 +138,7 @@ length %}
                 data-photo="{{ req.photo_upload or '' }}" data-lms-id="{{ req.lms_id or '' }}"
                 data-nseit-id="{{ req.nseit_certificate_id or '' }}"
                 data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-marksheet="{{ req.marksheet_upload }}"
-                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.nseit_status }}"
+                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.nseit_status.replace('_', ' ') | title }}"
                 data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}">
                 <td>{{ loop.index }}</td>
                 <td><strong>{{ req.request_code }}</strong></td>
@@ -146,13 +147,20 @@ length %}
                 <td>{{ req.mobile }}</td>
                 <td>{{ req.email }}</td>
                 <td>
-                    {% if req.nseit_status == 'Reapplied' %}
+                    {% if (req.nseit_status|upper) == 'REAPPLIED' %}
                     <span class="badge badge-reapplied">Reapplied</span>
                     {% else %}
                     <span class="badge badge-pending">Pending</span>
                     {% endif %}
                 </td>
                 <td>{{ req.created_at }}</td>
+                <td>
+                    {% if (req.nseit_status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and req.updated_at and req.updated_at != '—' %}
+                    {{ req.updated_at }}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
                 <td style="text-align: center;">
                     <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
                         <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
@@ -227,7 +235,7 @@ length %}
                 data-pincode="{{ req.pincode or '' }}"
                 data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
                 data-photo="{{ req.photo_upload or '' }}" data-marksheet="{{ req.marksheet_upload }}"
-                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.nseit_status }}"
+                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.nseit_status.replace('_', ' ') | title }}"
                 data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
                 data-updated="{{ req.updated_at or req.created_at }}">
                 <td>{{ loop.index }}</td>
@@ -237,13 +245,13 @@ length %}
                 <td>{{ req.mobile }}</td>
                 <td>{{ req.email }}</td>
                 <td>
-                    {% if req.nseit_status == 'Approved' %}
+                    {% if (req.nseit_status|upper) == 'APPROVED' %}
                     <span class="badge badge-approved">Approved</span>
-                    {% elif req.nseit_status == 'Forwarded' %}
+                    {% elif (req.nseit_status|upper) == 'FORWARDED' %}
                     <span class="badge badge-forwarded">Forwarded</span>
-                    {% elif req.nseit_status == 'Forwarded Again' %}
+                    {% elif (req.nseit_status|upper) == 'FORWARDED_AGAIN' %}
                     <span class="badge badge-forwarded-again">Forwarded Again</span>
-                    {% elif req.nseit_status == 'Reverted by CHiPS' %}
+                    {% elif (req.nseit_status|upper) == 'REVERTED_BY_CHIPS' %}
                     <span class="badge badge-reverted-by-chips">Reverted by CHiPS</span>
                     {% else %}
                     <span class="badge badge-reverted">Reverted</span>
@@ -799,7 +807,7 @@ length %}
                 <!-- Revert Reason / Remark Box -->
                 <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
                     <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                        <span>💬</span> REVERT / REJECTION REASON
+                        <span>💬</span> REVERT REASON
                     </div>
                     <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
                         ${escapeHtml(latestRevertReason)}

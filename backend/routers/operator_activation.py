@@ -14,6 +14,7 @@ from backend.models.operator_activation import (
     OperatorActivationRemark,
 )
 from backend.models.district import District
+from backend.models.base import StatusEnum
 
 from backend.utils.ocr_utils import (
     extract_text_from_file, 
@@ -249,7 +250,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
         # 🌟 UNIFORM SCHEMA FIX: Query district name dynamically using relationship attributes
         dist_name = r.district.district_name if r.district else "—"
         # 🌟 UNIFORM SCHEMA FIX: Normalize status to lowercase for accurate template matching
-        clean_status = str(r.status or "pending").strip().lower()
+        clean_status = str(r.status or "PENDING").strip().upper()
 
         result.append(
             {
@@ -290,7 +291,7 @@ def get_all_requests(db: Session = Depends(get_db)):
     result = []
     for r in requests:
         dist_name = r.district.district_name if r.district else "—"
-        clean_status = str(r.status or "pending").strip().lower()
+        clean_status = str(r.status or "PENDING").strip().upper()
 
         result.append(
             {
@@ -328,7 +329,7 @@ def export_to_excel(ids: str = None, db: Session = Depends(get_db)):
     import csv
     import io
 
-    query = db.query(OperatorActivationRequest).filter(OperatorActivationRequest.status == "sent_to_uidai")
+    query = db.query(OperatorActivationRequest).filter(OperatorActivationRequest.status_id == StatusEnum.SENT_TO_UIDAI.value)
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
         query = query.filter(OperatorActivationRequest.id.in_(id_list))
@@ -382,7 +383,11 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
     import io
 
     query = db.query(OperatorActivationRequest).filter(
-        OperatorActivationRequest.status.in_(["pending", "reapplied", "sent_to_uidai"])
+        OperatorActivationRequest.status_id.in_([
+            StatusEnum.PENDING.value,
+            StatusEnum.REAPPLIED.value,
+            StatusEnum.SENT_TO_UIDAI.value
+        ])
     )
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
@@ -403,7 +408,7 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
 
     for idx, r in enumerate(requests_list, start=1):
         dist_name = r.district.district_name if r.district else "—"
-        reviewed_at_val = str(r.reviewed_at)[:19] if (r.status in ["reapplied", "sent_to_uidai"] and r.reviewed_at) else ""
+        reviewed_at_val = str(r.reviewed_at)[:19] if (r.status_id in [StatusEnum.REAPPLIED.value, StatusEnum.SENT_TO_UIDAI.value] and r.reviewed_at) else ""
         writer.writerow([
             idx,
             r.request_no or "—",
@@ -437,7 +442,12 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
     import io
 
     query = db.query(OperatorActivationRequest).filter(
-        OperatorActivationRequest.status.in_(["approved", "rejected", "reverted", "reverted_by_chips"])
+        OperatorActivationRequest.status_id.in_([
+            StatusEnum.APPROVED.value,
+            StatusEnum.REJECTED.value,
+            StatusEnum.REVERTED.value,
+            StatusEnum.REVERTED_BY_CHIPS.value
+        ])
     )
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
@@ -476,7 +486,7 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
             r.status,
             str(r.submitted_at)[:19] if r.submitted_at else "—",
             str(r.reviewed_at)[:19] if r.reviewed_at else "—",
-            "" if r.status == "approved" else (r.remarks[-1].remark if r.remarks else "—")
+            "" if r.status_id == StatusEnum.APPROVED.value else (r.remarks[-1].remark if r.remarks else "—")
         ])
 
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
@@ -520,7 +530,7 @@ def get_request_detail(request_id: int, db: Session = Depends(get_db)):
     ]
 
     dist_name = r.district.district_name if r.district else "—"
-    clean_status = str(r.status or "pending").strip().lower()
+    clean_status = str(r.status or "PENDING").strip().upper()
     latest_remark = r.remarks[-1].remark if r.remarks else None
 
     return {
@@ -568,10 +578,10 @@ def approve_request(
 
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
-    if r.status not in ["pending", "reapplied", "sent_to_uidai"]:
+    if r.status_id not in [StatusEnum.PENDING.value, StatusEnum.REAPPLIED.value, StatusEnum.SENT_TO_UIDAI.value]:
         raise HTTPException(status_code=400, detail=f"Cannot approve a request with status: {r.status}.")
 
-    r.status = "approved"
+    r.status_id = StatusEnum.APPROVED.value
     r.reviewed_by = reviewed_by
     r.chips_remarks = chips_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)  # IST
@@ -582,7 +592,7 @@ def approve_request(
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=remark_text,
-        status_after="approved",
+        status_after_id=StatusEnum.APPROVED.value,
     )
     db.add(remark)
 
@@ -606,12 +616,12 @@ def reject_request(
 
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
-    if r.status not in ["pending", "sent_to_uidai", "reapplied"]:
+    if r.status_id not in [StatusEnum.PENDING.value, StatusEnum.SENT_TO_UIDAI.value, StatusEnum.REAPPLIED.value]:
         raise HTTPException(
             status_code=400, detail=f"Cannot revert a request with status: {r.status}"
         )
 
-    r.status = "reverted"
+    r.status_id = StatusEnum.REVERTED.value
     r.reviewed_by = reviewed_by
     r.chips_remarks = chips_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)  # IST
@@ -623,7 +633,7 @@ def reject_request(
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=remark_text,
-        status_after="reverted",
+        status_after_id=StatusEnum.REVERTED.value,
     )
     db.add(remark)
     db.commit()
@@ -648,7 +658,7 @@ def send_to_uidai(
     )
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
-    r.status = "sent_to_uidai"
+    r.status_id = StatusEnum.SENT_TO_UIDAI.value
     r.reviewed_by = reviewed_by
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
@@ -658,7 +668,7 @@ def send_to_uidai(
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=remark_text,  # 🌟 Requirement 4: Strip out prefix text safely
-        status_after="sent_to_uidai",
+        status_after_id=StatusEnum.SENT_TO_UIDAI.value,
     )
     db.add(remark)
 
@@ -681,7 +691,7 @@ def uidai_approve(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
     
-    r.status = "approved"
+    r.status_id = StatusEnum.APPROVED.value
     r.reviewed_by = reviewed_by
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
@@ -693,7 +703,7 @@ def uidai_approve(
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=remark_text,
-        status_after="approved"
+        status_after_id=StatusEnum.APPROVED.value
     )
     db.add(approved_remark)
     
@@ -714,7 +724,7 @@ def uidai_reject(
     )
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
-    r.status = "rejected"
+    r.status_id = StatusEnum.REJECTED.value
     r.reviewed_by = reviewed_by
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
@@ -724,7 +734,7 @@ def uidai_reject(
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=remark_text,  # 🌟 Requirement 4: Strip out prefix text safely
-        status_after="rejected",
+        status_after_id=StatusEnum.REJECTED.value,
     )
     db.add(remark)
     db.commit()
@@ -774,7 +784,7 @@ def reapply_request(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    if r.status not in ["reverted", "rejected", "reverted_by_chips"]:
+    if r.status_id not in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value, StatusEnum.REVERTED_BY_CHIPS.value]:
         raise HTTPException(
             status_code=400, detail=f"Cannot reapply a request with status: {r.status}"
         )
@@ -820,7 +830,7 @@ def reapply_request(
         r.nseit_certificate_expiry_date = expiry_date
 
     # Reset status
-    r.status = "reapplied"
+    r.status_id = StatusEnum.REAPPLIED.value
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
     # Handle files

@@ -117,6 +117,10 @@
                             <button type="button" id="btn-verify-otp" class="btn btn-dark-pill" style="white-space: nowrap;">Verify</button>
                         </div>
                         <div id="otp_message" style="font-size: 13px; font-weight: 500; margin-top: 6px;"></div>
+                        <div style="color: #D97706; font-size: 12px; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px; background: #FEF3C7; padding: 6px 10px; border-radius: 4px; border: 1px solid #FDE68A;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            Didn't receive it? Please check your Spam or Junk folder.
+                        </div>
                     </div>
                     <input type="hidden" id="email_verified" name="email_verified" value="{{ form_data.get('email_verified', 'false') if form_data else 'false' }}">
                 </div>
@@ -235,6 +239,7 @@
                     <div style="color: #10b981; font-size: 12px; margin-top: 5px; font-weight: 500;">&#10003; Photo attached successfully. Upload a new one to replace.</div>
                     <input type="hidden" name="existing_photo" value="{{ form_data.get('existing_photo') }}">
                     {% endif %}
+                </div>
 
                 <div id="tenth-marksheet-section" class="form-group full-width hidden-upload-group">
                     <label class="form-label">10th Standard Marksheet * <span
@@ -491,7 +496,11 @@
             if (!isDOBValid || !isMobileValid || !isPincodeValid || !isPhotoOk || !isTenthOk || !isMarksheetOk || !isEmailVerified) {
                 e.preventDefault();
                 if (!isEmailVerified) {
-                    alert("Please verify your email address using OTP before submitting.");
+                    const emailErr = document.getElementById('email_error');
+                    emailErr.textContent = "Please verify your email address using OTP before submitting.";
+                    emailErr.style.display = 'block';
+                    document.getElementById('email').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    document.getElementById('email').focus({ preventScroll: true });
                 }
                 console.log("Validation blocked deployment pipeline loop execution context.");
             }

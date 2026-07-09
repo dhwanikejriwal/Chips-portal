@@ -10,7 +10,7 @@ from backend.database import get_db
 from backend.routers.auth import get_current_user
 from backend.models import User, District
 from backend.models.l1_registration import L1RegistrationRequest, L1RegistrationRemarkHistory
-from backend.models.base import to_name
+from backend.models.base import to_name, StatusEnum
 from backend.utils.exporter import generate_csv_export
 
 router = APIRouter()
@@ -130,7 +130,7 @@ async def get_l1_requests(
             "request_code": req.request_code,
             "station_id": req.station_id,
             "model_type": req.model_type,
-            "status": to_name(req.status_code, casing="upper").replace(" ", "_").strip() if hasattr(req, 'status_code') else "PENDING",
+            "status": to_name(req.status_id).upper().replace(" ", "_").strip() if hasattr(req, 'status_id') else "PENDING",
             "created_at": str(req.created_at)[:19] if req.created_at else "",
             "reviewed_at": str(req.reviewed_at)[:19] if hasattr(req, 'reviewed_at') and req.reviewed_at else None,
             "submitted_at": str(req.created_at)[:19] if req.created_at else "",
@@ -190,7 +190,7 @@ async def perform_l1(
 ):
     req = db.query(L1RegistrationRequest).filter(L1RegistrationRequest.request_code == request_code).first()
     if req: 
-        req.status = "APPROVED"
+        req.status_id = StatusEnum.APPROVED.value
         req.reviewed_by = current_user.id
 
 # --- FRIEND'S UPDATED CODE ---
@@ -217,14 +217,14 @@ async def approve_all_l1(
     current_user: User = Depends(get_current_user)
 ):
     pending_requests = db.query(L1RegistrationRequest).filter(
-        L1RegistrationRequest.status.in_(["PENDING", "REAPPLIED"])
+        L1RegistrationRequest.status_id.in_([StatusEnum.PENDING.value, StatusEnum.REAPPLIED.value])
     ).all()
     
     if not pending_requests:
         return {"success": True, "message": "No pending requests to approve."}
         
     for req in pending_requests:
-        req.status = "REVIEWED"
+        req.status_id = StatusEnum.REVIEWED.value
         req.reviewed_by = current_user.id
         from backend.models.base import get_ist_now
         req.reviewed_at = get_ist_now()
@@ -247,7 +247,7 @@ async def revert_l1_request(
 ):
     req = db.query(L1RegistrationRequest).filter(L1RegistrationRequest.request_code == request_code).first()
     if req: 
-        req.status = "REVERTED"
+        req.status_id = StatusEnum.REVERTED.value
         req.reviewed_by = current_user.id
         from backend.models.base import get_ist_now
         req.reviewed_at = get_ist_now()
@@ -286,7 +286,7 @@ async def reapply_l1_request(
         req.software_version = software_version
         req.uv_id = uv_id
         req.uv_password = uv_password
-        req.status = "REAPPLIED"
+        req.status_id = StatusEnum.REAPPLIED.value
 
         db.add(L1RegistrationRemarkHistory(
             request_id=req.id,
@@ -376,14 +376,14 @@ def export_l1_excel_v2(ids: str = None, db: Session = Depends(get_db)):
             "software_version": req.software_version or "N/A",
             "uv_id": req.uv_id or "None Allocated",
             "uv_password": req.uv_password or "None Allocated",
-            "status": str(req.status).lower(),
-            "submitted_at": req.created_at.strftime("%Y-%m-%d %H:%M:%S") if getattr(req, 'created_at', None) else "N/A",
-            "reviewed_at": req.updated_at.strftime("%Y-%m-%d %H:%M:%S") if getattr(req, 'updated_at', None) else "N/A"
+            "status": str(req.status).upper(),
+            "submitted_at": req.created_at.strftime("%Y-%m-%d %H:%M:%S") if getattr(req, 'created_at', None) else "",
+            "reviewed_at": req.updated_at.strftime("%Y-%m-%d %H:%M:%S") if (str(req.status).upper() not in ["PENDING"] and getattr(req, 'updated_at', None)) else ""
         })
 
     column_mappings = {
         "s_no": "S.No",
-     
+      
         "request_code": "Request Reference Number",
         "district_name": "District Name",
 
@@ -399,9 +399,5 @@ def export_l1_excel_v2(ids: str = None, db: Session = Depends(get_db)):
         "submitted_at": "Submission Timestamp",
         "reviewed_at": "Review Timestamp"
     }
-
-    # If all exported records are pending/reapplied, do not include the review timestamp
-    if all(str(req.status).lower() in ["pending", "reapplied"] for req in records):
-        del column_mappings["reviewed_at"]
 
     return generate_csv_export(export_data, column_mappings, "l1_registration_complete_report")

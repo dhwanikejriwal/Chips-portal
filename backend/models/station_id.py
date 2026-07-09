@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
-from backend.models.base import Base, get_ist_time, to_code, to_name, get_status_expression
+from backend.models.base import Base, get_ist_time, to_code, to_name
 
 class StationIDRequest(Base):
     __tablename__ = "station_id_requests"
@@ -20,19 +20,15 @@ class StationIDRequest(Base):
 
     number_of_kits = Column(Integer, nullable=False)
 
-    status_code = Column(String(2), ForeignKey("master_status.code"), nullable=False, default="SC", index=True)
+    status_id = Column(Integer, ForeignKey("master_status.id"), nullable=False, default=5, index=True) # 5 = SENT_TO_CHIPS
 
     @hybrid_property
     def status(self) -> str:
-        return to_name(self.status_code)
+        return to_name(self.status_id)
 
     @status.setter
     def status(self, value: str):
-        self.status_code = to_code(value)
-
-    @status.expression
-    def status(cls):
-        return get_status_expression(cls.status_code)
+        self.status_id = to_code(value)
 
     # The actual Station ID string inserted by CHIPS Admin upon approval
     station_id_inserted = Column(Text, nullable=True)
@@ -69,24 +65,20 @@ class StationIDRemark(Base):
     author_role = Column(String(20), nullable=False)  # 'dc' or 'chips_admin'
     remark = Column(Text, nullable=False)
     
-    status_after_code = Column(String(2), ForeignKey("master_status.code"), nullable=True)
+    status_after_id = Column(Integer, ForeignKey("master_status.id"), nullable=True)
 
     @hybrid_property
     def status_after(self) -> str | None:
-        if self.status_after_code is None:
+        if self.status_after_id is None:
             return None
-        return to_name(self.status_after_code)
+        return to_name(self.status_after_id)
 
     @status_after.setter
     def status_after(self, value: str | None):
         if value is None:
-            self.status_after_code = None
+            self.status_after_id = None
         else:
-            self.status_after_code = to_code(value)
-
-    @status_after.expression
-    def status_after(cls):
-        return get_status_expression(cls.status_after_code)
+            self.status_after_id = to_code(value)
         
     created_at = Column(DateTime, nullable=False, default=get_ist_time)
 

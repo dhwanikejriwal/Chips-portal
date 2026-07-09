@@ -226,7 +226,7 @@ def export_station_id_proxy():
         return "Unauthorized", 401
     ids = request.args.get("ids", "")
     try:
-        response = http.get(f"{BACKEND}/export-excel", params={"ids": ids}, stream=True)
+        response = http.get(f"{BACKEND}/export-excel", params={"ids": ids}, headers=_headers(), stream=True)
         if response.status_code == 200:
             from flask import Response as FlaskResponse
             return FlaskResponse(

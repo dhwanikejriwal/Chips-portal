@@ -8,7 +8,7 @@ from backend.utils.exporter import generate_excel_export
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
 from backend.models import L2RegistrationRequest, L2RegistrationRemark, User, District
-from backend.models.base import get_ist_time
+from backend.models.base import get_ist_time, StatusEnum
 
 from backend.routers.auth import get_current_user
 
@@ -67,7 +67,7 @@ def submit_l2_request(
         unique_id=unique_id.strip() if unique_id else "",
         block=block,
         address_of_govt_premises=address_of_govt_premises,
-        status="pending"
+        status_id=StatusEnum.PENDING.value
     )
     db.add(new_req)
     db.commit()
@@ -95,7 +95,7 @@ def submit_l2_request(
         author_id=dc_id,
         author_role="dc",
         remark="Request submitted by DC.",
-        status_after="pending"  # 🌟 Direct alignment with frontend layout mapping tags
+        status_after_id=StatusEnum.PENDING.value  # 🌟 Direct alignment with frontend layout mapping tags
     )
     db.add(initial_remark)
     
@@ -122,7 +122,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
         
         # 🌟 UNIFORM SCHEMA FIX: Map strictly to district_name & clean lowercase status keys
         dist_name = r.district.district_name if r.district else "—"
-        clean_status = str(r.status or "pending").strip().lower()
+        clean_status = str(r.status or "PENDING").strip().upper()
         
         result.append({
             "id": r.id,
@@ -171,7 +171,7 @@ def get_all_requests(db: Session = Depends(get_db)):
         
         # 🌟 UNIFORM SCHEMA FIX: Map strictly to district_name & clean lowercase status keys
         dist_name = r.district.district_name if r.district else "—"
-        clean_status = str(r.status or "pending").strip().lower()
+        clean_status = str(r.status or "PENDING").strip().upper()
         
         result.append({
             "id": r.id,
@@ -223,7 +223,7 @@ def get_request_details(request_id: int, db: Session = Depends(get_db)):
 
     # 🌟 UNIFORM SCHEMA FIX: Map strictly to district_name & clean lowercase status keys
     dist_name = r.district.district_name if r.district else "—"
-    clean_status = str(r.status or "pending").strip().lower()
+    clean_status = str(r.status or "PENDING").strip().upper()
 
     return {
         "id": r.id,
@@ -264,7 +264,7 @@ def send_to_uidai(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    r.status = "sent_to_uidai"
+    r.status_id = StatusEnum.SENT_TO_UIDAI.value
     r.reviewed_by = reviewed_by
     r.reviewed_at = get_ist_time()
     r.uidai_remarks = uidai_remarks
@@ -273,7 +273,7 @@ def send_to_uidai(
     remark = L2RegistrationRemark(
         request_id=r.id, author_id=reviewed_by, author_role="chips_admin",
         remark=remark_text,
-        status_after="sent_to_uidai"
+        status_after_id=StatusEnum.SENT_TO_UIDAI.value
     )
     db.add(remark)
     db.commit()
@@ -290,7 +290,7 @@ def uidai_approve(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    r.status = "approved"
+    r.status_id = StatusEnum.APPROVED.value
     r.reviewed_by = reviewed_by
     r.reviewed_at = get_ist_time()
     r.uidai_remarks = uidai_remarks
@@ -299,7 +299,7 @@ def uidai_approve(
     remark_text = uidai_remarks.strip() if uidai_remarks and uidai_remarks.strip() else "Request successfully approved by UIDAI."
     remark = L2RegistrationRemark(
         request_id=r.id, author_id=reviewed_by, author_role="chips_admin",
-        remark=remark_text, status_after="approved"
+        remark=remark_text, status_after_id=StatusEnum.APPROVED.value
     )
     db.add(remark)
     db.commit()
@@ -316,7 +316,7 @@ def uidai_reject(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    r.status = "rejected"
+    r.status_id = StatusEnum.REJECTED.value
     r.reviewed_by = reviewed_by
     r.reviewed_at = get_ist_time()
     r.uidai_remarks = uidai_remarks
@@ -325,7 +325,7 @@ def uidai_reject(
     remark = L2RegistrationRemark(
         request_id=r.id, author_id=reviewed_by, author_role="chips_admin",
         remark=uidai_remarks.strip(),  # 🌟 FIXED: Dropped manual 'UIDAI Rejected. Remarks:' prefix string layout
-        status_after="rejected"
+        status_after_id=StatusEnum.REJECTED.value
     )
     db.add(remark)
     db.commit()
@@ -342,7 +342,7 @@ def revert_request(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    r.status = "reverted"
+    r.status_id = StatusEnum.REVERTED.value
     r.reviewed_by = reviewed_by
     r.reviewed_at = get_ist_time()
 
@@ -350,7 +350,7 @@ def revert_request(
     remark = L2RegistrationRemark(
         request_id=r.id, author_id=reviewed_by, author_role="chips_admin",
         remark=revert_reason.strip(),  # 🌟 FIXED: Dropped manual 'Reverted back to DC:' prefix string layout
-        status_after="reverted"
+        status_after_id=StatusEnum.REVERTED.value
     )
     db.add(remark)
     db.commit()
@@ -382,7 +382,7 @@ def reapply_l2_request(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    if r.status not in ["reverted", "rejected"]:
+    if r.status_id not in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]:
         raise HTTPException(status_code=400, detail="Can only reapply reverted or rejected requests.")
 
     # Update Fields
@@ -401,7 +401,7 @@ def reapply_l2_request(
     r.unique_id = unique_id.strip() if unique_id else ""
     r.block = block
     r.address_of_govt_premises = address_of_govt_premises
-    r.status = "reapplied"
+    r.status_id = StatusEnum.REAPPLIED.value
     r.reviewed_at = None
     r.reviewed_by = None
 
@@ -411,7 +411,7 @@ def reapply_l2_request(
         author_id=dc_id,
         author_role="dc",
         remark=reapply_remark.strip(),
-        status_after="reapplied"
+        status_after_id=StatusEnum.REAPPLIED.value
     )
     db.add(remark)
     db.commit()
@@ -437,16 +437,19 @@ def make_csv_stream(requests_list, report_filename):
         "Tech Center Remarks", "Status", "Submission Timestamp"
     ]
     
-    # Conditionally include 'Review Timestamp' if exporting historical/processed records
-    include_review_time = any(str(r.status).lower() not in ["pending", "reapplied", "sent_to_uidai"] for r in requests_list)
-    if include_review_time:
-        headers.append("Review Timestamp")
+    # Always include 'Review Timestamp' as 'Updated At' equivalent
+    headers.append("Review Timestamp")
         
     writer.writerow(headers)
 
     for idx, r in enumerate(requests_list, start=1):
         dist_name = r.district.district_name if r.district else "—"
         
+        clean_status = str(r.status).upper().strip()
+        updated_time = None
+        if clean_status != "PENDING":
+            updated_time = r.remarks[-1].created_at if r.remarks else r.submitted_at
+
         row_data = [
             idx,
             r.request_no or "",
@@ -466,12 +469,10 @@ def make_csv_stream(requests_list, report_filename):
             r.old_machine_id or "",
             r.reason_for_l2_registration or "",
             r.tech_center_remarks or "",
-            str(r.status).upper().strip(),
-            str(r.submitted_at)[:19] if r.submitted_at else "—"
+            clean_status,
+            str(r.submitted_at)[:19] if r.submitted_at else "—",
+            str(updated_time)[:19] if updated_time else ""
         ]
-        
-        if include_review_time:
-            row_data.append(str(r.updated_at)[:19] if getattr(r, 'updated_at', None) else "—")
             
         writer.writerow(row_data)
 
@@ -482,7 +483,7 @@ def make_csv_stream(requests_list, report_filename):
 
 @router.get("/export-excel/pending")
 def export_pending_excel(ids: str = None, db: Session = Depends(get_db)):
-    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status.in_(["pending", "reapplied", "sent_to_uidai"]))
+    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status_id.in_([StatusEnum.PENDING.value, StatusEnum.REAPPLIED.value, StatusEnum.SENT_TO_UIDAI.value]))
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
         if id_list:
@@ -492,7 +493,7 @@ def export_pending_excel(ids: str = None, db: Session = Depends(get_db)):
 
 @router.get("/export-excel/uidai")
 def export_uidai_excel(ids: str = None, db: Session = Depends(get_db)):
-    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status == "sent_to_uidai")
+    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status_id == StatusEnum.SENT_TO_UIDAI.value)
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
         if id_list:
@@ -502,7 +503,7 @@ def export_uidai_excel(ids: str = None, db: Session = Depends(get_db)):
 
 @router.get("/export-excel/credentials")
 def export_creds_excel(ids: str = None, db: Session = Depends(get_db)):
-    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status.in_(["approved", "rejected", "reverted"]))
+    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status_id.in_([StatusEnum.APPROVED.value, StatusEnum.REJECTED.value, StatusEnum.REVERTED.value]))
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
         if id_list:

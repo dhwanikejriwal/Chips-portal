@@ -722,7 +722,7 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
             }
 
             // Toggle batch revert reason displays
-            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes(payload.batch_status);
+            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes((payload.batch_status || '').toUpperCase());
             const batchReason = payload.batch_revert_reason || '';
 
             const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
@@ -735,7 +735,7 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
 
             if (isBatchRevertedOrRejected && batchReason) {
                 window.isReapplyBatchReverted = true;
-                const labelText = payload.batch_status === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
+                const labelText = (payload.batch_status || '').toUpperCase() === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
                 
                 if (p1BatchContainer && p1BatchText && p1BatchLabel) {
                     p1BatchText.innerText = batchReason;
@@ -1887,7 +1887,7 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
             }
 
             // Toggle batch revert reason displays
-            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes(payload.batch_status);
+            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes((payload.batch_status || '').toUpperCase());
             const batchReason = payload.batch_revert_reason || '';
 
             const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
@@ -1900,7 +1900,7 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
 
             if (isBatchRevertedOrRejected && batchReason) {
                 window.isReapplyBatchReverted = true;
-                const labelText = payload.batch_status === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
+                const labelText = (payload.batch_status || '').toUpperCase() === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
                 
                 if (p1BatchContainer && p1BatchText && p1BatchLabel) {
                     p1BatchText.innerText = batchReason;

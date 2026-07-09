@@ -6,6 +6,7 @@ from backend.routers.auth import get_current_user
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.station_id import StationIDRequest, StationIDRemark
+from backend.models.base import StatusEnum
 
 from backend.models.district import District
 import json
@@ -121,7 +122,7 @@ def get_dc_station_requests(dc_id: int, db: Session = Depends(get_db)):
     compiled_list = []
     for r in requests:
         dist_name = r.district.district_name if r.district else f"District {r.district_id}"
-        clean_status = str(r.status or "pending").strip().lower()
+        clean_status = str(r.status or "PENDING").strip().upper()
         
         compiled_list.append({
             "id": r.id,
@@ -136,6 +137,7 @@ def get_dc_station_requests(dc_id: int, db: Session = Depends(get_db)):
             # 🌟 FIXED: Changed r.created_at to r.submitted_at to align with the database column model schema
             "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
             "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else "",
+            "updated_at": str(r.remarks[-1].created_at)[:16] if r.remarks else (str(r.reviewed_at)[:16] if r.reviewed_at else (str(r.submitted_at)[:16] if r.submitted_at else "")),
             "assigned_station_id": r.station_id_inserted if r.station_id_inserted else "",
             "remarks_history": _remarks_list(r.remarks)
         })
@@ -153,7 +155,7 @@ def get_all_station_requests_for_chips(db: Session = Depends(get_db)):
     compiled_list = []
     for r in requests:
         dist_name = r.district.district_name if r.district else f"District {r.district_id}"
-        clean_status = str(r.status or "pending").strip().lower()
+        clean_status = str(r.status or "PENDING").strip().upper()
         
         compiled_list.append({
             "id": r.id,
@@ -168,6 +170,7 @@ def get_all_station_requests_for_chips(db: Session = Depends(get_db)):
             # 🌟 FIXED: Changed r.created_at to r.submitted_at to align with the database column model schema
             "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
             "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else "",
+            "updated_at": str(r.remarks[-1].created_at)[:16] if r.remarks else (str(r.reviewed_at)[:16] if r.reviewed_at else (str(r.submitted_at)[:16] if r.submitted_at else "")),
             "station_id_inserted": r.station_id_inserted if r.station_id_inserted else "",
             "remarks_history": _remarks_list(r.remarks)
         })
@@ -182,7 +185,7 @@ def get_station_request_individual_detail(request_id: int, db: Session = Depends
         raise HTTPException(status_code=404, detail="Requested Station ID record not found.")
         
     dist_name = r.district.district_name if r.district else f"District {r.district_id}"
-    clean_status = str(r.status or "pending").strip().lower()
+    clean_status = str(r.status or "PENDING").strip().upper()
     
     return {
         "id": r.id,
@@ -197,6 +200,7 @@ def get_station_request_individual_detail(request_id: int, db: Session = Depends
         # 🌟 FIXED: Changed r.created_at to r.submitted_at to align with the database column model schema
         "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
         "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else "",
+        "updated_at": str(r.remarks[-1].created_at)[:16] if r.remarks else (str(r.reviewed_at)[:16] if r.reviewed_at else (str(r.submitted_at)[:16] if r.submitted_at else "")),
         "station_id_inserted": r.station_id_inserted if r.station_id_inserted else "",
         "assigned_station_id": r.station_id_inserted if r.station_id_inserted else "",
         "remarks_history": _remarks_list(r.remarks)
@@ -225,7 +229,7 @@ def approve_station_request(
             raise HTTPException(status_code=400, detail=f"Invalid Station ID format: '{sid}'. Entry must be exactly 5 numeric digits long.")
 
     # Apply properties modifications
-    r.status = "approved"
+    r.status_id = StatusEnum.APPROVED.value
     r.station_id_inserted = ", ".join(sids)
     r.reviewed_by = reviewed_by
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
@@ -240,7 +244,7 @@ def approve_station_request(
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=final_remark_string, # 🌟 FIXED: Writes either your custom text message or the fallback description
-        status_after="approved"
+        status_after_id=StatusEnum.APPROVED.value
     )
     
     db.add(new_remark_log)
@@ -265,10 +269,10 @@ def revert_station_request(
     r = db.query(StationIDRequest).filter(StationIDRequest.id == request_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
-    if r.status not in ["pending", "reapplied"]:
+    if r.status_id not in [StatusEnum.PENDING.value, StatusEnum.REAPPLIED.value]:
         raise HTTPException(status_code=400, detail=f"Cannot revert a request with status: {r.status}")
 
-    r.status = "reverted"
+    r.status_id = StatusEnum.REVERTED.value
     r.reviewed_by = reviewed_by
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
@@ -277,7 +281,7 @@ def revert_station_request(
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=revert_reason.strip(),
-        status_after="reverted",
+        status_after_id=StatusEnum.REVERTED.value,
     )
     db.add(remark)
     db.commit()
@@ -300,7 +304,7 @@ def reapply_station_request(
     r = db.query(StationIDRequest).filter(StationIDRequest.id == request_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
-    if r.status != "reverted":
+    if r.status_id != StatusEnum.REVERTED.value:
         raise HTTPException(status_code=400, detail=f"Cannot reapply a request with status: {r.status}")
 
     # Update the corrected fields
@@ -308,7 +312,7 @@ def reapply_station_request(
     r.user_type = user_type
     r.user_type_custom_reason = user_type_custom_reason if user_type == "custom" else None
     r.number_of_kits = number_of_kits
-    r.status = "reapplied"
+    r.status_id = StatusEnum.REAPPLIED.value
     r.reviewed_at = None
 
     # Save DC reapply remark to conversation history
@@ -317,7 +321,7 @@ def reapply_station_request(
         author_id=dc_id,
         author_role="dc",
         remark=reapply_remark.strip(),
-        status_after="reapplied",
+        status_after_id=StatusEnum.REAPPLIED.value,
     )
     db.add(remark)
     db.commit()
@@ -337,8 +341,12 @@ def export_station_id_excel(ids: str = None, db: Session = Depends(get_db)):
     export_data = []
     for idx, r in enumerate(station_records):
         dist_name = r.district.district_name if r.district else "Unknown"
-        clean_status = str(r.status or "pending").strip().lower()
+        clean_status = str(r.status or "PENDING").strip().upper()
         
+        updated_time = None
+        if clean_status != "PENDING":
+            updated_time = r.remarks[-1].created_at if r.remarks else r.reviewed_at
+
         export_data.append({
             "s_no": idx + 1,
    
@@ -353,7 +361,7 @@ def export_station_id_excel(ids: str = None, db: Session = Depends(get_db)):
             "station_id_inserted": r.station_id_inserted or "Not Assigned Yet",
             "status": clean_status,
             "submitted_at": r.submitted_at.strftime("%Y-%m-%d %H:%M:%S") if r.submitted_at else "",
-            "reviewed_at": r.reviewed_at.strftime("%Y-%m-%d %H:%M:%S") if r.reviewed_at else ""
+            "reviewed_at": updated_time.strftime("%Y-%m-%d %H:%M:%S") if updated_time else ""
         })
 
     column_mappings = {

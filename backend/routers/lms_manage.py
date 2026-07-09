@@ -4,6 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Candidate, LMS, LMSRemark, UserLogin, MasterUserRole
+from backend.models.base import StatusEnum
 from backend.utils.exporter import generate_csv_export
 
 from backend.routers.auth import get_current_user
@@ -105,16 +106,16 @@ def forward_lms_request(r_id: int, payload: LMSActionRequest, db: Session = Depe
         MasterUserRole.role == "Admin"
     ).first() is not None
 
-    if lms.status == "Reapplied" and has_chips_remark:
-        lms.status = "Forwarded Again"
+    if lms.status_id == StatusEnum.REAPPLIED.value and has_chips_remark:
+        lms.status_id = StatusEnum.FORWARDED_AGAIN.value
     else:
-        lms.status = "Forwarded"
+        lms.status_id = StatusEnum.FORWARDED.value
     
     new_remark = LMSRemark(
         lms_id=lms.id,
         remark=clean_remark or "LMS request verified and forwarded to CHiPS by District Coordinator.",
         admin_by_id=payload.by_user_id,
-        status_after=lms.status
+        status_after_id=lms.status_id
     )
     db.add(new_remark)
     db.commit()
@@ -130,13 +131,13 @@ def approve_lms_request(r_id: int, payload: LMSActionRequest, db: Session = Depe
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
         
-    lms.status = "Approved"
+    lms.status_id = StatusEnum.APPROVED.value
     
     new_remark = LMSRemark(
         lms_id=lms.id,
         remark=payload.remark or "LMS request verified and approved.",
         admin_by_id=payload.by_user_id,
-        status_after=lms.status
+        status_after_id=lms.status_id
     )
     db.add(new_remark)
     db.commit()
@@ -151,15 +152,15 @@ def revert_lms_request(r_id: int, payload: LMSActionRequest, db: Session = Depen
     # Check if the reverting user has Admin (CHiPS) role
     user = db.query(UserLogin).filter(UserLogin.id == payload.by_user_id).first()
     if user and user.role and user.role.role == "Admin":
-        lms.status = "Reverted by CHiPS"
+        lms.status_id = StatusEnum.REVERTED_BY_CHIPS.value
     else:
-        lms.status = "Reverted"
+        lms.status_id = StatusEnum.REVERTED.value
     
     new_remark = LMSRemark(
         lms_id=lms.id,
         remark=payload.remark or "LMS request reverted.",
         admin_by_id=payload.by_user_id,
-        status_after=lms.status
+        status_after_id=lms.status_id
     )
     db.add(new_remark)
     db.commit()
@@ -206,7 +207,7 @@ def export_lms_excel(ids: str = None, db: Session = Depends(get_db)):
             "lms_credential_id": c.lms_id or "None",
             "lms_status": l.status,
             "submitted_at": l.created_at.strftime("%Y-%m-%d %H:%M:%S") if l.created_at else "",
-            "updated_at": "" if l.status in ["Pending", "Forwarded"] else (l.updated_at.strftime("%Y-%m-%d %H:%M:%S") if l.updated_at else "")
+            "updated_at": "" if l.status_id in [StatusEnum.PENDING.value, StatusEnum.FORWARDED.value] else (l.updated_at.strftime("%Y-%m-%d %H:%M:%S") if l.updated_at else "")
         })
 
     # 🌟 Centralized structural column headers dictionary

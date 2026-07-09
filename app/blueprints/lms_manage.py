@@ -24,8 +24,8 @@ def dc_lms():
             return redirect(url_for("auth.logout"))
         if response.status_code == 200:
             requests_list = response.json()
-            pending_requests = [r for r in requests_list if r["lms_status"] in ["Pending", "Reapplied"]]
-            processed_requests = [r for r in requests_list if r["lms_status"] in ["Forwarded", "Forwarded Again", "Approved", "Reverted", "Reverted by CHiPS"]]
+            pending_requests = [r for r in requests_list if str(r["lms_status"]).strip().upper() in ["PENDING", "REAPPLIED"]]
+            processed_requests = [r for r in requests_list if str(r["lms_status"]).strip().upper() in ["FORWARDED", "FORWARDED_AGAIN", "APPROVED", "REVERTED", "REVERTED_BY_CHIPS"]]
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
@@ -52,12 +52,12 @@ def chips_lms():
         if response.status_code == 200:
             requests_list = response.json()
             for r in requests_list:
-                if r.get("lms_status") == "Reapplied":
+                if str(r.get("lms_status")).strip().upper() == "REAPPLIED":
                     has_chips_remark = any(rem.get("sender_role") == "CHIPS" for rem in r.get("remarks_history", []))
                     if has_chips_remark:
-                        r["lms_status"] = "Reverted by CHiPS"
-            pending_requests = [r for r in requests_list if r["lms_status"] in ["Forwarded", "Forwarded Again"]]
-            processed_requests = [r for r in requests_list if r["lms_status"] in ["Approved", "Reverted by CHiPS"]]
+                        r["lms_status"] = "REVERTED_BY_CHIPS"
+            pending_requests = [r for r in requests_list if str(r["lms_status"]).strip().upper() in ["FORWARDED", "FORWARDED_AGAIN"]]
+            processed_requests = [r for r in requests_list if str(r["lms_status"]).strip().upper() in ["APPROVED", "REVERTED_BY_CHIPS"]]
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
@@ -100,6 +100,8 @@ def approve_lms(r_id):
     remark = request.form.get("remark")
     by_user_id = session.get("user_id")
     
+    force_without_email = request.form.get("force_without_email") == "true"
+    
     if not by_user_id:
         return {"detail": "Admin user session expired. Please log in again."}, 400
 
@@ -110,7 +112,8 @@ def approve_lms(r_id):
     try:
         response = requests.post(backend_url, json={
             "remark": remark,
-            "by_user_id": by_user_id
+            "by_user_id": by_user_id,
+            "force_without_email": force_without_email
         }, headers=_headers())
         if response.status_code == 200:
             return {"success": True}

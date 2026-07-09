@@ -10,16 +10,16 @@
 {% set total_requests = requests|length %}
 {% set metrics = namespace(pending=0, approved=0, reverted=0, sent_to_uidai=0, reapplied=0, rejected=0) %}
 {% for req in requests %}
-{% set req_status_normalized = req.status|lower|replace('_',' ') %}
-{% if 'uidai' in req_status_normalized %}
+{% set req_status_upper = req.status|upper %}
+{% if 'UIDAI' in req_status_upper %}
 {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
-{% elif req_status_normalized == 'pending' %}
+{% elif req_status_upper == 'PENDING' %}
 {% set metrics.pending = metrics.pending + 1 %}
-{% elif req_status_normalized == 'reapplied' %}
+{% elif req_status_upper == 'REAPPLIED' %}
 {% set metrics.reapplied = metrics.reapplied + 1 %}
-{% elif req_status_normalized in ['approved', 'reviewed', 'assigned'] %}
+{% elif req_status_upper in ['APPROVED', 'REVIEWED', 'ASSIGNED'] %}
 {% set metrics.approved = metrics.approved + 1 %}
-{% elif req_status_normalized == 'rejected' %}
+{% elif req_status_upper == 'REJECTED' %}
 {% set metrics.rejected = metrics.rejected + 1 %}
 {% else %}
 {% set metrics.reverted = metrics.reverted + 1 %}
@@ -592,9 +592,9 @@
             <div id="history-cards-container" style="max-height: 550px; overflow-y: auto; padding-right: 5px;">
                 {% if requests %}
                 {% for req in requests %}
-                {% set req_status_normalized = req.status|lower|replace('_',' ') %}
+                {% set req_status_upper = req.status|upper %}
                 <div class="history-data-row request-card" data-request-id="{{ req.request_code | upper }}"
-                    data-status="{% if 'uidai' in req_status_normalized %}SENT_TO_UIDAI{% elif req_status_normalized == 'pending' %}PENDING{% elif req_status_normalized == 'reapplied' %}REAPPLIED{% elif req_status_normalized in ['approved', 'reviewed', 'assigned'] %}APPROVED{% elif req_status_normalized == 'rejected' %}REJECTED{% else %}REVERTED{% endif %}"
+                    data-status="{% if 'UIDAI' in req_status_upper %}SENT_TO_UIDAI{% elif req_status_upper == 'PENDING' %}PENDING{% elif req_status_upper == 'REAPPLIED' %}REAPPLIED{% elif req_status_upper in ['APPROVED', 'REVIEWED', 'ASSIGNED'] %}APPROVED{% elif req_status_upper == 'REJECTED' %}REJECTED{% else %}REVERTED{% endif %}"
                     data-training-date="{{ req.training_date }}" data-created="{{ req.created_at }}"
                     style="border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
 
@@ -638,9 +638,9 @@
                                 {% set op_check = namespace(has_revert=false) %}
                                 {% if req.operators %}
                                 {% for op in req.operators %}
-                                {% set s = op.status|lower|replace('_',' ') %}
-                                {% if s in ['reverted', 'revert back', 'rejected'] %}
-                                {% set op_check.has_revert = true %}
+                                 {% set s = op.status|upper %}
+                                 {% if s in ['REVERTED', 'REVERT BACK', 'REJECTED'] %}
+                                 {% set op_check.has_revert = true %}
                                 {% endif %}
                                 {% endfor %}
                                 {% endif %}
@@ -659,12 +659,12 @@
                     <div style="padding: 10px 20px;" id="opContainer-{{ req.request_code }}">
                         {% if req.operators and req.operators|length > 0 %}
                         {% for op in req.operators %}
-                        {% set op_status_lower = op.status|lower %}
-                        <div class="op-row-item op-row-{{ req.request_code }} {% if op_status_lower in ['reviewed', 'approved'] %}op-reviewed{% else %}op-other{% endif %}"
+                        {% set op_status_upper = op.status|upper %}
+                        <div class="op-row-item op-row-{{ req.request_code }} {% if op_status_upper in ['REVIEWED', 'APPROVED'] %}op-reviewed{% else %}op-other{% endif %}"
                             data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                             data-mobile="{{ op.operator_mobile }}"
                             data-email="{{ op.email_id | lower | default('', true) }}"
-                            data-status="{% if 'uidai' in op_status_lower %}SENT_TO_UIDAI{% elif op_status_lower in ['reviewed', 'approved'] %}APPROVED{% elif op_status_lower in ['reverted', 'revert back'] %}REVERTED{% elif op_status_lower in ['rejected'] %}REJECTED{% elif op_status_lower in ['reapplied'] %}REAPPLIED{% else %}PENDING{% endif %}"
+                            data-status="{% if 'UIDAI' in op_status_upper %}SENT_TO_UIDAI{% elif op_status_upper in ['REVIEWED', 'APPROVED'] %}APPROVED{% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}REVERTED{% elif op_status_upper in ['REJECTED'] %}REJECTED{% elif op_status_upper in ['REAPPLIED'] %}REAPPLIED{% else %}PENDING{% endif %}"
                             style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
                             <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
                                 <span style="color: #64748b; font-size: 13px; font-weight: 600; min-width: 20px;">{{
@@ -678,16 +678,16 @@
                                 <div
                                     style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
                                     <span style="color: #64748b;">Status:</span>
-                                    {% if 'uidai' in op_status_lower %}
-                                    <span class="badge badge-forwarded">Sent to uidai</span>
-                                    {% elif op_status_lower == 'approved' %}
+                                    {% if 'UIDAI' in op_status_upper %}
+                                    <span class="badge badge-forwarded">Sent to UIDAI</span>
+                                    {% elif op_status_upper == 'APPROVED' %}
                                     <span class="badge badge-approved">Approved</span>
-                                    {% elif op_status_lower in ['reverted', 'revert back'] %}
+                                    {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
                                     <span class="badge badge-reverted">Reverted</span>
-                                    {% elif op_status_lower in ['rejected'] %}
+                                    {% elif op_status_upper in ['REJECTED'] %}
                                     <span class="badge badge-reverted"
                                         style="background-color: #fef2f2; color: #b91c1c;">Rejected</span>
-                                    {% elif op_status_lower in ['reapplied'] %}
+                                    {% elif op_status_upper in ['REAPPLIED'] %}
                                     <span class="badge badge-reapplied">Reapplied</span>
                                     {% else %}
                                     <span class="badge badge-pending">Pending</span>
@@ -770,15 +770,15 @@
                             <td>{{ op.operator_mobile }}</td>
                             <td>{{ op.email_id }}</td>
                             <td>
-                                {% set op_status_lower = op.status|lower %}
-                                {% if op_status_lower in ['approved', 'reviewed'] %}
+                                {% set op_status_upper = op.status|upper %}
+                                {% if op_status_upper in ['APPROVED', 'REVIEWED'] %}
                                 <span class="badge badge-approved">Approved</span>
-                                {% elif op_status_lower in ['reverted', 'revert back'] %}
+                                {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
                                 <span class="badge badge-reverted">Reverted</span>
-                                {% elif op_status_lower in ['rejected'] %}
+                                {% elif op_status_upper in ['REJECTED'] %}
                                 <span class="badge badge-reverted"
                                     style="background-color: #fef2f2; color: #b91c1c;">Rejected</span>
-                                {% elif op_status_lower in ['reapplied'] %}
+                                {% elif op_status_upper in ['REAPPLIED'] %}
                                 <span class="badge badge-reapplied">Reapplied</span>
                                 {% else %}
                                 <span class="badge badge-pending">Pending</span>

@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Candidate, District, LMS, LMSRemark, NSEITRequest, NSEITRemark, DCRemark
+from backend.models.base import StatusEnum
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
@@ -266,14 +267,14 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
     lms_status = "Not Initiated"
     if lms:
         if lms.id in skipped_lms_ids:
-            lms_status = "Not Initiated" if candidate.status == "Rejected" else "Skipped"
+            lms_status = "Not Initiated" if candidate.status_id == StatusEnum.REJECTED.value else "Skipped"
         else:
             lms_status = lms.status
 
     nseit_status = "Not Initiated"
     if nseit:
         if nseit.id in skipped_nseit_ids:
-            nseit_status = "Not Initiated" if candidate.status == "Rejected" else "Skipped"
+            nseit_status = "Not Initiated" if candidate.status_id == StatusEnum.REJECTED.value else "Skipped"
         else:
             nseit_status = nseit.status
     

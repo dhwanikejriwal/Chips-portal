@@ -1,3 +1,4 @@
+from backend.models.base import StatusEnum
 from datetime import datetime, timedelta
 import secrets
 from fastapi import APIRouter, Depends, HTTPException
@@ -268,10 +269,10 @@ def track_application(payload: TrackRequest, db: Session = Depends(get_db)):
         
     from backend.models.dc_remark import DCRemark
     reject_reason = None
-    if candidate.status_code == "RJ":
+    if candidate.status_id == StatusEnum.REJECTED.value:
         latest_remark = db.query(DCRemark).filter(
             DCRemark.r_id == candidate.r_id, 
-            DCRemark.status_after_code == "RJ"
+            DCRemark.status_after_id == StatusEnum.REJECTED.value
         ).order_by(desc(DCRemark.time)).first()
         if latest_remark:
             reject_reason = latest_remark.remark

@@ -111,29 +111,29 @@
     <div class="chips-banner-metrics">
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'in', ['Pending', 'Reapplied']) | list | length }}</div>
+                selectattr('status', 'in', ['PENDING', 'REAPPLIED']) | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
             </div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'Sent to UIDAI') | list | length }}</div>
+                selectattr('status', 'equalto', 'SENT_TO_UIDAI') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
             </div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'Reverted') | list | length }}</div>
+                selectattr('status', 'equalto', 'REVERTED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'Rejected') | list | length }}</div>
+                selectattr('status', 'equalto', 'REJECTED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'Approved') | list | length }}</div>
+                selectattr('status', 'equalto', 'APPROVED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
         </div>
         <div class="chips-metric-card">
@@ -227,12 +227,13 @@
                 <th>User Code</th>
                 <th>Status</th>
                 <th>Submitted At</th>
+                <th>Updated At</th>
                 <th style="width: 280px; text-align: center;">Action</th>
             </tr>
         </thead>
         <tbody id="pending-table-body">
             {% set ns = namespace(count=1) %}
-            {% for r in requests if r.status == 'Pending' or r.status == 'Reapplied' %}
+            {% for r in requests if (r.status|upper) == 'PENDING' or (r.status|upper) == 'REAPPLIED' %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
                 data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
                 data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
@@ -247,10 +248,17 @@
                 <td>{{ r.user_code or '—' }}</td>
                 <td>
                     <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">
-                        {{ r.status | replace('_', ' ') | capitalize }}
+                        {{ r.status | replace('_', ' ') | title }}
                     </span>
                 </td>
                 <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+                <td>
+                    {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and r.reviewed_at and r.reviewed_at != '—' %}
+                    {{ r.reviewed_at[:16] }}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
                 <td>
                     <div class="action-group" style="justify-content: center;">
                         <button type="button" class="btn-issue"
@@ -322,7 +330,7 @@
         </thead>
         <tbody id="uidai-table-body">
             {% set ns3 = namespace(count=1) %}
-            {% for r in requests if r.status == 'Sent to UIDAI' %}
+            {% for r in requests if (r.status|upper) == 'SENT_TO_UIDAI' %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
                 data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
                 data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
@@ -337,7 +345,7 @@
                 <td>{{ r.user_code or '—' }}</td>
                 <td>
                     <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">
-                        {{ r.status | replace('_', ' ') | capitalize }}
+                        {{ r.status | replace('_', ' ') | title }}
                     </span>
                 </td>
                 <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
@@ -413,7 +421,7 @@
         </thead>
         <tbody id="approved-table-body">
             {% set ns2 = namespace(count=1) %}
-            {% for r in requests if r.status == 'Approved' or r.status == 'Rejected' or r.status == 'Reverted' %}
+            {% for r in requests if (r.status|upper) in ['APPROVED', 'REJECTED', 'REVERTED'] %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
                 data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
                 data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
@@ -428,7 +436,7 @@
                 <td>{{ r.user_code or '—' }}</td>
                 <td>
                     <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">
-                        {{ r.status | replace('_', ' ') | capitalize }}
+                        {{ r.status | replace('_', ' ') | title }}
                     </span>
                 </td>
                 <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>

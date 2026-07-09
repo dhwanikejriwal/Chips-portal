@@ -147,12 +147,12 @@
                     <th>User Code</th>
                     <th>Status</th>
                     <th>Submitted At</th>
-                    <th>Reviewed At</th>
+                    <th>Updated At</th>
                     <th style="text-align: center;">Action</th>
                 </tr>
             </thead>
             <tbody id="pending-table-body">
-                {% for r in requests if r.status not in ['Approved', 'Reverted', 'Rejected', 'reverted_by_chips', 'Reverted by CHiPS'] %}
+                {% for r in requests if (r.status|upper) not in ['APPROVED', 'REVERTED', 'REJECTED', 'REVERTED_BY_CHIPS'] %}
                 <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
                     data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
                     data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
@@ -168,14 +168,14 @@
                     <td>{{ r.ea_code or '—' }}</td>
                     <td>{{ r.user_code or '—' }}</td>
                     <td>
-                        {% set badge_class = 'reverted' if 'revert' in r.status|lower else r.status %}
+                        {% set badge_class = 'reverted' if 'REVERT' in (r.status|upper) else (r.status|upper) %}
                         <span class="sid-badge sid-badge-{{ badge_class|lower|replace(' ', '_') }}">
-                            {{ 'Reverted by CHiPS' if (r.status|lower == 'reverted_by_chips' or r.status == 'Reverted by CHiPS') else r.status | replace('_', ' ') | title }}
+                            {{ 'Reverted by CHiPS' if ((r.status|upper) == 'REVERTED_BY_CHIPS') else r.status | replace('_', ' ') | title }}
                         </span>
                     </td>
                     <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
                     <td>
-                        {% if r.status in ['Reapplied', 'Sent to UIDAI'] %}
+                        {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] %}
                             {{ r.reviewed_at if r.reviewed_at else '—' }}
                         {% else %}
                             {# Keep empty for pending status #}
@@ -237,7 +237,7 @@
                 </tr>
             </thead>
             <tbody id="approved-table-body">
-                {% for r in requests if r.status in ['Approved', 'Reverted', 'Rejected', 'reverted_by_chips', 'Reverted by CHiPS'] %}
+                {% for r in requests if (r.status|upper) in ['APPROVED', 'REVERTED', 'REJECTED', 'REVERTED_BY_CHIPS'] %}
                 <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
                     data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
                     data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
@@ -253,9 +253,9 @@
                     <td>{{ r.ea_code or '—' }}</td>
                     <td>{{ r.user_code or '—' }}</td>
                     <td>
-                        {% set badge_class = 'reverted' if 'revert' in r.status|lower else r.status %}
+                        {% set badge_class = 'reverted' if 'REVERT' in (r.status|upper) else (r.status|upper) %}
                         <span class="sid-badge sid-badge-{{ badge_class|lower|replace(' ', '_') }}">
-                            {{ 'Reverted by CHiPS' if (r.status|lower == 'reverted_by_chips' or r.status == 'Reverted by CHiPS') else r.status | replace('_', ' ') | title }}
+                            {{ 'Reverted by CHiPS' if ((r.status|upper) == 'REVERTED_BY_CHIPS') else r.status | replace('_', ' ') | title }}
                         </span>
                     </td>
                     <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>

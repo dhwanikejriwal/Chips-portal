@@ -36,32 +36,29 @@
         </a>
     </div>
     <div class="chips-banner-metrics">
-        <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-pending">{{
-                requests | selectattr('status', 'in', ['Pending', 'Reapplied']) | list | length }}
-            </div>
+        <div class="chips-metric-card">            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED']) | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
             </div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-sent-to-uidai">{{
-                requests | selectattr('status', 'equalto', 'Sent to UIDAI') | list | length }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
-            </div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'SENT_TO_UIDAI') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-reverted">{{
-                requests | selectattr('status', 'equalto', 'Reverted') | list | length }}</div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'REVERTED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-rejected">{{
-                requests | selectattr('status', 'equalto', 'Rejected') | list | length }}</div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'REJECTED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-approved">{{
-                requests | selectattr('status', 'equalto', 'Approved') | list | length }}</div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'APPROVED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
         </div>
         <div class="chips-metric-card">
@@ -132,12 +129,13 @@
                 <th>Client Type</th>
                 <th>Status</th>
                 <th>Submitted At</th>
+                <th>Updated At</th>
                 <th style="text-align: center;">Action</th>
             </tr>
         </thead>
         <tbody id="pending-table-body">
             {% set ns_pending = namespace(count=1) %}
-            {% for r in requests if r.status not in ['approved', 'reverted', 'rejected'] %}
+            {% for r in requests if (r.status|upper) not in ['APPROVED', 'REVERTED', 'REJECTED'] %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
                 data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
                 data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
@@ -160,10 +158,17 @@
                 <td>{{ r.client_type }}</td>
                 <td>
                     <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">
-                        {{ r.status | replace('_', ' ') | capitalize }}
+                        {{ r.status | replace('_', ' ') | title }}
                     </span>
                 </td>
                 <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
+                <td>
+                    {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and r.updated_at and r.updated_at != '—' %}
+                    {{ r.updated_at }}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
                 <td style="text-align: center;">
                     <button class="btn-details" onclick="openL2DetailsModal(this.closest('tr'))">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -225,7 +230,7 @@
         </thead>
         <tbody id="approved-table-body">
             {% set ns_approved = namespace(count=1) %}
-            {% for r in requests if r.status in ['Approved', 'Reverted', 'Rejected'] %}
+            {% for r in requests if (r.status|upper) in ['APPROVED', 'REVERTED', 'REJECTED'] %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
                 data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
                 data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
@@ -248,7 +253,7 @@
                 <td>{{ r.client_type }}</td>
                 <td>
                     <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">
-                        {{ r.status | replace('_', ' ') | capitalize }}
+                        {{ r.status | replace('_', ' ') | title }}
                     </span>
                 </td>
                 <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
@@ -510,7 +515,7 @@
             try {
                 let remarks = [];
                 try { remarks = JSON.parse(d.remarksStr); } catch (e) { }
-                const revertLog = remarks.slice().reverse().find(r => r.status_after === 'reverted' || r.status_after === 'rejected');
+                const revertLog = remarks.slice().reverse().find(r => (r.status_after || '').toLowerCase().includes('revert') || (r.status_after || '').toLowerCase().includes('reject'));
                 if (revertLog && revertLog.remark) {
                     latestRevertReason = revertLog.remark.trim();
                 }

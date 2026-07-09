@@ -16,7 +16,7 @@ from backend.utils.exporter import generate_excel_export,generate_csv_export
 from backend.database import SessionLocal
 from backend.routers.auth import get_current_user
 from backend.models import User, District
-from backend.models.base import to_name, get_ist_now
+from backend.models.base import to_name, get_ist_now, StatusEnum
 
 # 🌟 CONNECTED: Pulling from your exact, unchanged model class baseline definitions
 from backend.models.reactivation import (
@@ -120,12 +120,12 @@ async def submit_operator_reactivation(
             # Count the untouched operators in the batch (e.g. APPROVED or SENT_TO_UIDAI)
             untouched_count = db.query(ReactivationOperator).filter(
                 ReactivationOperator.request_id == req.id,
-                ~ReactivationOperator.status.in_(["REVERTED", "REJECTED"])
+                ~ReactivationOperator.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value])
             ).count()
             req.operator_count = untouched_count + len(operator_rows)
             
             req.training_date = date.fromisoformat(training_date.strip())
-            req.status = "REAPPLIED"
+            req.status_id = StatusEnum.REAPPLIED.value
             
             # Delete only the specific reverted/rejected operators that are being resubmitted
             submitted_ids = [op.get('id') for op in operator_rows if op.get('id')]
@@ -137,7 +137,7 @@ async def submit_operator_reactivation(
             else:
                 db.query(ReactivationOperator).filter(
                     ReactivationOperator.request_id == req.id,
-                    ReactivationOperator.status.in_(["REVERTED", "REJECTED"])
+                    ReactivationOperator.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value])
                 ).delete()
         else:
             req_code = generate_dynamic_request_code(db, str(current_user.district_id), district_name)
@@ -243,10 +243,10 @@ async def get_reactivation_requests(
             "request_code": req.request_code,
             "operator_count": req.operator_count,
             "training_date": str(req.training_date) if req.training_date else "",
-            "status": to_name(req.status_code, casing="upper").replace(" ", "_").strip(),
+            "status": to_name(req.status_id).upper().replace(" ", "_").strip(),
             "submitted_at": str(req.created_at)[:19] if req.created_at else "",
             "district_name": dist_name or "Raipur",
-            "revert_reason": next((r.remark_history for r in reversed(req.remarks) if r.status_after_code in ["RV", "RJ"]), "")
+            "revert_reason": next((r.remark_history for r in reversed(req.remarks) if r.status_after_id in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]), "")
         })
     return compiled_list
 
@@ -310,11 +310,11 @@ async def get_reactivation_requests_with_operators(
             "request_code": req.request_code,
             "operator_count": req.operator_count,
             "training_date": str(req.training_date) if req.training_date else "",
-            "status": to_name(req.status_code, casing="upper").replace(" ", "_").strip(),
+            "status": to_name(req.status_id).upper().replace(" ", "_").strip(),
             "submitted_at": str(req.created_at)[:19] if req.created_at else "",
             "updated_at": str(req.updated_at)[:19] if req.updated_at else "",
             "district_name": dist_name or "Raipur",
-            "revert_reason": next((r.remark_history for r in reversed(req.remarks) if r.status_after_code in ["RV", "RJ"]), ""),
+            "revert_reason": next((r.remark_history for r in reversed(req.remarks) if r.status_after_id in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]), ""),
             "operators": ops_data,
             "timeline_logs": timeline_logs
         })
@@ -379,7 +379,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
     # Get batch revert/rejection reason
     latest_revert_log = db.query(ReactivationRemarkHistory).filter(
         ReactivationRemarkHistory.request_id == req.id,
-        ReactivationRemarkHistory.status_after_code.in_(["RV", "RJ"])
+        ReactivationRemarkHistory.status_after_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value])
     ).order_by(ReactivationRemarkHistory.timestamp.desc()).first()
     batch_revert_reason = latest_revert_log.remark_history if latest_revert_log else ""
 
@@ -396,7 +396,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
 async def activate_individual_operator(operator_id: int, reason: Optional[str] = Form(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
-        op.status = "APPROVED"
+        op.status_id = StatusEnum.APPROVED.value
         if reason:
             op.reject_reason = reason  # Optional: store activate remarks in reject_reason or remarks
         
@@ -412,7 +412,7 @@ async def activate_individual_operator(operator_id: int, reason: Optional[str] =
             author_id=current_user.id,
             remark_history=remark_text,
             sender_role="CHIPS_ADMIN",
-            status_after=op.status
+            status_after_id=op.status_id
         ))
         db.commit()
     return {"success": True}
@@ -422,7 +422,7 @@ async def activate_individual_operator(operator_id: int, reason: Optional[str] =
 async def send_to_uidai_individual_operator(operator_id: int, remarks: Optional[str] = Form(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
-        op.status = "SENT_TO_UIDAI"
+        op.status_id = StatusEnum.SENT_TO_UIDAI.value
         
         # Update parent's updated_at
         parent = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
@@ -436,7 +436,7 @@ async def send_to_uidai_individual_operator(operator_id: int, remarks: Optional[
             author_id=current_user.id,
             remark_history=remark_text,
             sender_role="CHIPS_ADMIN",
-            status_after=op.status
+            status_after_id=op.status_id
         ))
         db.commit()
     return {"success": True}
@@ -445,7 +445,7 @@ async def send_to_uidai_individual_operator(operator_id: int, remarks: Optional[
 async def revert_individual_operator(operator_id: int, reason: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
-        op.status = "REVERTED"
+        op.status_id = StatusEnum.REVERTED.value
         op.reject_reason = reason
         
         # Update parent's updated_at
@@ -459,7 +459,7 @@ async def revert_individual_operator(operator_id: int, reason: str = Form(...), 
             author_id=current_user.id,
             remark_history=reason.strip(),
             sender_role="CHIPS_ADMIN",
-            status_after=op.status
+            status_after_id=op.status_id
         ))
         db.commit()
     return {"success": True}
@@ -468,7 +468,7 @@ async def revert_individual_operator(operator_id: int, reason: str = Form(...), 
 async def reject_individual_operator(operator_id: int, reason: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if op: 
-        op.status = "REJECTED"
+        op.status_id = StatusEnum.REJECTED.value
         op.reject_reason = reason
         
         # Update parent's updated_at
@@ -482,7 +482,7 @@ async def reject_individual_operator(operator_id: int, reason: str = Form(...), 
             author_id=current_user.id,
             remark_history=reason.strip(),
             sender_role="CHIPS_ADMIN",
-            status_after=op.status
+            status_after_id=op.status_id
         ))
         db.commit()
     return {"success": True}
@@ -521,14 +521,14 @@ async def update_and_reapply_operator(
     if ea_code: op.ea_code = ea_code
     if user_code: op.user_code = user_code
     
-    op.status = "REAPPLIED"
+    op.status_id = StatusEnum.REAPPLIED.value
     
     # Also update the batch status back to REAPPLIED if it was REVERTED
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
     if req:
         req.updated_at = get_ist_now()
-        if req.status == "REVERTED":
-            req.status = "REAPPLIED"
+        if req.status_id == StatusEnum.REVERTED.value:
+            req.status_id = StatusEnum.REAPPLIED.value
 
     db.add(ReactivationRemarkHistory(
         request_id=req.id,
@@ -536,7 +536,7 @@ async def update_and_reapply_operator(
         author_id=current_user.id,
         remark_history=f"Operator '{op.operator_name}' Reapplied and Details Updated",
         sender_role="DC",
-        status_after=req.status if req else "REAPPLIED"
+        status_after_id=req.status_id if req else StatusEnum.REAPPLIED.value
     ))
 
     db.commit()
@@ -551,24 +551,24 @@ async def finalize_batch_request(request_code: str, db: Session = Depends(get_db
             operators = db.query(ReactivationOperator).filter(
                 ReactivationOperator.request_id == req.id
             ).all()
-            statuses = [op.status for op in operators]
+            statuses = [op.status_id for op in operators]
             
-            if req.status in ["PENDING", "REAPPLIED"]:
-                if "SENT_TO_UIDAI" in statuses:
-                    req.status = "SENT_TO_UIDAI"
+            if req.status_id in [StatusEnum.PENDING.value, StatusEnum.REAPPLIED.value]:
+                if StatusEnum.SENT_TO_UIDAI.value in statuses:
+                    req.status_id = StatusEnum.SENT_TO_UIDAI.value
                     req.reviewed_by = current_user.id
                 else:
-                    req.status = "REVERTED"
+                    req.status_id = StatusEnum.REVERTED.value
                     req.reviewed_by = current_user.id
-            elif req.status == "SENT_TO_UIDAI":
-                req.status = "REVIEWED"
+            elif req.status_id == StatusEnum.SENT_TO_UIDAI.value:
+                req.status_id = StatusEnum.REVIEWED.value
                 req.reviewed_by = current_user.id
             else:
-                if "REVERTED" in statuses and "APPROVED" not in statuses:
-                    req.status = "REVERTED"
+                if StatusEnum.REVERTED.value in statuses and StatusEnum.APPROVED.value not in statuses:
+                    req.status_id = StatusEnum.REVERTED.value
                     req.reviewed_by = current_user.id
                 else:
-                    req.status = "REVIEWED"
+                    req.status_id = StatusEnum.REVIEWED.value
                     req.reviewed_by = current_user.id
                     
             db.add(ReactivationRemarkHistory(
@@ -576,7 +576,7 @@ async def finalize_batch_request(request_code: str, db: Session = Depends(get_db
                 author_id=current_user.id, 
                 remark_history=f"Batch Finalized. New Status: {req.status}", 
                 sender_role="CHIPS_ADMIN", 
-                status_after=req.status
+                status_after_id=req.status_id
             ))
             db.commit()
         return {"success": True}
@@ -591,13 +591,13 @@ async def finalize_batch_request(request_code: str, db: Session = Depends(get_db
 async def revert_batch_request(request_code: str, revert_reason: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
     if req: 
-        req.status = "REVERTED"
+        req.status_id = StatusEnum.REVERTED.value
         req.reviewed_by = current_user.id
         req.updated_at = get_ist_now()
         
         operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).all()
         for op in operators:
-            op.status = "REVERTED"
+            op.status_id = StatusEnum.REVERTED.value
             op.reject_reason = revert_reason
             db.add(ReactivationRemarkHistory(
                 request_id=req.id,
@@ -605,7 +605,7 @@ async def revert_batch_request(request_code: str, revert_reason: str = Form(...)
                 author_id=current_user.id,
                 remark_history=revert_reason.strip(),
                 sender_role="CHIPS",
-                status_after="REVERTED"
+                status_after_id=StatusEnum.REVERTED.value
             ))
             
         db.commit()
@@ -616,16 +616,16 @@ async def revert_batch_request(request_code: str, revert_reason: str = Form(...)
 async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
     if req: 
-        req.status = "SENT_TO_UIDAI"
+        req.status_id = StatusEnum.SENT_TO_UIDAI.value
         req.reviewed_by = current_user.id
         req.updated_at = get_ist_now()
         
         operators = db.query(ReactivationOperator).filter(
             ReactivationOperator.request_id == req.id,
-            ReactivationOperator.status.in_(["PENDING", "REAPPLIED"])
+            ReactivationOperator.status_id.in_([StatusEnum.PENDING.value, StatusEnum.REAPPLIED.value])
         ).all()
         for op in operators:
-            op.status = "SENT_TO_UIDAI"
+            op.status_id = StatusEnum.SENT_TO_UIDAI.value
             remark_text = remarks.strip() if remarks and remarks.strip() else "Sent to UIDAI"
             db.add(ReactivationRemarkHistory(
                 request_id=req.id,
@@ -633,7 +633,7 @@ async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(
                 author_id=current_user.id,
                 remark_history=remark_text,
                 sender_role="CHIPS",
-                status_after="SENT_TO_UIDAI"
+                status_after_id=StatusEnum.SENT_TO_UIDAI.value
             ))
             
         db.commit()
@@ -644,13 +644,13 @@ async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(
 async def approve_all_operators_in_batch(request_code: str, reason: Optional[str] = Form(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
     if req:
-        req.status = "REVIEWED"
+        req.status_id = StatusEnum.REVIEWED.value
         req.reviewed_by = current_user.id
         req.updated_at = get_ist_now()
         
         operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).all()
         for op in operators:
-            op.status = "APPROVED"
+            op.status_id = StatusEnum.APPROVED.value
             if reason:
                 op.reject_reason = reason
             
@@ -661,7 +661,7 @@ async def approve_all_operators_in_batch(request_code: str, reason: Optional[str
                 author_id=current_user.id,
                 remark_history=remark_text,
                 sender_role="CHIPS_ADMIN",
-                status_after="APPROVED"
+                status_after_id=StatusEnum.APPROVED.value
             ))
         
         db.commit()
@@ -672,13 +672,13 @@ async def approve_all_operators_in_batch(request_code: str, reason: Optional[str
 async def reject_all_operators_in_batch(request_code: str, reason: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
     if req:
-        req.status = "REVIEWED"
+        req.status_id = StatusEnum.REVIEWED.value
         req.reviewed_by = current_user.id
         req.updated_at = get_ist_now()
         
         operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).all()
         for op in operators:
-            op.status = "REJECTED"
+            op.status_id = StatusEnum.REJECTED.value
             op.reject_reason = reason
             
             db.add(ReactivationRemarkHistory(
@@ -687,7 +687,7 @@ async def reject_all_operators_in_batch(request_code: str, reason: str = Form(..
                 author_id=current_user.id,
                 remark_history=reason.strip(),
                 sender_role="CHIPS_ADMIN",
-                status_after="REJECTED"
+                status_after_id=StatusEnum.REJECTED.value
             ))
         
         db.commit()
@@ -700,7 +700,7 @@ def export_operators_to_excel_stream(request_code: str, db: Session = Depends(ge
         OperatorReactivationRequest, ReactivationOperator.request_id == OperatorReactivationRequest.id
     ).filter(
         OperatorReactivationRequest.request_code == request_code,
-        ReactivationOperator.status != "REJECTED"
+        ReactivationOperator.status_id != StatusEnum.REJECTED.value
     ).all()
     
     def get_display_status(status_str):
@@ -745,7 +745,7 @@ def export_all_operators_to_csv_stream(ids: str = None, db: Session = Depends(ge
             else:
                 query = query.filter(OperatorReactivationRequest.request_code.in_(id_tokens))
     else:
-        query = query.filter(ReactivationOperator.status.notin_(["REVERTED", "APPROVED", "REJECTED"]))
+        query = query.filter(ReactivationOperator.status_id.notin_([StatusEnum.REVERTED.value, StatusEnum.APPROVED.value, StatusEnum.REJECTED.value]))
         
     if user_role_str == "dc":
         query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
@@ -819,7 +819,7 @@ def export_uidai_operators_to_csv_stream(ids: str = None, db: Session = Depends(
             else:
                 query = query.filter(OperatorReactivationRequest.request_code.in_(id_tokens))
     else:
-        query = query.filter(ReactivationOperator.status.in_(["SENT_TO_UIDAI", "SENT TO UIDAI"]))
+        query = query.filter(ReactivationOperator.status_id == StatusEnum.SENT_TO_UIDAI.value)
         
     if user_role_str == "dc":
         query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))

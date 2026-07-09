@@ -9,10 +9,10 @@
 {% block content %}
 
 {% set total_requests = requests | length %}
-{% set pending_count = requests | selectattr('status', 'equalto', 'Pending') | list | length %}
-{% set reapplied_count = requests | selectattr('status', 'equalto', 'Reapplied') | list | length %}
-{% set approved_count = requests | selectattr('status', 'equalto', 'Approved') | list | length %}
-{% set reverted_count = requests | selectattr('status', 'equalto', 'Reverted') | list | length %}
+{% set pending_count = requests | selectattr('status', 'equalto', 'PENDING') | list | length %}
+{% set reapplied_count = requests | selectattr('status', 'equalto', 'REAPPLIED') | list | length %}
+{% set approved_count = requests | selectattr('status', 'equalto', 'APPROVED') | list | length %}
+{% set reverted_count = requests | selectattr('status', 'equalto', 'REVERTED') | list | length %}
 
 <div class="chips-header-banner">
     <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
@@ -128,12 +128,13 @@
                     <th>No. of Kits</th>
                     <th>Status</th>
                     <th>Submitted At</th>
+                    <th>Updated At</th>
                     <th style="text-align: center;">Action</th>
                 </tr>
             </thead>
             <tbody id="pending-tbody">
                 {% set ns_p = namespace(count=1) %}
-                {% for r in requests if r.status in ['Pending', 'Reapplied'] %}
+                {% for r in requests if (r.status|upper) in ['PENDING', 'REAPPLIED'] %}
                 <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
                     data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
                     data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
@@ -147,9 +148,15 @@
                         {{ r.user_type | replace('_', ' ') | capitalize }}
                     </td>
                     <td><strong>{{ r.number_of_kits }}</strong></td>
-                    <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">{{ r.status | replace('_', ' ') | capitalize
-                            }}</span></td>
+                    <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">{{ r.status | replace('_', ' ') | title }}</span></td>
                     <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
+                    <td>
+                        {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and (r.updated_at or r.reviewed_at) and (r.updated_at or r.reviewed_at) != '—' %}
+                        {{ (r.updated_at or r.reviewed_at)[:16] }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
                     <td style="text-align: center;">
                         <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -208,7 +215,7 @@
             </thead>
             <tbody id="log-tbody">
                 {% set ns_l = namespace(count=1) %}
-                {% for r in requests if r.status in ['Approved', 'Reverted'] %}
+                {% for r in requests if (r.status|upper) in ['APPROVED', 'REVERTED'] %}
                 <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
                     data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
                     data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
@@ -223,8 +230,7 @@
                     <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
                     <td>{{ r.user_type | replace('_', ' ') | capitalize }}</td>
                     <td><strong>{{ r.number_of_kits }}</strong></td>
-                    <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">{{ r.status | replace('_', ' ') | capitalize
-                            }}</span></td>
+                    <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", "_") }}">{{ r.status | replace('_', ' ') | title }}</span></td>
                     <td>
                         {% if r.assigned_station_id %}
                         {% set ids_list = r.assigned_station_id.split(',') %}
@@ -432,7 +438,7 @@
             let latestRevertReason = "No reason note provided.";
             try {
                 const history = JSON.parse(d.remarksStr || '[]');
-                const revertLog = history.slice().reverse().find(r => r.status_after === 'reverted');
+                const revertLog = history.slice().reverse().find(r => (r.status_after || '').toLowerCase().includes('revert') || (r.status_after || '').toLowerCase().includes('reject'));
                 if (revertLog && revertLog.remark) {
                     latestRevertReason = revertLog.remark;
                 }

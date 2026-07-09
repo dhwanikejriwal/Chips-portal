@@ -323,19 +323,19 @@
         %}
         {% for req in requests %}
         {% for op in req.operators %}
-        {% set status_lower = op.status|lower %}
+        {% set status_upper = op.status|upper %}
         {% set metrics.total = metrics.total + 1 %}
-        {% if status_lower == 'reapplied' %}
+        {% if status_upper == 'REAPPLIED' %}
         {% set metrics.reapplied = metrics.reapplied + 1 %}
-        {% elif status_lower == 'pending' %}
+        {% elif status_upper == 'PENDING' %}
         {% set metrics.pending = metrics.pending + 1 %}
-        {% elif 'uidai' in status_lower %}
+        {% elif 'UIDAI' in status_upper %}
         {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
-        {% elif status_lower in ['reverted', 'revert back'] %}
+        {% elif status_upper in ['REVERTED', 'REVERT BACK'] %}
         {% set metrics.reverted = metrics.reverted + 1 %}
-        {% elif status_lower == 'rejected' %}
+        {% elif status_upper == 'REJECTED' %}
         {% set metrics.rejected = metrics.rejected + 1 %}
-        {% elif status_lower in ['approved', 'reviewed', 'assigned', 'active', 'activated'] %}
+        {% elif status_upper in ['APPROVED', 'REVIEWED', 'ASSIGNED', 'ACTIVE', 'ACTIVATED'] %}
         {% set metrics.approved = metrics.approved + 1 %}
         {% endif %}
         {% endfor %}
@@ -487,7 +487,7 @@
                 {% for req in requests %}
                 {% set has_pending_op = namespace(val=false) %}
                 {% for op in req.operators %}
-                {% if op.status|lower in ['pending', 'reapplied'] %}
+                {% if op.status|upper in ['PENDING', 'REAPPLIED'] %}
                 {% set has_pending_op.val = true %}
                 {% set pending_found.val = true %}
                 {% endif %}
@@ -547,8 +547,8 @@
                     </div>
                     <div style="padding: 10px 20px;">
                         {% for op in req.operators %}
-                        {% set op_status_lower = op.status|lower %}
-                        {% if op_status_lower in ['pending', 'reapplied'] %}
+                        {% set op_status_upper = op.status|upper %}
+                        {% if op_status_upper in ['PENDING', 'REAPPLIED'] %}
                         <div class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                             data-mobile="{{ op.operator_mobile }}"
                             data-email="{{ op.email_id | lower | default('', true) }}"
@@ -568,7 +568,7 @@
                                 <div
                                     style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
                                     <span style="color: #64748b;">Status:</span>
-                                    {% if op_status_lower == 'reapplied' %}
+                                    {% if op_status_upper == 'REAPPLIED' %}
                                     <span class="badge badge-reapplied">Reapplied</span>
                                     {% else %}
                                     <span class="badge badge-pending">Pending</span>
@@ -627,7 +627,7 @@
             {% for req in requests %}
             {% set has_uidai_op = namespace(val=false) %}
             {% for op in req.operators %}
-            {% if 'uidai' in op.status|lower %}
+            {% if 'UIDAI' in op.status|upper %}
             {% set has_uidai_op.val = true %}
             {% set uidai_found.val = true %}
             {% endif %}
@@ -687,8 +687,8 @@
                 </div>
                 <div style="padding: 10px 20px;">
                     {% for op in req.operators %}
-                    {% set op_status_lower = op.status|lower %}
-                    {% if 'uidai' in op_status_lower %}
+                    {% set op_status_upper = op.status|upper %}
+                    {% if 'UIDAI' in op_status_upper %}
                     <div class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                         data-mobile="{{ op.operator_mobile }}"
                         data-email="{{ op.email_id | lower | default('', true) }}" data-status="{{ op.status | upper }}"
@@ -768,7 +768,7 @@
             {% for req in requests %}
             {% set has_hist_op = namespace(val=false) %}
             {% for op in req.operators %}
-            {% if op.status|lower not in ['pending', 'reapplied', 'uidai', 'sent to uidai', 'sent_to_uidai'] %}
+            {% if op.status|upper not in ['PENDING', 'REAPPLIED', 'SENT_TO_UIDAI'] %}
             {% set has_hist_op.val = true %}
             {% set hist_found.val = true %}
             {% endif %}
@@ -816,8 +816,8 @@
                 </div>
                 <div style="padding: 10px 20px;">
                     {% for op in req.operators %}
-                    {% set op_status_lower = op.status|lower %}
-                    {% if op_status_lower not in ['pending', 'reapplied', 'uidai', 'sent to uidai', 'sent_to_uidai'] %}
+                    {% set op_status_upper = op.status|upper %}
+                    {% if op_status_upper not in ['PENDING', 'REAPPLIED', 'SENT_TO_UIDAI'] %}
                     <div class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                         data-mobile="{{ op.operator_mobile }}"
                         data-email="{{ op.email_id | lower | default('', true) }}" data-status="{{ op.status | upper }}"
@@ -836,11 +836,11 @@
                             <div
                                 style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
                                 <span style="color: #64748b;">Status:</span>
-                                {% if op_status_lower == 'approved' %}
+                                {% if op_status_upper == 'APPROVED' %}
                                 <span class="badge badge-approved">Approved</span>
-                                {% elif op_status_lower in ['reverted', 'revert back'] %}
+                                {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
                                 <span class="badge badge-reverted">Reverted</span>
-                                {% elif op_status_lower == 'rejected' %}
+                                {% elif op_status_upper == 'REJECTED' %}
                                 <span class="badge badge-reverted"
                                     style="background-color: #fef2f2; color: #b91c1c;">Rejected</span>
                                 {% else %}
@@ -2082,10 +2082,10 @@
 
     function showIndividualOperatorDetails(operatorId, requestCode, status, viewMode = 'details') {
         let resolvedStatus = '';
-        if (typeof (status || '').toLowerCase().replace(/ /g, '_') === 'string') {
-            resolvedStatus = status;
-        } else if (status && typeof (status || '').toLowerCase().replace(/ /g, '_') === 'object' && status.getAttribute) {
-            resolvedStatus = status.getAttribute('data-status') || '';
+        if (typeof status === 'string') {
+            resolvedStatus = status.toLowerCase().replace(/ /g, '_');
+        } else if (status && typeof status === 'object' && typeof status.getAttribute === 'function') {
+            resolvedStatus = (status.getAttribute('data-status') || '').toLowerCase().replace(/ /g, '_');
         }
 
         Swal.fire({

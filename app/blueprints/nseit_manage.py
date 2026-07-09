@@ -24,8 +24,8 @@ def dc_nseit():
             return redirect(url_for("auth.logout"))
         if response.status_code == 200:
             requests_list = response.json()
-            pending_requests = [r for r in requests_list if r["nseit_status"] in ["Pending", "Reapplied"]]
-            processed_requests = [r for r in requests_list if r["nseit_status"] in ["Forwarded", "Forwarded Again", "Approved", "Reverted", "Reverted by CHiPS"]]
+            pending_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["PENDING", "REAPPLIED"]]
+            processed_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["FORWARDED", "FORWARDED_AGAIN", "APPROVED", "REVERTED", "REVERTED_BY_CHIPS"]]
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
@@ -52,12 +52,12 @@ def chips_nseit():
         if response.status_code == 200:
             requests_list = response.json()
             for r in requests_list:
-                if r.get("nseit_status") == "Reapplied":
+                if str(r.get("nseit_status")).strip().upper() == "REAPPLIED":
                     has_chips_remark = any(rem.get("sender_role") == "CHIPS" for rem in r.get("remarks_history", []))
                     if has_chips_remark:
-                        r["nseit_status"] = "Reverted by CHiPS"
-            pending_requests = [r for r in requests_list if r["nseit_status"] in ["Forwarded", "Forwarded Again"]]
-            processed_requests = [r for r in requests_list if r["nseit_status"] in ["Approved", "Reverted by CHiPS"]]
+                        r["nseit_status"] = "REVERTED_BY_CHIPS"
+            pending_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["FORWARDED", "FORWARDED_AGAIN"]]
+            processed_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["APPROVED", "REVERTED_BY_CHIPS"]]
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         

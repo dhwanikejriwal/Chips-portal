@@ -24,8 +24,8 @@ def dc_candidate_requests():
             return redirect(url_for("auth.logout"))
         if response.status_code == 200:
             candidates = response.json()
-            pending_requests = [c for c in candidates if c["status"] == "Pending"]
-            approved_requests = [c for c in candidates if c["status"] in ["Approved", "Rejected"]]
+            pending_requests = [c for c in candidates if str(c["status"]).strip().upper() == "PENDING"]
+            approved_requests = [c for c in candidates if str(c["status"]).strip().upper() in ["APPROVED", "REJECTED"]]
         else:
             print(f"Backend API returned {response.status_code}: {response.text}")
             flash(f"Backend error: {response.text[:100]}", "danger")
