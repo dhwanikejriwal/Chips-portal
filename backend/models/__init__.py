@@ -5,6 +5,7 @@ from backend.models.master_user_role import MasterUserRole
 from backend.models.master_status import MasterStatus
 from backend.models.district import District
 from backend.models.user_login import UserLogin, UserLogin as User
+from backend.models.user_profile import UserProfile
 from backend.models.candidate import Candidate, CandidateLogin
 from backend.models.dc_remark import DCRemark
 from backend.models.nseit import NSEITRequest, NSEITRemark

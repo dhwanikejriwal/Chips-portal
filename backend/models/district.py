@@ -15,10 +15,11 @@ class District(Base):
     district_name: Mapped[str] = mapped_column(String(100), nullable=False)
     district_short_name: Mapped[str] = mapped_column(String(10), nullable=False)
     
-    # District Coordinator (DC) Info
-    dc_name: Mapped[str] = mapped_column(String(100), nullable=True)
-    dc_email: Mapped[str] = mapped_column(String(100), nullable=True)
-    dc_phone: Mapped[str] = mapped_column(String(20), nullable=True)
+    # Registration Settings
+    registration_open: Mapped[bool] = mapped_column(default=True, nullable=False)
+    registration_start_date: Mapped[str] = mapped_column(String(50), nullable=True)
+    registration_end_date: Mapped[str] = mapped_column(String(50), nullable=True)
+    registration_opened_at: Mapped[str] = mapped_column(String(50), nullable=True)
 
     # Relationships
     users: Mapped[list["UserLogin"]] = relationship("UserLogin", back_populates="district")

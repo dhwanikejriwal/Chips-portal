@@ -17,3 +17,11 @@ def chips_dashboard():
         flash("Unauthorized access. Please log in.", "danger")
         return redirect(url_for("auth.login"))
     return render_template("chips/chips_dash.html")
+
+@dashboard_bp.route("/chips/registration-settings")
+def registration_settings():
+    # Verify user is logged in as Admin (CHIPS)
+    if "access_token" not in session or session.get("role") != "Admin":
+        flash("Unauthorized access. Please log in.", "danger")
+        return redirect(url_for("auth.login"))
+    return render_template("chips/registration_settings.html")

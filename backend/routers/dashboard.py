@@ -1,5 +1,6 @@
 # backend/routers/dashboard.py
 from fastapi import APIRouter, Depends
+from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from backend.database import get_db
@@ -90,3 +91,48 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         "dc_performance": dc_performance,
         "recent_requests": recent_requests
     }
+
+from pydantic import BaseModel
+from typing import Optional
+
+class DistrictSettingsUpdate(BaseModel):
+    registration_open: bool
+    registration_start_date: Optional[str] = None
+    registration_end_date: Optional[str] = None
+
+@router.get("/districts/settings")
+def get_district_settings(db: Session = Depends(get_db)):
+    districts = db.query(District).order_by(District.district_name).all()
+    result = []
+    for d in districts:
+        result.append({
+            "district_code": d.district_code,
+            "district_name": d.district_name,
+            "registration_open": d.registration_open,
+            "registration_start_date": d.registration_start_date,
+            "registration_end_date": d.registration_end_date,
+        })
+    return {"districts": result}
+
+@router.put("/districts/{district_code}/settings")
+def update_district_settings(
+    district_code: str,
+    payload: DistrictSettingsUpdate,
+    db: Session = Depends(get_db)
+):
+    district = db.query(District).filter(District.district_code == district_code).first()
+    if not district:
+        return {"success": False, "error": "District not found"}
+    
+    if payload.registration_open and not district.registration_open:
+        district.registration_opened_at = datetime.now().isoformat()
+    elif not payload.registration_open:
+        district.registration_opened_at = None
+
+    district.registration_open = payload.registration_open
+    district.registration_start_date = payload.registration_start_date
+    district.registration_end_date = payload.registration_end_date
+    
+    db.commit()
+    return {"success": True}
+

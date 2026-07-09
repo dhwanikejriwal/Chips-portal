@@ -54,13 +54,50 @@ class CandidateRegisterRequest(BaseModel):
 @router.get("/districts")
 def get_districts(db: Session = Depends(get_db)):
     districts = db.query(District).order_by(District.district_name).all()
-    return [
-        {
+    
+    now = datetime.now()
+    open_districts = []
+    
+    for d in districts:
+        if not d.registration_open:
+            continue
+            
+        if d.registration_start_date:
+            try:
+                start_date = datetime.strptime(d.registration_start_date, "%Y-%m-%dT%H:%M")
+                if now < start_date:
+                    continue
+            except ValueError:
+                pass
+                
+        if d.registration_end_date:
+            try:
+                end_date = datetime.strptime(d.registration_end_date, "%Y-%m-%dT%H:%M")
+                if now > end_date:
+                    continue
+            except ValueError:
+                pass
+                
+        is_recently_opened = False
+        if d.registration_opened_at:
+            try:
+                # Handle isoformat with or without microseconds
+                opened_dt = datetime.fromisoformat(d.registration_opened_at)
+                if now - opened_dt <= timedelta(days=7):
+                    is_recently_opened = True
+            except ValueError:
+                pass
+
+        open_districts.append({
             "district_code": d.district_code,
             "district_name": d.district_name,
-            "district_short_name": d.district_short_name
-        } for d in districts
-    ]
+            "district_short_name": d.district_short_name,
+            "registration_start_date": d.registration_start_date,
+            "registration_end_date": d.registration_end_date,
+            "is_recently_opened": is_recently_opened
+        })
+        
+    return open_districts
 
 class SendOtpRequest(BaseModel):
     email: EmailStr
@@ -152,6 +189,27 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
     district_obj = db.query(District).filter(District.district_code == payload.district).first()
     if not district_obj:
         raise HTTPException(status_code=400, detail="Invalid district code")
+
+    # Validate that district is actively accepting registrations
+    if not district_obj.registration_open:
+        raise HTTPException(status_code=400, detail="Registration is currently closed for this district.")
+        
+    now = datetime.now()
+    if district_obj.registration_start_date:
+        try:
+            start_date = datetime.strptime(district_obj.registration_start_date, "%Y-%m-%dT%H:%M")
+            if now < start_date:
+                raise HTTPException(status_code=400, detail="Registration has not started yet for this district.")
+        except ValueError:
+            pass
+            
+    if district_obj.registration_end_date:
+        try:
+            end_date = datetime.strptime(district_obj.registration_end_date, "%Y-%m-%dT%H:%M")
+            if now > end_date:
+                raise HTTPException(status_code=400, detail="Registration has ended for this district.")
+        except ValueError:
+            pass
 
     count = db.query(Candidate).filter(Candidate.district == payload.district).count()
     short_name = district_obj.district_short_name or "CAN"
