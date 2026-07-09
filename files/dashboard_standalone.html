@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>आधार छत्तीसगढ़ | District Saturation Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0a0e14;
+    --bg-1:#0f141d;
+    --bg-2:#141b26;
+    --panel:#121823;
+    --panel-border:#22303f;
+    --line:#1d2733;
+    --text-hi:#eaf0f6;
+    --text-mid:#9fb0c0;
+    --text-lo:#5e7184;
+    --saffron:#ff9933;
+    --saffron-dim:#caa06b;
+    --green:#138808;
+    --teal:#2dd4bf;
+    --teal-dim:#1a8f82;
+    --chakra:#1c4a8a;
+    --danger:#e25555;
+    --warn:#e2b33d;
+    --good:#34c97a;
+    --map-low:#16313f;
+    --map-high:#2dd4bf;
+    --radius:10px;
+    --mono:'JetBrains Mono',monospace;
+    --display:'Space Grotesk',sans-serif;
+    --body:'Manrope',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-0);color:var(--text-hi);font-family:var(--body);overflow-x:hidden;}
+  body{
+    background:
+      radial-gradient(circle at 15% 0%, rgba(45,212,191,0.06), transparent 40%),
+      radial-gradient(circle at 85% 100%, rgba(255,153,51,0.05), transparent 45%),
+      var(--bg-0);
+    min-height:100vh;
+  }
+  /* ===== Top bar ===== */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 28px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    position:relative;
+  }
+  .topbar::after{
+    content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+    background:linear-gradient(90deg, var(--saffron) 0 33%, #f5f5f0 33% 66%, var(--green) 66% 100%);
+    opacity:0.6;
+  }
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand-mark{
+    width:38px;height:38px;border-radius:9px;
+    background:conic-gradient(from 180deg, var(--saffron), #f5f5f0 33%, var(--green) 66%, var(--saffron));
+    display:flex;align-items:center;justify-content:center;position:relative;
+    box-shadow:0 0 0 1px rgba(255,255,255,0.08), 0 6px 18px rgba(45,212,191,0.15);
+  }
+  .brand-mark::before{
+    content:"";width:14px;height:14px;border-radius:50%;background:var(--bg-0);
+    box-shadow:0 0 0 1.5px var(--chakra);
+  }
+  .brand-text h1{font-family:var(--display);font-size:18px;font-weight:700;margin:0;letter-spacing:0.2px;}
+  .brand-text p{margin:1px 0 0;font-size:11.5px;color:var(--text-lo);font-family:var(--mono);letter-spacing:0.4px;text-transform:uppercase;}
+  .topbar-right{display:flex;align-items:center;gap:18px;}
+  .live-pill{
+    display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;
+    color:var(--good);background:rgba(52,201,122,0.08);border:1px solid rgba(52,201,122,0.25);
+    padding:6px 12px;border-radius:99px;
+  }
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--good);box-shadow:0 0 0 0 rgba(52,201,122,0.6);animation:pulse 2s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,201,122,0.5);}70%{box-shadow:0 0 0 6px rgba(52,201,122,0);}100%{box-shadow:0 0 0 0 rgba(52,201,122,0);}}
+  .clock{font-family:var(--mono);font-size:12px;color:var(--text-mid);}
+
+  /* ===== Layout ===== */
+  .layout{display:grid;grid-template-columns:1fr 380px;gap:18px;padding:20px 28px 28px;align-items:start;}
+  @media (max-width:1100px){.layout{grid-template-columns:1fr;}}
+
+  /* ===== State strip ===== */
+  .state-strip{
+    grid-column:1 / -1;
+    display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:2px;
+  }
+  @media (max-width:900px){.state-strip{grid-template-columns:repeat(2,1fr);}}
+  .stat-card{
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:var(--radius);
+    padding:14px 16px;position:relative;overflow:hidden;
+  }
+  .stat-card::before{
+    content:"";position:absolute;top:0;left:0;width:3px;height:100%;background:var(--teal);opacity:0.7;
+  }
+  .stat-label{font-family:var(--mono);font-size:10.5px;color:var(--text-lo);text-transform:uppercase;letter-spacing:0.5px;}
+  .stat-value{font-family:var(--display);font-size:24px;font-weight:700;margin-top:6px;color:var(--text-hi);}
+  .stat-sub{font-size:11px;color:var(--text-mid);margin-top:3px;}
+  .stat-sub.up{color:var(--good);}
+  .stat-sub.warn{color:var(--warn);}
+
+  /* ===== Map panel ===== */
+  .map-panel{
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:var(--radius);
+    padding:18px 18px 12px;position:relative;min-height:640px;display:flex;flex-direction:column;
+  }
+  .panel-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px;}
+  .panel-title{font-family:var(--display);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .panel-title .dot{width:6px;height:6px;border-radius:50%;background:var(--saffron);}
+  .panel-meta{font-family:var(--mono);font-size:10.5px;color:var(--text-lo);}
+
+  .metric-toggle{display:flex;gap:6px;background:var(--bg-1);border:1px solid var(--panel-border);border-radius:8px;padding:3px;}
+  .metric-toggle button{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:0.3px;color:var(--text-mid);
+    background:transparent;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;transition:all .15s;
+  }
+  .metric-toggle button.active{background:var(--teal);color:#06231f;font-weight:600;}
+  .metric-toggle button:hover:not(.active){color:var(--text-hi);}
+
+  #map-wrap{flex:1;position:relative;display:flex;align-items:center;justify-content:center;}
+  #map-svg{width:100%;height:100%;max-height:560px;overflow:visible;}
+  .district-path{
+    stroke:#0a0e14;stroke-width:1px;cursor:pointer;
+    transition:filter .15s, stroke-width .15s, opacity .15s;
+  }
+  .district-path:hover, .district-path.active{
+    stroke:#fff;stroke-width:1.6px;filter:drop-shadow(0 0 8px rgba(45,212,191,0.55));
+  }
+  .district-label{
+    font-family:var(--mono);font-size:7.4px;fill:rgba(234,240,246,0.55);
+    pointer-events:none;text-anchor:middle;letter-spacing:0.2px;
+  }
+  .map-legend{
+    position:absolute;left:22px;bottom:8px;display:flex;align-items:center;gap:10px;
+    font-family:var(--mono);font-size:10px;color:var(--text-lo);
+  }
+  .legend-grad{width:120px;height:8px;border-radius:4px;background:linear-gradient(90deg, var(--map-low), var(--map-high));border:1px solid rgba(255,255,255,0.08);}
+
+  .tooltip{
+    position:fixed;pointer-events:none;background:rgba(10,14,20,0.97);border:1px solid var(--teal-dim);
+    border-radius:8px;padding:10px 13px;font-size:12px;color:var(--text-hi);z-index:999;
+    box-shadow:0 10px 30px rgba(0,0,0,0.5);opacity:0;transition:opacity .1s;min-width:160px;
+  }
+  .tooltip .t-name{font-family:var(--display);font-weight:700;font-size:13px;margin-bottom:4px;color:var(--teal);}
+  .tooltip .t-row{display:flex;justify-content:space-between;gap:14px;font-family:var(--mono);font-size:11px;color:var(--text-mid);padding:1px 0;}
+  .tooltip .t-row b{color:var(--text-hi);font-weight:600;}
+
+  /* ===== Side panel ===== */
+  .side-col{display:flex;flex-direction:column;gap:16px;}
+  .detail-panel{
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:var(--radius);
+    padding:20px;min-height:640px;
+  }
+  .detail-empty{
+    height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;color:var(--text-lo);gap:10px;padding:40px 10px;
+  }
+  .detail-empty svg{opacity:0.35;}
+  .detail-empty p{font-size:12.5px;max-width:220px;line-height:1.5;margin:0;}
+  .detail-empty .hint{font-family:var(--mono);font-size:10.5px;color:var(--teal-dim);}
+
+  .detail-header{border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:16px;}
+  .detail-header .eyebrow{font-family:var(--mono);font-size:10px;color:var(--text-lo);text-transform:uppercase;letter-spacing:0.6px;}
+  .detail-header h2{font-family:var(--display);font-size:24px;margin:4px 0 2px;color:var(--text-hi);}
+  .detail-header .hi-name{font-size:13px;color:var(--saffron-dim);}
+  .detail-codes{display:flex;gap:14px;margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--text-lo);}
+  .detail-codes span b{color:var(--text-mid);}
+
+  .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .m-box{background:var(--bg-1);border:1px solid var(--panel-border);border-radius:8px;padding:12px 13px;}
+  .m-box .m-label{font-family:var(--mono);font-size:9.5px;color:var(--text-lo);text-transform:uppercase;letter-spacing:0.4px;}
+  .m-box .m-value{font-family:var(--display);font-size:19px;font-weight:700;margin-top:5px;}
+  .m-box .m-value.good{color:var(--good);}
+  .m-box .m-value.warn{color:var(--warn);}
+  .m-box .m-value.bad{color:var(--danger);}
+
+  .bar-row{margin-bottom:13px;}
+  .bar-row .b-top{display:flex;justify-content:space-between;font-size:11px;color:var(--text-mid);margin-bottom:5px;}
+  .bar-row .b-top b{color:var(--text-hi);font-family:var(--mono);}
+  .bar-track{height:7px;border-radius:4px;background:var(--bg-1);border:1px solid var(--panel-border);overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg, var(--teal-dim), var(--teal));}
+
+  .rank-note{
+    margin-top:14px;display:flex;gap:8px;align-items:flex-start;background:rgba(255,153,51,0.06);
+    border:1px solid rgba(255,153,51,0.2);border-radius:8px;padding:10px 12px;font-size:11.5px;color:var(--text-mid);
+  }
+
+  .footer-note{grid-column:1/-1;text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--text-lo);padding:6px 0 20px;}
+  .footer-note b{color:var(--teal-dim);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark"></div>
+    <div class="brand-text">
+      <h1>आधार छत्तीसगढ़ &nbsp;Aadhaar CG Dashboard</h1>
+      <p>District Enrollment &amp; Saturation Monitor</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-pill"><span class="live-dot"></span>LIVE FEED</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <div class="state-strip" id="stateStrip"></div>
+
+  <div class="map-panel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="dot"></span>Chhattisgarh — District Map</div>
+      <div class="metric-toggle" id="metricToggle">
+        <button data-metric="saturation" class="active">Saturation %</button>
+        <button data-metric="enrolled">Enrolled</button>
+        <button data-metric="monthly_updates">Updates/mo</button>
+        <button data-metric="rejection_rate">Rejection %</button>
+      </div>
+    </div>
+    <div class="panel-meta" id="panelMeta">33 districts · hover to preview · click to lock detail</div>
+    <div id="map-wrap">
+      <svg id="map-svg" viewBox="0 0 760 640"></svg>
+      <div class="map-legend">
+        <span id="legendLow">low</span>
+        <div class="legend-grad"></div>
+        <span id="legendHigh">high</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-col">
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-empty">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.618V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+        <p>Select a district on the map to view its full Aadhaar enrollment profile.</p>
+        <p class="hint">try: Raipur, Bastar, Durg…</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">Boundary geometry sourced from <b>master_layers.cg_district_boundary</b> · district metrics are illustrative sample data · 33 districts of Chhattisgarh</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="./dashboard_data.js"></script>
+<script src="./dashboard.js"></script>
+</body>
+</html>

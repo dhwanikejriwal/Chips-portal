@@ -1,0 +1,788 @@
+{% extends 'base.html' %}
+
+{% block title %}New Station ID Request N/A CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+<style>
+    /* ── Page shell ── */
+    .sid-page-wrapper {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 0 8px 40px;
+    }
+
+    /* ── Breadcrumb bar ── */
+    .sid-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 24px;
+        font-size: 13px;
+    }
+    .sid-breadcrumb a {
+        color: #6366f1;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: color 0.15s;
+    }
+    .sid-breadcrumb a:hover { color: #4f46e5; }
+    .sid-breadcrumb-sep { color: #cbd5e1; }
+    .sid-breadcrumb-current { color: #94a3b8; }
+
+    /* ── Hero header ── */
+    .sid-hero {
+        background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #4f46e5 100%);
+        border-radius: 16px;
+        padding: 28px 32px;
+        margin-bottom: 28px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    .sid-hero::before {
+        content: '';
+        position: absolute;
+        top: -30px; right: -30px;
+        width: 150px; height: 150px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.06);
+    }
+    .sid-hero::after {
+        content: '';
+        position: absolute;
+        bottom: -40px; left: 40%;
+        width: 200px; height: 200px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.04);
+    }
+    .sid-hero-icon {
+        width: 56px; height: 56px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        backdrop-filter: blur(4px);
+    }
+    .sid-hero-text h2 {
+        font-size: 22px; font-weight: 800;
+        color: #fff; margin: 0 0 4px;
+    }
+    .sid-hero-text p {
+        font-size: 13px; color: rgba(255,255,255,0.72); margin: 0;
+    }
+    .sid-hero-badge {
+        margin-left: auto;
+        background: rgba(255,255,255,0.15);
+        border: 1px solid rgba(255,255,255,0.25);
+        color: #fff;
+        font-size: 12px; font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 20px;
+        backdrop-filter: blur(4px);
+        white-space: nowrap;
+    }
+
+    /* ── Form card ── */
+    .sid-form-card {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.04);
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+
+    /* ── Section headings inside card ── */
+    .sid-section {
+        padding: 24px 28px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .sid-section:last-child { border-bottom: none; }
+    .sid-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .sid-section-icon {
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .sid-section-icon.blue  { background: #eff6ff; }
+    .sid-section-icon.green { background: #f0fdf4; }
+    .sid-section-icon.violet{ background: #f5f3ff; }
+    .sid-section-title-text {
+        font-size: 14px; font-weight: 700; color: #0f172a;
+    }
+    .sid-section-subtitle {
+        font-size: 12px; color: #94a3b8; margin-top: 1px;
+    }
+
+    /* ── Field label ── */
+    .sid-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        margin-bottom: 8px;
+    }
+    .sid-label .req { color: #ef4444; }
+
+    /* ── Inputs ── */
+    .sid-input {
+        width: 100%;
+        height: 44px;
+        padding: 0 14px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 14px;
+        font-family: inherit;
+        color: #334155;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background: #fff;
+    }
+    .sid-input:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+    }
+    .sid-input:disabled {
+        background: #f8fafc;
+        color: #94a3b8;
+        cursor: not-allowed;
+        border-color: #f1f5f9;
+    }
+    .sid-textarea {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 14px;
+        font-family: inherit;
+        color: #334155;
+        outline: none;
+        resize: vertical;
+        min-height: 90px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .sid-textarea:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+    }
+    .sid-hint {
+        font-size: 11px; color: #94a3b8; margin-top: 5px;
+    }
+
+    /* ── Info row (read-only display pair) ── */
+    .sid-info-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-size: 14px;
+        color: #334155;
+        font-weight: 500;
+    }
+    .sid-info-pill svg { flex-shrink: 0; }
+
+    /* ── Card-radio options (Model) ── */
+    .model-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .model-card {
+        position: relative;
+        cursor: pointer;
+    }
+    .model-card input[type="radio"] {
+        position: absolute;
+        opacity: 0; width: 0; height: 0;
+    }
+    .model-card-inner {
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 18px 20px;
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        height: 100%;
+    }
+    .model-card:hover .model-card-inner {
+        border-color: #a5b4fc;
+        background: #fafafe;
+    }
+    .model-card input:checked + .model-card-inner {
+        border-color: #6366f1;
+        background: #f5f3ff;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+    }
+    .model-card-check {
+        width: 20px; height: 20px;
+        border-radius: 50%;
+        border: 2px solid #cbd5e1;
+        display: flex; align-items: center; justify-content: center;
+        transition: all 0.2s;
+        margin-bottom: 4px;
+    }
+    .model-card input:checked + .model-card-inner .model-card-check {
+        border-color: #6366f1;
+        background: #6366f1;
+    }
+    .model-card input:checked + .model-card-inner .model-card-check::after {
+        content: '';
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #fff;
+    }
+    .model-card-tag {
+        font-size: 16px; font-weight: 800; color: #0f172a;
+    }
+    .model-card-sub {
+        font-size: 12px; color: #64748b; line-height: 1.4;
+    }
+    .model-card-badge {
+        display: inline-block;
+        font-size: 10px; font-weight: 700;
+        padding: 2px 8px; border-radius: 20px;
+        margin-top: 4px;
+        width: fit-content;
+    }
+    .badge-ecmp { background: #dbeafe; color: #1d4ed8; }
+    .badge-ucl  { background: #dcfce7; color: #15803d; }
+
+    /* ── User type radio list ── */
+    .user-type-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .user-type-option {
+        position: relative;
+        cursor: pointer;
+    }
+    .user-type-option input[type="radio"] {
+        position: absolute;
+        opacity: 0; width: 0; height: 0;
+    }
+    .user-type-inner {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 18px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 12px;
+        transition: all 0.2s;
+    }
+    .user-type-option:hover .user-type-inner {
+        border-color: #a5b4fc;
+        background: #fafafe;
+    }
+    .user-type-option input:checked + .user-type-inner {
+        border-color: #6366f1;
+        background: #f5f3ff;
+    }
+    .ut-radio {
+        width: 18px; height: 18px;
+        border-radius: 50%;
+        border: 2px solid #cbd5e1;
+        flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        transition: all 0.2s;
+    }
+    .user-type-option input:checked + .user-type-inner .ut-radio {
+        border-color: #6366f1;
+        background: #6366f1;
+    }
+    .user-type-option input:checked + .user-type-inner .ut-radio::after {
+        content: '';
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: #fff;
+    }
+    .ut-icon {
+        width: 38px; height: 38px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .ut-icon.new-user  { background: #eff6ff; }
+    .ut-icon.machine   { background: #f0fdf4; }
+    .ut-icon.custom    { background: #fdf4ff; }
+    .ut-title { font-size: 14px; font-weight: 600; color: #0f172a; }
+    .ut-desc  { font-size: 12px; color: #64748b; margin-top: 1px; }
+
+    /* ── Custom reason wrapper ── */
+    #custom-reason-wrapper {
+        display: none;
+        margin-top: 14px;
+        padding: 16px;
+        background: #fdf4ff;
+        border: 1.5px solid #e9d5ff;
+        border-radius: 10px;
+        animation: fadeSlideIn 0.25s ease;
+    }
+    @keyframes fadeSlideIn {
+        from { opacity: 0; transform: translateY(-6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Kits input row ── */
+    .kits-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .kits-stepper {
+        display: flex;
+        align-items: center;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .kits-stepper-btn {
+        width: 42px; height: 44px;
+        background: #f8fafc;
+        border: none;
+        font-size: 20px; font-weight: 600;
+        color: #475569;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.15s;
+    }
+    .kits-stepper-btn:hover { background: #e2e8f0; }
+    .kits-num-input {
+        width: 80px; height: 44px;
+        border: none;
+        border-left: 1.5px solid #e2e8f0;
+        border-right: 1.5px solid #e2e8f0;
+        text-align: center;
+        font-size: 18px; font-weight: 700;
+        color: #0f172a;
+        outline: none;
+        font-family: inherit;
+    }
+    .kits-num-input::-webkit-inner-spin-button,
+    .kits-num-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+    /* ── Submit row ── */
+    .sid-footer {
+        padding: 20px 28px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .sid-footer-hint {
+        font-size: 12px;
+        color: #94a3b8;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .sid-action-row {
+        display: flex;
+        gap: 10px;
+    }
+    .sid-btn-cancel {
+        padding: 11px 22px;
+        background: #fff;
+        color: #475569;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 14px; font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex; align-items: center; gap: 6px;
+        font-family: inherit;
+        transition: all 0.18s;
+    }
+    .sid-btn-cancel:hover { border-color: #cbd5e1; background: #f8fafc; }
+    .sid-btn-submit {
+        padding: 11px 28px;
+        background: linear-gradient(135deg, #4f46e5, #6366f1);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 14px; font-weight: 700;
+        cursor: pointer;
+        display: inline-flex; align-items: center; gap: 8px;
+        font-family: inherit;
+        box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+        transition: all 0.2s;
+    }
+    .sid-btn-submit:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(99,102,241,0.45);
+    }
+    .sid-btn-submit:active { transform: translateY(0); }
+    .sid-btn-submit:disabled {
+        background: #cbd5e1; box-shadow: none; cursor: not-allowed; transform: none;
+    }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 1100px) {
+        .sid-page-wrapper { padding: 0 4px 32px; }
+        .sid-hero { padding: 20px 22px; }
+        .sid-hero-badge { display: none; }
+        .sid-section { padding: 20px 20px; }
+    }
+    @media (max-width: 768px) {
+        .sid-hero { flex-direction: column; align-items: flex-start; gap: 12px; }
+        .sid-hero h2 { font-size: 18px; }
+        .model-grid { grid-template-columns: 1fr; }
+        .sid-footer {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+        }
+        .sid-action-row { justify-content: flex-end; }
+        .sid-footer-hint { justify-content: flex-start; }
+    }
+    @media (max-width: 520px) {
+        .sid-hero { padding: 16px 16px; border-radius: 12px; }
+        .sid-section { padding: 16px 16px; }
+        .sid-hero h2 { font-size: 16px; }
+        .sid-hero p  { font-size: 12px; }
+        .sid-btn-submit { padding: 11px 18px; font-size: 13px; }
+        .sid-btn-cancel { padding: 11px 14px; font-size: 13px; }
+        .kits-num-input { width: 60px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sid-page-wrapper">
+
+    <!-- Breadcrumb -->
+    <div class="sid-breadcrumb">
+        <a href="/auth/dc/station-id/list">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            Station ID Dashboard
+        </a>
+        <span class="sid-breadcrumb-sep">›</span>
+        <span class="sid-breadcrumb-current">New Request</span>
+    </div>
+
+    <!-- Hero -->
+    <div class="sid-hero">
+        <div class="sid-hero-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        </div>
+        <div class="sid-hero-text">
+            <h2>New Station ID Request</h2>
+            <p>Complete the form below to submit your request to CHiPS Admin for review</p>
+        </div>
+        <div class="sid-hero-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline;vertical-align:-2px;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>
+            Auto-assigned on submit
+        </div>
+    </div>
+
+    <!-- Form Card -->
+    <form id="sid-request-form">
+        <div class="sid-form-card">
+
+            <!-- Section 1: Basic Info -->
+            <div class="sid-section">
+                <div class="sid-section-header">
+                    <div class="sid-section-icon blue">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    </div>
+                    <div>
+                        <div class="sid-section-title-text">Request Information</div>
+                        <div class="sid-section-subtitle">Basic details auto-filled from your account</div>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <div>
+                        <div class="sid-label">Request ID</div>
+                        <div class="sid-info-pill">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            Auto-generated on submission
+                        </div>
+                        <div class="sid-hint">Format: SID-A0001, SID-A0002…</div>
+                    </div>
+                    <div>
+                        <div class="sid-label">District</div>
+                        <div class="sid-info-pill">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            {{ session.get('district_name', 'N/A') }}
+                        </div>
+                        <input type="hidden" name="district_id" value="{{ session.get('district_id', '') }}">
+                        <div class="sid-hint">Pre-filled from your account</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Model -->
+            <div class="sid-section">
+                <div class="sid-section-header">
+                    <div class="sid-section-icon violet">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </div>
+                    <div>
+                        <div class="sid-section-title-text">Model Selection <span style="color:#ef4444;">*</span></div>
+                        <div class="sid-section-subtitle">Choose the appropriate deployment model for this kit</div>
+                    </div>
+                </div>
+
+                <div class="model-grid" id="model-group">
+                    <label class="model-card">
+                        <input type="radio" name="model" value="ECMP" id="model-ecmp" required>
+                        <div class="model-card-inner">
+                            <div class="model-card-check"></div>
+                            <div class="model-card-tag">ECMP</div>
+                            <div class="model-card-sub">Enterprise CHiPS Managed Platform N/A internally managed kit</div>
+                            <span class="model-card-badge badge-ecmp">In House</span>
+                        </div>
+                    </label>
+                    <label class="model-card">
+                        <input type="radio" name="model" value="UCL" id="model-ucl">
+                        <div class="model-card-inner">
+                            <div class="model-card-check"></div>
+                            <div class="model-card-tag">UCL</div>
+                            <div class="model-card-sub">UIDAI Common Library N/A external partner kit deployment</div>
+                            <span class="model-card-badge badge-ucl">External</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Section 3: User Type -->
+            <div class="sid-section">
+                <div class="sid-section-header">
+                    <div class="sid-section-icon green">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                    </div>
+                    <div>
+                        <div class="sid-section-title-text">User Type <span style="color:#ef4444;">*</span></div>
+                        <div class="sid-section-subtitle">Select the purpose of this Station ID request</div>
+                    </div>
+                </div>
+
+                <div class="user-type-list" id="user-type-group">
+                    <!-- New User -->
+                    <label class="user-type-option">
+                        <input type="radio" name="user_type" value="new_user" id="ut-newuser" required>
+                        <div class="user-type-inner">
+                            <div class="ut-radio"></div>
+                            <div class="ut-icon new-user">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                            </div>
+                            <div>
+                                <div class="ut-title">New User</div>
+                                <div class="ut-desc">Fresh Station ID assignment for a brand new operator</div>
+                            </div>
+                        </div>
+                    </label>
+                    <!-- Machine ID -->
+                    <label class="user-type-option">
+                        <input type="radio" name="user_type" value="machine_id" id="ut-machine">
+                        <div class="user-type-inner">
+                            <div class="ut-radio"></div>
+                            <div class="ut-icon machine">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            </div>
+                            <div>
+                                <div class="ut-title">Machine ID</div>
+                                <div class="ut-desc">Replace or reset Station ID for an existing machine</div>
+                            </div>
+                        </div>
+                    </label>
+                    <!-- Custom -->
+                    <label class="user-type-option">
+                        <input type="radio" name="user_type" value="custom" id="ut-custom">
+                        <div class="user-type-inner">
+                            <div class="ut-radio"></div>
+                            <div class="ut-icon custom">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9333ea" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            </div>
+                            <div>
+                                <div class="ut-title">Custom Reason</div>
+                                <div class="ut-desc">Other purpose N/A please specify your reason below</div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Custom reason reveal -->
+                <div id="custom-reason-wrapper">
+                    <div class="sid-label" style="margin-bottom:8px;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9333ea" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        Custom Reason <span class="req">*</span>
+                    </div>
+                    <textarea id="custom-reason-input" name="user_type_custom_reason"
+                        class="sid-textarea"
+                        placeholder="Describe your specific reason for this Station ID request in detail..."></textarea>
+                </div>
+            </div>
+
+            <!-- Section 4: Number of Kits -->
+            <div class="sid-section">
+                <div class="sid-section-header">
+                    <div class="sid-section-icon blue">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+                    </div>
+                    <div>
+                        <div class="sid-section-title-text">Number of Kits <span style="color:#ef4444;">*</span></div>
+                        <div class="sid-section-subtitle">How many kits are required for this request?</div>
+                    </div>
+                </div>
+
+                <div class="kits-row">
+                    <div class="kits-stepper">
+                        <button type="button" class="kits-stepper-btn" id="kits-dec">−</button>
+                        <input type="number" id="number-of-kits" name="number_of_kits"
+                               class="kits-num-input" value="1" min="1" max="999">
+                        <button type="button" class="kits-stepper-btn" id="kits-inc">+</button>
+                    </div>
+                    <span style="font-size:13px;color:#64748b;">kit(s) requested</span>
+                </div>
+                <div class="sid-hint" style="margin-top:8px;">Enter a value between 1 and 999</div>
+            </div>
+
+            <!-- Footer -->
+            <div class="sid-footer">
+                <div class="sid-footer-hint">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    All fields marked <span style="color:#ef4444;font-weight:700;">*</span> are required
+                </div>
+                <div class="sid-action-row">
+                    <a href="/auth/dc/station-id/list" class="sid-btn-cancel">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        Cancel
+                    </a>
+                    <button type="submit" class="sid-btn-submit" id="submit-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" id="submit-icon"><polyline points="20 6 9 17 4 12"/></svg>
+                        Submit Request
+                    </button>
+                </div>
+            </div>
+
+        </div><!-- /form-card -->
+    </form>
+
+</div><!-- /page-wrapper -->
+
+<script>
+    // ── Kits stepper ───────────────────────────────────────────────
+    const kitsInput = document.getElementById('number-of-kits');
+    document.getElementById('kits-dec').addEventListener('click', () => {
+        const v = parseInt(kitsInput.value) || 1;
+        if (v > 1) kitsInput.value = v - 1;
+    });
+    document.getElementById('kits-inc').addEventListener('click', () => {
+        const v = parseInt(kitsInput.value) || 0;
+        if (v < 999) kitsInput.value = v + 1;
+    });
+
+    // ── Show/hide custom reason ────────────────────────────────────
+    document.querySelectorAll('input[name="user_type"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const wrapper  = document.getElementById('custom-reason-wrapper');
+            const textarea = document.getElementById('custom-reason-input');
+            if (radio.value === 'custom' && radio.checked) {
+                wrapper.style.display = 'block';
+                textarea.required = true;
+                textarea.focus();
+            } else {
+                wrapper.style.display = 'none';
+                textarea.required = false;
+                textarea.value = '';
+            }
+        });
+    });
+
+    // ── AJAX Submit ────────────────────────────────────────────────
+    document.getElementById('sid-request-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        if (!document.querySelector('input[name="model"]:checked')) {
+            Swal.fire({ icon:'warning', title:'Model Required', text:'Please select a deployment model.', confirmButtonColor:'#4f46e5' });
+            return;
+        }
+        const userType = document.querySelector('input[name="user_type"]:checked');
+        if (!userType) {
+            Swal.fire({ icon:'warning', title:'User Type Required', text:'Please select a user type.', confirmButtonColor:'#4f46e5' });
+            return;
+        }
+        if (userType.value === 'custom' && !document.getElementById('custom-reason-input').value.trim()) {
+            Swal.fire({ icon:'warning', title:'Custom Reason Required', text:'Please describe your custom reason.', confirmButtonColor:'#4f46e5' });
+            return;
+        }
+        const kits = parseInt(kitsInput.value);
+        if (!kits || kits < 1) {
+            Swal.fire({ icon:'warning', title:'Kits Required', text:'Please enter at least 1 kit.', confirmButtonColor:'#4f46e5' });
+            return;
+        }
+
+        const btn = document.getElementById('submit-btn');
+        const icon = document.getElementById('submit-icon');
+        btn.disabled = true;
+        icon.innerHTML = '<circle cx="12" cy="12" r="10"/>';
+        icon.classList.add('spin');
+        btn.childNodes[2].textContent = ' Submitting…';
+
+        try {
+            const resp = await fetch('/auth/dc/station-id/new', { method:'POST', body: new FormData(this) });
+            const data = await resp.json();
+
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Request Submitted!',
+                    html: `<div style="font-size:14px;color:#334155;text-align:center;">
+                        <p style="margin-bottom:14px;">Your Station ID request has been sent to CHiPS Admin for review.</p>
+                        <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:12px;padding:16px;display:inline-block;min-width:220px;">
+                            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#166534;margin-bottom:4px;">Request ID Assigned</div>
+                            <div style="font-size:22px;font-weight:800;color:#15803d;letter-spacing:1px;">${data.data.request_no}</div>
+                            <div style="font-size:12px;color:#166534;margin-top:4px;">Status: Sent to CHiPS Admin ✓</div>
+                        </div>
+                    </div>`,
+                    confirmButtonText: 'View My Requests',
+                    showCancelButton: true,
+                    cancelButtonText: 'Submit Another',
+                    confirmButtonColor: '#4f46e5',
+                    cancelButtonColor: '#64748b',
+                    customClass: { popup: 'swal-premium' }
+                }).then(result => {
+                    if (result.isConfirmed) window.location.href = '/auth/dc/station-id/list';
+                    else window.location.reload();
+                });
+            } else {
+                Swal.fire({ icon:'error', title:'Submission Failed', text: data.detail || 'Something went wrong.', confirmButtonColor:'#4f46e5' });
+                resetBtn();
+            }
+        } catch (err) {
+            Swal.fire({ icon:'error', title:'Network Error', text:'Please check your connection and try again.', confirmButtonColor:'#4f46e5' });
+            resetBtn();
+        }
+    });
+
+    function resetBtn() {
+        const btn = document.getElementById('submit-btn');
+        const icon = document.getElementById('submit-icon');
+        btn.disabled = false;
+        icon.classList.remove('spin');
+        icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+        btn.childNodes[2].textContent = ' Submit Request';
+    }
+</script>
+{% endblock %}

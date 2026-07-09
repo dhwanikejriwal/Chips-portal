@@ -1,0 +1,757 @@
+{% extends 'base.html' %}
+
+{% block title %}Aadhaar Operator Request Portal{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── NEW VISUAL THEME ARCHITECTURE ── */
+  .hero {
+    padding: 70px 40px 60px;
+    text-align: center;
+    position: relative;
+    overflow: hidden
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 700px;
+    height: 400px;
+    background: radial-gradient(ellipse, rgba(108, 79, 232, 0.08) 0%, transparent 70%);
+    pointer-events: none
+  }
+
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #F0EDFF;
+    border: 1px solid #C8BFFF;
+    color: #5540C8;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 100px;
+    margin-bottom: 22px
+  }
+
+  .eyebrow-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #2ECC71;
+    animation: pulse 2s infinite
+  }
+
+  @keyframes pulse {
+
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1)
+    }
+
+    50% {
+      opacity: 0.4;
+      transform: scale(1.4)
+    }
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 4.5vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    color: #0E1121;
+    margin-bottom: 18px
+  }
+
+  .hero h1 span {
+    background: linear-gradient(135deg, #6C4FE8, #2E9E4A);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text
+  }
+
+  .hero-sub {
+    font-size: 17px;
+    color: #5A5F7A;
+    line-height: 1.75;
+    max-width: 520px;
+    margin: 0 auto 36px
+  }
+
+  .hero-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 40px
+  }
+
+  .btn-cta-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 32px;
+    font-size: 15px;
+    font-weight: 700;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    background: linear-gradient(135deg, #6C4FE8, #8B69FF);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(108, 79, 232, 0.35)
+  }
+
+  .btn-cta-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 22px rgba(108, 79, 232, 0.45);
+    background: linear-gradient(135deg, #5540C8, #7A58EE)
+  }
+
+  .btn-cta-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1.5px solid #D0D3DE;
+    background: #fff;
+    color: #3A3F5C;
+    cursor: pointer;
+    transition: all 0.18s ease
+  }
+
+  .btn-cta-secondary:hover {
+    border-color: #6C4FE8;
+    color: #6C4FE8;
+    background: #F8F6FF
+  }
+
+  .hero-trust {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap
+  }
+
+  .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #6B7080
+  }
+
+  .trust-check {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #E8F5EF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0
+  }
+
+  .trust-sep {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #D0D3DE
+  }
+
+  .stats-strip {
+    display: flex;
+    justify-content: center;
+    background: #fff;
+    border-top: 1px solid #EAECF2;
+    border-bottom: 1px solid #EAECF2;
+    padding: 24px 40px
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 0 40px;
+    border-right: 1px solid #EAECF2
+  }
+
+  .stat:last-child {
+    border-right: none
+  }
+
+  .stat-number {
+    font-size: 28px;
+    font-weight: 800;
+    color: #0E1121;
+    line-height: 1
+  }
+
+  .stat-number span {
+    color: #6C4FE8
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: #6B7080;
+    font-weight: 500
+  }
+
+  .section {
+    padding: 64px 40px;
+    max-width: 1160px;
+    margin: 0 auto
+  }
+
+  .section-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6C4FE8;
+    margin-bottom: 10px
+  }
+
+  .section-title {
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #0E1121;
+    margin-bottom: 10px
+  }
+
+  .section-sub {
+    font-size: 16px;
+    color: #5A5F7A;
+    line-height: 1.7;
+    max-width: 540px;
+    margin-bottom: 40px
+  }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    position: relative
+  }
+
+  .steps-grid::before {
+    content: '';
+    position: absolute;
+    top: 34px;
+    left: calc(10% + 20px);
+    right: calc(10% + 20px);
+    height: 1.5px;
+    background: linear-gradient(90deg, #C8BFFF, #B2EFD0);
+    z-index: 0
+  }
+
+  .step-card {
+    background: #fff;
+    border: 1px solid #EAECF2;
+    border-radius: 14px;
+    padding: 20px 16px 18px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    transition: all 0.2s ease
+  }
+
+  .step-card:hover {
+    box-shadow: 0 6px 24px rgba(108, 79, 232, 0.1);
+    transform: translateY(-3px)
+  }
+
+  .step-num {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 800;
+    margin: 0 auto 14px;
+    position: relative;
+    z-index: 1
+  }
+
+  .step-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1A1D2E;
+    margin-bottom: 6px;
+    line-height: 1.3
+  }
+
+  .step-desc {
+    font-size: 12px;
+    color: #7B8099;
+    line-height: 1.5
+  }
+
+  .step-1 .step-num {
+    background: #F0EDFF;
+    color: #5540C8
+  }
+
+  .step-2 .step-num {
+    background: #FFF4E5;
+    color: #B56F00
+  }
+
+  .step-3 .step-num {
+    background: #E6FAF0;
+    color: #0F7A50
+  }
+
+  .step-4 .step-num {
+    background: #E8F2FF;
+    color: #1655A8
+  }
+
+  .step-5 .step-num {
+    background: #FFF0F5;
+    color: #A0265A
+  }
+
+  .elig-section {
+    background: #fff;
+    border-top: 1px solid #EAECF2;
+    border-bottom: 1px solid #EAECF2
+  }
+
+  .elig-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px
+  }
+
+  .elig-card {
+    background: #F8F9FC;
+    border: 1px solid #EAECF2;
+    border-radius: 14px;
+    padding: 20px;
+    transition: border-color 0.15s
+  }
+
+  .elig-card:hover {
+    border-color: #B8ACFF
+  }
+
+  .elig-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px
+  }
+
+  .elig-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0
+  }
+
+  .elig-card-head h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1A1D2E
+  }
+
+  .elig-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 9px
+  }
+
+  .elig-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 13px;
+    color: #5A5F7A;
+    line-height: 1.5
+  }
+
+  .elig-tick {
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: #E6FAF0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px
+  }
+
+  .cta-strip {
+    background: linear-gradient(135deg, #0E1121 0%, #1E1450 50%, #0F2E1A 100%);
+    padding: 64px 40px;
+    text-align: center
+  }
+
+  .cta-strip h2 {
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px
+  }
+
+  .cta-strip p {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 30px
+  }
+
+  .cta-strip-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap
+  }
+
+  .btn-white {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 28px;
+    font-size: 15px;
+    font-weight: 700;
+    border-radius: 10px;
+    background: #fff;
+    color: #5540C8;
+    border: none;
+    cursor: pointer;
+    text-decoration: none
+  }
+
+  .btn-white:hover {
+    opacity: 0.9
+  }
+
+  .btn-ghost-white {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 26px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    text-decoration: none
+  }
+
+  .btn-ghost-white:hover {
+    background: rgba(255, 255, 255, 0.14)
+  }
+
+  @media(max-width:900px) {
+    .steps-grid {
+      grid-template-columns: repeat(3, 1fr)
+    }
+
+    .steps-grid::before {
+      display: none
+    }
+
+    .elig-grid {
+      grid-template-columns: 1fr
+    }
+
+    .stats-strip {
+      flex-wrap: wrap;
+      gap: 16px
+    }
+
+    .stat {
+      border-right: none;
+      padding: 0 24px
+    }
+  }
+
+  @media(max-width:600px) {
+    .hero {
+      padding: 48px 18px 40px
+    }
+
+    .section {
+      padding: 48px 18px
+    }
+
+    .steps-grid {
+      grid-template-columns: 1fr 1fr
+    }
+
+    .hero-cta {
+      flex-direction: column
+    }
+  }
+</style>
+{% endblock %}
+
+{% block sidebar %}{% endblock %}
+
+{% block page_wrapper %}
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">
+    <span class="eyebrow-dot"></span>
+    Registrations open N/A Chhattisgarh 2026
+  </div>
+  <h1>Become a Certified<br><span>Aadhaar Operator</span></h1>
+  <p class="hero-sub">Register, complete your LMS training, pass the NSEIT exam, and get activated as an official
+    Aadhaar enrollment operator in your district.</p>
+  <div class="hero-cta">
+    <!-- 🌟 LINKED TO YOUR REGISTRATION FLOW -->
+    <a href="{{ url_for('candidate_register.eligibility') }}" class="btn-cta-primary">
+      Start Registration
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M5 12h14M12 5l7 7-7 7" />
+      </svg>
+    </a>
+    <!-- 🌟 LINKED TO YOUR LOGIN FLOW -->
+    <a href="{{ url_for('auth.login', mode='candidate') }}" class="btn-cta-secondary">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 8v4l3 3" />
+      </svg>
+      Candidate Login
+    </a>
+  </div>
+  <div class="hero-trust">
+    <div class="trust-item">
+      <div class="trust-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+          stroke-width="3">
+          <polyline points="20 6 9 17 4 12" />
+        </svg></div>
+      UIDAI certified programme
+    </div>
+    <span class="trust-sep"></span>
+    <div class="trust-item">
+      <div class="trust-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+          stroke-width="3">
+          <polyline points="20 6 9 17 4 12" />
+        </svg></div>
+      Certificate valid 3 years
+    </div>
+    <span class="trust-sep"></span>
+    <div class="trust-item">
+      <div class="trust-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+          stroke-width="3">
+          <polyline points="20 6 9 17 4 12" />
+        </svg></div>
+      Free registration
+    </div>
+    <span class="trust-sep"></span>
+    <div class="trust-item">
+      <div class="trust-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+          stroke-width="3">
+          <polyline points="20 6 9 17 4 12" />
+        </svg></div>
+      28 districts covered
+    </div>
+  </div>
+</section>
+
+<!-- STATS STRIP -->
+<div class="stats-strip">
+  <div class="stat">
+    <div class="stat-number">28</div>
+    <div class="stat-label">Districts covered</div>
+  </div>
+  <div class="stat">
+    <div class="stat-number">4,200<span>+</span></div>
+    <div class="stat-label">Operators activated</div>
+  </div>
+  <div class="stat">
+    <div class="stat-number">3 <span style="font-size:20px">yrs</span></div>
+    <div class="stat-label">Certificate validity</div>
+  </div>
+  <div class="stat">
+    <div class="stat-number">100<span>%</span></div>
+    <div class="stat-label">UIDAI certified</div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS PROCESS SECTIONS -->
+<section class="section">
+  <p class="section-label">Process</p>
+  <h2 class="section-title">How it works</h2>
+  <p class="section-sub">Five steps from your initial application to receiving your official UIDAI Aadhaar Operator ID.
+  </p>
+  <div class="steps-grid">
+    <div class="step-card step-1">
+      <div class="step-num">1</div>
+      <div class="step-title">Register &amp; verify</div>
+      <div class="step-desc">Fill the form, verify mobile OTP, upload your documents.</div>
+    </div>
+    <div class="step-card step-2">
+      <div class="step-num">2</div>
+      <div class="step-title">DC selection</div>
+      <div class="step-desc">District Collector reviews your application and selects candidates.</div>
+    </div>
+    <div class="step-card step-3">
+      <div class="step-num">3</div>
+      <div class="step-title">LMS training</div>
+      <div class="step-desc">Complete all mandatory UIDAI e-learning modules online.</div>
+    </div>
+    <div class="step-card step-4">
+      <div class="step-num">4</div>
+      <div class="step-title">NSEIT exam</div>
+      <div class="step-desc">Book and pass the 100-question certification exam.</div>
+    </div>
+    <div class="step-card step-5">
+      <div class="step-num">5</div>
+      <div class="step-title">Activation</div>
+      <div class="step-desc">Upload final docs and receive your UIDAI Operator ID.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ELIGIBILITY QUICK LOOKUP SECTION -->
+<div class="elig-section">
+  <section class="section">
+    <p class="section-label">Who can apply</p>
+    <h2 class="section-title">Eligibility at a glance</h2>
+    <p class="section-sub">Check these requirements before starting your application.</p>
+    <div class="elig-grid">
+      <div class="elig-card">
+        <div class="elig-card-head">
+          <div class="elig-icon" style="background:#F0EDFF">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5540C8" stroke-width="2">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+              <path d="M6 12v5c3 3 9 3 12 0v-5" />
+            </svg>
+          </div>
+          <h4>Educational qualification</h4>
+        </div>
+        <ul class="elig-list">
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>12th pass or 3-year diploma (general)</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>10th pass for ASHA or Anganwadi workers</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Original certificate required</li>
+        </ul>
+      </div>
+      <div class="elig-card">
+        <div class="elig-card-head">
+          <div class="elig-icon" style="background:#E6FAF0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F7A50" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+          <h4>Personal eligibility</h4>
+        </div>
+        <ul class="elig-list">
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Minimum age 18 years</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Valid Aadhaar card mandatory</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Not previously debarred by UIDAI</li>
+        </ul>
+      </div>
+      <div class="elig-card">
+        <div class="elig-card-head">
+          <div class="elig-icon" style="background:#FFF4E5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B56F00" stroke-width="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </div>
+          <h4>District &amp; vacancy</h4>
+        </div>
+        <ul class="elig-list">
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Apply only in your home district</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Vacancy must exist in district</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>One application per mobile number</li>
+        </ul>
+      </div>
+      <div class="elig-card">
+        <div class="elig-card-head">
+          <div class="elig-icon" style="background:#E8F2FF">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1655A8" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+          </div>
+          <h4>Documents to upload</h4>
+        </div>
+        <ul class="elig-list">
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Aadhaar card scan or photo</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>PAN card and bank passbook</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Qualification certificate and photograph</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- BOTTOM CTA ACTION STRIP -->
+<div class="cta-strip">
+  <h2>Ready to apply?</h2>
+  <p>Check eligibility and submit your application in under 10 minutes.</p>
+  <div class="cta-strip-actions">
+    <!-- 🌟 MAPS DIRECTLY TO ELIGIBILITY ENTRY ENDPOINT -->
+    <a href="{{ url_for('candidate_register.eligibility') }}" class="btn-white">Check eligibility &amp; register</a>
+    <!-- 🌟 MAPS DIRECTLY TO SYSTEM INTERFACE ROLE LOGIN PORTAL -->
+    <a href="{{ url_for('auth.login', mode='candidate') }}" class="btn-ghost-white">DC / CHIPS Login</a>
+  </div>
+</div>
+{% endblock %}

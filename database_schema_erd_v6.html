@@ -1,0 +1,157 @@
+<style>
+#erd6 { padding: 1rem 0; }
+#erd6 svg { width: 100%; }
+</style>
+<div id="erd6"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"Anthropic Sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '13px',
+    fontFamily: '"Anthropic Sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+    primaryColor: dark ? '#3C3489' : '#EEEDFE',
+    primaryTextColor: dark ? '#26215C' : '#26215C',
+    primaryBorderColor: dark ? '#7F77DD' : '#AFA9EC',
+    secondaryColor: dark ? '#085041' : '#E1F5EE',
+    tertiaryColor: dark ? '#0C447C' : '#E6F1FB',
+    edgeLabelBackground: dark ? '#2C2C2A' : '#F1EFE8',
+    attributeBackgroundColorEven: dark ? '#1a1a18' : '#f8f7f4',
+    attributeBackgroundColorOdd: dark ? '#222220' : '#ffffff',
+  },
+  er: { diagramPadding: 20, layoutDirection: 'TB', minEntityWidth: 100, minEntityHeight: 75, entityPadding: 15, useMaxWidth: true },
+});
+const diagram = `erDiagram
+    master_user_role {
+        int id PK
+        string role
+    }
+    district_table {
+        string district_code PK
+        int id
+        string district_name
+        string district_short_name
+    }
+    user_login_table {
+        int id PK
+        string username
+        string password
+        string district_id FK
+        int roleid FK
+    }
+    candidate_table {
+        int r_id PK
+        string request_code
+        string name
+        string mobile
+        string email
+        string district FK
+        string qualification
+        string lms_id
+        string nseit_id
+        string exam_unique_code
+        date dob
+        string aadhaar
+        string marksheet_upload
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    candidate_login_table {
+        int id PK
+        int r_id FK
+        string user_id
+        string password
+    }
+    LMS_table {
+        int id PK
+        int r_id FK
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    lms_remark_table {
+        int id PK
+        int lms_id FK
+        string remark
+        datetime time
+        int admin_by_id FK
+        int candidate_by_id FK
+        boolean is_public
+    }
+    dc_remark_table {
+        int id PK
+        int r_id FK
+        string remark
+        datetime time
+        int by FK
+    }
+    nseit_request_table {
+        int id PK
+        int r_id FK
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    nseit_request_remark_table {
+        int id PK
+        int nseit_id FK
+        string remark
+        datetime time
+        int admin_by_id FK
+        int candidate_by_id FK
+        boolean is_public
+    }
+
+    master_user_role ||--o{ user_login_table : "roleid"
+    district_table ||--o{ user_login_table : "district_id"
+    district_table ||--o{ candidate_table : "district"
+    
+    user_login_table ||--o{ lms_remark_table : "admin_by_id"
+    user_login_table ||--o{ nseit_request_remark_table : "admin_by_id"
+    user_login_table ||--o{ dc_remark_table : "by"
+    
+    candidate_login_table ||--o{ lms_remark_table : "candidate_by_id"
+    candidate_login_table ||--o{ nseit_request_remark_table : "candidate_by_id"
+
+    candidate_table ||--o{ candidate_login_table : "r_id"
+    candidate_table ||--o{ LMS_table : "r_id"
+    candidate_table ||--o{ dc_remark_table : "r_id"
+    candidate_table ||--o{ nseit_request_table : "r_id"
+    LMS_table ||--o{ lms_remark_table : "lms_id"
+    nseit_request_table ||--o{ nseit_request_remark_table : "nseit_id"
+`;
+const { svg } = await mermaid.render('erd-svg6', diagram);
+document.getElementById('erd6').innerHTML = svg;
+
+document.querySelectorAll('#erd6 svg .node').forEach(node => {
+  const firstPath = node.querySelector('path[d]');
+  if (!firstPath) return;
+  const d = firstPath.getAttribute('d');
+  const nums = d.match(/-?[\d.]+/g)?.map(Number);
+  if (!nums || nums.length < 8) return;
+  const xs = [nums[0], nums[2], nums[4], nums[6]];
+  const ys = [nums[1], nums[3], nums[5], nums[7]];
+  const x = Math.min(...xs), y = Math.min(...ys);
+  const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', x); rect.setAttribute('y', y);
+  rect.setAttribute('width', w); rect.setAttribute('height', h);
+  rect.setAttribute('rx', '8');
+  for (const a of ['fill', 'stroke', 'stroke-width', 'class', 'style']) {
+    if (firstPath.hasAttribute(a)) rect.setAttribute(a, firstPath.getAttribute(a));
+  }
+  firstPath.replaceWith(rect);
+});
+
+document.querySelectorAll('#erd6 svg .row-rect-odd path, #erd6 svg .row-rect-even path').forEach(p => {
+  p.setAttribute('stroke', 'none');
+});
+</script>

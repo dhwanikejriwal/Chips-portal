@@ -1,0 +1,676 @@
+{% extends 'base.html' %}
+
+{% block title %}Candidate Onboarding Requests - DC/EDM Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_candidate_requests.css') }}">
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}
+
+{% block content %}
+            <h1 style="text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; color: #1a202c; letter-spacing: -0.5px;">
+                CANDIDATE ONBOARDING REQUESTS
+            </h1>
+
+            <div class="container" style="max-width: 1200px; margin: 0 auto;">
+
+                <!-- Unified Filter Controls -->
+                <div class="filter-bar" style="display: flex; gap: 15px; align-items: flex-end; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap;">
+                    <div class="filter-group filter-group-search" style="display: flex; flex-direction: column; gap: 5px;">
+                        <label style="font-size: 13px; font-weight: 600; color: #4a5568;">Search Candidate</label>
+                        <input type="text" id="admin-search-input" placeholder="Search by code, name, mobile or email..."
+                            class="table-input" style="width: 250px;" oninput="filterAdminQueues()">
+                    </div>
+                    <!-- Hidden input to align javascript filters for district coordinate views -->
+                    <input type="hidden" id="admin-district-filter" value="all">
+                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 5px;">
+                        <label style="font-size: 13px; font-weight: 600; color: #4a5568;">Time Period</label>
+                        <select id="admin-date-filter" class="table-input" style="width: 150px;"
+                            onchange="filterAdminQueues()">
+                            <option value="all" selected>All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Pending Queue Table Section -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #2d3748;">Pending Onboarding Requests</h2>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <select id="admin-pending-status-filter" class="table-input"
+                            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;"
+                            onchange="filterAdminQueues()">
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                        </select>
+                        <button class="btn btn-sm"
+                            onclick="exportTableToCSV('admin-pending-table', 'pending_onboarding_requests.csv')">Export to Excel</button>
+                    </div>
+                </div>
+                <div class="table-wrapper" style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <table class="data-table" id="admin-pending-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead style="background: #edf2f7; border-bottom: 1px solid #e2e8f0;">
+                            <tr>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">S.No</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Request Code</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">District</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Candidate Name</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Mobile No</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Email ID</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Qualification</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Status</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Submitted At</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568; text-align: center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-queue-body">
+                            {% for req in pending_requests %}
+                            <tr id="request-row-{{ req.r_id }}" data-id="{{ req.r_id }}"
+                                data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+                                data-name="{{ req.name }}" data-phone="{{ req.mobile }}"
+                                data-email="{{ req.email }}" data-qualification="{{ req.qualification }}"
+                                data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+                                data-address="{{ req.address or '' }}" data-pincode="{{ req.pincode or '' }}"
+                                data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+                                data-photo="{{ req.photo_upload or '' }}"
+                                data-lms-id="{{ req.lms_id or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+                                data-marksheet="{{ req.marksheet_upload }}"
+                                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+                                data-status="{{ req.status }}" data-login-id="{{ req.generated_login_id or '' }}"
+                                data-password="{{ req.generated_password_raw or '' }}"
+                                data-remarks='{{ req.remarks_history | tojson | safe }}'
+                                data-created="{{ req.created_at }}"
+                                style="border-bottom: 1px solid #edf2f7;">
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ req.request_code }}</strong></td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.district_name }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.name }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.qualification }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;">
+                                    <span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>
+                                </td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
+                                <td style="padding: 12px 15px; text-align: center;">
+                                    <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                                        <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                                            onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')">Approve</button>
+                                        <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                                            onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')">Reject</button>
+                                        <button type="button" class="btn-details"
+                                            onclick="openDetailsModal(this.closest('tr'), false)">Details</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="10" style="padding: 30px; text-align: center; color: #718096; font-size: 14px;">No pending onboarding requests found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
+
+                <!-- Log History Table Section -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #2d3748;">Credentials Log History</h2>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <select id="admin-history-status-filter" class="table-input"
+                            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;"
+                            onchange="filterAdminQueues()">
+                            <option value="all">All Status</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                        <button class="btn btn-sm"
+                            onclick="exportTableToCSV('admin-approved-table', 'onboarding_history_log.csv')">Export to Excel</button>
+                    </div>
+                </div>
+                <div class="table-wrapper" style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <table class="data-table" id="admin-approved-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead style="background: #edf2f7; border-bottom: 1px solid #e2e8f0;">
+                            <tr>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">S.No</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Request Code</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">District</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Candidate Name</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Mobile No</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Email ID</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Status</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Submitted At</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Updated At</th>
+                                <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568; text-align: center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-approved-body">
+                            {% for req in approved_requests %}
+                            <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}"
+                                data-code="{{ req.request_code }}" data-name="{{ req.name }}"
+                                data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+                                data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
+                                data-aadhaar="{{ req.aadhaar }}" data-lms-id="{{ req.lms_id or '' }}"
+                                data-address="{{ req.address or '' }}" data-pincode="{{ req.pincode or '' }}"
+                                data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+                                data-photo="{{ req.photo_upload or '' }}"
+                                data-nseit-id="{{ req.nseit_id or '' }}" data-marksheet="{{ req.marksheet_upload }}"
+                                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+                                data-status="{{ req.status }}" data-login-id="{{ req.generated_login_id or '' }}"
+                                data-password="{{ req.generated_password_raw or '' }}"
+                                data-remarks='{{ req.remarks_history | tojson | safe }}'
+                                data-created="{{ req.created_at }}"
+                                data-updated="{{ req.updated_at or req.created_at }}"
+                                style="border-bottom: 1px solid #edf2f7;">
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ req.request_code }}</strong></td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.district_name }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.name }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;">
+                                    {% if req.status == 'Approved' %}
+                                    <span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>
+                                    {% elif req.status == 'Rejected' %}
+                                    <span class="badge badge-rejected" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Rejected</span>
+                                    {% else %}
+                                    <span class="badge" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: #e2e8f0; color: #4a5568;">{{ req.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
+                                <td style="padding: 12px 15px; font-size: 14px;">{{ req.updated_at or req.created_at }}</td>
+                                <td style="padding: 12px 15px; text-align: center;">
+                                    <button class="btn-details"
+                                        onclick="openDetailsModal(this.closest('tr'), true)">Details</button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="10" style="padding: 30px; text-align: center; color: #718096; font-size: 14px;">No processed onboarding history found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+
+    <script>
+        // Set dynamic filters on load
+        window.addEventListener('load', function () {
+            // Force reset search fields and run initial filter
+            const searchInput = document.getElementById('admin-search-input');
+            if (searchInput) searchInput.value = '';
+            
+            const historyFilter = document.getElementById('admin-history-status-filter');
+            if (historyFilter) historyFilter.value = 'all';
+
+            filterAdminQueues();
+        });
+
+        // Filter functionality for searching and dropdowns
+        function filterAdminQueues() {
+            const query = document.getElementById('admin-search-input').value.toLowerCase();
+            const district = 'all'; // Always all for DC district pre-scoped queries
+            const dateFilter = document.getElementById('admin-date-filter').value;
+            const pendingStatusFilter = document.getElementById('admin-pending-status-filter') ? document.getElementById('admin-pending-status-filter').value.toLowerCase() : 'all';
+            const historyStatusFilter = document.getElementById('admin-history-status-filter').value.toLowerCase();
+
+            const now = new Date();
+            const yearStr = now.getFullYear().toString();
+            const monthStr = (now.getMonth() + 1).toString().padStart(2, '0');
+            const dayStr = now.getDate().toString().padStart(2, '0');
+
+            const todayPrefix = `${yearStr}-${monthStr}-${dayStr}`;
+            const monthPrefix = `${yearStr}-${monthStr}`;
+            const yearPrefix = yearStr;
+
+            // Filter pending requests
+            const pendingRows = document.querySelectorAll('#admin-queue-body tr');
+            let pendingIndex = 1;
+            let pendingCount = 0;
+            pendingRows.forEach(row => {
+                if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return; // skip "no rows" row
+                
+                const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+                const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
+                const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+                const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
+                const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
+                const rowCreated = row.getAttribute('data-created') || '';
+                const rowStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
+
+                const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+                const matchesDistrict = district === 'all' || rowDistrict === district;
+                const matchesStatus = (pendingStatusFilter === 'all') || (rowStatus === pendingStatusFilter);
+
+                let matchesDate = true;
+                if (dateFilter === 'today') {
+                    matchesDate = rowCreated.startsWith(todayPrefix);
+                } else if (dateFilter === 'week') {
+                    if (!rowCreated) {
+                        matchesDate = false;
+                    } else {
+                        const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                        const startOfWeek = new Date(now);
+                        const day = startOfWeek.getDay();
+                        startOfWeek.setDate(now.getDate() - day);
+                        startOfWeek.setHours(0, 0, 0, 0);
+
+                        const endOfWeek = new Date(startOfWeek);
+                        endOfWeek.setDate(startOfWeek.getDate() + 6);
+                        endOfWeek.setHours(23, 59, 59, 999);
+
+                        matchesDate = rowDate >= startOfWeek && rowDate <= endOfWeek;
+                    }
+                } else if (dateFilter === 'month') {
+                    matchesDate = rowCreated.startsWith(monthPrefix);
+                }
+
+                if (matchesQuery && matchesDistrict && matchesDate && matchesStatus) {
+                    row.style.display = '';
+                    if (row.cells[0]) {
+                        row.cells[0].innerText = pendingIndex++;
+                    }
+                    pendingCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Filter history log
+            const approvedRows = document.querySelectorAll('#admin-approved-body tr');
+            let approvedIndex = 1;
+            let approvedCount = 0;
+            approvedRows.forEach(row => {
+                if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return; // skip "no rows" row
+                
+                const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+                const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
+                const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+                const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
+                const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
+                const rowCreated = row.getAttribute('data-created') || '';
+                const rowStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
+
+                const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+                const matchesDistrict = district === 'all' || rowDistrict === district;
+                const matchesHistoryStatus = historyStatusFilter === 'all' || rowStatus === historyStatusFilter;
+
+                let matchesDate = true;
+                if (dateFilter === 'today') {
+                    matchesDate = rowCreated.startsWith(todayPrefix);
+                } else if (dateFilter === 'week') {
+                    if (!rowCreated) {
+                        matchesDate = false;
+                    } else {
+                        const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                        const startOfWeek = new Date(now);
+                        const day = startOfWeek.getDay();
+                        startOfWeek.setDate(now.getDate() - day);
+                        startOfWeek.setHours(0, 0, 0, 0);
+
+                        const endOfWeek = new Date(startOfWeek);
+                        endOfWeek.setDate(startOfWeek.getDate() + 6);
+                        endOfWeek.setHours(23, 59, 59, 999);
+
+                        matchesDate = rowDate >= startOfWeek && rowDate <= endOfWeek;
+                    }
+                } else if (dateFilter === 'month') {
+                    matchesDate = rowCreated.startsWith(monthPrefix);
+                }
+
+                if (matchesQuery && matchesDistrict && matchesDate && matchesHistoryStatus) {
+                    row.style.display = '';
+                    if (row.cells[0]) {
+                        row.cells[0].innerText = approvedIndex++;
+                    }
+                    approvedCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Open SweetAlert for Approving candidate requests
+        function openApproveModal(rId, candidateName, candidateEmail) {
+            Swal.fire({
+                title: 'Approve Onboarding Request',
+                html: `
+                    <div style="text-align: left; padding: 0 10px;">
+                        <p style="margin-bottom: 15px; font-size: 14px; color: #555;">
+                            Are you sure you want to approve candidate <strong>${candidateName}</strong>?
+                        </p>
+                        
+                        <div>
+                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">Approval Remark (Mandatory) *</label>
+                            <textarea id="swal-remark" class="swal2-textarea" style="width: 100%; height: 85px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="Provide a remark for approving this candidate..."></textarea>
+                        </div>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Approve Request',
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                preConfirm: () => {
+                    const remark = document.getElementById('swal-remark').value.trim();
+                    if (!remark) {
+                        Swal.showValidationMessage('Please provide an approval reason remark.');
+                        return false;
+                    }
+                    return { remark: remark };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const payload = new URLSearchParams();
+                    payload.append("remark", result.value.remark);
+
+                    fetch(`/auth/dc/approve-candidate/${rId}`, {
+                        method: 'POST',
+                        body: payload,
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        }
+                    }).then(response => {
+                        if (response.ok) {
+                            Swal.fire({
+                                title: 'Onboarding Approved!',
+                                text: 'The candidate onboarding request was successfully approved.',
+                                icon: 'success',
+                                confirmButtonColor: '#28a745',
+                                timer: 2500,
+                                timerProgressBar: true
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            response.json().then(data => {
+                                const errorDetail = data.detail || 'Failed to approve. Please try again.';
+                                Swal.fire('Error', errorDetail, 'error');
+                            }).catch(() => {
+                                Swal.fire('Error', 'Failed to approve candidate request.', 'error');
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // Open SweetAlert for Rejecting with mandatory reason
+        function openRejectModal(rId, candidateName) {
+            Swal.fire({
+                title: 'Reject Onboarding Request',
+                html: `
+                    <div style="text-align: left; padding: 0 10px;">
+                        <p style="margin-bottom: 15px; font-size: 14px; color: #555;">
+                            Are you sure you want to reject candidate <strong>${candidateName}</strong>?
+                        </p>
+                        
+                        <div>
+                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">Rejection Remark (Mandatory) *</label>
+                            <textarea id="swal-reject-reason" class="swal2-textarea" style="width: 100%; height: 85px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="State the reason for rejecting this candidate..."></textarea>
+                        </div>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Reject Request',
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                preConfirm: () => {
+                    const reason = document.getElementById('swal-reject-reason').value.trim();
+                    if (!reason) {
+                        Swal.showValidationMessage('Please provide a rejection reason remark.');
+                        return false;
+                    }
+                    return { reject_reason: reason };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const payload = new URLSearchParams();
+                    payload.append("revert_reason", result.value.reject_reason);
+
+                    fetch(`/auth/dc/reject-candidate/${rId}`, {
+                        method: 'POST',
+                        body: payload,
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        }
+                    }).then(response => {
+                        if (response.ok) {
+                            Swal.fire({
+                                title: 'Onboarding Rejected!',
+                                text: 'The request has been rejected and logged.',
+                                icon: 'warning',
+                                confirmButtonColor: '#dc3545',
+                                timer: 2500,
+                                timerProgressBar: true
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            response.json().then(data => {
+                                Swal.fire('Error', data.detail || 'Failed to reject request.', 'error');
+                            }).catch(() => {
+                                Swal.fire('Error', 'Failed to reject request.', 'error');
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // Helper to escape HTML characters in strings
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+
+        // Build a status badge HTML string for inline use in remarks timeline
+        function buildStatusBadgeInline(status) {
+            const map = {
+                'Approved': 'badge-approved',
+                'Forwarded': 'badge-forwarded',
+                'Forwarded Again': 'badge-forwarded-again',
+                'Reapplied': 'badge-reapplied',
+                'Reverted': 'badge-reverted',
+                'Reverted by CHiPS': 'badge-reverted',
+                'Pending': 'badge-pending',
+                'Rejected': 'badge-reverted'
+            };
+            const cls = map[status] || 'badge-pending';
+            return '<span class="badge ' + cls + '" style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;">' + status + '</span>';
+        }
+
+        // Open details modal
+        function openDetailsModal(row, showRemarks = true) {
+            const id = row.getAttribute('data-id');
+            const code = row.getAttribute('data-code');
+            const name = row.getAttribute('data-name');
+            const phone = row.getAttribute('data-phone');
+            const email = row.getAttribute('data-email');
+            const qualification = row.getAttribute('data-qualification');
+            const dob = row.getAttribute('data-dob');
+            const aadhaar = row.getAttribute('data-aadhaar');
+            const address = row.getAttribute('data-address') || '';
+            const pincode = row.getAttribute('data-pincode') || '';
+            const isOperator = row.getAttribute('data-is-operator') || 'No';
+            const photo = row.getAttribute('data-photo') || '';
+            const lmsId = row.getAttribute('data-lms-id') || '';
+            const nseitId = row.getAttribute('data-nseit-id') || '';
+            const marksheet = row.getAttribute('data-marksheet');
+            const tenthMarksheet = row.getAttribute('data-tenth-marksheet') || '';
+            const status = row.getAttribute('data-status');
+            const loginId = row.getAttribute('data-login-id') || '';
+            const password = row.getAttribute('data-password') || '';
+            const remarksStr = row.getAttribute('data-remarks') || '[]';
+            const created = row.getAttribute('data-created') || '';
+
+            let remarks = [];
+            try {
+                remarks = JSON.parse(remarksStr);
+            } catch (e) {
+                console.error("Error parsing remarks:", e);
+            }
+
+            // Build remarks history timeline html
+            let timelineHtml = '';
+            if (showRemarks && remarks.length > 0) {
+                timelineHtml += '<div class="remarks-timeline"><div class="timeline-title">Audit Action History Log</div><div class="timeline-track">';
+                remarks.forEach(item => {
+                    const sender = (item.sender_role === 'CHIPS' || item.sender_role === 'Admin') ? 'CHIPS Admin' :
+                                   (item.sender_role === 'DC') ? 'District Coordinator' :
+                                   (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
+                    const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'Admin' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
+                    const statusAfter = item.status_after || '';
+                    const statusBadgeInline = buildStatusBadgeInline(statusAfter);
+                    const stepLabel = 'Candidate Onboarding';
+                    timelineHtml += '<div class="timeline-item ' + senderClass + '">';
+                    timelineHtml += '<div class="timeline-marker"></div>';
+                    timelineHtml += '<div class="timeline-content">';
+                    timelineHtml += '<div class="timeline-section-row"><span class="timeline-step-label">' + stepLabel + '</span>' + (statusAfter ? (' ' + statusBadgeInline) : '') + '</div>';
+                    timelineHtml += '<div class="timeline-by-row"><span class="timeline-by">By: <strong>' + sender + '</strong>' + (item.sender_username ? ' (' + item.sender_username + ')' : '') + '</span><span class="timeline-time">' + item.created_at + '</span></div>';
+                    timelineHtml += '<div class="timeline-body">' + escapeHtml(item.remark) + '</div>';
+                    timelineHtml += '</div>';
+                    timelineHtml += '</div>';
+                });
+                timelineHtml += '</div></div>';
+            } else if (showRemarks) {
+                timelineHtml += '<div style="margin-top: 15px; font-style: italic; color: #888; text-align: left; font-size: 13px;">No remarks history/actions logged yet.</div>';
+            }
+
+            let statusBadge = '';
+            if (status === 'Approved') {
+                statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>';
+            } else if (status === 'Rejected') {
+                statusBadge = '<span class="badge badge-rejected" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Rejected</span>';
+            } else {
+                statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
+            }
+
+            let credentialsHtml = '';
+
+            // Mask Aadhaar display
+            const maskedAadhaar = aadhaar ? `XXXX XXXX ${aadhaar.slice(-4)}` : 'N/A';
+
+            let htmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-size: 14px; color: #666;">Request: <strong>${code}</strong></span>
+                    <span>${statusBadge}</span>
+                </div>
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                    Registered At: <strong>${created}</strong>
+                </div>
+
+                ${photo ? `<div style="text-align:center;margin-bottom:14px;"><img src="${photo}" alt="Profile Photo" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;"></div>` : ''}
+
+                <div style="margin-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #718096;">Personal Information</div>
+                <div style="margin-bottom: 15px; font-size: 13px; color: #495057; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 20px; border-bottom: 1px solid #eee; padding-bottom: 14px;">
+                    <div style="grid-column: 1 / -1;"><strong>Candidate Name:</strong> ${name}</div>
+                    <div><strong>Date of Birth:</strong> ${dob}</div>
+                    <div><strong>Mobile Number:</strong> ${phone}</div>
+                    <div><strong>Email ID:</strong> ${email}</div>
+                    <div><strong>Aadhaar Card:</strong> ${maskedAadhaar}</div>
+                    <div><strong>Existing Aadhaar Operator:</strong> ${isOperator}</div>
+                </div>
+
+                <div style="margin-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #718096;">Address</div>
+                <div style="margin-bottom: 15px; font-size: 13px; color: #495057; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 20px; border-bottom: 1px solid #eee; padding-bottom: 14px;">
+                    <div style="grid-column: 1 / -1;"><strong>Full Address:</strong> ${address || 'N/A'}</div>
+                    <div><strong>Pincode:</strong> ${pincode || 'N/A'}</div>
+                    <div><strong>District:</strong> ${row.getAttribute('data-district')}</div>
+                </div>
+
+                <div style="margin-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #718096;">Qualification &amp; Documents</div>
+                <div style="margin-bottom: 14px; font-size: 13px; color: #495057; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 20px; border-bottom: 1px solid #eee; padding-bottom: 14px;">
+                    <div><strong>Qualification:</strong> ${qualification}</div>
+                    <div><strong>LMS ID:</strong> ${lmsId || 'None'}</div>
+                    <div><strong>NSEIT ID:</strong> ${nseitId || 'None'}</div>
+                </div>
+
+                <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                    <a href="${marksheet}" target="_blank" class="btn btn-sm" style="background-color: #007bff; color: white; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; font-weight: 500;">
+                        <span>📁</span> Qualification Marksheet
+                    </a>
+                    ${tenthMarksheet ? `<a href="${tenthMarksheet}" target="_blank" class="btn btn-sm" style="background-color: #6c757d; color: white; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; font-weight: 500;"><span>📄</span> 10th Marksheet</a>` : ''}
+                </div>
+
+                ${credentialsHtml}
+                ${timelineHtml}
+            </div>
+            `;
+
+            Swal.fire({
+                title: 'Candidate Onboarding Request Details',
+                html: htmlContent,
+                confirmButtonText: 'Close',
+                confirmButtonColor: '#007bff',
+                width: '600px'
+            });
+        }
+
+        // Export table helper function to CSV file format
+        function exportTableToCSV(tableID, filename = 'export.csv') {
+            const table = document.getElementById(tableID);
+            if (!table) return;
+
+            const rows = [];
+            const headerRow = table.querySelector('thead tr');
+            const headers = headerRow ? headerRow.querySelectorAll('th') : [];
+
+            const validIndices = [];
+            const headerData = [];
+            headers.forEach((th, idx) => {
+                const text = th.innerText.trim();
+                if (text !== "Actions" && text !== "Action") {
+                    validIndices.push(idx);
+                    headerData.push(`"${text.replace(/"/g, '""')}"`);
+                }
+            });
+            rows.push(headerData.join(','));
+
+            const bodyRows = table.querySelectorAll('tbody tr');
+            bodyRows.forEach(row => {
+                if (row.style.display !== 'none' && row.cells.length > 1) {
+                    const rowData = [];
+                    const cells = row.querySelectorAll('td');
+                    validIndices.forEach(idx => {
+                        if (cells[idx]) {
+                            let text = cells[idx].innerText.trim();
+                            text = text.replace(/\s+/g, ' ');
+                            rowData.push(`"${text.replace(/"/g, '""')}"`);
+                        } else {
+                            rowData.push('""');
+                        }
+                    });
+                    rows.push(rowData.join(','));
+                }
+            });
+
+            const csvContent = "\uFEFF" + rows.join("\n");
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+{% endblock %}

@@ -1,0 +1,631 @@
+{% extends 'base.html' %}
+
+{% block title %}My Activation Requests N/A CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+<style>
+    /* ── Dashboard Header ── */
+    .dash-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 24px;
+        gap: 16px;
+    }
+    .dash-title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 4px; }
+    .dash-subtitle { font-size: 13px; color: #64748b; }
+    .btn-new-request {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 22px;
+        background: linear-gradient(135deg, #4f46e5, #6366f1);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 14px; font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        font-family: inherit;
+        box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+    .btn-new-request:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.45); }
+
+    /* ── Stats row ── */
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-bottom: 24px;
+    }
+    .stat-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .stat-icon {
+        width: 40px; height: 40px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .stat-num { font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1; }
+    .stat-lbl { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px 18px;
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .filter-group {
+        display: flex; flex-direction: column; gap: 5px;
+        flex: 1; min-width: 160px;
+    }
+    .filter-group-search { flex: 2.5; }
+    .filter-group label {
+        font-size: 11px; font-weight: 700; color: #64748b;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .filter-input {
+        height: 38px; padding: 0 12px;
+        border: 1.5px solid #e2e8f0; border-radius: 8px;
+        font-size: 13px; color: #334155;
+        outline: none; background: #fff; font-family: inherit;
+        transition: border-color 0.2s;
+    }
+    .filter-input:focus { border-color: #6366f1; }
+
+    /* ── Section heading ── */
+    .section-heading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 28px 0 14px;
+    }
+    .section-heading-dot {
+        width: 10px; height: 10px; border-radius: 3px;
+    }
+    .section-heading h3 {
+        font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;
+    }
+    .section-heading .section-count {
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 12px; font-weight: 700;
+        padding: 2px 9px; border-radius: 20px;
+        margin-left: auto;
+    }
+
+    /* ── Table ── */
+    .sid-table-wrapper {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow-x: auto;
+        overflow-y: visible;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        -webkit-overflow-scrolling: touch;
+    }
+    .sid-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+        min-width: 820px;
+    }
+    .sid-table thead tr { background: #f8fafc; }
+    .sid-table th {
+        text-align: left;
+        padding: 11px 14px;
+        font-size: 11px; font-weight: 700;
+        color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    .sid-table td {
+        padding: 13px 14px;
+        color: #334155;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .sid-table tbody tr:last-child td { border-bottom: none; }
+    .sid-table tbody tr:hover td { background: #fafafe; }
+
+    /* ── Status badges ── */
+    .sid-badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 4px 10px; border-radius: 20px;
+        font-size: 12px; font-weight: 700;
+    }
+    .sid-badge::before {
+        content: '';
+        width: 6px; height: 6px; border-radius: 50%;
+    }
+    .sid-badge-pending, .sid-badge-sent_to_chips { background:#fef9c3; color:#854d0e; }
+    .sid-badge-pending::before, .sid-badge-sent_to_chips::before { background:#f59e0b; }
+    
+    .sid-badge-sent_to_uidai { background:#e0f2fe; color:#0369a1; }
+    .sid-badge-sent_to_uidai::before { background:#0ea5e9; }
+    
+    .sid-badge-approved { background:#dcfce7; color:#166534; }
+    .sid-badge-approved::before { background:#16a34a; }
+    
+    .sid-badge-reverted { background:#fee2e2; color:#991b1b; }
+    .sid-badge-reverted::before { background:#dc2626; }
+    
+    .sid-badge-rejected { background:#ffedd5; color:#c2410c; }
+    .sid-badge-rejected::before { background:#ea580c; }
+
+    .sid-badge-reapplied { background:#ede9fe; color:#5b21b6; }
+    .sid-badge-reapplied::before { background:#7c3aed; }
+
+    /* ── Action button ── */
+    .btn-details {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 6px 14px;
+        background: #f8fafc;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 7px;
+        font-size: 12px; font-weight: 600;
+        color: #334155; cursor: pointer;
+        font-family: inherit;
+        transition: all 0.15s;
+    }
+    .btn-details:hover { border-color: #6366f1; color: #4f46e5; background: #f5f3ff; }
+
+    /* ── Empty states ── */
+    .empty-state {
+        padding: 40px 20px;
+        text-align: center;
+        color: #94a3b8;
+    }
+    .empty-state-icon {
+        font-size: 36px; margin-bottom: 10px;
+    }
+    .empty-state p { font-size: 13px; margin: 0; }
+
+    @media (max-width: 1100px) {
+        .stats-row { grid-template-columns: repeat(2, 1fr); }
+        .btn-new-request { padding: 9px 16px; font-size: 13px; }
+    }
+    @media (max-width: 768px) {
+        .dash-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+        .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .filter-bar { padding: 10px 12px; gap: 8px; }
+        .filter-group { min-width: 120px; }
+        .section-heading h3 { font-size: 14px; }
+    }
+    @media (max-width: 520px) {
+        .stats-row { grid-template-columns: 1fr 1fr; }
+        .stat-num { font-size: 18px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="dash-header">
+    <div>
+        <h2 class="dash-title">Operator Activation Dashboard</h2>
+        <p class="dash-subtitle">Track and manage your operator activation requests</p>
+    </div>
+    <a href="/auth/dc/operator-activation" class="btn-new-request">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Request
+    </a>
+</div>
+
+<!-- Stats Row -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#eff6ff;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <div>
+            <div class="stat-num" id="stat-total">{{ requests | length }}</div>
+            <div class="stat-lbl">Total Requests</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fef9c3;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#f59e0b;" id="stat-pending">{{ requests | selectattr('status', 'in', ['pending', 'sent_to_chips', 'sent_to_uidai']) | list | length }}</div>
+            <div class="stat-lbl">Pending</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#dcfce7;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#16a34a;" id="stat-approved">{{ requests | selectattr('status', 'equalto', 'approved') | list | length }}</div>
+            <div class="stat-lbl">Approved</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fee2e2;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <div>
+            <div class="stat-num" style="color:#dc2626;" id="stat-reverted">{{ requests | selectattr('status', 'in', ['reverted', 'rejected']) | list | length }}</div>
+            <div class="stat-lbl">Reverted / Rejected</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <div class="filter-group filter-group-search">
+        <label>Search Operator</label>
+        <input type="text" id="dc-search-input" class="filter-input" placeholder="Search by name, mobile or request ID..." oninput="filterAllTables()">
+    </div>
+    <div class="filter-group">
+        <label>Time Period</label>
+        <select id="dc-date-filter" class="filter-input" onchange="filterAllTables()">
+            <option value="all" selected>All Time</option>
+            <option value="today">Today</option>
+            <option value="month">This Month</option>
+            <option value="year">This Year</option>
+        </select>
+    </div>
+</div>
+
+<!-- Pending Section -->
+<div class="section-heading">
+    <div class="section-heading-dot" style="background:#f59e0b;"></div>
+    <h3>Pending Operator Activation Queue</h3>
+    <span class="section-count" id="pending-count">–</span>
+</div>
+<div class="sid-table-wrapper" style="margin-bottom: 28px;">
+    <table class="sid-table" id="pending-requests-table">
+        <thead>
+            <tr>
+                <th>Request ID</th>
+                <th>Operator Name</th>
+                <th>Mobile</th>
+                <th>Status</th>
+                <th>Submitted At</th>
+                <th style="text-align: center;">Action</th>
+            </tr>
+        </thead>
+        <tbody id="pending-table-body">
+            {% for r in requests if r.status not in ['approved', 'reverted', 'rejected'] %}
+            <tr data-id="{{ r.id }}" 
+                data-request-no="{{ r.request_no if r.request_no else 'N/A' }}"
+                data-name="{{ r.operator_name }}"
+                data-mobile="{{ r.operator_mobile }}"
+                data-district="{{ r.district_name or 'Raipur' }}"
+                data-aadhaar="{{ r.operator_aadhaar or '' }}"
+                data-pan="{{ r.operator_pan or '' }}"
+                data-status="{{ r.status }}" 
+                data-created="{{ r.submitted_at }}"
+                data-remarks='{{ r.remarks_history | tojson | safe }}'>
+                
+                <td><strong>{{ r.request_no if r.request_no else 'N/A' }}</strong></td>
+                <td>{{ r.operator_name }}</td>
+                <td>{{ r.operator_mobile }}</td>
+                <td>
+                    <span class="sid-badge sid-badge-{{ r.status }}">
+                        {{ r.status | replace('_', ' ') | capitalize }}
+                    </span>
+                </td>
+                <td>{{ r.submitted_at if r.submitted_at else 'N/A' }}</td>
+                <td style="text-align: center;">
+                    <button class="btn-details" onclick="openActivationDetailsModal(this.closest('tr'))">
+                        Details
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div id="pending-empty-msg" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">📥</div>
+        <p>No pending pipeline records found matching current filter scope.</p>
+    </div>
+</div>
+
+<!-- History Section -->
+<div class="section-heading">
+    <div class="section-heading-dot" style="background:#16a34a;"></div>
+    <h3>Activation Log History</h3>
+    <span class="section-count" id="approved-count">–</span>
+</div>
+<div class="sid-table-wrapper">
+    <table class="sid-table" id="approved-requests-table">
+        <thead>
+            <tr>
+                <th>Request ID</th>
+                <th>Operator Name</th>
+                <th>Mobile</th>
+                <th>Status</th>
+                <th>Submitted At</th>
+                <th>Processed At</th>
+                <th style="text-align: center;">Action</th>
+            </tr>
+        </thead>
+        <tbody id="approved-table-body">
+            {% for r in requests if r.status in ['approved', 'reverted', 'rejected'] %}
+            <tr data-id="{{ r.id }}" 
+                data-request-no="{{ r.request_no if r.request_no else 'N/A' }}"
+                data-name="{{ r.operator_name }}"
+                data-mobile="{{ r.operator_mobile }}"
+                data-district="{{ r.district_name or 'Raipur' }}"
+                data-aadhaar="{{ r.operator_aadhaar or '' }}"
+                data-pan="{{ r.operator_pan or '' }}"
+                data-status="{{ r.status }}" 
+                data-created="{{ r.submitted_at }}"
+                data-remarks='{{ r.remarks_history | tojson | safe }}'>
+                
+                <td><strong>{{ r.request_no if r.request_no else 'N/A' }}</strong></td>
+                <td>{{ r.operator_name }}</td>
+                <td>{{ r.operator_mobile }}</td>
+                <td>
+                    <span class="sid-badge sid-badge-{{ r.status }}">{{ r.status | replace('_', ' ') | capitalize }}</span>
+                </td>
+                <td>{{ r.submitted_at if r.submitted_at else 'N/A' }}</td>
+                <td>{{ r.reviewed_at if r.reviewed_at else 'N/A' }}</td>
+                <td style="text-align: center;">
+                    <button class="btn-details" onclick="openActivationDetailsModal(this.closest('tr'))">
+                        {% if r.status in ['reverted', 'rejected'] %}Review & Reapply{% else %}Details{% endif %}
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div id="approved-empty-msg" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">📜</div>
+        <p>No processed request history records found matching current filter scope.</p>
+    </div>
+</div>
+
+<script>
+    // Date Period Prefixes helper
+    function getDatePrefixes() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = (now.getMonth() + 1).toString().padStart(2, '0');
+        const d = now.getDate().toString().padStart(2, '0');
+        return {
+            today: `${y}-${m}-${d}`,
+            month: `${y}-${m}`,
+            year: `${y}`
+        };
+    }
+
+    // Modern dynamic search and filter engine
+    window.filterAllTables = function() {
+        const searchQuery = document.getElementById('dc-search-input').value.toLowerCase().trim();
+        const dateFilter = document.getElementById('dc-date-filter').value;
+        const p = getDatePrefixes();
+
+        const configs = [
+            { tbodyId: 'pending-table-body', emptyMsgId: 'pending-empty-msg', tableId: 'pending-requests-table', countId: 'pending-count' },
+            { tbodyId: 'approved-table-body', emptyMsgId: 'approved-empty-msg', tableId: 'approved-requests-table', countId: 'approved-count' }
+        ];
+
+        configs.forEach(cfg => {
+            const rows = document.querySelectorAll(`#${cfg.tbodyId} tr`);
+            let visibleRowsCount = 0;
+
+            rows.forEach(row => {
+                const name = (row.getAttribute('data-name') || '').toLowerCase();
+                const mobile = (row.getAttribute('data-mobile') || '').toLowerCase();
+                const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+                const createdDate = row.getAttribute('data-created') || '';
+
+                const matchQuery = !searchQuery || name.includes(searchQuery) || mobile.includes(searchQuery) || reqNo.includes(searchQuery);
+
+                let matchDate = true;
+                if (dateFilter === 'today') {
+                    matchDate = createdDate.startsWith(p.today);
+                } else if (dateFilter === 'month') {
+                    matchDate = createdDate.startsWith(p.month);
+                } else if (dateFilter === 'year') {
+                    matchDate = createdDate.startsWith(p.year);
+                }
+
+                if (matchQuery && matchDate) {
+                    row.style.display = '';
+                    visibleRowsCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const tableElement = document.getElementById(cfg.tableId);
+            const emptyMessageElement = document.getElementById(cfg.emptyMsgId);
+            const countElement = document.getElementById(cfg.countId);
+
+            if (visibleRowsCount === 0) {
+                if (tableElement) tableElement.style.display = 'none';
+                if (emptyMessageElement) emptyMessageElement.style.display = 'block';
+            } else {
+                if (tableElement) tableElement.style.display = '';
+                if (emptyMessageElement) emptyMessageElement.style.display = 'none';
+            }
+            if (countElement) countElement.textContent = visibleRowsCount;
+        });
+    }
+
+    // Initialize Filter State Engine on View Mount
+    window.addEventListener('load', () => {
+        filterAllTables();
+    });
+
+    // Popup Chat & Reapply Core Engine Logic 
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function buildRemarksHtml(remarks) {
+        if (remarks.length === 0) {
+            return `<div style="margin-top: 15px; font-style: italic; color: #94a3b8; font-size: 13px; text-align: center;">No remarks history available.</div>`;
+        }
+        let html = `<div style="margin-top:15px;border-top:1px solid #e2e8f0;padding-top:12px;">
+            <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#1e293b;text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Remarks & Conversation</div>
+            <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px;">`;
+        remarks.forEach(item => {
+            const isChips = item.author_role === 'CHIPS_ADMIN' || item.author_role === 'chips';
+            const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
+            const bg = isChips ? '#f1f5f9' : '#eff6ff';
+            const border = isChips ? '#e2e8f0' : '#dbeafe';
+            const color = isChips ? '#475569' : '#1e40af';
+            html += `<div style="background:${bg};border:1px solid ${border};padding:10px 12px;border-radius:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-size:12px;font-weight:700;color:${color};">${sender}</span>
+                    <span style="font-size:11px;color:#94a3b8;">${item.created_at}</span>
+                </div>
+                <div style="font-size:13px;color:#334155;line-height:1.4;text-align:left;">${escapeHtml(item.remark)}</div>
+            </div>`;
+        });
+        html += `</div></div>`;
+        return html;
+    }
+
+    window.openActivationDetailsModal = function(row) {
+        const id = row.getAttribute('data-id');
+        const requestNo = row.getAttribute('data-request-no');
+        const name = row.getAttribute('data-name');
+        const mobile = row.getAttribute('data-mobile');
+        const aadhaar = row.getAttribute('data-aadhaar');
+        const pan = row.getAttribute('data-pan') || '';
+        const status = row.getAttribute('data-status');
+        const remarksStr = row.getAttribute('data-remarks') || '[]';
+        const district = row.getAttribute('data-district') || '';
+
+        let remarks = [];
+        try { remarks = JSON.parse(remarksStr); } catch (e) { console.error(e); }
+
+        const isRevertable = (status === 'reverted' || status === 'rejected');
+        const remarksHtml = buildRemarksHtml(remarks);
+
+        let htmlContent = '';
+        if (isRevertable) {
+            htmlContent = `
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
+                <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;">⚠ Action Required N/A Request Reverted</div>
+                <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below, make corrections and reapply.</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;text-align:left;">
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Mobile Number *</div>
+                    <input id="reapply-mobile" type="text" value="${mobile}" maxlength="10"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Aadhaar Last 4 Digits *</div>
+                    <input id="reapply-aadhaar" type="text" value="${aadhaar}" maxlength="4"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+                </div>
+                <div style="grid-column:1/-1;">
+                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">PAN Number</div>
+                    <input id="reapply-pan" type="text" value="${pan}" maxlength="10"
+                        style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;outline:none;text-transform:uppercase;">
+                </div>
+            </div>
+            <div style="text-align:left;margin-bottom:12px;">
+                <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Correction Notes * <span style="text-transform:none;font-size:10px;font-weight:400;color:#94a3b8;">(Mandatory N/A describe what was corrected)</span></div>
+                <textarea id="reapply-remark" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:75px;outline:none;"
+                    placeholder="Explain what changes you made to address the revert reason..."></textarea>
+            </div>
+            ${remarksHtml}`;
+        } else {
+            htmlContent = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;text-align:left;">
+                <div style="background:#f8fafc;border-radius:8px;padding:12px;">
+                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Request ID</div>
+                    <div style="font-weight:700;color:#4f46e5;font-size:15px;">${requestNo}</div>
+                </div>
+                <div style="background:#f8fafc;border-radius:8px;padding:12px;">
+                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Operator Name</div>
+                    <div style="font-weight:600;color:#0f172a;">${escapeHtml(name)}</div>
+                </div>
+                <div style="background:#f8fafc;border-radius:8px;padding:12px;">
+                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Mobile Number</div>
+                    <div style="font-weight:700;color:#0f172a;">${escapeHtml(mobile)}</div>
+                </div>
+                <div style="background:#f8fafc;border-radius:8px;padding:12px;">
+                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Aadhaar Number</div>
+                    <div style="font-weight:700;color:#0f172a;">${escapeHtml(aadhaar)}</div>
+                </div>
+                <div style="grid-column:1/-1;background:#f8fafc;border-radius:8px;padding:12px;">
+                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">District</div>
+                    <div style="font-weight:600;color:#0f172a;">${escapeHtml(district)}</div>
+                </div>
+            </div>
+            ${remarksHtml}`;
+        }
+
+        Swal.fire({
+            title: isRevertable ? `<span style="color:#dc2626; font-family:inherit; font-weight:800;">Modify & Reapply</span>` : `<span style="font-family:inherit; font-weight:800;">Activation Request Details</span>`,
+            html: htmlContent,
+            showCancelButton: isRevertable,
+            confirmButtonText: isRevertable ? 'Resubmit Request' : 'Close',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#4f46e5',
+            width: '560px',
+            focusConfirm: false,
+            preConfirm: () => {
+                if (!isRevertable) return true;
+                const updatedMobile = document.getElementById('reapply-mobile').value.trim();
+                const updatedAadhaar = document.getElementById('reapply-aadhaar').value.trim();
+                const updatedPan = document.getElementById('reapply-pan').value.trim().toUpperCase();
+                const reapplyRemark = document.getElementById('reapply-remark').value.trim();
+
+                if (!updatedMobile || !reapplyRemark) {
+                    Swal.showValidationMessage('Please fill all mandatory fields and update notes.');
+                    return false;
+                }
+
+                const formData = new FormData();
+                formData.append('dc_id', "{{ session.get('user_id', 1) }}");
+                formData.append('operator_mobile', updatedMobile);
+                formData.append('operator_aadhaar', updatedAadhaar);
+                formData.append('operator_pan', updatedPan);
+                formData.append('reapply_remark', reapplyRemark);
+
+                return fetch(`/auth/dc/operator-activation/${id}/reapply-json`, {
+                    method: 'POST',
+                    body: formData
+                }).then(res => {
+                    if (!res.ok) throw new Error('Failed to submit updates.');
+                    return res.json();
+                }).catch(err => {
+                    Swal.showValidationMessage(`Submission error: ${err.message}`);
+                });
+            }
+        }).then((result) => {
+            if (result.isConfirmed && isRevertable) {
+                Swal.fire({
+                    title: 'Reapplied Successfully!',
+                    text: 'Your modifications have been submitted back to CHiPS.',
+                    icon: 'success',
+                    confirmButtonColor: '#4f46e5'
+                }).then(() => {
+                    window.location.reload();
+                });
+            }
+        });
+    }
+</script>
+{% endblock %}

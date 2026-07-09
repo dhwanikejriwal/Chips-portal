@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Reapply Request N/A CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="oa-detail-box">
+    <h2>Reapply Operator Activation Request</h2>
+
+    <div class="oa-detail-meta">
+        <span>Request ID: <strong>{{ r.request_no }}</strong></span>
+        <span class="oa-badge oa-badge-rejected">Rejected</span>
+    </div>
+
+    {% if r.rejection_reason %}
+    <div class="oa-revert-box" style="margin-top:12px;">
+        <p class="oa-revert-title">Rejection Reason from CHIPS Admin</p>
+        <p style="font-size:14px;">{{ r.rejection_reason }}</p>
+    </div>
+    {% endif %}
+
+    <form action="/auth/dc/operator-activation/{{ r.id }}/reapply" method="POST" class="oa-form" style="margin-top:20px;">
+
+        <div class="oa-section-title">Update Operator Details</div>
+
+        <div class="oa-field-row">
+            <div class="oa-field">
+                <label>Operator Name <span class="oa-required">*</span></label>
+                <input type="text" name="operator_name" value="{{ r.operator_name }}" required>
+            </div>
+            <div class="oa-field">
+                <label>Mobile Number <span class="oa-required">*</span></label>
+                <input type="text" name="operator_mobile" value="{{ r.operator_mobile }}" required>
+            </div>
+        </div>
+
+        <div class="oa-field-row">
+            <div class="oa-field">
+                <label>Aadhaar Number</label>
+                <input type="text" name="operator_aadhaar" value="{{ r.operator_aadhaar or '' }}">
+            </div>
+            <div class="oa-field">
+                <label>PAN Number</label>
+                <input type="text" name="operator_pan" value="{{ r.operator_pan or '' }}">
+            </div>
+        </div>
+
+        <div class="oa-field" style="margin-top:8px;">
+            <label>Reapply Remark <span class="oa-required">*</span></label>
+            <textarea name="reapply_remark" required rows="3"
+                placeholder="Explain what changes you made..."
+                style="padding:8px;border:1px solid #dee2e6;border-radius:6px;font-size:14px;resize:vertical;"></textarea>
+        </div>
+
+        <div class="oa-form-actions">
+            <a href="/auth/dc/operator-activation/list" class="oa-btn-secondary">Cancel</a>
+            <button type="submit" class="oa-btn-primary">Reapply</button>
+        </div>
+    </form>
+
+    <!-- Remarks History -->
+    <div class="oa-remarks-section" style="margin-top:24px;">
+        <h3>Remarks History</h3>
+        {% if r.remarks %}
+            {% for rm in r.remarks %}
+            <div class="oa-remark-item oa-remark-{{ rm.author_role }}">
+                <div class="oa-remark-header">
+                    <span class="oa-remark-dot"></span>
+                    <strong>{{ 'CHIPS Admin' if rm.author_role == 'chips_admin' else 'District Coordinator' }}</strong>
+                    <span class="oa-remark-time">{{ rm.created_at[:16] if rm.created_at else '' }}</span>
+                </div>
+                <p class="oa-remark-text">{{ rm.remark }}</p>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="oa-empty">No remarks yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,750 @@
+{% extends 'base.html' %}
+
+{% block title %}NSEIT Certificate Verification - CHIPS Admin Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chips/chips_lms.css') }}">
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+    /* ── Admin banner ── */
+    .admin-banner {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #3730a3 100%);
+        border-radius: 16px;
+        padding: 22px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    .admin-banner::before {
+        content: '';
+        position: absolute; right: -20px; top: -30px;
+        width: 160px; height: 160px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.05);
+    }
+    .admin-banner-left { display: flex; align-items: center; gap: 16px; }
+    .admin-banner-icon {
+        width: 48px; height: 48px;
+        background: rgba(255,255,255,0.12);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .admin-banner h2 { font-size: 20px; font-weight: 800; color: #fff; margin: 0 0 3px; }
+    .admin-banner p  { font-size: 13px; color: rgba(255,255,255,0.65); margin: 0; }
+    .admin-banner-stats { display: flex; gap: 24px; flex-wrap: wrap; }
+    .admin-stat {
+        text-align: center;
+        padding: 10px 20px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.15);
+        min-width: 100px;
+    }
+    .admin-stat-num { font-size: 22px; font-weight: 800; color: #fff; line-height: 1; }
+    .admin-stat-lbl { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 3px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% set total_requests = pending_requests|length + processed_requests|length %}
+{% set metrics = namespace(approved=0, reverted=0) %}
+{% for req in processed_requests %}
+    {% if req.nseit_status == 'Approved' %}
+        {% set metrics.approved = metrics.approved + 1 %}
+    {% else %}
+        {% set metrics.reverted = metrics.reverted + 1 %}
+    {% endif %}
+{% endfor %}
+
+<!-- NSEIT Control Panel Banner -->
+<div class="admin-banner">
+    <div class="admin-banner-left">
+        <div class="admin-banner-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="m9 15 2 2 4-4"></path></svg>
+        </div>
+        <div>
+            <h2>NSEIT Certificate Control Panel</h2>
+            <p>Verify and process NSEIT exam requests forwarded by DC</p>
+        </div>
+    </div>
+    <div class="admin-banner-stats">
+        <div class="admin-stat">
+            <div class="admin-stat-num">{{ pending_requests|length }}</div>
+            <div class="admin-stat-lbl">Pending Review</div>
+        </div>
+        <div class="admin-stat">
+            <div class="admin-stat-num">{{ metrics.approved }}</div>
+            <div class="admin-stat-lbl">Approved</div>
+        </div>
+        <div class="admin-stat">
+            <div class="admin-stat-num">{{ metrics.reverted }}</div>
+            <div class="admin-stat-lbl">Reverted</div>
+        </div>
+        <div class="admin-stat">
+            <div class="admin-stat-num">{{ total_requests }}</div>
+            <div class="admin-stat-lbl">Total Requests</div>
+        </div>
+    </div>
+</div>
+
+<div class="container" style="max-width: 1200px; margin: 0 auto;">
+
+    <!-- Unified Filter Controls -->
+    <div class="filter-bar"
+        style="display: flex; gap: 15px; align-items: flex-end; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap;">
+        <div class="filter-group filter-group-search" style="display: flex; flex-direction: column; gap: 5px;">
+            <label style="font-size: 13px; font-weight: 600; color: #4a5568;">Search Candidate</label>
+            <input type="text" id="admin-search-input" placeholder="Search by code, name, mobile or email..."
+                class="table-input" style="width: 250px;" oninput="filterAdminQueues()">
+        </div>
+        <div class="filter-group" style="display: flex; flex-direction: column; gap: 5px;">
+            <label style="font-size: 13px; font-weight: 600; color: #4a5568;">Filter by District</label>
+            <select id="admin-district-filter" class="table-input" style="width: 180px;" onchange="filterAdminQueues()">
+                <option value="all">All Districts</option>
+            </select>
+        </div>
+        <div class="filter-group" style="display: flex; flex-direction: column; gap: 5px;">
+            <label style="font-size: 13px; font-weight: 600; color: #4a5568;">Time Period</label>
+            <select id="admin-date-filter" class="table-input" style="width: 150px;" onchange="filterAdminQueues()">
+                <option value="all" selected>All Time</option>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Pending Queue Table Section -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #2d3748;">Pending NSEIT Verification Requests
+        </h2>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <select id="admin-pending-status-filter" class="table-input"
+                style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
+                <option value="all">All Status</option>
+                <option value="forwarded">Forwarded</option>
+                <option value="forwarded again">Forwarded Again</option>
+            </select>
+            <button class="btn btn-sm"
+                onclick="exportTableToCSV('admin-pending-table', 'pending_nseit_requests.csv')">Export to Excel</button>
+        </div>
+    </div>
+
+    {% if aging_filter %}
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+      <span style="font-size:12px; color:#64748b;">Active filter:</span>
+      <span style="display:inline-flex; align-items:center; gap:6px;
+        background:#EFF6FF; color:#1D4ED8; border:1px solid #BFDBFE;
+        border-radius:20px; padding:4px 12px; font-size:13px; font-weight:500;">
+        Aging: {{ aging_label }}
+        <a href="{{ request.path }}" 
+           style="color:#1D4ED8; text-decoration:none; font-weight:700; 
+                  margin-left:2px;">×</a>
+      </span>
+    </div>
+    {% endif %}
+
+    <div class="table-wrapper"
+        style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+        <table class="data-table" id="admin-pending-table"
+            style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead style="background: #edf2f7; border-bottom: 1px solid #e2e8f0;">
+                <tr>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">S.No</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Request Code</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">District</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Candidate Name
+                    </th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Mobile No</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Email ID</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Status</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Submitted At</th>
+                    <th
+                        style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568; text-align: center;">
+                        Action</th>
+                </tr>
+            </thead>
+            <tbody id="admin-queue-body">
+                {% for req in pending_requests %}
+                <tr id="request-row-{{ req.r_id }}" data-id="{{ req.r_id }}" data-district="{{ req.district_name }}"
+                    data-code="{{ req.request_code }}" data-name="{{ req.name }}" data-phone="{{ req.mobile }}"
+                    data-email="{{ req.email }}" data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
+                    data-aadhaar="{{ req.aadhaar }}" data-address="{{ req.address or '' }}"
+                    data-pincode="{{ req.pincode or '' }}"
+                    data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+                    data-photo="{{ req.photo_upload or '' }}" data-lms-id="{{ req.lms_id or '' }}"
+                    data-nseit-id="{{ req.nseit_certificate_id or '' }}"
+                    data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-marksheet="{{ req.marksheet_upload }}"
+                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.nseit_status }}"
+                    data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+                    data-updated="{{ req.updated_at or req.created_at }}"
+                    style="border-bottom: 1px solid #edf2f7;">
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ req.request_code }}</strong></td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.district_name }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.name }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">
+                        {% if req.nseit_status == 'Forwarded Again' %}
+                        <span class="badge badge-forwarded-again"
+                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded
+                            Again</span>
+                        {% else %}
+                        <span class="badge badge-forwarded"
+                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
+                    <td style="padding: 12px 15px; text-align: center;">
+                        <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                            <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                                onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}')">Approve</button>
+                            <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                                onclick="openRevertModal('{{ req.r_id }}', '{{ req.name }}')">Revert</button>
+                            <button type="button" class="btn-details"
+                                onclick="openDetailsModal(this.closest('tr'))">Details</button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" style="padding: 30px; text-align: center; color: #718096; font-size: 14px;">No
+                        pending NSEIT verification requests found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
+
+    <!-- Log History Table Section -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #2d3748;">NSEIT Verification History Log</h2>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <select id="admin-history-status-filter" class="table-input"
+                style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
+                <option value="all">All Status</option>
+                <option value="approved">Approved</option>
+                <option value="reverted by chips">Reverted by CHiPS</option>
+            </select>
+            <button class="btn btn-sm"
+                onclick="exportTableToCSV('admin-approved-table', 'nseit_verification_history_log.csv')">Export to
+                Excel</button>
+        </div>
+    </div>
+    <div class="table-wrapper"
+        style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+        <table class="data-table" id="admin-approved-table"
+            style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead style="background: #edf2f7; border-bottom: 1px solid #e2e8f0;">
+                <tr>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">S.No</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Request Code</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">District</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Candidate Name
+                    </th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Mobile No</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Email ID</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Status</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Submitted At</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Updated At</th>
+                    <th
+                        style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568; text-align: center;">
+                        Action</th>
+                </tr>
+            </thead>
+            <tbody id="admin-approved-body">
+                {% for req in processed_requests %}
+                <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+                    data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+                    data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
+                    data-aadhaar="{{ req.aadhaar }}" data-lms-id="{{ req.lms_id or '' }}"
+                    data-nseit-id="{{ req.nseit_certificate_id or '' }}"
+                    data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-address="{{ req.address or '' }}"
+                    data-pincode="{{ req.pincode or '' }}"
+                    data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+                    data-photo="{{ req.photo_upload or '' }}" data-marksheet="{{ req.marksheet_upload }}"
+                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.nseit_status }}"
+                    data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+                    data-updated="{{ req.updated_at or req.created_at }}" style="border-bottom: 1px solid #edf2f7;">
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ req.request_code }}</strong></td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.district_name }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.name }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">
+                        {% if req.nseit_status == 'Approved' %}
+                        <span class="badge badge-approved"
+                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>
+                        {% elif req.nseit_status == 'Reverted by CHiPS' %}
+                        <span class="badge badge-reverted"
+                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted by
+                            CHiPS</span>
+                        {% else %}
+                        <span class="badge badge-reverted"
+                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ req.updated_at or req.created_at }}</td>
+                    <td style="padding: 12px 15px; text-align: center;">
+                        <button type="button" class="btn-details"
+                            onclick="openDetailsModal(this.closest('tr'))">Details</button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="10" style="padding: 30px; text-align: center; color: #718096; font-size: 14px;">No
+                        processed NSEIT verification history logs found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    // Set dynamic filters on load
+    window.addEventListener('load', function () {
+        const districts = new Set();
+        document.querySelectorAll('[data-district]').forEach(row => {
+            const d = row.getAttribute('data-district');
+            if (d) districts.add(d);
+        });
+        const select = document.getElementById('admin-district-filter');
+        if (select) {
+            districts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                select.appendChild(opt);
+            });
+        }
+        filterAdminQueues();
+    });
+
+    // Search and filters logic
+    function filterAdminQueues() {
+        const searchVal = document.getElementById('admin-search-input').value.toLowerCase().trim();
+        const districtVal = document.getElementById('admin-district-filter').value.toLowerCase();
+        const dateVal = document.getElementById('admin-date-filter').value;
+        const pendingStatusVal = document.getElementById('admin-pending-status-filter') ? document.getElementById('admin-pending-status-filter').value : 'all';
+        const statusVal = document.getElementById('admin-history-status-filter') ? document.getElementById('admin-history-status-filter').value : 'all';
+
+        // Filter Pending Queue
+        const pendingRows = document.querySelectorAll('#admin-queue-body tr');
+        let pendingIdx = 1;
+        pendingRows.forEach(row => {
+            if (row.cells.length <= 1) return; // Empty row
+
+            const matchSearch = row.getAttribute('data-code').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-name').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-phone').includes(searchVal) ||
+                row.getAttribute('data-email').toLowerCase().includes(searchVal);
+
+            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+            const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
+            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+
+            const reqStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
+            const matchStatus = (pendingStatusVal === 'all') || (reqStatus === pendingStatusVal);
+
+            if (matchSearch && matchDistrict && matchDate && matchStatus) {
+                row.style.display = '';
+                row.cells[0].innerText = pendingIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Filter History Queue
+        const approvedRows = document.querySelectorAll('#admin-approved-body tr');
+        let approvedIdx = 1;
+        approvedRows.forEach(row => {
+            if (row.cells.length <= 1) return; // Empty row
+
+            const matchSearch = row.getAttribute('data-code').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-name').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-phone').includes(searchVal) ||
+                row.getAttribute('data-email').toLowerCase().includes(searchVal);
+
+            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+            const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
+            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+
+            const reqStatus = row.getAttribute('data-status').toLowerCase();
+            const matchStatus = (statusVal === 'all') || (reqStatus === statusVal);
+
+            if (matchSearch && matchDistrict && matchDate && matchStatus) {
+                row.style.display = '';
+                row.cells[0].innerText = approvedIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function checkDateMatch(dateStr, filterVal) {
+        if (filterVal === 'all') return true;
+        if (!dateStr) return false;
+
+        const rowDate = new Date(dateStr.replace(' ', 'T'));
+        const now = new Date();
+
+        if (filterVal === 'today') {
+            return rowDate.toDateString() === now.toDateString();
+        } else if (filterVal === 'week') {
+            const startOfWeek = new Date(now);
+            const day = startOfWeek.getDay();
+            startOfWeek.setDate(now.getDate() - day);
+            startOfWeek.setHours(0, 0, 0, 0);
+
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            endOfWeek.setHours(23, 59, 59, 999);
+
+            return rowDate >= startOfWeek && rowDate <= endOfWeek;
+        } else if (filterVal === 'month') {
+            return rowDate.getMonth() === now.getMonth() && rowDate.getFullYear() === now.getFullYear();
+        }
+        return true;
+    }
+
+    // Modal forms submission triggers
+    function openApproveModal(r_id, name) {
+        Swal.fire({
+            title: 'Approve NSEIT Request',
+            html: `
+                <div style="text-align: left;">
+                    <p>Approve candidate <strong>${name}</strong>'s request. A default NSEIT Certificate ID will be assigned.</p>
+                    <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Approval Remarks (Mandatory)</label>
+                    <textarea id="swal-remark" class="swal2-textarea" placeholder="Enter remarks..." style="margin: 0; width: 100%; box-sizing: border-box; height: 100px;"></textarea>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Approve & Save',
+            confirmButtonColor: '#28a745',
+            preConfirm: () => {
+                const remark = document.getElementById('swal-remark').value.trim();
+                if (!remark) {
+                    Swal.showValidationMessage('Approval remarks are mandatory.');
+                    return false;
+                }
+                return { remark: remark };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('remark', result.value.remark);
+
+                fetch(`/auth/dc/approve-nseit/${r_id}`, {
+                    method: 'POST',
+                    body: formData
+                }).then(response => {
+                    if (response.ok) {
+                        Swal.fire({
+                            title: 'Approved!',
+                            text: 'NSEIT Certificate request successfully approved.',
+                            icon: 'success',
+                            confirmButtonColor: '#28a745',
+                            timer: 2000,
+                            timerProgressBar: true
+                        }).then(() => {
+                            window.location.reload();
+                        });
+                    } else {
+                        response.json().then(data => {
+                            Swal.fire('Error', data.detail || 'Failed to approve request.', 'error');
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    function openRevertModal(r_id, name) {
+        Swal.fire({
+            title: 'Revert NSEIT Request',
+            html: `
+                <div style="text-align: left;">
+                    <p>Provide a reason for reverting candidate <strong>${name}</strong>'s request:</p>
+                    <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Revert Reason (Mandatory) *</label>
+                    <textarea id="swal-revert-reason" class="swal2-textarea" placeholder="Enter reason for revert..." style="margin: 0; width: 100%; box-sizing: border-box; height: 100px;"></textarea>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Revert Request',
+            confirmButtonColor: '#dc3545',
+            preConfirm: () => {
+                const reason = document.getElementById('swal-revert-reason').value.trim();
+                if (!reason) {
+                    Swal.showValidationMessage('Revert reason is mandatory.');
+                    return false;
+                }
+                return { revert_reason: reason };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('revert_reason', result.value.revert_reason);
+
+                fetch(`/auth/dc/revert-nseit/${r_id}`, {
+                    method: 'POST',
+                    body: formData
+                }).then(response => {
+                    if (response.ok) {
+                        Swal.fire({
+                            title: 'Reverted!',
+                            text: 'NSEIT Certificate request reverted back to candidate.',
+                            icon: 'warning',
+                            confirmButtonColor: '#dc3545',
+                            timer: 2500,
+                            timerProgressBar: true
+                        }).then(() => {
+                            window.location.reload();
+                        });
+                    } else {
+                        response.json().then(data => {
+                            Swal.fire('Error', data.detail || 'Failed to revert request.', 'error');
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    // Escaping helper
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+
+    // 🌟 Build a status badge HTML string for inline use in remarks timeline (Unmasked Admin View)
+    function buildStatusBadgeInline(status) {
+        const map = {
+            'Approved': 'badge-approved',
+            'Forwarded': 'badge-forwarded',
+            'Forwarded Again': 'badge-forwarded-again',
+            'Reapplied': 'badge-reapplied',
+            'Reverted': 'badge-reverted',
+            'Reverted by CHiPS': 'badge-reverted-by-chips',
+            'Pending': 'badge-pending'
+        };
+        const cls = map[status] || 'badge-pending';
+        return '<span class="badge ' + cls + '" style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;">' + status + '</span>';
+    }
+
+    // Details popup
+    function openDetailsModal(row) {
+        const id = row.getAttribute('data-id');
+        const code = row.getAttribute('data-code');
+        const name = row.getAttribute('data-name');
+        const phone = row.getAttribute('data-phone');
+        const email = row.getAttribute('data-email');
+        const qualification = row.getAttribute('data-qualification');
+        const dob = row.getAttribute('data-dob');
+        const aadhaar = row.getAttribute('data-aadhaar');
+        const address = row.getAttribute('data-address') || '';
+        const pincode = row.getAttribute('data-pincode') || '';
+        const isOperator = row.getAttribute('data-is-operator') || 'No';
+        const photo = row.getAttribute('data-photo') || '';
+        const lmsId = row.getAttribute('data-lms-id') || '';
+        const nseitId = row.getAttribute('data-nseit-id') || '';
+        const examUniqueCode = row.getAttribute('data-exam-unique-code') || '';
+        const marksheet = row.getAttribute('data-marksheet');
+        const tenthMarksheet = row.getAttribute('data-tenth-marksheet') || '';
+        const status = row.getAttribute('data-status');
+        const remarksStr = row.getAttribute('data-remarks') || '[]';
+        const created = row.getAttribute('data-created') || '';
+
+        let remarks = [];
+        try {
+            remarks = JSON.parse(remarksStr);
+        } catch (e) {
+            console.error("Error parsing remarks:", e);
+        }
+
+        let timelineHtml = '';
+        if (remarks.length > 0) {
+            timelineHtml += '<div class="remarks-timeline"><div class="timeline-title">Audit Action History Log</div><div class="timeline-track">';
+            remarks.forEach(item => {
+                const sender = (item.sender_role === 'CHIPS') ? 'CHIPS Admin' :
+                    (item.sender_role === 'DC') ? 'District Coordinator' :
+                        (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
+                const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
+                const statusAfter = item.status_after || '';
+                // 🌟 UPDATED UNMASKED CHIPS ADMIN STATUS MATRIX
+                const statusBadgeClassInline = {
+                    'Approved': 'badge-approved',
+                    'Forwarded': 'badge-forwarded',
+                    'Forwarded Again': 'badge-forwarded-again',
+                    'Reapplied': 'badge-reapplied',
+                    'Reverted': 'badge-reverted',
+                    'Reverted by CHiPS': 'badge-reverted-by-chips',
+                    'Pending': 'badge-pending'
+                }[statusAfter] || 'badge-pending';
+
+                const statusBadgeInline = statusAfter
+                    ? '<span class="badge ' + statusBadgeClassInline + '" style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;">' + statusAfter + '</span>'
+                    : '';
+                const stepLabel = 'NSEIT Certificate';
+                timelineHtml += '<div class="timeline-item ' + senderClass + '">';
+                timelineHtml += '<div class="timeline-marker"></div>';
+                timelineHtml += '<div class="timeline-content">';
+                timelineHtml += '<div class="timeline-section-row"><span class="timeline-step-label">' + stepLabel + '</span>' + (statusAfter ? (' ' + statusBadgeInline) : '') + '</div>';
+                timelineHtml += '<div class="timeline-by-row"><span class="timeline-by">By: <strong>' + sender + '</strong>' + (item.sender_username ? ' (' + item.sender_username + ')' : '') + '</span><span class="timeline-time">' + item.created_at + '</span></div>';
+                timelineHtml += '<div class="timeline-body">' + escapeHtml(item.remark) + '</div>';
+                timelineHtml += '</div>';
+                timelineHtml += '</div>';
+            });
+            timelineHtml += '</div></div>';
+        } else {
+            timelineHtml += '<div style="margin-top: 15px; font-style: italic; color: #888; text-align: left; font-size: 13px;">No remarks history/actions logged yet.</div>';
+        }
+
+        let statusBadge = '';
+        if (status === 'Approved') {
+            statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>';
+        } else if (status === 'Forwarded') {
+            statusBadge = '<span class="badge badge-forwarded" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>';
+        } else if (status === 'Forwarded Again') {
+            statusBadge = '<span class="badge badge-forwarded-again" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded Again</span>';
+        } else if (status === 'Reapplied') {
+            statusBadge = '<span class="badge badge-reapplied" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>';
+        } else if (status === 'Reverted') {
+            statusBadge = '<span class="badge badge-reverted" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted</span>';
+        } else {
+            statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
+        }
+
+        const maskedAadhaar = aadhaar ? `XXXX XXXX ${aadhaar.slice(-4)}` : 'N/A';
+
+        let htmlContent = `
+        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                <span style="font-size: 14px; color: #666;">Request: <strong>${code}</strong></span>
+                <span>${statusBadge}</span>
+            </div>
+            <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                Submitted At: <strong>${created}</strong>
+            </div>
+
+            ${photo ? `<div style="text-align:center;margin-bottom:14px;"><img src="${photo}" alt="Profile Photo" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;"></div>` : ''}
+
+            <div style="margin-bottom:4px;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#718096;">Personal Information</div>
+            <div style="margin-bottom:15px;font-size:13px;color:#495057;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 20px;border-bottom:1px solid #eee;padding-bottom:14px;">
+                <div style="grid-column:1/-1;"><strong>Candidate Name:</strong> ${name}</div>
+                <div><strong>Date of Birth:</strong> ${dob}</div>
+                <div><strong>Mobile Number:</strong> ${phone}</div>
+                <div><strong>Email ID:</strong> ${email}</div>
+                <div><strong>Aadhaar Card:</strong> ${maskedAadhaar}</div>
+                <div><strong>Existing Aadhaar Operator:</strong> ${isOperator}</div>
+            </div>
+
+            <div style="margin-bottom:4px;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#718096;">Address</div>
+            <div style="margin-bottom:15px;font-size:13px;color:#495057;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 20px;border-bottom:1px solid #eee;padding-bottom:14px;">
+                <div style="grid-column:1/-1;"><strong>Full Address:</strong> ${address || 'N/A'}</div>
+                <div><strong>Pincode:</strong> ${pincode || 'N/A'}</div>
+                <div><strong>District:</strong> ${row.getAttribute('data-district')}</div>
+            </div>
+
+            <div style="margin-bottom:4px;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#718096;">Qualification &amp; Documents</div>
+            <div style="margin-bottom:14px;font-size:13px;color:#495057;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 20px;border-bottom:1px solid #eee;padding-bottom:14px;">
+                <div><strong>Qualification:</strong> ${qualification}</div>
+                <div><strong>LMS Credential ID:</strong> ${lmsId || 'None'}</div>
+                <div><strong>NSEIT Certificate ID:</strong> ${nseitId || 'None'}</div>
+                <div><strong>Candidate Unique ID (Exam ID):</strong> ${examUniqueCode || 'None'}</div>
+            </div>
+
+            <div style="margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+                <a href="${marksheet}" target="_blank" class="btn btn-sm" style="background-color:#007bff;color:white;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-weight:500;">
+                    <span>📁</span> Qualification Marksheet
+                </a>
+                ${tenthMarksheet ? `<a href="${tenthMarksheet}" target="_blank" class="btn btn-sm" style="background-color:#6c757d;color:white;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-weight:500;"><span>📄</span> 10th Marksheet</a>` : ''}
+                <a href="/auth/chips/dc-monitoring?search_code=${code}" class="btn btn-sm" style="background-color:#2b6cb0;color:white;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-weight:500;">
+                    <span>🔍</span> Track DC Monitoring
+                </a>
+            </div>
+            
+            ${timelineHtml}
+        </div>
+        `;
+
+        Swal.fire({
+            title: 'NSEIT Verification Details',
+            html: htmlContent,
+            confirmButtonText: 'Close',
+            confirmButtonColor: '#007bff',
+            width: '600px'
+        });
+    }
+
+    // Export helper function to CSV file format
+    function exportTableToCSV(tableID, filename = 'export.csv') {
+        const table = document.getElementById(tableID);
+        if (!table) return;
+
+        const rows = [];
+        const headerRow = table.querySelector('thead tr');
+        const headers = headerRow ? headerRow.querySelectorAll('th') : [];
+
+        const validIndices = [];
+        const headerData = [];
+        headers.forEach((th, idx) => {
+            const text = th.innerText.trim();
+            if (text !== "Actions" && text !== "Action") {
+                validIndices.push(idx);
+                headerData.push(`"${text.replace(/"/g, '""')}"`);
+            }
+        });
+        rows.push(headerData.join(','));
+
+        const bodyRows = table.querySelectorAll('tbody tr');
+        bodyRows.forEach(row => {
+            if (row.style.display !== 'none' && row.cells.length > 1) {
+                const rowData = [];
+                const cells = row.querySelectorAll('td');
+                validIndices.forEach(idx => {
+                    if (cells[idx]) {
+                        let text = cells[idx].innerText.trim();
+                        text = text.replace(/\s+/g, ' ');
+                        rowData.push(`"${text.replace(/"/g, '""')}"`);
+                    } else {
+                        rowData.push('""');
+                    }
+                });
+                rows.push(rowData.join(','));
+            }
+        });
+
+        const csvContent = "\uFEFF" + rows.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+{% endblock %}

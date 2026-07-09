@@ -1,0 +1,400 @@
+{% extends 'base.html' %}
+
+{% block title %}CHiPS Admin - L1 Registration Portal{% endblock %}
+
+{% block extra_css %}
+<style>
+    .container-sub-title { font-size: 16px; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+    .form-card-container { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 25px; }
+
+    /* ── Admin banner ── */
+    .admin-banner {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #3730a3 100%);
+        border-radius: 16px;
+        padding: 22px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+    .admin-banner::before {
+        content: '';
+        position: absolute; right: -20px; top: -30px;
+        width: 160px; height: 160px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.05);
+    }
+    .admin-banner-left { display: flex; align-items: center; gap: 16px; }
+    .admin-banner-icon {
+        width: 48px; height: 48px;
+        background: rgba(255,255,255,0.12);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .admin-banner h2 { font-size: 20px; font-weight: 800; color: #fff; margin: 0 0 3px; }
+    .admin-banner p  { font-size: 13px; color: rgba(255,255,255,0.65); margin: 0; }
+    .admin-banner-stats { display: flex; gap: 24px; }
+    .admin-stat {
+        text-align: center;
+        padding: 10px 20px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.15);
+    }
+    .admin-stat-num { font-size: 22px; font-weight: 800; color: #fff; line-height: 1; }
+    .admin-stat-lbl { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 3px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+            {% if aging_filter %}
+            <div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+                <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ requests|length }} found)</span>
+                <a href="{{ url_for('l1_registration.chips_l1_portal') }}" style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+            </div>
+            {% endif %}
+
+            <!-- Jinja2 Metric Calculations -->
+            {% set total_requests = requests|length %}
+            {% set metrics = namespace(pending=0, approved=0) %}
+            {% for req in requests %}
+                {% if req.status in ['PENDING', 'REAPPLIED'] %}
+                    {% set metrics.pending = metrics.pending + 1 %}
+                {% elif req.status in ['APPROVED', 'REVIEWED'] %}
+                    {% set metrics.approved = metrics.approved + 1 %}
+                {% endif %}
+            {% endfor %}
+
+            <!-- L1 Registration Control Panel Banner -->
+            <div class="admin-banner">
+                <div class="admin-banner-left">
+                    <div class="admin-banner-icon">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    </div>
+                    <div>
+                        <h2>L1 Registration Control Panel</h2>
+                        <p>Review, approve and assign L1 registrations to DC requests</p>
+                    </div>
+                </div>
+                <div class="admin-banner-stats">
+                    <div class="admin-stat">
+                        <div class="admin-stat-num">{{ metrics.pending }}</div>
+                        <div class="admin-stat-lbl">Pending Review</div>
+                    </div>
+                    <div class="admin-stat">
+                        <div class="admin-stat-num">{{ metrics.approved }}</div>
+                        <div class="admin-stat-lbl">Approved</div>
+                    </div>
+                    <div class="admin-stat">
+                        <div class="admin-stat-num">{{ total_requests }}</div>
+                        <div class="admin-stat-lbl">Total Requests</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-card-container">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px;">
+                    <div style="flex: 1; margin-right: 20px;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">SEARCH REQUESTS</label>
+                        <input type="text" id="pending-search" oninput="filterL1Section('pending')" placeholder="Search by request ID, district, model..." style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+                    </div>
+                    <div style="width: 250px;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">TIME PERIOD</label>
+                        <select id="pending-date" onchange="filterL1Section('pending')" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                            <option value="all_time">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="this_week">This Week</option>
+                            <option value="this_month">This Month</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                    <h2 class="container-sub-title" style="margin: 0; text-transform: none; font-size: 18px; color: #1e293b; border-bottom: none; padding-bottom: 0;">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:#f59e0b; margin-right:8px;"></span>
+                        Pending Approval Queue
+                    </h2>
+                    <a href="/auth/l1-registration/export-all" target="_blank"
+                        style="background-color: #10b981; color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: inline-block;">
+                        Export Pending to Excel
+                    </a>
+                </div>
+
+                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <table id="pending-table" class="history-data-table" style="width: 100%; min-width: 900px; border-collapse: collapse; font-size: 13px; text-align: left;">
+                        <thead>
+                            <tr style="background-color: #f8fafc !important; color: #475569; border-bottom: 2px solid #cbd5e1;">
+                                <th style="padding: 12px 10px;">#</th>
+                                <th style="padding: 12px 10px;">REQUEST ID</th>
+                                <th style="padding: 12px 10px;">DISTRICT</th>
+                                <th style="padding: 12px 10px;">STATION ID</th>
+                                <th style="padding: 12px 10px;">MODEL</th>
+                                <th style="padding: 12px 10px;">STATUS</th>
+                                <th style="padding: 12px 10px;">SUBMITTED AT</th>
+                                <th style="padding: 12px 10px; text-align: center;">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pending-table-body">
+                            {% set ns_pending = namespace(count=0) %}
+                            {% for req in requests %}
+                                {% if req.status in ['PENDING', 'REAPPLIED'] %}
+                                    {% set ns_pending.count = ns_pending.count + 1 %}
+                                    <tr style="border-bottom: 1px solid #e2e8f0;" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}" data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.submitted_at }}">
+                                        <td style="padding: 12px 10px;">{{ loop.index }}</td>
+                                        <td style="padding: 12px 10px; font-weight:700; color:#2563eb;">{{ req.request_code }}</td>
+                                        <td style="padding: 12px 10px;">{{ req.district_name }}</td>
+                                        <td style="padding: 12px 10px; font-weight: 600;">{{ req.station_id }}</td>
+                                        <td style="padding: 12px 10px;">{{ req.model_type }}</td>
+                                        <td style="padding: 12px 10px;">
+                                            {% if req.status == 'REAPPLIED' %}
+                                                <span style="background: #f3e8ff; color: #7e22ce; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">REAPPLIED</span>
+                                            {% else %}
+                                                <span style="background: #fef3c7; color: #b45309; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">PENDING</span>
+                                            {% endif %}
+                                        </td>
+                                        <td style="padding: 12px 10px;">{{ req.submitted_at }}</td>
+                                        <td style="padding: 12px 10px; text-align: center;">
+                                            <div style="display:flex; gap:6px; justify-content:center;">
+                                                <button type="button" onclick="approveL1Request('{{ req.request_code }}')"
+                                                    style="background-color: #10b981; color: white; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                                    Approve
+                                                </button>
+                                                <button type="button" onclick="revertL1Request('{{ req.request_code }}')"
+                                                    style="background-color: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                                    Revert
+                                                </button>
+                                                <button type="button" onclick="openL1DetailsModal('{{ req.request_code }}')"
+                                                    style="background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                                    Details
+                                                </button>
+                                                <a href="/auth/l1-registration/export/{{ req.request_code }}" target="_blank"
+                                                    style="background-color: #10b981; color: white; text-decoration: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-block;">
+                                                    Export Excel
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div id="pending-empty-msg" style="display: {% if ns_pending.count == 0 %}block{% else %}none{% endif %}; text-align: center; color: #94a3b8; padding: 40px; font-style: italic;">
+                        No pending L1 registration requests match your filter.
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-card-container">
+                <!-- Filters for History -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; gap: 20px;">
+                    <div style="flex: 2;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">SEARCH HISTORY</label>
+                        <input type="text" id="history-search" oninput="filterL1Section('history')" placeholder="Search by request ID, district, model..." style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box;">
+                    </div>
+                    <div style="flex: 1; min-width: 180px;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">FILTER BY STATUS</label>
+                        <select id="history-status" onchange="filterL1Section('history')" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                            <option value="all_statuses">All Statuses</option>
+                            <option value="approved">Approved</option>
+                            <option value="reverted">Reverted</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 180px;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">TIME PERIOD</label>
+                        <select id="history-date" onchange="filterL1Section('history')" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; box-sizing: border-box; background-color: white;">
+                            <option value="all_time">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="this_week">This Week</option>
+                            <option value="this_month">This Month</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                    <h2 class="container-sub-title" style="margin: 0; text-transform: none; font-size: 18px; color: #1e293b; border-bottom: none; padding-bottom: 0;">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:#10b981; margin-right:8px;"></span>
+                        L1 Registration Log History
+                    </h2>
+                </div>
+                
+                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <table id="history-table" class="history-data-table" style="width: 100%; min-width: 900px; border-collapse: collapse; font-size: 13px; text-align: left;">
+                        <thead>
+                            <tr style="background-color: #f8fafc !important; color: #475569; border-bottom: 2px solid #cbd5e1;">
+                                <th style="padding: 12px 10px;">#</th>
+                                <th style="padding: 12px 10px;">REQUEST ID</th>
+                                <th style="padding: 12px 10px;">DISTRICT</th>
+                                <th style="padding: 12px 10px;">STATION ID</th>
+                                <th style="padding: 12px 10px;">MODEL</th>
+                                <th style="padding: 12px 10px;">STATUS</th>
+                                <th style="padding: 12px 10px;">SUBMITTED AT</th>
+                                <th style="padding: 12px 10px; text-align: center;">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body">
+                            {% set ns_history = namespace(count=0) %}
+                            {% for req in requests %}
+                                {% if req.status not in ['PENDING', 'REAPPLIED'] %}
+                                    {% set ns_history.count = ns_history.count + 1 %}
+                                    <tr style="border-bottom: 1px solid #e2e8f0;" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}" data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.submitted_at }}">
+                                        <td style="padding: 12px 10px;">{{ loop.index }}</td>
+                                        <td style="padding: 12px 10px; font-weight:700; color:#475569;">{{ req.request_code }}</td>
+                                        <td style="padding: 12px 10px;">{{ req.district_name }}</td>
+                                        <td style="padding: 12px 10px; font-weight: 600;">{{ req.station_id }}</td>
+                                        <td style="padding: 12px 10px;">{{ req.model_type }}</td>
+                                        <td style="padding: 12px 10px;">
+                                            {% if req.status in ['APPROVED', 'REVIEWED'] %}
+                                                <span style="background: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">APPROVED</span>
+                                            {% elif req.status == 'REVERTED' %}
+                                                <span style="background: #fee2e2; color: #b91c1c; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">REVERTED</span>
+                                            {% else %}
+                                                <span style="background: #e2e8f0; color: #475569; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">{{ req.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td style="padding: 12px 10px;">{{ req.submitted_at }}</td>
+                                        <td style="padding: 12px 10px; text-align: center;">
+                                                <button type="button" onclick="openL1DetailsModal('{{ req.request_code }}')"
+                                                    style="background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                                                    Details
+                                                </button>
+                                        </td>
+                                    </tr>
+                                  {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div id="history-empty-msg" style="display: {% if ns_history.count == 0 %}block{% else %}none{% endif %}; text-align: center; color: #94a3b8; padding: 40px; font-style: italic;">
+                        No historical L1 registration logs match your filter.
+                    </div>
+                </div>
+            </div>
+
+    <script src="{{ url_for('static', filename='js/chips_l1_registration.js') }}"></script>
+    <script>
+    function filterL1Section(section) {
+        let config = {};
+        if (section === 'pending') {
+            config = {
+                tbodyId: 'pending-table-body',
+                tableId: 'pending-table',
+                emptyId: 'pending-empty-msg',
+                query: (document.getElementById('pending-search') || {}).value || '',
+                dateFilt: (document.getElementById('pending-date') || {}).value || 'all_time',
+                statusFilt: 'all'
+            };
+        } else if (section === 'history') {
+            config = {
+                tbodyId: 'history-table-body',
+                tableId: 'history-table',
+                emptyId: 'history-empty-msg',
+                query: (document.getElementById('history-search') || {}).value || '',
+                dateFilt: (document.getElementById('history-date') || {}).value || 'all_time',
+                statusFilt: (document.getElementById('history-status') || {}).value || 'all_statuses'
+            };
+        } else {
+            return;
+        }
+
+        const rows = document.querySelectorAll(`#${config.tbodyId} tr`);
+        const q = config.query.toLowerCase().trim();
+        let visibleIndex = 1;
+
+        const now = new Date();
+        const todayPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+        rows.forEach(row => {
+            const district = (row.getAttribute('data-district') || '').toLowerCase();
+            const code = (row.getAttribute('data-code') || '').toLowerCase();
+            const stationId = (row.getAttribute('data-station-id') || '').toLowerCase();
+            const model = (row.getAttribute('data-model') || '').toLowerCase();
+            const created = row.getAttribute('data-created') || '';
+            const status = (row.getAttribute('data-status') || '').toLowerCase();
+
+            const matchQuery = !q || district.includes(q) || code.includes(q) || stationId.includes(q) || model.includes(q);
+            const matchStatus = config.statusFilt === 'all_statuses' || status === config.statusFilt;
+
+            let matchDate = true;
+            if (config.dateFilt === 'today') matchDate = created.startsWith(todayPrefix);
+            else if (config.dateFilt === 'this_month') matchDate = created.startsWith(monthPrefix);
+
+            if (matchQuery && matchStatus && matchDate) {
+                row.style.display = '';
+                if (row.cells[0]) row.cells[0].innerText = visibleIndex++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const tableEl = document.getElementById(config.tableId);
+        const emptyEl = document.getElementById(config.emptyId);
+
+        if (visibleIndex === 1) {
+            if (tableEl) tableEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'block';
+        } else {
+            if (tableEl) tableEl.style.display = '';
+            if (emptyEl) emptyEl.style.display = 'none';
+        }
+    }
+
+    window.addEventListener('load', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const qDist = urlParams.get('district');
+        const qStatus = urlParams.get('status');
+
+        if (qDist) {
+            const pendingSearch = document.getElementById('pending-search');
+            if (pendingSearch) pendingSearch.value = qDist;
+            const historySearch = document.getElementById('history-search');
+            if (historySearch) historySearch.value = qDist;
+        }
+
+        if (qStatus) {
+            const statusL = qStatus.toLowerCase().trim();
+            const historyStatus = document.getElementById('history-status');
+            if (historyStatus) {
+                if (['approved', 'reverted'].includes(statusL)) {
+                    historyStatus.value = statusL;
+                } else {
+                    historyStatus.value = 'all_statuses';
+                }
+            }
+        }
+
+        filterL1Section('pending');
+        filterL1Section('history');
+
+        // ── Deep-link scroll + highlight flash ──────────────────────────
+        if (qDist || qStatus) {
+            function flashEl(el) {
+                if (!el) return;
+                el.style.transition = 'box-shadow 0.4s ease, outline 0.4s ease';
+                el.style.outline = '2px solid rgba(59,130,246,0.6)';
+                el.style.boxShadow = '0 0 0 4px rgba(59,130,246,0.18), 0 4px 20px rgba(59,130,246,0.22)';
+                setTimeout(() => { el.style.outline = ''; el.style.boxShadow = ''; }, 2200);
+            }
+            const statusL = (qStatus || '').toLowerCase().trim();
+            setTimeout(() => {
+                let scrollTarget, flashTarget;
+                if (!statusL || statusL === 'pending') {
+                    scrollTarget = document.getElementById('pending-table');
+                    flashTarget  = document.getElementById('pending-search');
+                } else {
+                    // approved / reverted → history section
+                    scrollTarget = document.getElementById('history-table');
+                    flashTarget  = document.getElementById('history-status');
+                }
+                if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (flashTarget) {
+                    const bar = flashTarget.closest('div[style]') || flashTarget.parentElement;
+                    flashEl(bar || flashTarget);
+                }
+            }, 200);
+        }
+    });
+    </script>
+{% endblock %}

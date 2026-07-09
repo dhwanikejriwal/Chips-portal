@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block title %}Instructions - Candidate Portal{% endblock %}
+
+{% block sidebar %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate/portal.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}
+
+{% block content %}
+<div class="candidate-container">
+    <div class="page-header">
+        <h1 class="page-title">Candidate Onboarding Overview</h1>
+        <p class="page-subtitle">Track and complete your mandatory certification and activation steps</p>
+    </div>
+    <!-- Welcome Banner -->
+    <div class="welcome-banner">
+        <h1>Welcome, {{ status_data.name }}!</h1>
+        <p>Your candidate registration is approved. To activate your UIDAI operator status, please complete the onboarding procedure outlined below.</p>
+    </div>
+
+    <!-- 3-Step Procedure Timeline -->
+    <div class="timeline-steps">
+        <!-- Step 1: LMS Certificate -->
+        <div class="step-item {% if status_data.lms_status == 'Approved' %}completed{% elif status_data.lms_status in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}pending{% else %}active{% endif %}">
+            <div class="step-icon">
+                {% if status_data.lms_status == 'Approved' %}✓{% else %}1{% endif %}
+            </div>
+            <div class="step-title">LMS Certificate</div>
+        </div>
+        
+        <!-- Step 2: NSEIT Certificate -->
+        <div class="step-item {% if status_data.nseit_status == 'Approved' %}completed{% elif status_data.nseit_status in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}pending{% elif status_data.lms_status == 'Approved' %}active{% endif %}">
+            <div class="step-icon">
+                {% if status_data.nseit_status == 'Approved' %}✓{% else %}2{% endif %}
+            </div>
+            <div class="step-title">NSEIT Certificate</div>
+        </div>
+        
+        <!-- Step 3: UIDAI Operator Activation -->
+        <div class="step-item">
+            <div class="step-icon">3</div>
+            <div class="step-title">Operator Activation</div>
+        </div>
+    </div>
+
+    <!-- Cards Grid -->
+    <div class="cards-grid">
+        <!-- Card 1: LMS Certificate -->
+        <div class="action-card">
+            <div>
+                <div class="card-header">
+                    <span class="card-title">LMS Certificate</span>
+                    {% if status_data.lms_status == 'Approved' %}
+                        <span class="status-badge approved">Approved</span>
+                    {% elif status_data.lms_status == 'Forwarded' %}
+                        <span class="status-badge forwarded">Forwarded</span>
+                    {% elif status_data.lms_status == 'Forwarded Again' %}
+                        <span class="status-badge forwarded-again">Forwarded Again</span>
+                    {% elif status_data.lms_status == 'Pending' %}
+                        <span class="status-badge pending">Pending Review</span>
+                    {% elif status_data.lms_status == 'Reapplied' %}
+                        <span class="status-badge reapplied">Reapplied</span>
+                    {% elif status_data.lms_status == 'Reverted' %}
+                        <span class="status-badge reverted">Reverted</span>
+                    {% elif status_data.lms_status == 'Reverted by CHiPS' %}
+                        <span class="status-badge reverted">Reverted by CHiPS</span>
+                    {% else %}
+                        <span class="status-badge not-initiated">Not Initiated</span>
+                    {% endif %}
+                </div>
+                <p class="card-description">
+                    The LMS is a mandatory training platform. To obtain your certificate, you must watch a 16-hour long training video. Submit this request to get your credentials and platform link via email.
+                    {% if status_data.lms_id %}
+                        <br><br><strong>LMS ID:</strong> {{ status_data.lms_id }}
+                    {% endif %}
+                </p>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <a href="{{ url_for('candidate.candidate_lms') }}" class="btn-card"
+                   {% if not status_data.lms_status or status_data.lms_status not in ['Approved', 'Pending', 'Forwarded', 'Reapplied', 'Forwarded Again', 'Reverted', 'Reverted by CHiPS'] %}
+                       {% if status_data.lms_id %}
+                           onclick="return confirmStartRequest(event, 'LMS', '{{ url_for("candidate.candidate_lms") }}')"
+                       {% endif %}
+                   {% endif %}>
+                    {% if status_data.lms_status == 'Approved' %}
+                        View Details
+                    {% elif status_data.lms_status in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}
+                        Track Request
+                    {% elif status_data.lms_status in ['Reverted', 'Reverted by CHiPS'] %}
+                        Resubmit Request
+                    {% else %}
+                        Start Request
+                    {% endif %}
+                </a>
+                {% if status_data.lms_status not in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}
+                    <button type="button" onclick="toggleSkipForm('lms-skip-container')" class="btn-card" style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">
+                        {% if status_data.lms_id %}I already have LMS ID (Update){% else %}I already have LMS ID{% endif %}
+                    </button>
+                    <div id="lms-skip-container" style="display: none; margin-top: 10px; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e0; border-radius: 8px; text-align: left;">
+                        <form method="POST" action="{{ url_for('candidate.skip_lms') }}">
+                            <label class="form-label" style="font-size: 12px; margin-bottom: 4px; display: block; font-weight: 500;">Enter Existing LMS ID:</label>
+                            <input type="text" name="lms_id" class="form-input" required value="{{ status_data.lms_id or '' }}" placeholder="e.g. LMS123456" style="padding: 6px 10px; font-size: 13px; margin-bottom: 8px; width: 100%; box-sizing: border-box;">
+                            <button type="submit" class="btn-card" style="width: 100%; font-size: 13px; padding: 8px;">Submit & Skip</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Card 2: NSEIT Certificate -->
+        <div class="action-card">
+            <div>
+                <div class="card-header">
+                    <span class="card-title">NSEIT Certificate</span>
+                    {% if status_data.nseit_status == 'Approved' %}
+                        <span class="status-badge approved">Approved</span>
+                    {% elif status_data.nseit_status == 'Forwarded' %}
+                        <span class="status-badge forwarded">Forwarded</span>
+                    {% elif status_data.nseit_status == 'Forwarded Again' %}
+                        <span class="status-badge forwarded-again">Forwarded Again</span>
+                    {% elif status_data.nseit_status == 'Pending' %}
+                        <span class="status-badge pending">Pending Review</span>
+                    {% elif status_data.nseit_status == 'Reapplied' %}
+                        <span class="status-badge reapplied">Reapplied</span>
+                    {% elif status_data.nseit_status == 'Reverted' %}
+                        <span class="status-badge reverted">Reverted</span>
+                    {% elif status_data.nseit_status == 'Reverted by CHiPS' %}
+                        <span class="status-badge reverted">Reverted by CHiPS</span>
+                    {% else %}
+                        <span class="status-badge not-initiated">Not Initiated</span>
+                    {% endif %}
+                </div>
+                <p class="card-description">
+                    Submit this request to get approval from CHiPS so that you can make the payment for the NSEIT Operator/Supervisor exam. Once approved, you can register and pay for the certification.
+                    {% if status_data.nseit_id %}
+                        <br><br><strong>NSEIT ID:</strong> {{ status_data.nseit_id }}
+                    {% endif %}
+                </p>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% if status_data.lms_status == 'Approved' %}
+                    <a href="{{ url_for('candidate.candidate_nseit') }}" class="btn-card"
+                       {% if not status_data.nseit_status or status_data.nseit_status not in ['Approved', 'Pending', 'Forwarded', 'Reapplied', 'Forwarded Again', 'Reverted', 'Reverted by CHiPS'] %}
+                           {% if status_data.nseit_id %}
+                               onclick="return confirmStartRequest(event, 'NSEIT', '{{ url_for("candidate.candidate_nseit") }}')"
+                           {% endif %}
+                       {% endif %}>
+                        {% if status_data.nseit_status == 'Approved' %}
+                            View Details
+                        {% elif status_data.nseit_status in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}
+                            Track Request
+                        {% elif status_data.nseit_status in ['Reverted', 'Reverted by CHiPS'] %}
+                            Resubmit Request
+                        {% else %}
+                            Start Request
+                        {% endif %}
+                    </a>
+                    {% if status_data.nseit_status not in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}
+                        <button type="button" onclick="toggleSkipForm('nseit-skip-container')" class="btn-card" style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">
+                            {% if status_data.nseit_id %}I already have NSEIT ID (Update){% else %}I already have NSEIT ID{% endif %}
+                        </button>
+                        <div id="nseit-skip-container" style="display: none; margin-top: 10px; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e0; border-radius: 8px; text-align: left;">
+                            <form method="POST" action="{{ url_for('candidate.skip_nseit') }}">
+                                <label class="form-label" style="font-size: 12px; margin-bottom: 4px; display: block; font-weight: 500;">Enter Existing NSEIT ID:</label>
+                                <input type="text" name="nseit_id" class="form-input" required value="{{ status_data.nseit_id or '' }}" placeholder="e.g. NSEIT123456" style="padding: 6px 10px; font-size: 13px; margin-bottom: 8px; width: 100%; box-sizing: border-box;">
+                                <button type="submit" class="btn-card" style="width: 100%; font-size: 13px; padding: 8px;">Submit & Skip</button>
+                            </form>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <button class="btn-card" style="opacity: 0.6; cursor: not-allowed;" disabled title="Complete LMS training first">
+                        Locked
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Card 3: UIDAI Operator Activation -->
+        <div class="action-card" style="opacity: 0.85;">
+            <div>
+                <div class="card-header">
+                    <span class="card-title">Operator Activation</span>
+                    <span class="status-badge not-initiated">Locked</span>
+                </div>
+                <p class="card-description">
+                    Initiate your UIDAI operator activation request. This step will become available once both LMS and NSEIT credentials are verified.
+                </p>
+            </div>
+            <button class="btn-card" style="opacity: 0.6; cursor: not-allowed;" disabled>
+                Coming Soon
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSkipForm(id) {
+    var container = document.getElementById(id);
+    if (container.style.display === 'none') {
+        container.style.display = 'block';
+    } else {
+        container.style.display = 'none';
+    }
+}
+
+function confirmStartRequest(event, type, url) {
+    event.preventDefault();
+    Swal.fire({
+        title: 'Already Have ID!',
+        html: `You already have and filled your <strong>${type} ID</strong>. If you want to get a new one, click <strong>Proceed</strong>. Otherwise, click <strong>Cancel</strong>.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Proceed & Request New',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = url;
+        }
+    });
+    return false;
+}
+</script>
+{% endblock %}

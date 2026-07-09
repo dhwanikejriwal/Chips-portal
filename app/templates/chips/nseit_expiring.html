@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}NSEIT Certificates Expiring Soon - CHIPS Admin Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chips/chips_lms.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1200px; margin: 0 auto;">
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #1a202c;">NSEIT Certificates Expiring Within 30 Days</h1>
+            <p style="margin: 4px 0 0; font-size: 14px; color: #718096;">{{ count }} certificates require renewal action</p>
+        </div>
+        <a href="{{ url_for('dashboard.chips_dashboard') }}" class="btn btn-sm" style="text-decoration: none;">&larr; Back to Dashboard</a>
+    </div>
+
+    <div style="background: #FAEEDA; border-left: 4px solid #BA7517; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 14px; color: #6b4c15;">
+        Operator credentials will suspend automatically if renewals are not submitted before the expiry date.
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <input type="text" id="searchInput" placeholder="Search by name or request no..." class="table-input"
+            style="width: 280px;" onkeyup="filterTable()">
+    </div>
+
+    <div class="table-wrapper" style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+        <table class="data-table" id="nseitTable" style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead style="background: #edf2f7; border-bottom: 1px solid #e2e8f0;">
+                <tr>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">S.No</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Request No</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Operator Name</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Mobile</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Email</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Aadhaar</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">District</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Certificate No</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Cert Date</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Expiry Date</th>
+                    <th style="padding: 12px 15px; font-size: 13px; font-weight: 600; color: #4a5568;">Days Remaining</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in records %}
+                {% set dr = rec.days_remaining %}
+                {% set dr_color = '#A32D2D' if dr <= 7 else ('#BA7517' if dr <= 15 else '#3B6D11') %}
+                <tr style="border-bottom: 1px solid #edf2f7;">
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ rec.request_no }}</strong></td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ rec.name_as_per_aadhaar }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ rec.operator_mobile }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ rec.primary_email or 'N/A' }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ 'XXXX XXXX ' ~ rec.operator_aadhaar if rec.operator_aadhaar else 'N/A' }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ rec.district_name }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ rec.nseit_certificate_number or 'N/A' }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ rec.nseit_certification_date or 'N/A' }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">{{ rec.nseit_certificate_expiry_date or 'N/A' }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px; color: {{ dr_color }}; font-weight: 500;">{{ dr }} days</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="11" style="padding: 30px; text-align: center; color: #718096; font-size: 14px;">No records found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function filterTable() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        document.querySelectorAll('#nseitTable tbody tr').forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+</script>
+{% endblock %}
