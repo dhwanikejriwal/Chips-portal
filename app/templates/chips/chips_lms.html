@@ -660,6 +660,215 @@
         return '<span class="badge ' + cls + '" style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;">' + status + '</span>';
     }
 
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function zoomPhoto(url) {
+        viewDocument('Profile Photo', url);
+    }
+
+    function viewDocument(title, fileUrl) {
+        if (!fileUrl) return;
+        const extension = fileUrl.split('.').pop().toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
+
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.zIndex = '99999';
+
+        const modal = document.createElement('div');
+        modal.style.width = '90%';
+        modal.style.maxWidth = '800px';
+        modal.style.height = '85vh';
+        modal.style.maxHeight = '700px';
+        modal.style.backgroundColor = 'white';
+        modal.style.borderRadius = '12px';
+        modal.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.overflow = 'hidden';
+
+        const header = document.createElement('div');
+        header.style.backgroundColor = '#1e3a8a';
+        header.style.padding = '12px 20px';
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.color = 'white';
+
+        const headerTitle = document.createElement('span');
+        headerTitle.innerText = title;
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.fontSize = '16px';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        closeBtn.style.border = 'none';
+        closeBtn.style.width = '32px';
+        closeBtn.style.height = '32px';
+        closeBtn.style.borderRadius = '50%';
+        closeBtn.style.display = 'flex';
+        closeBtn.style.alignItems = 'center';
+        closeBtn.style.justifyContent = 'center';
+        closeBtn.style.cursor = 'pointer';
+        closeBtn.style.color = 'white';
+        closeBtn.onclick = () => document.body.removeChild(overlay);
+        closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+        header.appendChild(headerTitle);
+        header.appendChild(closeBtn);
+
+        const body = document.createElement('div');
+        body.style.flex = '1';
+        body.style.padding = '20px';
+        body.style.backgroundColor = '#f8fafc';
+        body.style.display = 'flex';
+        body.style.justifyContent = 'center';
+        body.style.alignItems = 'center';
+        body.style.overflow = 'hidden';
+
+        if (isImage) {
+            const img = document.createElement('img');
+            img.src = fileUrl;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = '4px';
+            body.appendChild(img);
+        } else {
+            const iframe = document.createElement('iframe');
+            iframe.src = fileUrl;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.style.borderRadius = '4px';
+            body.appendChild(iframe);
+        }
+
+        const footer = document.createElement('div');
+        footer.style.padding = '12px 20px';
+        footer.style.borderTop = '1px solid #edf2f7';
+        footer.style.display = 'flex';
+        footer.style.justifyContent = 'flex-end';
+        footer.style.alignItems = 'center';
+        footer.style.gap = '12px';
+        footer.style.backgroundColor = 'white';
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = fileUrl;
+        const fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1) || 'document';
+        downloadLink.download = fileName;
+        downloadLink.style.display = 'inline-flex';
+        downloadLink.style.alignItems = 'center';
+        downloadLink.style.gap = '6px';
+        downloadLink.style.padding = '8px 16px';
+        downloadLink.style.borderRadius = '8px';
+        downloadLink.style.backgroundColor = '#ecfdf5';
+        downloadLink.style.color = '#10b981';
+        downloadLink.style.fontWeight = '600';
+        downloadLink.style.fontSize = '14px';
+        downloadLink.style.textDecoration = 'none';
+        downloadLink.style.cursor = 'pointer';
+        downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
+
+        const closeBtnFooter = document.createElement('button');
+        closeBtnFooter.type = 'button';
+        closeBtnFooter.style.padding = '8px 24px';
+        closeBtnFooter.style.borderRadius = '8px';
+        closeBtnFooter.style.backgroundColor = '#4f46e5';
+        closeBtnFooter.style.color = 'white';
+        closeBtnFooter.style.fontWeight = '600';
+        closeBtnFooter.style.fontSize = '14px';
+        closeBtnFooter.style.border = 'none';
+        closeBtnFooter.style.cursor = 'pointer';
+        closeBtnFooter.onclick = () => document.body.removeChild(overlay);
+        closeBtnFooter.innerText = 'Close';
+
+        footer.appendChild(downloadLink);
+        footer.appendChild(closeBtnFooter);
+
+        modal.appendChild(header);
+        modal.appendChild(body);
+        modal.appendChild(footer);
+        overlay.appendChild(modal);
+
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        };
+
+        document.body.appendChild(overlay);
+    }
+
+    function buildDocumentCard(title, fileUrl, defaultName) {
+        if (!fileUrl) return '';
+        const extension = fileUrl.split('.').pop().toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
+
+        let previewHtml = '';
+        let previewButtonHtml = '';
+
+        if (isImage) {
+            previewHtml = `<img src="${fileUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}')">`;
+            previewButtonHtml = `
+                <button type="button" onclick="viewDocument('${title}', '${fileUrl}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            `;
+        } else {
+            previewHtml = `
+                <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}')">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+            `;
+            previewButtonHtml = `
+                <button type="button" onclick="viewDocument('${title}', '${fileUrl}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            `;
+        }
+
+        const fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1) || defaultName;
+        const shortFileName = fileName.length > 20 ? fileName.substring(0, 10) + '...' + fileName.substring(fileName.length - 8) : fileName;
+
+        return `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="width: 100%; height: 110px; border-radius: 8px; overflow: hidden; border: 1px solid #edf2f7; position: relative;">
+                    ${previewHtml}
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
+                    <div style="text-align: left; overflow: hidden; flex-grow: 1;">
+                        <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
+                        <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${fileName}">${shortFileName}</div>
+                    </div>
+                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                        ${previewButtonHtml}
+                        <a href="${fileUrl}" download="${fileName}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background-color: #ecfdf5; color: #10b981; text-decoration: none; cursor: pointer; transition: background-color 0.2s;" title="Download">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     window.showCandidateDetails = function (d, activeView, showRemarks = true) {
         let statusBadge = '';
         const normStatus = (d.status || '').trim().toLowerCase();
