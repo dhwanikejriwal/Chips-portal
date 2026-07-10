@@ -202,6 +202,30 @@
                         —
                         {% endif %}
                     </td>
+                    <td style="padding: 12px 15px; text-align: center;">
+                        <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                            <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                                onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}')">Approve</button>
+                            <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                                onclick="openRevertModal('{{ req.r_id }}', '{{ req.name }}')">Revert</button>
+                            <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                                Details
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="pending-empty-msg" class="empty-state" style="display: none;">
+            <i class="ti ti-inbox" style="font-size: 32px; color: #a0aec0; margin-bottom: 8px;"></i>
+            <p>No pending requests</p>
+        </div>
     </div>
 
     <hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
@@ -382,6 +406,67 @@
         sessionStorage.setItem('chips_nseit_pending_status', pendingStatusVal);
         sessionStorage.setItem('chips_nseit_history_status', statusVal);
 
+        // Filter Pending Queue
+        const pendingRows = document.querySelectorAll('#admin-queue-body tr');
+        let pendingIdx = 1;
+        pendingRows.forEach(row => {
+            if (row.cells.length <= 1) return; // Empty row
+
+            const matchSearch = row.getAttribute('data-code').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-name').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-phone').includes(searchVal) ||
+                row.getAttribute('data-email').toLowerCase().includes(searchVal);
+
+            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+            const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
+            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+
+            const reqStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
+            const matchStatus = (pendingStatusVal === 'all') || (reqStatus === pendingStatusVal);
+
+            if (matchSearch && matchDistrict && matchDate && matchStatus) {
+                row.style.display = '';
+                row.cells[0].innerText = pendingIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Filter History Queue
+        const approvedRows = document.querySelectorAll('#admin-approved-body tr');
+        let approvedIdx = 1;
+        approvedRows.forEach(row => {
+            if (row.cells.length <= 1) return; // Empty row
+
+            const matchSearch = row.getAttribute('data-code').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-name').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-phone').includes(searchVal) ||
+                row.getAttribute('data-email').toLowerCase().includes(searchVal);
+
+            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+            const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
+            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+
+            const reqStatus = row.getAttribute('data-status').toLowerCase();
+            const matchStatus = (statusVal === 'all') || (reqStatus === statusVal);
+
+            if (matchSearch && matchDistrict && matchDate && matchStatus) {
+                row.style.display = '';
+                row.cells[0].innerText = approvedIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const pendingCountEl = document.getElementById('pending-count');
+        if (pendingCountEl) pendingCountEl.textContent = pendingIdx - 1;
+        const pendingEmptyMsg = document.getElementById('pending-empty-msg');
+        if (pendingEmptyMsg) pendingEmptyMsg.style.display = (pendingIdx - 1 === 0) ? 'block' : 'none';
+
+        const approvedCountEl = document.getElementById('approved-count');
+        if (approvedCountEl) approvedCountEl.textContent = approvedIdx - 1;
+        const approvedEmptyMsg = document.getElementById('approved-empty-msg');
+        if (approvedEmptyMsg) approvedEmptyMsg.style.display = (approvedIdx - 1 === 0) ? 'block' : 'none';
     }
 
     function checkDateMatch(dateStr, filterVal) {
@@ -408,7 +493,7 @@
     }
 
     // Modal forms submission triggers
-    function openApproveModal(r_id, name) {
+    window.openApproveModal = function (r_id, name) {
         Swal.fire({
             title: 'Approve NSEIT Request',
             html: `
@@ -455,6 +540,58 @@
                             Swal.fire('Error', data.detail || 'Failed to revert request.', 'error');
                         });
                     }
+                });
+            }
+        });
+    }
+
+    window.openRevertModal = function (r_id, name) {
+        Swal.fire({
+            title: 'Revert NSEIT Request',
+            html: `
+                <div style="text-align: left;">
+                    <p>Provide a reason for reverting candidate <strong>${name}</strong>'s request:</p>
+                    <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Revert Reason (Mandatory) *</label>
+                    <textarea id="swal-revert-reason" class="swal2-textarea" placeholder="Enter reason for revert..." style="margin: 0; width: 100%; box-sizing: border-box; height: 100px;"></textarea>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Revert Request',
+            confirmButtonColor: '#dc3545',
+            preConfirm: () => {
+                const reason = document.getElementById('swal-revert-reason').value.trim();
+                if (!reason) {
+                    Swal.showValidationMessage('Revert reason is mandatory.');
+                    return false;
+                }
+                return { revert_reason: reason };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('revert_reason', result.value.revert_reason);
+
+                fetch(`/auth/dc/revert-nseit/${r_id}`, {
+                    method: 'POST',
+                    body: formData
+                }).then(response => {
+                    if (response.ok) {
+                        Swal.fire({
+                            title: 'Reverted!',
+                            text: 'NSEIT Certificate request reverted back to candidate.',
+                            icon: 'warning',
+                            confirmButtonColor: '#dc3545',
+                            timer: 2500,
+                            timerProgressBar: true
+                        }).then(() => {
+                            sessionStorage.setItem('chips_action_reloading', 'true');
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error', 'Failed to revert request.', 'error');
+                    }
+                }).catch(() => {
+                    Swal.fire('Error', 'Failed to revert request.', 'error');
                 });
             }
         });
@@ -694,10 +831,26 @@
             </div>
         `;
     }
-
+    window.showCandidateDetails = function (d, activeView, showRemarks = true) {
+        let statusBadge = '';
+        const normStatus = (d.status || '').trim().toLowerCase();
+        if (normStatus === 'approved') {
+            statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>';
+        } else if (normStatus === 'forwarded') {
+            statusBadge = '<span class="badge badge-forwarded" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>';
+        } else if (normStatus === 'forwarded again' || normStatus === 'forwarded_again') {
+            statusBadge = '<span class="badge badge-forwarded-again" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded Again</span>';
+        } else if (normStatus === 'reapplied') {
+            statusBadge = '<span class="badge badge-reapplied" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>';
+        } else if (normStatus === 'reverted_by_chips' || normStatus === 'reverted by chips') {
+            statusBadge = '<span class="badge badge-reverted-by-chips" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted by CHiPS</span>';
+        } else if (normStatus === 'reverted') {
+            statusBadge = '<span class="badge badge-reverted" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted</span>';
+        } else if (normStatus === 'rejected') {
+            statusBadge = '<span class="badge badge-rejected" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Rejected</span>';
         } else {
-        statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
-    }
+            statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
+        }
 
     let latestRevertReason = '';
     const isRevertedOrRejected = ['reverted', 'reverted by chips', 'reverted_by_chips', 'rejected'].includes(normStatus);
@@ -1000,7 +1153,7 @@
     }
     };
 
-    function openDetailsModal(row) {
+    window.openDetailsModal = function (row) {
         const d = {
             id: row.getAttribute('data-id'),
             code: row.getAttribute('data-code'),
@@ -1028,7 +1181,7 @@
     }
 
     // Export helper function to fetch Excel stream from backend
-    function exportTableToExcel(tableID, filename = 'export.csv') {
+    window.exportTableToExcel = function (tableID, filename = 'export.csv') {
         const ids = [];
         let rowsSelector = '';
 
