@@ -12,34 +12,24 @@
 {% block content %}
 {% set lms_url = url_for('candidate.candidate_lms') %}
 {% set nseit_url = url_for('candidate.candidate_nseit') %}
-<div class="candidate-container">
-    <div class="page-header">
-        <h1 class="page-title">Candidate Onboarding Overview</h1>
-        <p class="page-subtitle">Track and complete your mandatory certification and activation steps</p>
-    </div>
-    <!-- Welcome Banner -->
-    <div class="welcome-banner">
-        <h1>Welcome, {{ status_data.name }}!</h1>
-        <p>Your candidate registration is approved. To activate your UIDAI operator status, please complete the
-            onboarding procedure outlined below.</p>
     </div>
 
     <!-- 3-Step Procedure Timeline -->
     <div class="timeline-steps">
         <!-- Step 1: LMS Certificate -->
         <div
-            class="step-item {% if status_data.lms_status == 'Approved' %}completed{% elif status_data.lms_status in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}pending{% else %}active{% endif %}">
+            class="step-item {% if (status_data.lms_status|upper) == 'APPROVED' %}completed{% elif (status_data.lms_status|upper) in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN'] %}pending{% else %}active{% endif %}">
             <div class="step-icon">
-                {% if status_data.lms_status == 'Approved' %}✓{% else %}1{% endif %}
+                {% if (status_data.lms_status|upper) == 'APPROVED' %}✓{% else %}1{% endif %}
             </div>
             <div class="step-title">LMS Certificate</div>
         </div>
 
         <!-- Step 2: NSEIT Certificate -->
         <div
-            class="step-item {% if status_data.nseit_status == 'Approved' %}completed{% elif status_data.nseit_status in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}pending{% elif status_data.lms_status == 'Approved' %}active{% endif %}">
+            class="step-item {% if (status_data.nseit_status|upper) == 'APPROVED' %}completed{% elif (status_data.nseit_status|upper) in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN'] %}pending{% elif (status_data.lms_status|upper) == 'APPROVED' %}active{% endif %}">
             <div class="step-icon">
-                {% if status_data.nseit_status == 'Approved' %}✓{% else %}2{% endif %}
+                {% if (status_data.nseit_status|upper) == 'APPROVED' %}✓{% else %}2{% endif %}
             </div>
             <div class="step-title">NSEIT Certificate</div>
         </div>
@@ -58,21 +48,21 @@
             <div>
                 <div class="card-header">
                     <span class="card-title">LMS Certificate</span>
-                    {% if status_data.lms_status == 'Approved' %}
+                    {% if (status_data.lms_status|upper) == 'APPROVED' %}
                     <span class="status-badge approved">Approved</span>
-                    {% elif status_data.lms_status == 'Forwarded' %}
+                    {% elif (status_data.lms_status|upper) == 'FORWARDED' %}
                     <span class="status-badge forwarded">Forwarded</span>
-                    {% elif status_data.lms_status == 'Forwarded Again' %}
+                    {% elif (status_data.lms_status|upper) == 'FORWARDED_AGAIN' %}
                     <span class="status-badge forwarded-again">Forwarded</span>
-                    {% elif status_data.lms_status == 'Pending' %}
+                    {% elif (status_data.lms_status|upper) == 'PENDING' %}
                     <span class="status-badge pending">Pending Review</span>
-                    {% elif status_data.lms_status == 'Reapplied' %}
+                    {% elif (status_data.lms_status|upper) == 'REAPPLIED' %}
                     <span class="status-badge reapplied">Reapplied</span>
-                    {% elif status_data.lms_status == 'Reverted' %}
+                    {% elif (status_data.lms_status|upper) == 'REVERTED' %}
                     <span class="status-badge reverted">Reverted</span>
-                    {% elif status_data.lms_status == 'Reverted by CHiPS' %}
+                    {% elif (status_data.lms_status|upper) == 'REVERTED_BY_CHIPS' %}
                     <span class="status-badge reverted">Reverted</span>
-                    {% elif status_data.lms_status == 'Skipped' %}
+                    {% elif (status_data.lms_status|upper) == 'SKIPPED' %}
                     <span class="status-badge skipped" style="background-color: #f3f4f6; color: #4b5563;">Skipped</span>
                     {% else %}
                     <span class="status-badge not-initiated">Not Initiated</span>
@@ -87,15 +77,15 @@
                 </p>
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <a href="{{ lms_url }}" class="btn-card" {% if status_data.lms_status not in ['Approved', 'Pending'
-                    , 'Forwarded' , 'Reapplied' , 'Forwarded Again' , 'Reverted' , 'Reverted by CHiPS' ] %} {% if
+                <a href="{{ lms_url }}" class="btn-card" {% if (status_data.lms_status|upper) not in ['APPROVED', 'PENDING'
+                    , 'FORWARDED' , 'REAPPLIED' , 'FORWARDED_AGAIN' , 'REVERTED' , 'REVERTED_BY_CHIPS' ] %} {% if
                     status_data.lms_id %} onclick="return confirmStartRequest(event, 'LMS', '{{ lms_url }}')" {% endif
                     %} {% endif %}>
-                    {% if status_data.lms_status == 'Approved' %}
+                    {% if (status_data.lms_status|upper) == 'APPROVED' %}
                     View Details
-                    {% elif status_data.lms_status in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}
+                    {% elif (status_data.lms_status|upper) in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN'] %}
                     Track Request
-                    {% elif status_data.lms_status in ['Reverted', 'Reverted by CHiPS'] %}
+                    {% elif (status_data.lms_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
                     Resubmit Request
                     {% else %}
                     Start Request
@@ -103,11 +93,11 @@
                 </a>
 
                 <!-- 🌟 LMS DYNAMIC SKIPPED CONDITION WRAPPER -->
-                {% if status_data.lms_status not in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again', 'Approved',
-                'Reverted', 'Reverted by CHiPS'] %}
+                {% if (status_data.lms_status|upper) not in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN', 'APPROVED',
+                'REVERTED', 'REVERTED_BY_CHIPS'] %}
                 <button type="button" onclick="toggleSkipForm('lms-skip-container')" class="btn-card"
                     style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">
-                    {% if status_data.lms_status == 'Skipped' or status_data.lms_id %}I already have LMS ID (Update){%
+                    {% if (status_data.lms_status|upper) == 'SKIPPED' or status_data.lms_id %}I already have LMS ID (Update){%
                     else %}I already have LMS ID{% endif %}
                 </button>
                 <div id="lms-skip-container"
@@ -132,21 +122,21 @@
             <div>
                 <div class="card-header">
                     <span class="card-title">NSEIT Certificate</span>
-                    {% if status_data.nseit_status == 'Approved' %}
+                    {% if (status_data.nseit_status|upper) == 'APPROVED' %}
                     <span class="status-badge approved">Approved</span>
-                    {% elif status_data.nseit_status == 'Forwarded' %}
+                    {% elif (status_data.nseit_status|upper) == 'FORWARDED' %}
                     <span class="status-badge forwarded">Forwarded</span>
-                    {% elif status_data.nseit_status == 'Forwarded Again' %}
+                    {% elif (status_data.nseit_status|upper) == 'FORWARDED_AGAIN' %}
                     <span class="status-badge forwarded-again">Forwarded</span>
-                    {% elif status_data.nseit_status == 'Pending' %}
+                    {% elif (status_data.nseit_status|upper) == 'PENDING' %}
                     <span class="status-badge pending">Pending Review</span>
-                    {% elif status_data.nseit_status == 'Reapplied' %}
+                    {% elif (status_data.nseit_status|upper) == 'REAPPLIED' %}
                     <span class="status-badge reapplied">Reapplied</span>
-                    {% elif status_data.nseit_status == 'Reverted' %}
+                    {% elif (status_data.nseit_status|upper) == 'REVERTED' %}
                     <span class="status-badge reverted">Reverted</span>
-                    {% elif status_data.nseit_status == 'Reverted by CHiPS' %}
+                    {% elif (status_data.nseit_status|upper) == 'REVERTED_BY_CHIPS' %}
                     <span class="status-badge reverted">Reverted</span>
-                    {% elif status_data.nseit_status == 'Skipped' %}
+                    {% elif (status_data.nseit_status|upper) == 'SKIPPED' %}
                     <span class="status-badge skipped" style="background-color: #f3f4f6; color: #4b5563;">Skipped</span>
                     {% else %}
                     <span class="status-badge not-initiated">Not Initiated</span>
@@ -162,16 +152,16 @@
                 </p>
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                {% if status_data.lms_status == 'Approved' or status_data.lms_status == 'Skipped' %}
-                <a href="{{ nseit_url }}" class="btn-card" {% if status_data.nseit_status not in ['Approved', 'Pending'
-                    , 'Forwarded' , 'Reapplied' , 'Forwarded Again' , 'Reverted' , 'Reverted by CHiPS' ] %} {% if
+                {% if (status_data.lms_status|upper) == 'APPROVED' or (status_data.lms_status|upper) == 'SKIPPED' %}
+                    <a href="{{ nseit_url }}" class="btn-card" {% if (status_data.nseit_status|upper) not in ['APPROVED', 'PENDING'
+                    , 'FORWARDED' , 'REAPPLIED' , 'FORWARDED_AGAIN' , 'REVERTED' , 'REVERTED_BY_CHIPS' ] %} {% if
                     status_data.nseit_id %} onclick="return confirmStartRequest(event, 'NSEIT', '{{ nseit_url }}')" {%
                     endif %} {% endif %}>
-                    {% if status_data.nseit_status == 'Approved' %}
+                    {% if (status_data.nseit_status|upper) == 'APPROVED' %}
                     View Details
-                    {% elif status_data.nseit_status in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again'] %}
+                    {% elif (status_data.nseit_status|upper) in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN'] %}
                     Track Request
-                    {% elif status_data.nseit_status in ['Reverted', 'Reverted by CHiPS'] %}
+                    {% elif (status_data.nseit_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
                     Resubmit Request
                     {% else %}
                     Start Request
@@ -179,11 +169,11 @@
                 </a>
 
                 <!-- 🌟 NSEIT DYNAMIC SKIPPED CONDITION WRAPPER -->
-                {% if status_data.nseit_status not in ['Pending', 'Forwarded', 'Reapplied', 'Forwarded Again',
-                'Approved', 'Reverted', 'Reverted by CHiPS'] %}
+                {% if (status_data.nseit_status|upper) not in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN',
+                'APPROVED', 'REVERTED', 'REVERTED_BY_CHIPS'] %}
                 <button type="button" onclick="toggleSkipForm('nseit-skip-container')" class="btn-card"
                     style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">
-                    {% if status_data.nseit_status == 'Skipped' or status_data.nseit_id %}I already have NSEIT ID
+                    {% if (status_data.nseit_status|upper) == 'SKIPPED' or status_data.nseit_id %}I already have NSEIT ID
                     (Update){% else %}I already have NSEIT ID{% endif %}
                 </button>
                 <div id="nseit-skip-container"

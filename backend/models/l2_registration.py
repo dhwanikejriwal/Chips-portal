@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
-from backend.models.base import Base, get_ist_time, to_code, to_name, get_status_expression
+from backend.models.base import Base, get_ist_time, to_code, to_name
 
 class L2RegistrationRequest(Base):
     __tablename__ = "l2_registration_requests"
@@ -23,24 +23,20 @@ class L2RegistrationRequest(Base):
     tech_center_remarks = Column(Text, nullable=True)
     operator_name = Column(String(100), nullable=False)
     operator_id = Column(String(50), nullable=False)
+    # 🌟 FIXED: Changed nullable to True so the database can successfully save empty values when this field is left blank
     unique_id = Column(String(50), nullable=True)
     block = Column(String(100), nullable=False)
     address_of_govt_premises = Column(Text, nullable=False)
 
-    status_code = Column(String(2), nullable=False, default="SC", index=True)
+    status_id = Column(Integer, ForeignKey("master_status.id"), nullable=False, default=5, index=True)
 
     @hybrid_property
     def status(self) -> str:
-        return to_name(self.status_code, casing="lower")
+        return to_name(self.status_id)
 
     @status.setter
     def status(self, value: str):
-        self.status_code = to_code(value)
-
-    @status.expression
-    def status(cls):
-        return get_status_expression(cls.status_code, casing="lower")
-        
+        self.status_id = to_code(value)
     uidai_remarks = Column(Text, nullable=True)
 
     submitted_at = Column(DateTime, nullable=False, default=get_ist_time, index=True)
@@ -73,25 +69,20 @@ class L2RegistrationRemark(Base):
     author_role = Column(String(20), nullable=False)  # 'dc' or 'chips_admin'
     remark = Column(Text, nullable=False)
     
-    status_after_code = Column(String(2), nullable=True)
+    status_after_id = Column(Integer, ForeignKey("master_status.id"), nullable=True)
 
     @hybrid_property
     def status_after(self) -> str | None:
-        if self.status_after_code is None:
+        if self.status_after_id is None:
             return None
-        return to_name(self.status_after_code, casing="lower")
+        return to_name(self.status_after_id)
 
     @status_after.setter
     def status_after(self, value: str | None):
         if value is None:
-            self.status_after_code = None
+            self.status_after_id = None
         else:
-            self.status_after_code = to_code(value)
-
-    @status_after.expression
-    def status_after(cls):
-        return get_status_expression(cls.status_after_code, casing="lower")
-        
+            self.status_after_id = to_code(value)
     created_at = Column(DateTime, nullable=False, default=get_ist_time)
 
     request = relationship("L2RegistrationRequest", back_populates="remarks")

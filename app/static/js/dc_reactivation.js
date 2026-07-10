@@ -7,6 +7,16 @@
 let structuredOperatorList = [];
 window.currentViewingOperators = [];
 
+window.escapeHtmlString = function (text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
+
 // 🟢 INITIALIZATION ADAPTER: SET LIMIT BOUNDARIES AND TAB PERSISTENCE
 document.addEventListener("DOMContentLoaded", () => {
     window.switchReactivationView('dashboard', true);
@@ -25,7 +35,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (certDateInput) {
         certDateInput.max = todayIsoString;
     }
-
     // 3. Check if page is reloaded (F5) and reset filters to defaults
     const navEntries = performance.getEntriesByType("navigation");
     const isReload = navEntries.length > 0 && navEntries[0].type === "reload";
@@ -58,7 +67,6 @@ window.switchReactivationView = function (targetPanel, shouldReset = false) {
     if (targetPanel === 'dashboard') {
         if (dashboardView) dashboardView.style.display = 'block';
         if (historyView) historyView.style.display = 'block';
-
         // Reset the form when returning to dashboard ONLY if shouldReset is true
         if (shouldReset) {
             window.currentReapplyCode = null;
@@ -79,7 +87,7 @@ window.switchReactivationView = function (targetPanel, shouldReset = false) {
             if (remarkEl) remarkEl.style.display = 'none';
             const remarksField = document.getElementById('reapply_remarks_field');
             if (remarksField) remarksField.value = '';
-            
+
             window.isReapplyBatchReverted = false;
             const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
             if (p1BatchContainer) p1BatchContainer.style.display = 'none';
@@ -104,7 +112,6 @@ window.switchReactivationView = function (targetPanel, shouldReset = false) {
             }
             window.currentReapplyCode = null;
         }
-
         const titleEl = document.querySelector('.container-title');
         if (titleEl) {
             titleEl.innerText = 'AADHAAR OPERATOR REACTIVATION';
@@ -117,7 +124,7 @@ window.switchReactivationView = function (targetPanel, shouldReset = false) {
 };
 
 // 🎛️ STEP-1 CACHE ENTRY VALIDATOR
-function addOperatorRecordToExcelLog() {
+window.addOperatorRecordToExcelLog = function () {
     document.querySelectorAll('.error-msg').forEach(el => el.innerText = '');
     let hasValidationError = false;
 
@@ -138,10 +145,24 @@ function addOperatorRecordToExcelLog() {
     };
 
     // Evaluate required entries
+    const keyToErrorIdMap = {
+        role: 'role',
+        name: 'name',
+        reg: 'reg',
+        ea: 'ea',
+        user: 'user',
+        cert: 'cert',
+        mobile: 'mobile',
+        email: 'email',
+        aadhar: 'aadhaar',
+        certDate: 'cert_date',
+        model: 'model',
+        lmsId: 'lms_id'
+    };
     for (const key in fields) {
         if (key === 'remarks') continue;
         if (!fields[key]) {
-            const errNode = document.getElementById(`err_op_${key === 'aadhar' ? 'aadhaar' : key}`);
+            const errNode = document.getElementById(`err_op_${keyToErrorIdMap[key]}`);
             if (errNode) errNode.innerText = 'This field is mandatory.';
             hasValidationError = true;
         }
@@ -173,7 +194,7 @@ function addOperatorRecordToExcelLog() {
         const mm = String(todayD.getMonth() + 1).padStart(2, '0');
         const dd = String(todayD.getDate()).padStart(2, '0');
         const todayStr = `${yyyy}-${mm}-${dd}`;
-        
+
         if (fields.certDate > todayStr) {
             document.getElementById('err_op_cert_date').innerText = 'Certification date cannot be in the future.';
             hasValidationError = true;
@@ -257,12 +278,12 @@ function renderOperatorSpreadsheetRows() {
     document.getElementById('next-step-trigger-btn').disabled = false;
 }
 
-function removeOperatorFromStateArray(index) {
+window.removeOperatorFromStateArray = function (index) {
     structuredOperatorList.splice(index, 1);
     renderOperatorSpreadsheetRows();
 }
 
-function editOperatorInStateArray(index) {
+window.editOperatorInStateArray = function (index) {
     if (window.isCurrentlyEditingOperator) {
         Swal.fire({
             title: 'Unsaved Operator Changes',
@@ -284,6 +305,8 @@ function editOperatorInStateArray(index) {
     window.isCurrentlyEditingOperator = true;
 
     const op = structuredOperatorList[index];
+    structuredOperatorList.splice(index, 1);
+    renderOperatorSpreadsheetRows();
 
     // Populate form fields
     if (document.getElementById('op_role')) document.getElementById('op_role').value = op.role || 'Operator';
@@ -322,25 +345,27 @@ function editOperatorInStateArray(index) {
         reasonContainer.style.display = 'none';
     }
 
-    // Remove from array and re-render
-    structuredOperatorList.splice(index, 1);
-    renderOperatorSpreadsheetRows();
+    if (document.getElementById('editing_op_id')) document.getElementById('editing_op_id').value = op.id || '';
+    if (document.getElementById('editing_op_status')) document.getElementById('editing_op_status').value = op.status || '';
+    if (document.getElementById('editing_op_reject_reason')) document.getElementById('editing_op_reject_reason').value = op.reject_reason || '';
 
-    // Scroll to top to focus on form
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+    // Show operator revert reason if present
+    const reasonContainer = document.getElementById('operator-revert-reason-container');
+    const reasonText = document.getElementById('operator-revert-reason-text');
+    const reasonLabel = document.getElementById('operator-revert-reason-label');
 
-// 🧙‍♂️ WIZARD PAGE SWITCH PANEL CONTROL
-function navigateWizardStep(stepTarget) {
-    if (stepTarget === 2 && window.isCurrentlyEditingOperator) {
-        Swal.fire('Unsaved Changes', 'Please add or update the operator currently being edited to the list before proceeding.', 'warning');
-        return;
+    if (!window.isReapplyBatchReverted && reasonContainer && reasonText && reasonLabel && op.reject_reason) {
+        reasonText.innerText = op.reject_reason;
+        const statusLower = (op.status || '').toLowerCase();
+        if (statusLower.includes('reject')) {
+            reasonLabel.innerText = 'REJECT REASON / REMARKS';
+        } else {
+            reasonLabel.innerText = 'REVERT REASON / REMARKS';
+        }
+        reasonContainer.style.display = 'block';
+    } else if (reasonContainer) {
+        reasonContainer.style.display = 'none';
     }
-    const s1Form = document.getElementById('section-operator-form-view');
-    const s2Docs = document.getElementById('section-documents-upload-view');
-    const node1 = document.getElementById('node-step-1');
-    const node2 = document.getElementById('node-step-2');
-    const divider1 = document.getElementById('step-divider-1');
 
     if (stepTarget === 2) {
         if (s1Form) s1Form.style.display = 'none';
@@ -372,7 +397,7 @@ function navigateWizardStep(stepTarget) {
 }
 
 // 🚀 TRANSACTION ASYNC SUBMIT HANDLER
-function handleFormSubmissionPipeline(event) {
+window.handleFormSubmissionPipeline = function (event) {
     event.preventDefault();
 
     if (window.isCurrentlyEditingOperator) {
@@ -380,134 +405,111 @@ function handleFormSubmissionPipeline(event) {
         return;
     }
 
-    if (structuredOperatorList.length === 0) {
-        Swal.fire({ title: 'Submission Refused', text: 'Staged operator spreadsheet matrix cannot be empty.', icon: 'error' });
-        return;
-    }
-
-    const dateField = document.getElementById('doc_training_date');
-    if (!dateField || !dateField.value) {
-        Swal.fire({ title: 'Validation Error', text: 'Training completion date is required.', icon: 'warning' });
-        if (dateField) dateField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-    }
-
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-    
-    if (dateField.value > todayStr) {
-        Swal.fire({ title: 'Validation Error', text: 'Training completion date cannot be in the future.', icon: 'warning' });
-        dateField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-    }
-
     const formElement = document.getElementById('reactivationForm');
-    const formData = new FormData(formElement);
+const formData = new FormData(formElement);
 
-    // 📁 STRICT DOCUMENT VALIDATION LAYER
-    const requiredFiles = [
-        { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'], maxMB: 2 },
-        { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'], maxMB: 2 },
-        { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'], maxMB: 2 },
-        { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'], maxMB: 5 }
-    ];
+// 📁 STRICT DOCUMENT VALIDATION LAYER
+const requiredFiles = [
+    { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'], maxMB: 2 },
+    { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'], maxMB: 2 },
+    { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'], maxMB: 2 },
+    { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'], maxMB: 5 }
+];
 
-    for (const fileDef of requiredFiles) {
-        const fileObj = formData.get(fileDef.name);
+for (const fileDef of requiredFiles) {
+    const fileObj = formData.get(fileDef.name);
 
-        // Check presence
-        if (!fileObj || fileObj.size === 0) {
-            if (window.currentReapplyCode) {
-                // Documents are optional when reapplying; skip presence checks
-                continue;
-            }
-            Swal.fire({ title: 'Missing Document', text: `Please upload the ${fileDef.label}.`, icon: 'warning' });
-            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
-            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
+    // Check presence
+    if (!fileObj || fileObj.size === 0) {
+        if (window.currentReapplyCode) {
+            // Documents are optional when reapplying; skip presence checks
+            continue;
         }
-
-        // Check size boundaries
-        const maxBytes = fileDef.maxMB * 1024 * 1024;
-        if (fileObj.size > maxBytes) {
-            Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${fileDef.maxMB}MB.`, icon: 'error' });
-            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
-            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-        }
-
-        // Check file extension extension validity
-        const fileName = fileObj.name.toLowerCase();
-        const hasValidExt = fileDef.exts.some(ext => fileName.endsWith(ext));
-        if (!hasValidExt) {
-            Swal.fire({ title: 'Invalid File Format', text: `The ${fileDef.label} must end with one of: ${fileDef.exts.join(', ')}`, icon: 'error' });
-            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
-            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-        }
+        Swal.fire({ title: 'Missing Document', text: `Please upload the ${fileDef.label}.`, icon: 'warning' });
+        const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+        if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
     }
 
-    formData.append('manual_operators', JSON.stringify(structuredOperatorList));
+    // Check size boundaries
+    const maxBytes = fileDef.maxMB * 1024 * 1024;
+    if (fileObj.size > maxBytes) {
+        Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${fileDef.maxMB}MB.`, icon: 'error' });
+        const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+        if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
 
-    const submitRequestAction = (remarksValue) => {
-        if (remarksValue) {
-            formData.append('reapply_remarks', remarksValue);
-        }
-
-        Swal.fire({
-            title: 'Submitting Request...',
-            allowOutsideClick: false,
-            didOpen: () => { Swal.showLoading(); }
-        });
-
-        const routingTargetUrl = '/auth/dc/submit';
-        fetch(routingTargetUrl, { method: 'POST', body: formData })
-            .then(res => {
-                return res.json().then(data => {
-                    if (!res.ok) throw new Error(data.error || "Server transaction processing failure.");
-                    return data;
-                });
-            })
-            .then(data => {
-                const isReapply = !!window.currentReapplyCode;
-                Swal.fire({
-                    title: isReapply ? 'Reapplied!' : 'Submitted Successfully',
-                    text: isReapply ? 'Your corrected request has been sent back to CHiPS Admin.' : 'Reactivation request submitted successfully.',
-                    icon: 'success',
-                    confirmButtonColor: '#007bff',
-                    allowOutsideClick: false,
-                    showConfirmButton: true,
-                    timer: 3000,
-                    timerProgressBar: true
-                }).then(() => {
-                    window.location.reload();
-                });
-            })
-            .catch(err => {
-                Swal.close();
-                Swal.fire({ title: 'Submission Error', text: err.message, icon: 'error' });
-            });
-    };
-
-    if (window.currentReapplyCode) {
-        formData.append('reapply_request_code', window.currentReapplyCode);
-        
-        // Validate the reapply remarks field in the form itself
-        const remarksField = document.getElementById('reapply_remarks_field');
-        const remarks = remarksField ? remarksField.value.trim() : '';
-        if (!remarks) {
-            Swal.fire({ title: 'Validation Error', text: 'Please enter reapplication remarks.', icon: 'warning' });
-            if (remarksField) remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-        }
-        submitRequestAction(remarks);
-    } else {
-        submitRequestAction(null);
+    // Check file extension extension validity
+    const fileName = fileObj.name.toLowerCase();
+    const hasValidExt = fileDef.exts.some(ext => fileName.endsWith(ext));
+    if (!hasValidExt) {
+        Swal.fire({ title: 'Invalid File Format', text: `The ${fileDef.label} must end with one of: ${fileDef.exts.join(', ')}`, icon: 'error' });
+        const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+        if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
     }
 }
+
+formData.append('manual_operators', JSON.stringify(structuredOperatorList));
+
+const submitRequestAction = (remarksValue) => {
+    if (remarksValue) {
+        formData.append('reapply_remarks', remarksValue);
+    }
+
+    Swal.fire({
+        title: 'Submitting Request...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    const routingTargetUrl = '/auth/dc/submit';
+    fetch(routingTargetUrl, { method: 'POST', body: formData })
+        .then(res => {
+            return res.json().then(data => {
+                if (!res.ok) throw new Error(data.error || "Server transaction processing failure.");
+                return data;
+            });
+        })
+        .then(data => {
+            const isReapply = !!window.currentReapplyCode;
+            Swal.fire({
+                title: isReapply ? 'Reapplied!' : 'Submitted Successfully',
+                text: isReapply ? 'Your corrected request has been sent back to CHiPS Admin.' : 'Reactivation request submitted successfully.',
+                icon: 'success',
+                confirmButtonColor: '#007bff',
+                allowOutsideClick: false,
+                showConfirmButton: true,
+                timer: 3000,
+                timerProgressBar: true
+            }).then(() => {
+                window.location.reload();
+            });
+        })
+        .catch(err => {
+            Swal.close();
+            Swal.fire({ title: 'Submission Error', text: err.message, icon: 'error' });
+        });
+};
+
+if (window.currentReapplyCode) {
+    formData.append('reapply_request_code', window.currentReapplyCode);
+
+    // Validate the reapply remarks field in the form itself
+    const remarksField = document.getElementById('reapply_remarks_field');
+    const remarks = remarksField ? remarksField.value.trim() : '';
+    if (!remarks) {
+        Swal.fire({ title: 'Validation Error', text: 'Please enter reapplication remarks.', icon: 'warning' });
+        if (remarksField) remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+    submitRequestAction(remarks);
+} else {
+    submitRequestAction(null);
+}
+}
+
 
 function getStatusBadgeHtml(status) {
     const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
@@ -640,7 +642,7 @@ window.openHistoricalOperatorsModal = function (requestCode) {
 
                 if (normalizedStatus === 'sent to uidai' || normalizedStatus === 'sent_to_uidai') {
                     statusStyle = "color: #0369a1; font-weight: 700; background: #e0f2fe; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
-                } else if (normalizedStatus === 'approved') {
+                } else if (normalizedStatus === 'approved' || normalizedStatus === 'active' || normalizedStatus === 'activated') {
                     statusStyle = "color: #065f46; font-weight: 700; background: #d1fae5; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
                 } else if (normalizedStatus === 'reverted' || normalizedStatus === 'revert back') {
                     statusStyle = "color: #991b1b; font-weight: 700; background: #fee2e2; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
@@ -703,7 +705,7 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
         })
         .then(payload => {
             Swal.close();
-            
+
             // Clear previous documents display first
             document.querySelectorAll('.prev-doc-indicator').forEach(el => {
                 el.style.display = 'none';
@@ -722,7 +724,7 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
             }
 
             // Toggle batch revert reason displays
-            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes(payload.batch_status);
+            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes((payload.batch_status || '').toUpperCase());
             const batchReason = payload.batch_revert_reason || '';
 
             const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
@@ -735,8 +737,8 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
 
             if (isBatchRevertedOrRejected && batchReason) {
                 window.isReapplyBatchReverted = true;
-                const labelText = payload.batch_status === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
-                
+                const labelText = (payload.batch_status || '').toUpperCase() === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
+
                 if (p1BatchContainer && p1BatchText && p1BatchLabel) {
                     p1BatchText.innerText = batchReason;
                     p1BatchLabel.innerText = labelText;
@@ -1010,7 +1012,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
 
     const requestCode = window.currentViewingRequestCode;
     const reqObj = (window.historyRequestsPayload || []).find(r => r.request_code === requestCode);
-    const requestStatus = reqObj ? reqObj.status : op.status;
+    const requestStatus = op.status || (reqObj ? reqObj.status : 'PENDING');
     const statusBadge = getStatusBadgeHtml(requestStatus);
 
     const fullName = op.operator_name || op.name || '—';
@@ -1289,7 +1291,7 @@ window.openIndividualOperatorDetailCard = function (arrayIndex) {
 
 
 // 🧼 WORKSPACE INPUT FIELD CLEANSER
-function clearFormInputs() {
+window.clearFormInputs = function () {
     document.getElementById('op_role').value = 'Supervisor';
     document.getElementById('op_name').value = '';
     document.getElementById('op_reg').value = '986';
@@ -1344,13 +1346,13 @@ function resetEntireNewRequestForm() {
     if (remarkEl) remarkEl.style.display = 'none';
     const remarksField = document.getElementById('reapply_remarks_field');
     if (remarksField) remarksField.value = '';
-    
+
     window.isReapplyBatchReverted = false;
     const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
     if (p1BatchContainer) p1BatchContainer.style.display = 'none';
     const p2BatchContainer = document.getElementById('batch-revert-reason-container-p2');
     if (p2BatchContainer) p2BatchContainer.style.display = 'none';
-    
+
     document.querySelectorAll('.prev-doc-indicator').forEach(el => {
         el.style.display = 'none';
         el.innerText = '';
@@ -1359,38 +1361,6 @@ function resetEntireNewRequestForm() {
     if (titleEl) {
         titleEl.innerText = 'AADHAAR OPERATOR REACTIVATION';
     }
-}
-
-// 🛡️ SECURITY STRING ESCAPER
-function escapeHtmlString(text) {
-    if (!text) return '';
-    return text.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-
-// 🔍 DATA INDEX FILTERS PROCESSING STREAM
-// 🔍 MAIN VIEW TABS (BATCHES VS ACTIVATED)
-function switchMainView(viewType, btnElement) {
-    const buttons = document.querySelectorAll('.main-view-tab');
-    buttons.forEach(btn => {
-        btn.classList.remove('active-view');
-        btn.style.color = '#64748b';
-        btn.style.borderBottom = '3px solid transparent';
-    });
-
-    btnElement.classList.add('active-view');
-    btnElement.style.color = '#007bff';
-    btnElement.style.borderBottom = '3px solid #007bff';
-
-    if (viewType === 'batches') {
-        document.getElementById('view-batches-container').style.display = 'block';
-        document.getElementById('view-approved-container').style.display = 'none';
-    } else {
-        document.getElementById('view-batches-container').style.display = 'none';
-        document.getElementById('view-approved-container').style.display = 'block';
-    }
-}
-
-function filterFlatApprovedOperators() {
     const searchInput = document.getElementById('flat-op-search');
     const searchText = searchInput ? searchInput.value.toLowerCase().trim() : "";
 
@@ -1408,7 +1378,7 @@ function filterFlatApprovedOperators() {
 }
 
 // 🔍 DISTRICT HISTORY DATA GRID CLIENT-SIDE FILTER PIPELINE
-function applyHistoryPanelFiltersPipeline() {
+window.applyHistoryPanelFiltersPipeline = function () {
     // 1. Gather all input conditions safely
     const searchOperatorInput = document.getElementById("filter-search-operator");
     const statusInput = document.getElementById("filter-status");
@@ -1544,7 +1514,7 @@ function applyHistoryPanelFiltersPipeline() {
     if (totalEl) totalEl.textContent = totalAllStatuses;
 }
 
-function resetHistoryPanelFilters() {
+window.resetHistoryPanelFilters = function () {
     const searchOperatorInput = document.getElementById("filter-search-operator");
     if (searchOperatorInput) searchOperatorInput.value = "";
 
@@ -1835,7 +1805,7 @@ window.viewBatchDocuments = function (requestCode, backIndex = null) {
             window.showIndividualOperatorDetails(backIndex, 'details');
         }
     });
-}; 
+};
 
 window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDate) {
     window.currentReapplyCode = requestCode;
@@ -1868,7 +1838,7 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
         })
         .then(payload => {
             Swal.close();
-            
+
             // Clear previous documents display first
             document.querySelectorAll('.prev-doc-indicator').forEach(el => {
                 el.style.display = 'none';
@@ -1887,7 +1857,7 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
             }
 
             // Toggle batch revert reason displays
-            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes(payload.batch_status);
+            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes((payload.batch_status || '').toUpperCase());
             const batchReason = payload.batch_revert_reason || '';
 
             const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
@@ -1900,8 +1870,8 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
 
             if (isBatchRevertedOrRejected && batchReason) {
                 window.isReapplyBatchReverted = true;
-                const labelText = payload.batch_status === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
-                
+                const labelText = (payload.batch_status || '').toUpperCase() === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
+
                 if (p1BatchContainer && p1BatchText && p1BatchLabel) {
                     p1BatchText.innerText = batchReason;
                     p1BatchLabel.innerText = labelText;
@@ -1950,7 +1920,7 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
 
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.oa-file-input').forEach(input => {
-        input.addEventListener('change', function() {
+        input.addEventListener('change', function () {
             // Remove any existing error message
             const parent = this.closest('.oa-doc-card');
             if (parent) {
@@ -1967,7 +1937,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (file.size > maxBytes) {
                     // Clear input to enforce strictness
                     this.value = '';
-                    
+
                     // Add red warning message below the field
                     errEl = document.createElement('div');
                     errEl.className = 'error-msg-file';
@@ -1981,5 +1951,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-    });
 });
+});
+
+window.navigateWizardStep = function (stepNumber) {
+    const section1 = document.getElementById('section-operator-form-view');
+    const section2 = document.getElementById('section-documents-upload-view');
+    if (stepNumber === 1) {
+        if (section1) section1.style.display = 'block';
+        if (section2) section2.style.display = 'none';
+    } else if (stepNumber === 2) {
+        if (section1) section1.style.display = 'none';
+        if (section2) section2.style.display = 'block';
+    }
+};
+
+window.switchMainView = function (viewType, btn) {
+    const batchesContainer = document.getElementById('view-batches-container');
+    const approvedContainer = document.getElementById('view-approved-container');
+    
+    if (viewType === 'batches') {
+        if (batchesContainer) batchesContainer.style.display = 'block';
+        if (approvedContainer) approvedContainer.style.display = 'none';
+    } else {
+        if (batchesContainer) batchesContainer.style.display = 'none';
+        if (approvedContainer) approvedContainer.style.display = 'block';
+    }
+    
+    // Toggle active classes on tabs
+    document.querySelectorAll('.main-view-tab').forEach(tab => {
+        tab.classList.remove('active-view');
+        tab.style.color = '#64748b';
+        tab.style.borderBottomColor = 'transparent';
+        tab.style.fontWeight = '600';
+    });
+    
+    if (btn) {
+        btn.classList.add('active-view');
+        btn.style.color = '#007bff';
+        btn.style.borderBottomColor = '#007bff';
+        btn.style.fontWeight = '700';
+    }
+};

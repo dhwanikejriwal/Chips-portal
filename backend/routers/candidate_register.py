@@ -1,3 +1,4 @@
+from backend.models.base import StatusEnum
 from datetime import datetime, timedelta
 import secrets
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +9,7 @@ from backend.database import get_db
 from backend.models import District, Candidate
 from backend.models.otp_verification import OtpVerification
 from backend.utils.email_utils import send_otp_email
+
 
 router = APIRouter(prefix="/candidate_register", tags=["candidate_register"])
 
@@ -39,6 +41,7 @@ class CandidateRegisterRequest(BaseModel):
                 raise ValueError("Only applicants from Chhattisgarh state (Pincode series starting with 49) are eligible to register.")
         return value
     
+
     @model_validator(mode='before')
     def enforce_marksheet_routing(cls, values):
         qualification = values.get('qualification')
@@ -52,15 +55,140 @@ class CandidateRegisterRequest(BaseModel):
         return values
 
 @router.get("/districts")
-def get_districts(db: Session = Depends(get_db)):
+def get_districts(all_districts: bool = False, db: Session = Depends(get_db)):
     districts = db.query(District).order_by(District.district_name).all()
-    return [
-        {
-            "district_code": d.district_code,
-            "district_name": d.district_name,
-            "district_short_name": d.district_short_name
-        } for d in districts
-    ]
+    if all_districts:
+        res = []
+        for d in districts:
+            res_info = None
+            if d.aadhaar_resources:
+                res_info = {
+                    "edm_name": d.aadhaar_resources.edm_name,
+                    "edm_contact": d.aadhaar_resources.edm_contact,
+                    "edm_email": d.aadhaar_resources.edm_email,
+                    "dc_name": d.aadhaar_resources.dc_name,
+                    "dc_contact": d.aadhaar_resources.dc_contact,
+                    "dc_email": d.aadhaar_resources.dc_email,
+                    "mto_name": d.aadhaar_resources.mto_name,
+                    "mto_contact": d.aadhaar_resources.mto_contact,
+                    "mto_email": d.aadhaar_resources.mto_email,
+                    "adc_name": d.aadhaar_resources.adc_name,
+                    "adc_contact": d.aadhaar_resources.adc_contact,
+                    "adc_email": d.aadhaar_resources.adc_email,
+                }
+            res.append({
+                "district_code": d.district_code,
+                "district_name": d.district_name,
+                "district_short_name": d.district_short_name,
+                "aadhaar_resources": res_info
+            })
+        return res
+    else:
+        now = datetime.now()
+        open_districts = []
+        for d in districts:
+            if not d.registration_open:
+                continue
+            if d.registration_start_date:
+                try:
+                    start_date = datetime.strptime(d.registration_start_date, "%Y-%m-%dT%H:%M")
+                    if now < start_date:
+                        continue
+                except ValueError:
+                    pass
+            if d.registration_end_date:
+                try:
+                    end_date = datetime.strptime(d.registration_end_date, "%Y-%m-%dT%H:%M")
+                    if now > end_date:
+                        continue
+                except ValueError:
+                    pass
+            is_recently_opened = False
+            if d.registration_opened_at:
+                try:
+                    opened_dt = datetime.fromisoformat(d.registration_opened_at)
+                    if now - opened_dt <= timedelta(days=7):
+                        is_recently_opened = True
+                except ValueError:
+                    pass
+            open_districts.append({
+                "district_code": d.district_code,
+                "district_name": d.district_name,
+                "district_short_name": d.district_short_name,
+                "registration_start_date": d.registration_start_date,
+                "registration_end_date": d.registration_end_date,
+                "is_recently_opened": is_recently_opened
+            })
+        return open_districts
+
+class SendOtpRequest(BaseModel):
+    email: EmailStr
+    mobile: str = None
+
+class VerifyOtpRequest(BaseModel):
+    email: EmailStr
+    otp_code: str
+
+@router.post("/send-otp")
+async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
+    email_exists = db.query(Candidate).filter(Candidate.email == payload.email).first()
+    
+    mobile_exists = None
+    if payload.mobile:
+        mobile_exists = db.query(Candidate).filter(Candidate.mobile == payload.mobile).first()
+        
+    if email_exists or mobile_exists:
+        field_errors = {}
+        if email_exists:
+            field_errors["email"] = "Email is already registered"
+        if mobile_exists:
+            field_errors["mobile"] = "Mobile number is already registered"
+        raise HTTPException(status_code=400, detail={"field_errors": field_errors})
+
+    otp = "".join(secrets.choice("0123456789") for _ in range(6))
+    expires = datetime.now() + timedelta(minutes=1)
+
+    existing_record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
+    if existing_record:
+        existing_record.otp_code = otp
+        existing_record.expires_at = expires
+        existing_record.is_verified = False
+    else:
+        new_record = OtpVerification(
+            email=payload.email,
+            otp_code=otp,
+            expires_at=expires,
+            is_verified=False
+        )
+        db.add(new_record)
+    
+    db.commit()
+    
+    # Send email asynchronously
+    await send_otp_email(payload.email, otp)
+    
+    return {"success": True, "message": "OTP sent successfully"}
+
+@router.post("/verify-otp")
+def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
+    record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
+    
+    if not record:
+        raise HTTPException(status_code=400, detail="OTP request not found for this email")
+    
+    if record.is_verified:
+        return {"success": True, "message": "Email is already verified"}
+        
+    if record.otp_code != payload.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid OTP code")
+        
+    if datetime.now() > record.expires_at:
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+        
+    record.is_verified = True
+    db.commit()
+    
+    return {"success": True, "message": "Email verified successfully"}
 
 class SendOtpRequest(BaseModel):
     email: EmailStr
@@ -153,6 +281,27 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
     if not district_obj:
         raise HTTPException(status_code=400, detail="Invalid district code")
 
+    # Validate that district is actively accepting registrations
+    if not district_obj.registration_open:
+        raise HTTPException(status_code=400, detail="Registration is currently closed for this district.")
+        
+    now = datetime.now()
+    if district_obj.registration_start_date:
+        try:
+            start_date = datetime.strptime(district_obj.registration_start_date, "%Y-%m-%dT%H:%M")
+            if now < start_date:
+                raise HTTPException(status_code=400, detail="Registration has not started yet for this district.")
+        except ValueError:
+            pass
+            
+    if district_obj.registration_end_date:
+        try:
+            end_date = datetime.strptime(district_obj.registration_end_date, "%Y-%m-%dT%H:%M")
+            if now > end_date:
+                raise HTTPException(status_code=400, detail="Registration has ended for this district.")
+        except ValueError:
+            pass
+
     count = db.query(Candidate).filter(Candidate.district == payload.district).count()
     short_name = district_obj.district_short_name or "CAN"
     request_code = f"{short_name}-A{count + 1:04d}"
@@ -188,6 +337,7 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
     db.delete(otp_record)
     db.commit()
     
+
     return {
         "success": True,
         "request_code": request_code
@@ -210,10 +360,10 @@ def track_application(payload: TrackRequest, db: Session = Depends(get_db)):
         
     from backend.models.dc_remark import DCRemark
     reject_reason = None
-    if candidate.status_code == "RJ":
+    if candidate.status_id == StatusEnum.REJECTED.value:
         latest_remark = db.query(DCRemark).filter(
             DCRemark.r_id == candidate.r_id, 
-            DCRemark.status_after_code == "RJ"
+            DCRemark.status_after_id == StatusEnum.REJECTED.value
         ).order_by(desc(DCRemark.time)).first()
         if latest_remark:
             reject_reason = latest_remark.remark
@@ -227,3 +377,4 @@ def track_application(payload: TrackRequest, db: Session = Depends(get_db)):
         "status": candidate.status,
         "reject_reason": reject_reason
     }
+

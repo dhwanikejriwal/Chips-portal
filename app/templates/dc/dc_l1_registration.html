@@ -28,7 +28,8 @@
         </button>
     </div>
 
-    <h2 style="font-size: 22px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 20px;">Submit L1 Registration Request</h2>
+    <h2 style="font-size: 22px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 20px;">Submit L1
+        Registration Request</h2>
 
     <form id="l1RegistrationForm" onsubmit="submitL1Registration(event);">
         <div class="form-card-container">
@@ -106,7 +107,8 @@
             </div>
 
             <div class="flex-actions-between" style="margin-top: 25px; align-items: center;">
-                <button type="button" class="btn-cancel" onclick="if(typeof window.clearL1DraftAndForm === 'function') window.clearL1DraftAndForm(); showL1Dashboard();"
+                <button type="button" class="btn-cancel"
+                    onclick="if(typeof window.clearL1DraftAndForm === 'function') window.clearL1DraftAndForm(); showL1Dashboard();"
                     style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                         stroke-linecap="round" stroke-linejoin="round">
@@ -248,12 +250,13 @@
                     <th>Model</th>
                     <th>Status</th>
                     <th>Submitted At</th>
+                    <th>Updated At</th>
                     <th style="text-align: center;">Actions</th>
                 </tr>
             </thead>
             <tbody id="pending-tbody">
                 {% set ns_p = namespace(count=1) %}
-                {% for req in requests if req.status in ['PENDING', 'REAPPLIED'] %}
+                {% for req in requests if (req.status|upper) in ['PENDING', 'REAPPLIED'] %}
                 <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}"
                     data-station-id="{{ req.station_id }}" data-model="{{ req.model_type }}"
                     data-status="{{ req.status }}" data-created="{{ req.created_at }}">
@@ -262,13 +265,21 @@
                     <td>{{ req.station_id }}</td>
                     <td>{{ req.model_type }}</td>
                     <td>
-                        {% if req.status == 'PENDING' %}
+                        {% if (req.status|upper) == 'PENDING' %}
                         <span class="badge badge-pending">Pending</span>
                         {% else %}
                         <span class="badge badge-reapplied">Reapplied</span>
                         {% endif %}
                     </td>
                     <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
+                    <td>
+                        {% if (req.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and req.updated_at and req.updated_at
+                        != '—' %}
+                        {{ req.updated_at|string|truncate(19, True, '') }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
                     <td style="text-align: center;">
                         <div style="display:flex; gap:6px; justify-content:center;">
                             <button type="button" class="btn-details"
@@ -326,7 +337,7 @@
             </thead>
             <tbody id="log-tbody">
                 {% set ns_l = namespace(count=1) %}
-                {% for req in requests if req.status not in ['PENDING', 'REAPPLIED'] %}
+                {% for req in requests if (req.status|upper) not in ['PENDING', 'REAPPLIED'] %}
                 <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}"
                     data-station-id="{{ req.station_id }}" data-model="{{ req.model_type }}"
                     data-status="{{ req.status }}" data-created="{{ req.created_at }}">
@@ -335,14 +346,15 @@
                     <td>{{ req.station_id }}</td>
                     <td>{{ req.model_type }}</td>
                     <td>
-                        {% if req.status in ['APPROVED', 'REVIEWED'] %}
+                        {% if (req.status|upper) in ['APPROVED', 'REVIEWED'] %}
                         <span class="badge badge-approved">Approved</span>
                         {% else %}
                         <span class="badge badge-reverted">Reverted</span>
                         {% endif %}
                     </td>
                     <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
-                    <td>{{ req.updated_at|string|truncate(19, True, '') if req.updated_at else (req.reviewed_at|string|truncate(19, True, '') if req.reviewed_at else '—') }}</td>
+                    <td>{{ req.updated_at|string|truncate(19, True, '') if req.updated_at else
+                        (req.reviewed_at|string|truncate(19, True, '') if req.reviewed_at else '—') }}</td>
                     <td style="text-align: center;">
                         <div style="display:flex; gap:6px; justify-content:center;">
                             <button type="button" class="btn-details"

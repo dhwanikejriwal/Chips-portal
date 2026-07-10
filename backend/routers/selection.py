@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Candidate, CandidateLogin, DCRemark
+from backend.models.base import StatusEnum
 from backend.utils.exporter import generate_csv_export
 from backend.utils.email_utils import send_approval_email, send_rejection_email
 
@@ -54,7 +55,7 @@ def get_dc_candidates(district_code: str | None = None, db: Session = Depends(ge
             
             login_id = ""
             password_raw = ""
-            if c.status == "Approved" and c.login:
+            if c.status_id == StatusEnum.APPROVED.value and c.login:
                 login_id = c.login.user_id
                 password_raw = "Test@123"
                 
@@ -106,7 +107,7 @@ def export_candidates_excel(ids: str = None, db: Session = Depends(get_db)):
 
         login_id = ""
         password_raw = ""
-        if c.status == "Approved" and c.login:
+        if c.status_id == StatusEnum.APPROVED.value and c.login:
             login_id = c.login.user_id
             password_raw = "Test@123"
 
@@ -162,7 +163,7 @@ def export_candidates_excel(ids: str = None, db: Session = Depends(get_db)):
     }
 
     # If all requests in the export are Pending, remove updated_at and dc_remark columns
-    if candidates and all(c.status == "Pending" for c in candidates):
+    if candidates and all(c.status_id == StatusEnum.PENDING.value for c in candidates):
         column_mappings.pop("dc_remark", None)
         column_mappings.pop("updated_at", None)
 
@@ -196,7 +197,7 @@ def approve_candidate(r_id: int, payload: CandidateApproveRequest, background_ta
     )
     db.add(new_login)
     
-    candidate.status = "Approved"
+    candidate.status_id = StatusEnum.APPROVED.value
     
     remark_text = payload.remark or "Application reviewed and approved."
     if payload.force_without_email:
@@ -206,7 +207,7 @@ def approve_candidate(r_id: int, payload: CandidateApproveRequest, background_ta
         r_id=r_id,
         remark=remark_text,
         by=payload.by_user_id,
-        status_after="Approved"
+        status_after_id=StatusEnum.APPROVED.value
     )
     db.add(new_remark)
     
@@ -235,7 +236,7 @@ def reject_candidate(r_id: int, payload: CandidateRejectRequest, background_task
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
         
-    candidate.status = "Rejected"
+    candidate.status_id = StatusEnum.REJECTED.value
     
     remark_text = payload.remark
     if payload.force_without_email:
@@ -245,7 +246,7 @@ def reject_candidate(r_id: int, payload: CandidateRejectRequest, background_task
         r_id=r_id,
         remark=remark_text,
         by=payload.by_user_id,
-        status_after="Rejected"
+        status_after_id=StatusEnum.REJECTED.value
     )
     db.add(new_remark)
     

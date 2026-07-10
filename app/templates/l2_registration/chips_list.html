@@ -112,31 +112,31 @@
     </div>
     <div class="chips-banner-metrics">
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'in', ['pending', 'reapplied']) | list | length }}</div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED']) | list | length }}</div>
 
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
             </div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'sent_to_uidai') | list | length }}</div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'SENT_TO_UIDAI') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
             </div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'reverted') | list | length }}</div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'REVERTED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'rejected') | list | length }}</div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'REJECTED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'approved') | list | length }}</div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'APPROVED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
         </div>
         <div class="chips-metric-card">
@@ -225,12 +225,13 @@
                 <th>Client Type</th>
                 <th>Status</th>
                 <th>Submitted At</th>
+                <th>Updated At</th>
                 <th style="width: 280px; text-align: center;">Action</th>
             </tr>
         </thead>
         <tbody id="pending-table-body">
             {% set ns_pending = namespace(count=1) %}
-            {% for r in requests if r.status == 'pending' or r.status == 'reapplied' %}
+            {% for r in requests if (r.status|upper) in ['PENDING', 'REAPPLIED'] %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
                 data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
                 data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
@@ -245,11 +246,18 @@
                 <td>{{ r.client_version }}</td>
                 <td>{{ r.client_type }}</td>
                 <td>
-                    <span class="sid-badge sid-badge-{{ r.status }}">
-                        {{ r.status | replace('_', ' ') | capitalize }}
+                    <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                        {{ r.status | replace('_', ' ') | title }}
                     </span>
                 </td>
                 <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+                <td>
+                    {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and r.updated_at and r.updated_at != '—' %}
+                    {{ r.updated_at }}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
                 <td>
                     <div class="action-group" style="justify-content: center;">
                         <button type="button" class="btn-issue"
@@ -317,7 +325,7 @@
         </thead>
         <tbody id="uidai-table-body">
             {% set ns_uidai = namespace(count=1) %}
-            {% for r in requests if r.status == 'sent_to_uidai' %}
+            {% for r in requests if (r.status|upper) == 'SENT_TO_UIDAI' %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
                 data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
                 data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
@@ -333,8 +341,8 @@
                 <td><strong>{{ r.new_station_id }}</strong></td>
                 <td>{{ r.client_version }} ({{ r.client_type }})</td>
                 <td>
-                    <span class="sid-badge sid-badge-{{ r.status }}">
-                        {{ r.status | replace('_', ' ') | capitalize }}
+                    <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                        {{ r.status | replace('_', ' ') | title }}
                     </span>
                 </td>
                 <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
@@ -410,7 +418,7 @@
         </thead>
         <tbody id="approved-table-body">
             {% set ns_creds = namespace(count=1) %}
-            {% for r in requests if r.status == 'approved' or r.status == 'rejected' or r.status == 'reverted' %}
+            {% for r in requests if (r.status|upper) in ['APPROVED', 'REJECTED', 'REVERTED'] %}
             <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}"
                 data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
                 data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
@@ -425,8 +433,8 @@
                 <td>{{ r.client_version }}</td>
                 <td>{{ r.client_type }}</td>
                 <td>
-                    <span class="sid-badge sid-badge-{{ r.status }}">
-                        {{ r.status | replace('_', ' ') | capitalize }}
+                    <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                        {{ r.status | replace('_', ' ') | title }}
                     </span>
                 </td>
                 <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
@@ -584,10 +592,10 @@
         if (!tbody) return;
 
         const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
-        
+
         const ids = rows.filter(r => r.style.display !== 'none')
-                        .map(r => r.getAttribute('data-id'))
-                        .filter(Boolean);
+            .map(r => r.getAttribute('data-id'))
+            .filter(Boolean);
 
         if (ids.length === 0) {
             Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#4f46e5' });
@@ -928,6 +936,9 @@
                     msg = 'Action recorded.';
                 }
             }
+
+            const authorName = r.sender_username || r.author || '';
+            const hasUsername = authorName && authorName !== 'system';
 
             const authorName = r.sender_username || r.author || '';
             const hasUsername = authorName && authorName !== 'system';

@@ -10,11 +10,13 @@ from flask import (
     Response,
 )
 import requests as http
+from app.utils.aging import parse_aging_filter, filter_by_aging
 
 station_id_bp = Blueprint("station_id", __name__)
-
 BACKEND = "http://127.0.0.1:8000/station-id"
 
+# Statuses that are NOT part of the pending queue for aging purposes
+_STATION_NON_PENDING = {"approved", "activated", "rejected", "reverted", "reverted_by_chips"}
 
 def _headers():
     return {"Authorization": f"Bearer {session.get('access_token', '')}"}
@@ -59,7 +61,6 @@ def dc_list():
 def dc_new_form():
     if not session.get("access_token"):
         return redirect(url_for("auth.login"))
-
     return render_template("station_id/submit_form.html")
 
 
@@ -131,7 +132,20 @@ def chips_list():
     except http.exceptions.ConnectionError:
         requests_list = []
 
-    return render_template("station_id/chips_list.html", requests=requests_list)
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_subset = [
+            r for r in requests_list
+            if str(r.get("status", "")).strip().lower() not in _STATION_NON_PENDING
+        ]
+        requests_list = filter_by_aging(pending_subset, aging_filter, "submitted_at")
+
+    return render_template(
+        "station_id/chips_list.html",
+        requests=requests_list,
+        aging_filter=aging_filter,
+        aging_label=aging_label,
+    )
 
 
 @station_id_bp.route("/chips/station-id/<int:request_id>/detail-json", methods=["GET"])
@@ -181,6 +195,9 @@ def chips_approve(request_id):
     except Exception as network_err:
         return jsonify({"success": False, "error": f"Gateway microservice link timeout: {str(network_err)}"}), 500
 
+    except Exception as network_err:
+        return jsonify({"success": False, "error": f"Gateway microservice link timeout: {str(network_err)}"}), 500
+
 @station_id_bp.route("/chips/station-id/<int:request_id>/revert", methods=["POST"])
 def chips_revert(request_id):
     if not session.get("access_token"):
@@ -226,7 +243,7 @@ def export_station_id_proxy():
         return "Unauthorized", 401
     ids = request.args.get("ids", "")
     try:
-        response = http.get(f"{BACKEND}/export-excel", params={"ids": ids}, stream=True)
+        response = http.get(f"{BACKEND}/export-excel", params={"ids": ids}, headers=_headers(), stream=True)
         if response.status_code == 200:
             from flask import Response as FlaskResponse
             return FlaskResponse(

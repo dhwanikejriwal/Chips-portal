@@ -14,8 +14,8 @@
 {% set metrics = namespace(pending=0, approved=0, reverted=0) %}
 {% set metrics.pending = pending_requests|length %}
 {% for req in processed_requests %}
-{% set status_lower = req.lms_status|lower %}
-{% if status_lower == 'approved' %}
+{% set status_upper = req.lms_status|upper %}
+{% if status_upper == 'APPROVED' %}
 {% set metrics.approved = metrics.approved + 1 %}
 {% else %}
 {% set metrics.reverted = metrics.reverted + 1 %}
@@ -115,6 +115,16 @@
         </div>
     </div>
 
+    {% if aging_filter %}
+    <div
+        style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+        <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ pending_requests|length }}
+            found)</span>
+        <a href="{{ url_for('lms_manage.chips_lms') }}"
+            style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+    </div>
+    {% endif %}
+
     <!-- Pending Queue Table Section -->
     <div class="section-heading">
         <div class="section-heading-dot" style="background:#f59e0b;"></div>
@@ -145,6 +155,7 @@
                     <th>Email ID</th>
                     <th>Status</th>
                     <th>Submitted At</th>
+                    <th>Updated At</th>
                     <th style="text-align: center;">Action</th>
                 </tr>
             </thead>
@@ -159,8 +170,10 @@
                     data-photo="{{ req.photo_upload or '' }}" data-lms-id="{{ req.lms_id or '' }}"
                     data-lms-id="{{ req.lms_credential_id or '' }}"
                     data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-marksheet="{{ req.marksheet_upload }}"
-                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.lms_status }}"
+                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+                    data-status="{{ req.lms_status.replace('_', ' ') | title }}"
                     data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+                    data-nseit-id="{{ req.nseit_id or '' }}" data-updated="{{ req.updated_at or req.created_at }}"
                     style="border-bottom: 1px solid #edf2f7;">
                     <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
                     <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ req.request_code }}</strong></td>
@@ -169,7 +182,7 @@
                     <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
                     <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
                     <td style="padding: 12px 15px; font-size: 14px;">
-                        {% if req.lms_status == 'Forwarded Again' %}
+                        {% if (req.lms_status|upper) == 'FORWARDED_AGAIN' %}
                         <span class="badge badge-forwarded-again"
                             style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded
                             Again</span>
@@ -179,6 +192,14 @@
                         {% endif %}
                     </td>
                     <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px;">
+                        {% if (req.lms_status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI', 'FORWARDED', 'FORWARDED_AGAIN']
+                        and req.updated_at and req.updated_at != '—' %}
+                        {{ req.updated_at }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
                     <td style="padding: 12px 15px; text-align: center;">
                         <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
                             <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
@@ -200,7 +221,6 @@
             </tbody>
         </table>
         <div id="pending-empty-msg" class="empty-state" style="display: none;">
-
             <p>No pending requests</p>
         </div>
     </div>
@@ -251,7 +271,9 @@
                     data-pincode="{{ req.pincode or '' }}"
                     data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
                     data-photo="{{ req.photo_upload or '' }}" data-marksheet="{{ req.marksheet_upload }}"
-                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.lms_status }}"
+                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+                    data-status="{{ req.lms_status.replace('_', ' ') | title }}"
+                    data-nseit-id="{{ req.nseit_id or '' }}" data-updated="{{ req.updated_at or req.created_at }}"
                     data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
                     data-updated="{{ req.updated_at or req.created_at }}" style="border-bottom: 1px solid #edf2f7;">
                     <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
@@ -261,10 +283,10 @@
                     <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
                     <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
                     <td style="padding: 12px 15px; font-size: 14px;">
-                        {% if req.lms_status == 'Approved' %}
+                        {% if (req.lms_status|upper) == 'APPROVED' %}
                         <span class="badge badge-approved"
                             style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>
-                        {% elif req.lms_status == 'Reverted by CHiPS' %}
+                        {% elif (req.lms_status|upper) == 'REVERTED_BY_CHIPS' %}
                         <span class="badge badge-reverted-by-chips"
                             style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted by
                             CHiPS</span>
@@ -331,6 +353,27 @@
             if (document.getElementById('admin-history-status-filter')) {
                 document.getElementById('admin-history-status-filter').value = 'all';
             }
+        }
+
+
+        // Populate any dynamic districts from data attributes
+        const districts = new Set();
+        document.querySelectorAll('[data-district]').forEach(row => {
+            const d = row.getAttribute('data-district');
+            if (d) districts.add(d.trim());
+        });
+        const select = document.getElementById('admin-district-filter');
+        if (select) {
+            const existingValues = new Set(Array.from(select.options).map(o => o.value.toLowerCase().trim()));
+            districts.forEach(d => {
+                const val = d.toLowerCase().trim();
+                if (val && !existingValues.has(val)) {
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = d;
+                    select.appendChild(opt);
+                }
+            });
         }
 
         filterAdminQueues();
@@ -447,12 +490,12 @@
     }
 
     // Modal forms submission triggers
-    function openApproveModal(r_id, name) {
+    window.openApproveModal = function (r_id, name) {
         Swal.fire({
             title: 'Approve LMS Request',
             html: `
                 <div style="text-align: left;">
-                    <p>Approve candidate <strong>${name}</strong>'s request. A default LMS Certificate ID will be assigned.</p>
+                    <p>Approve candidate <strong>${name}</strong>'s LMS request.</p>
                     <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Approval Remarks (Mandatory)</label>
                     <textarea id="swal-remark" class="swal2-textarea" placeholder="Enter remarks..." style="margin: 0; width: 100%; box-sizing: border-box; height: 100px;"></textarea>
                 </div>
@@ -470,36 +513,87 @@
             }
         }).then((result) => {
             if (result.isConfirmed) {
-                const formData = new FormData();
-                formData.append('remark', result.value.remark);
+                const currentUserId = parseInt("{{ user.id if user else 1 }}", 10);
 
-                fetch(`/auth/dc/approve-lms/${r_id}`, {
-                    method: 'POST',
-                    body: formData
-                }).then(response => {
-                    if (response.ok) {
-                        Swal.fire({
-                            title: 'Approved!',
-                            text: 'LMS Certificate request successfully approved.',
-                            icon: 'success',
-                            confirmButtonColor: '#28a745',
-                            timer: 2000,
-                            timerProgressBar: true
-                        }).then(() => {
-                            sessionStorage.setItem('chips_action_reloading', 'true');
-                            window.location.reload();
-                        });
-                    } else {
-                        response.json().then(data => {
-                            Swal.fire('Error', data.detail || 'Failed to approve request.', 'error');
-                        });
+                const submitApprove = (forceWithoutEmail = false) => {
+                    Swal.fire({
+                        title: 'Processing...',
+                        html: forceWithoutEmail ? 'Approving candidate...' : 'Approving candidate and checking email delivery...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    const payload = new URLSearchParams();
+                    payload.append("remark", result.value.remark);
+                    if (forceWithoutEmail) {
+                        payload.append("force_without_email", "true");
                     }
-                });
+
+                    fetch(`/auth/dc/approve-lms/${r_id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: payload
+                    }).then(async response => {
+                        let data = null;
+                        try {
+                            data = await response.json();
+                        } catch (e) {
+                            console.error("Failed to parse response JSON", e);
+                        }
+
+                        if (response.ok && (!data || data.success !== false)) {
+                            const msg = forceWithoutEmail
+                                ? 'LMS Certificate request successfully approved (Email was not sent).'
+                                : 'LMS Certificate request successfully approved and candidate has been informed via email.';
+
+                            Swal.fire({
+                                title: 'Approved!',
+                                text: msg,
+                                icon: 'success',
+                                confirmButtonColor: '#28a745',
+                                timer: 3000,
+                                timerProgressBar: true
+                            }).then(() => {
+                                sessionStorage.setItem('chips_action_reloading', 'true');
+                                window.location.reload();
+                            });
+                        } else {
+                            if (data && data.email_failed) {
+                                Swal.fire({
+                                    title: 'Email Delivery Failed',
+                                    text: "The candidate couldn't be notified via email at the moment. Do you still want to proceed?",
+                                    icon: 'warning',
+                                    showDenyButton: true,
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Retry Email',
+                                    denyButtonText: 'Proceed Without Email',
+                                    cancelButtonText: 'Cancel'
+                                }).then((res) => {
+                                    if (res.isConfirmed) {
+                                        submitApprove(false); // Retry
+                                    } else if (res.isDenied) {
+                                        submitApprove(true); // Proceed without email
+                                    }
+                                });
+                            } else {
+                                Swal.fire('Error', (data && data.detail) ? data.detail : 'Failed to approve request.', 'error');
+                            }
+                        }
+                    }).catch(() => {
+                        Swal.fire('Error', 'Failed to approve request. Please check your connection.', 'error');
+                    });
+                };
+
+                submitApprove(false);
             }
         });
     }
 
-    function openRevertModal(r_id, name) {
+    window.openRevertModal = function (r_id, name) {
         Swal.fire({
             title: 'Revert LMS Request',
             html: `
@@ -542,16 +636,30 @@
                             window.location.reload();
                         });
                     } else {
-                        response.json().then(data => {
-                            Swal.fire('Error', data.detail || 'Failed to revert request.', 'error');
-                        });
+                        Swal.fire('Error', 'Failed to revert request.', 'error');
                     }
+                }).catch(() => {
+                    Swal.fire('Error', 'Failed to revert request.', 'error');
                 });
             }
         });
     }
 
-    // Escaping helper
+    // 🌟 Build a status badge HTML string for inline use in remarks timeline (Unmasked Admin View)
+    function buildStatusBadgeInline(status) {
+        const map = {
+            'Approved': 'badge-approved',
+            'Forwarded': 'badge-forwarded',
+            'Forwarded Again': 'badge-forwarded-again',
+            'Reapplied': 'badge-reapplied',
+            'Reverted': 'badge-reverted',
+            'Reverted by CHiPS': 'badge-reverted-by-chips',
+            'Pending': 'badge-pending'
+        };
+        const cls = map[status] || 'badge-pending';
+        return '<span class="badge ' + cls + '" style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;">' + status + '</span>';
+    }
+
     function escapeHtml(text) {
         if (!text) return '';
         return text
@@ -562,20 +670,15 @@
             .replace(/'/g, "&#039;");
     }
 
-    // Zoom photo in a custom overlay without closing the SweetAlert details modal
     function zoomPhoto(url) {
         viewDocument('Profile Photo', url);
     }
 
-    // Custom inline document viewer matching the user's mockup window
     function viewDocument(title, fileUrl) {
         if (!fileUrl) return;
-
-        // Determine extension
         const extension = fileUrl.split('.').pop().toLowerCase();
         const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
 
-        // Create overlay
         const overlay = document.createElement('div');
         overlay.style.position = 'fixed';
         overlay.style.top = '0';
@@ -588,7 +691,6 @@
         overlay.style.alignItems = 'center';
         overlay.style.zIndex = '99999';
 
-        // Create modal container
         const modal = document.createElement('div');
         modal.style.width = '90%';
         modal.style.maxWidth = '800px';
@@ -600,11 +702,9 @@
         modal.style.display = 'flex';
         modal.style.flexDirection = 'column';
         modal.style.overflow = 'hidden';
-        modal.style.animation = 'swal2-show 0.3s ease-out';
 
-        // Create header
         const header = document.createElement('div');
-        header.style.backgroundColor = '#1e3a8a'; // Dark Navy Blue
+        header.style.backgroundColor = '#1e3a8a';
         header.style.padding = '12px 20px';
         header.style.display = 'flex';
         header.style.justifyContent = 'space-between';
@@ -628,16 +728,12 @@
         closeBtn.style.justifyContent = 'center';
         closeBtn.style.cursor = 'pointer';
         closeBtn.style.color = 'white';
-        closeBtn.style.transition = 'background 0.2s';
-        closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
-        closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
         closeBtn.onclick = () => document.body.removeChild(overlay);
         closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 
         header.appendChild(headerTitle);
         header.appendChild(closeBtn);
 
-        // Create body
         const body = document.createElement('div');
         body.style.flex = '1';
         body.style.padding = '20px';
@@ -665,7 +761,6 @@
             body.appendChild(iframe);
         }
 
-        // Create footer
         const footer = document.createElement('div');
         footer.style.padding = '12px 20px';
         footer.style.borderTop = '1px solid #edf2f7';
@@ -690,9 +785,6 @@
         downloadLink.style.fontSize = '14px';
         downloadLink.style.textDecoration = 'none';
         downloadLink.style.cursor = 'pointer';
-        downloadLink.style.transition = 'background-color 0.2s';
-        downloadLink.onmouseenter = () => downloadLink.style.backgroundColor = '#d1fae5';
-        downloadLink.onmouseleave = () => downloadLink.style.backgroundColor = '#ecfdf5';
         downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
 
         const closeBtnFooter = document.createElement('button');
@@ -705,9 +797,6 @@
         closeBtnFooter.style.fontSize = '14px';
         closeBtnFooter.style.border = 'none';
         closeBtnFooter.style.cursor = 'pointer';
-        closeBtnFooter.style.transition = 'background-color 0.2s';
-        closeBtnFooter.onmouseenter = () => closeBtnFooter.style.backgroundColor = '#4338ca';
-        closeBtnFooter.onmouseleave = () => closeBtnFooter.style.backgroundColor = '#4f46e5';
         closeBtnFooter.onclick = () => document.body.removeChild(overlay);
         closeBtnFooter.innerText = 'Close';
 
@@ -728,11 +817,8 @@
         document.body.appendChild(overlay);
     }
 
-    // Helper to build a document preview card matching the mockup design
     function buildDocumentCard(title, fileUrl, defaultName) {
         if (!fileUrl) return '';
-
-        // Determine file extension
         const extension = fileUrl.split('.').pop().toLowerCase();
         const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
 
@@ -747,13 +833,11 @@
                 </button>
             `;
         } else {
-            // Render document icon
             previewHtml = `
                 <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}')">
                     <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 </div>
             `;
-            // For PDF or other documents, preview opens inline in custom overlay modal
             previewButtonHtml = `
                 <button type="button" onclick="viewDocument('${title}', '${fileUrl}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
@@ -761,13 +845,12 @@
             `;
         }
 
-        // Extract filename for subtitle
         const fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1) || defaultName;
-        const shortFileName = fileName.length > 22 ? fileName.substring(0, 19) + '...' : fileName;
+        const shortFileName = fileName.length > 20 ? fileName.substring(0, 10) + '...' + fileName.substring(fileName.length - 8) : fileName;
 
         return `
-            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                <div style="height: 100px; width: 100%; background: #f8fafc; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #edf2f7;">
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="width: 100%; height: 110px; border-radius: 8px; overflow: hidden; border: 1px solid #edf2f7; position: relative;">
                     ${previewHtml}
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
@@ -784,22 +867,6 @@
                 </div>
             </div>
         `;
-    }
-
-
-    // 🌟 Build a status badge HTML string for inline use in remarks timeline (Unmasked Admin View)
-    function buildStatusBadgeInline(status) {
-        const map = {
-            'Approved': 'badge-approved',
-            'Forwarded': 'badge-forwarded',
-            'Forwarded Again': 'badge-forwarded-again',
-            'Reapplied': 'badge-reapplied',
-            'Reverted': 'badge-reverted',
-            'Reverted by CHiPS': 'badge-reverted-by-chips',
-            'Pending': 'badge-pending'
-        };
-        const cls = map[status] || 'badge-pending';
-        return '<span class="badge ' + cls + '" style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;">' + status + '</span>';
     }
 
     window.showCandidateDetails = function (d, activeView, showRemarks = true) {
@@ -855,7 +922,7 @@
                 <!-- Revert Reason / Remark Box -->
                 <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
                     <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                        <span>💬</span> REVERT / REJECTION REASON
+                        <span>💬</span> REVERT REASON
                     </div>
                     <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
                         ${escapeHtml(latestRevertReason)}
@@ -933,6 +1000,10 @@
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
                             <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Candidate Unique ID (Exam ID)</div>
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.examUniqueCode || 'None'}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certificate ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.nseitId || 'None'}</div>
                         </div>
                     </div>
                 </div>
@@ -1124,7 +1195,7 @@
         }
     };
 
-    function openDetailsModal(row) {
+    window.openDetailsModal = function (row) {
         const d = {
             id: row.getAttribute('data-id'),
             code: row.getAttribute('data-code'),
@@ -1141,6 +1212,7 @@
             lmsId: row.getAttribute('data-lms-id') || '',
             lmsId: row.getAttribute('data-lms-id') || '',
             examUniqueCode: row.getAttribute('data-exam-unique-code') || '',
+            nseitId: row.getAttribute('data-nseit-id') || '',
             marksheet: row.getAttribute('data-marksheet'),
             tenthMarksheet: row.getAttribute('data-tenth-marksheet') || '',
             status: row.getAttribute('data-status'),
@@ -1152,7 +1224,7 @@
     }
 
     // Export helper function to fetch Excel stream from backend
-    function exportTableToExcel(tableID, filename = 'export.csv') {
+    window.exportTableToExcel = function (tableID, filename = 'export.csv') {
         const ids = [];
         let rowsSelector = '';
 

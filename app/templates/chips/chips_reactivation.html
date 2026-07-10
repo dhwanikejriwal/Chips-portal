@@ -278,6 +278,8 @@
             width: 100%;
             text-align: center;
         }
+    }
+
     /* Custom button classes for SweetAlert popup windows */
     .swal-btn-action-blue {
         background-color: #007bff !important;
@@ -290,9 +292,11 @@
         cursor: pointer !important;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
     }
+
     .swal-btn-action-blue:hover {
         background-color: #0056b3 !important;
     }
+
     .swal-btn-action-cancel {
         background-color: #64748b !important;
         color: white !important;
@@ -303,6 +307,7 @@
         border: none !important;
         cursor: pointer !important;
     }
+
     .swal-btn-action-cancel:hover {
         background-color: #475569 !important;
     }
@@ -318,19 +323,19 @@
         %}
         {% for req in requests %}
         {% for op in req.operators %}
-        {% set status_lower = op.status|lower %}
+        {% set status_upper = op.status|upper %}
         {% set metrics.total = metrics.total + 1 %}
-        {% if status_lower == 'reapplied' %}
+        {% if status_upper == 'REAPPLIED' %}
         {% set metrics.reapplied = metrics.reapplied + 1 %}
-        {% elif status_lower == 'pending' %}
+        {% elif status_upper == 'PENDING' %}
         {% set metrics.pending = metrics.pending + 1 %}
-        {% elif 'uidai' in status_lower %}
+        {% elif 'UIDAI' in status_upper %}
         {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
-        {% elif status_lower in ['reverted', 'revert back'] %}
+        {% elif status_upper in ['REVERTED', 'REVERT BACK'] %}
         {% set metrics.reverted = metrics.reverted + 1 %}
-        {% elif status_lower == 'rejected' %}
+        {% elif status_upper == 'REJECTED' %}
         {% set metrics.rejected = metrics.rejected + 1 %}
-        {% elif status_lower in ['approved', 'reviewed', 'assigned', 'active', 'activated'] %}
+        {% elif status_upper in ['APPROVED', 'REVIEWED', 'ASSIGNED', 'ACTIVE', 'ACTIVATED'] %}
         {% set metrics.approved = metrics.approved + 1 %}
         {% endif %}
         {% endfor %}
@@ -413,6 +418,16 @@
             </div>
         </div>
         <div class="form-card-container">
+            {% if aging_filter %}
+            <div
+                style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+                <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ requests|length }}
+                    found)</span>
+                <a href="/auth/chips/reactivation"
+                    style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+            </div>
+            {% endif %}
+
             <!-- Global Filter Bar -->
             <div class="filter-bar">
                 <div class="filter-group filter-group-search">
@@ -482,7 +497,7 @@
                 {% for req in requests %}
                 {% set has_pending_op = namespace(val=false) %}
                 {% for op in req.operators %}
-                {% if op.status|lower in ['pending', 'reapplied'] %}
+                {% if op.status|upper in ['PENDING', 'REAPPLIED'] %}
                 {% set has_pending_op.val = true %}
                 {% set pending_found.val = true %}
                 {% endif %}
@@ -542,8 +557,8 @@
                     </div>
                     <div style="padding: 10px 20px;">
                         {% for op in req.operators %}
-                        {% set op_status_lower = op.status|lower %}
-                        {% if op_status_lower in ['pending', 'reapplied'] %}
+                        {% set op_status_upper = op.status|upper %}
+                        {% if op_status_upper in ['PENDING', 'REAPPLIED'] %}
                         <div class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                             data-mobile="{{ op.operator_mobile }}"
                             data-email="{{ op.email_id | lower | default('', true) }}"
@@ -563,7 +578,7 @@
                                 <div
                                     style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
                                     <span style="color: #64748b;">Status:</span>
-                                    {% if op_status_lower == 'reapplied' %}
+                                    {% if op_status_upper == 'REAPPLIED' %}
                                     <span class="badge badge-reapplied">Reapplied</span>
                                     {% else %}
                                     <span class="badge badge-pending">Pending</span>
@@ -622,7 +637,7 @@
             {% for req in requests %}
             {% set has_uidai_op = namespace(val=false) %}
             {% for op in req.operators %}
-            {% if 'uidai' in op.status|lower %}
+            {% if 'UIDAI' in op.status|upper %}
             {% set has_uidai_op.val = true %}
             {% set uidai_found.val = true %}
             {% endif %}
@@ -682,8 +697,8 @@
                 </div>
                 <div style="padding: 10px 20px;">
                     {% for op in req.operators %}
-                    {% set op_status_lower = op.status|lower %}
-                    {% if 'uidai' in op_status_lower %}
+                    {% set op_status_upper = op.status|upper %}
+                    {% if 'UIDAI' in op_status_upper %}
                     <div class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                         data-mobile="{{ op.operator_mobile }}"
                         data-email="{{ op.email_id | lower | default('', true) }}" data-status="{{ op.status | upper }}"
@@ -763,7 +778,7 @@
             {% for req in requests %}
             {% set has_hist_op = namespace(val=false) %}
             {% for op in req.operators %}
-            {% if op.status|lower not in ['pending', 'reapplied', 'uidai', 'sent to uidai', 'sent_to_uidai'] %}
+            {% if op.status|upper not in ['PENDING', 'REAPPLIED', 'SENT_TO_UIDAI'] %}
             {% set has_hist_op.val = true %}
             {% set hist_found.val = true %}
             {% endif %}
@@ -811,8 +826,8 @@
                 </div>
                 <div style="padding: 10px 20px;">
                     {% for op in req.operators %}
-                    {% set op_status_lower = op.status|lower %}
-                    {% if op_status_lower not in ['pending', 'reapplied', 'uidai', 'sent to uidai', 'sent_to_uidai'] %}
+                    {% set op_status_upper = op.status|upper %}
+                    {% if op_status_upper not in ['PENDING', 'REAPPLIED', 'SENT_TO_UIDAI'] %}
                     <div class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                         data-mobile="{{ op.operator_mobile }}"
                         data-email="{{ op.email_id | lower | default('', true) }}" data-status="{{ op.status | upper }}"
@@ -831,11 +846,11 @@
                             <div
                                 style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
                                 <span style="color: #64748b;">Status:</span>
-                                {% if op_status_lower == 'approved' %}
+                                {% if op_status_upper == 'APPROVED' %}
                                 <span class="badge badge-approved">Approved</span>
-                                {% elif op_status_lower in ['reverted', 'revert back'] %}
+                                {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
                                 <span class="badge badge-reverted">Reverted</span>
-                                {% elif op_status_lower == 'rejected' %}
+                                {% elif op_status_upper == 'REJECTED' %}
                                 <span class="badge badge-reverted"
                                     style="background-color: #fef2f2; color: #b91c1c;">Rejected</span>
                                 {% else %}
@@ -1123,13 +1138,13 @@
                     let statusBadgeHtml = '';
                     let actionsHtml = '';
 
-                    let reasonHtml = op.status === 'REVERTED' ? `<span style="color:#b91c1c; font-weight:600;">${escapeHtml(op.reject_reason)}</span>` : '<span style="color:#94a3b8; font-style:italic;">—</span>';
+                    let reasonHtml = op.status.toUpperCase() === 'REVERTED' ? `<span style="color:#b91c1c; font-weight:600;">${escapeHtml(op.reject_reason)}</span>` : '<span style="color:#94a3b8; font-style:italic;">—</span>';
 
-                    if (op.status === 'APPROVED') {
+                    if (op.status.toUpperCase() === 'APPROVED') {
                         statusBadgeHtml = `<span style="background-color: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Approved</span>`;
-                    } else if (op.status === 'REVERTED') {
+                    } else if (op.status.toUpperCase() === 'REVERTED') {
                         statusBadgeHtml = `<span style="background-color: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block; white-space: nowrap;">Reverted</span>`;
-                    } else if (op.status === 'SENT_TO_UIDAI') {
+                    } else if (op.status.toUpperCase() === 'SENT_TO_UIDAI' || op.status === 'Sent to UIDAI') {
                         statusBadgeHtml = `<span style="background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Sent to UIDAI</span>`;
                     } else {
                         statusBadgeHtml = `<span style="background-color: #e2e8f0; color: #475569; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Pending</span>`;
@@ -1138,7 +1153,7 @@
                     if (!isReadOnly) {
                         let actionButtonsHtml = '';
                         if (batchStatus === 'PENDING' || batchStatus === 'REAPPLIED') {
-                            if (op.status !== 'SENT_TO_UIDAI') {
+                            if (op.status.toUpperCase() !== 'SENT_TO_UIDAI' && op.status !== 'Sent to UIDAI') {
                                 actionButtonsHtml += `
                                         <button class="action-toggle-btn btn-send-uidai-op"
                                                 onclick="executeIndividualUidai('${op.id}', '${requestCode}', this)"
@@ -1147,7 +1162,7 @@
                                         </button>
                                     `;
                             }
-                            if (op.status !== 'REVERTED') {
+                            if (op.status.toUpperCase() !== 'REVERTED') {
                                 actionButtonsHtml += `
                                         <button class="action-toggle-btn btn-revert-op"
                                                 onclick="executeIndividualReversion('${op.id}', '${requestCode}', this)"
@@ -1156,8 +1171,8 @@
                                         </button>
                                     `;
                             }
-                        } else if (batchStatus === 'SENT_TO_UIDAI') {
-                            if (op.status !== 'APPROVED') {
+                        } else if (batchStatus === 'SENT_TO_UIDAI' || batchStatus === 'SENT TO UIDAI') {
+                            if (op.status.toUpperCase() !== 'APPROVED') {
                                 actionButtonsHtml += `
                                         <button class="action-toggle-btn btn-activate-op"
                                                 onclick="executeIndividualActivation('${op.id}', '${requestCode}', this)"
@@ -1166,7 +1181,7 @@
                                         </button>
                                     `;
                             }
-                            if (op.status !== 'REVERTED') {
+                            if (op.status.toUpperCase() !== 'REVERTED') {
                                 actionButtonsHtml += `
                                         <button class="action-toggle-btn btn-revert-op"
                                                 onclick="executeIndividualReversion('${op.id}', '${requestCode}', this)"
@@ -2078,9 +2093,9 @@
     function showIndividualOperatorDetails(operatorId, requestCode, status, viewMode = 'details') {
         let resolvedStatus = '';
         if (typeof status === 'string') {
-            resolvedStatus = status;
-        } else if (status && typeof status === 'object' && status.getAttribute) {
-            resolvedStatus = status.getAttribute('data-status') || '';
+            resolvedStatus = status.toLowerCase().replace(/ /g, '_');
+        } else if (status && typeof status === 'object' && typeof status.getAttribute === 'function') {
+            resolvedStatus = (status.getAttribute('data-status') || '').toLowerCase().replace(/ /g, '_');
         }
 
         Swal.fire({
@@ -2418,7 +2433,100 @@
             document.getElementById('admin-history-status-filter').value = 'all';
         }
 
+        // ── URL Query Parameters Parsing ────────────────────────────────
+        const urlParams = new URLSearchParams(window.location.search);
+        const qDist = urlParams.get('district');
+        const qStatus = urlParams.get('status');
+
+        if (qDist) {
+            const distSelect = document.getElementById('admin-district-filter');
+            let matched = false;
+            if (distSelect) {
+                const val = qDist.toLowerCase().trim();
+                for (let opt of distSelect.options) {
+                    if (opt.value.toLowerCase().trim() === val) {
+                        distSelect.value = opt.value;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (!matched) {
+                const searchInput = document.getElementById('admin-search-input');
+                if (searchInput) {
+                    searchInput.value = qDist;
+                }
+            }
+        }
+
+        if (qStatus) {
+            const statusL = qStatus.toLowerCase().trim();
+            const pendingStatusSelect = document.getElementById('admin-pending-status-filter');
+            const historyStatusSelect = document.getElementById('admin-history-status-filter');
+
+            if (statusL === 'pending') {
+                if (pendingStatusSelect) pendingStatusSelect.value = 'all';
+            } else if (statusL === 'sent_to_uidai') {
+                if (pendingStatusSelect) pendingStatusSelect.value = 'SENT_TO_UIDAI';
+            } else if (statusL === 'approved') {
+                if (historyStatusSelect) historyStatusSelect.value = 'REVIEWED';
+            } else if (statusL === 'rejected') {
+                if (historyStatusSelect) historyStatusSelect.value = 'REVERTED';
+            }
+        }
+
         filterAdminQueues();
+
+        // Populate any dynamic districts from data attributes (from Mayur's branch/general compatibility)
+        const districts = new Set();
+        document.querySelectorAll('[data-district]').forEach(row => {
+            const d = row.getAttribute('data-district');
+            if (d) districts.add(d.trim());
+        });
+        const select = document.getElementById('admin-district-filter');
+        if (select) {
+            const existingValues = new Set(Array.from(select.options).map(o => o.value.toLowerCase().trim()));
+            districts.forEach(d => {
+                const val = d.toLowerCase().trim();
+                if (val && !existingValues.has(val)) {
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = d;
+                    select.appendChild(opt);
+                }
+            });
+        }
+
+        // ── Deep-link scroll + highlight flash ──────────────────────────
+        if (qDist || qStatus) {
+            function flashEl(el) {
+                if (!el) return;
+                el.style.transition = 'box-shadow 0.4s ease, outline 0.4s ease';
+                el.style.outline = '2px solid rgba(59,130,246,0.6)';
+                el.style.boxShadow = '0 0 0 4px rgba(59,130,246,0.18), 0 4px 20px rgba(59,130,246,0.22)';
+                setTimeout(() => { el.style.outline = ''; el.style.boxShadow = ''; }, 2200);
+            }
+            const statusL = (qStatus || '').toLowerCase().trim();
+            setTimeout(() => {
+                let scrollTarget, flashTarget;
+                if (!statusL || statusL === 'pending') {
+                    scrollTarget = document.getElementById('admin-pending-table') || document.getElementById('pending-cards-container');
+                    flashTarget = document.getElementById('admin-pending-status-filter');
+                } else if (statusL === 'sent_to_uidai') {
+                    scrollTarget = document.getElementById('admin-uidai-table') || document.getElementById('uidai-cards-container');
+                    flashTarget = document.getElementById('admin-pending-status-filter');
+                } else {
+                    const historyTable = document.getElementById('admin-approved-table') || document.getElementById('approved-cards-container');
+                    scrollTarget = historyTable;
+                    flashTarget = document.getElementById('admin-history-status-filter');
+                }
+                if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (flashTarget) {
+                    const bar = flashTarget.closest('div[style*="flex"]') || flashTarget.closest('.filter-bar') || flashTarget;
+                    flashEl(bar);
+                }
+            }, 200);
+        }
     });
 </script>
 {% endblock %}

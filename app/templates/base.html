@@ -20,9 +20,32 @@
     <!-- SheetJS CDN for xlsx downloads -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-
     {% block extra_css %}{% endblock %}
 
+    <!-- Highlight for rows linked to from the notification panel / dashboard KPIs -->
+    <style>
+        .row-highlight-new {
+            position: relative;
+            background: rgba(245, 158, 11, 0.08) !important;
+            box-shadow: inset 3px 0 0 0 #f59e0b;
+            animation: row-highlight-fade 2.5s ease-out 1;
+        }
+        @keyframes row-highlight-fade {
+            0% { background: rgba(245, 158, 11, 0.22) !important; }
+            100% { background: rgba(245, 158, 11, 0.08) !important; }
+        }
+        .row-status-match {
+            position: relative;
+            background: rgba(37, 99, 235, 0.08) !important;
+            box-shadow: inset 3px 0 0 0 #2563eb;
+            animation: row-status-fade 2.5s ease-out 1;
+        }
+        @keyframes row-status-fade {
+            0% { background: rgba(37, 99, 235, 0.20) !important; }
+            100% { background: rgba(37, 99, 235, 0.08) !important; }
+        }
+        .row-status-dim { opacity: 0.45; }
+    </style>
     <!-- Tab Session Enforcer -->
     {% if session.get('access_token') %}
     <script>
@@ -147,6 +170,88 @@
                 }, 3000);
             });
         });
+    </script>
+
+    <!-- Highlight rows for requests newer than the notification panel's cutoff -->
+    <script>
+        (function () {
+            var params = new URLSearchParams(window.location.search);
+            var highlightSince = params.get('highlight_since');
+            if (!highlightSince) return;
+            var cutoff = new Date(highlightSince.replace(' ', 'T'));
+            if (isNaN(cutoff.getTime())) return;
+
+            function applyHighlights() {
+                var candidates = document.querySelectorAll('[data-created], [data-updated]');
+                var firstMatch = null;
+                candidates.forEach(function (el) {
+                    var raw = el.getAttribute('data-updated') || el.getAttribute('data-created');
+                    if (!raw) return;
+                    var ts = new Date(raw.replace(' ', 'T'));
+                    if (isNaN(ts.getTime()) || ts <= cutoff) return;
+                    el.classList.add('row-highlight-new');
+                    if (!firstMatch) firstMatch = el;
+                });
+                if (firstMatch) {
+                    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+
+            // Delay slightly so any page-specific JS that filters/renders rows
+            // from the same server-rendered data attributes has settled.
+            window.addEventListener('load', function () {
+                setTimeout(applyHighlights, 300);
+            });
+        })();
+    </script>
+
+    <!-- Filter/highlight rows by status bucket (used by DC dashboard KPI links
+         and the notification panel's reverted/rejected links) -->
+    <script>
+        (function () {
+            var params = new URLSearchParams(window.location.search);
+            var wantStatus = params.get('status');
+            if (!wantStatus) return;
+            wantStatus = wantStatus.trim().toLowerCase();
+
+            // Same bucketing rules as _status_bucket() in blueprints/dashboard.py.
+            function bucket(raw) {
+                var s = (raw || '').toString().trim().toLowerCase();
+                if (['approved', 'reviewed', 'activated', 'assigned', 'sent_to_uidai', 'sent to uidai'].indexOf(s) !== -1) return 'approved';
+                if (s === 'rejected') return 'rejected';
+                if (['reverted', 'reverted by chips', 'reverted_by_chips'].indexOf(s) !== -1) return 'reverted';
+                return 'pending';
+            }
+
+            // "reverted_rejected" is a combined sentinel used by the DC
+            // notification panel, since a type's reverted/rejected count
+            // there isn't broken down by exact bucket.
+            function matchesWant(rowBucket) {
+                if (wantStatus === 'reverted_rejected') return rowBucket === 'reverted' || rowBucket === 'rejected';
+                return rowBucket === wantStatus;
+            }
+
+            function apply() {
+                var rows = document.querySelectorAll('[data-status]');
+                if (!rows.length) return;
+                var firstMatch = null;
+                rows.forEach(function (el) {
+                    if (matchesWant(bucket(el.getAttribute('data-status')))) {
+                        el.classList.add('row-status-match');
+                        if (!firstMatch) firstMatch = el;
+                    } else {
+                        el.classList.add('row-status-dim');
+                    }
+                });
+                if (firstMatch) {
+                    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+
+            window.addEventListener('load', function () {
+                setTimeout(apply, 300);
+            });
+        })();
     </script>
 </body>
 

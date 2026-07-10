@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
-from backend.models.base import Base, get_ist_now, to_code, to_name, get_status_expression
+from backend.models.base import Base, get_ist_now, to_code, to_name
 
 class L1RegistrationRequest(Base):
     __tablename__ = "l1_registration_requests"
@@ -19,19 +19,15 @@ class L1RegistrationRequest(Base):
     uv_id = Column(String, nullable=False)
     uv_password = Column(String, nullable=False)
     
-    status_code = Column(String(2), default="PE")
+    status_id = Column(Integer, ForeignKey("master_status.id"), default=1) # 1 = PENDING
 
     @hybrid_property
     def status(self) -> str:
-        return to_name(self.status_code, casing="upper")
+        return to_name(self.status_id)
 
     @status.setter
     def status(self, value: str):
-        self.status_code = to_code(value)
-
-    @status.expression
-    def status(cls):
-        return get_status_expression(cls.status_code, casing="upper")
+        self.status_id = to_code(value)
     
     created_at = Column(DateTime, default=get_ist_now)
     updated_at = Column(DateTime, default=get_ist_now, onupdate=get_ist_now)
@@ -52,24 +48,20 @@ class L1RegistrationRemarkHistory(Base):
     request_id = Column(Integer, ForeignKey("l1_registration_requests.id", ondelete="CASCADE"), nullable=False, index=True)
     remark = Column(String, nullable=False)
     
-    status_after_code = Column(String(2), nullable=True)
+    status_after_id = Column(Integer, ForeignKey("master_status.id"), nullable=True)
 
     @hybrid_property
     def status_after(self) -> str | None:
-        if self.status_after_code is None:
+        if self.status_after_id is None:
             return None
-        return to_name(self.status_after_code, casing="upper")
+        return to_name(self.status_after_id)
 
     @status_after.setter
     def status_after(self, value: str | None):
-        if value is None:
-            self.status_after_code = None
+        if value:
+            self.status_after_id = to_code(value)
         else:
-            self.status_after_code = to_code(value)
-
-    @status_after.expression
-    def status_after(cls):
-        return get_status_expression(cls.status_after_code, casing="upper")
+            self.status_after_id = None
 
     @property
     def action(self) -> str:

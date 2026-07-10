@@ -3,7 +3,7 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 # Setup Connection Config
 conf = ConnectionConfig(
@@ -115,6 +115,127 @@ async def send_approval_email(email_to: str, name: str, username: str, raw_passw
         await fm.send_message(message)
     except Exception as e:
         print(f"Failed to send email to {email_to}: {e}")
+        raise e
+
+async def send_lms_approval_email(email_to: str, name: str, username: str, raw_password: str, lms_link: str):
+    """
+    Sends an automated HTML email to the candidate upon LMS approval,
+    containing their LMS login credentials and portal link.
+    """
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f1f5f9;
+                padding: 20px;
+                color: #334155;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: #ffffff;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            }}
+            .header {{
+                text-align: center;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 20px;
+                margin-bottom: 20px;
+            }}
+            .header h2 {{
+                color: #0f172a;
+                margin: 0;
+            }}
+            .content {{
+                line-height: 1.6;
+            }}
+            .credentials-box {{
+                background-color: #f8fafc;
+                border-left: 4px solid #10b981;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }}
+            .credentials-box p {{
+                margin: 5px 0;
+            }}
+            .btn {{
+                display: inline-block;
+                background-color: #0f172a;
+                color: #ffffff;
+                padding: 10px 20px;
+                text-decoration: none;
+                border-radius: 6px;
+                margin-top: 15px;
+                font-weight: 500;
+            }}
+            .footer {{
+                text-align: center;
+                font-size: 14px;
+                color: #64748b;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 20px;
+                margin-top: 20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>LMS Application Approved</h2>
+            </div>
+            <div class="content">
+                <p>Hello {name},</p>
+                <p>Congratulations! Your LMS application has been reviewed and approved by the CHiPS Administration.</p>
+                <p>You can now log in to the LMS portal using the credentials below:</p>
+                
+                <div class="credentials-box">
+                    <p><strong>Username:</strong> {username}</p>
+                    <p><strong>Password:</strong> {raw_password}</p>
+                </div>
+                
+                <p>Please click the button below to access the LMS portal:</p>
+                <a href="{lms_link}" class="btn" style="color: #ffffff;">Go to LMS Portal</a>
+                
+                <p>For security reasons, we strongly recommend that you change your password upon your first login.</p>
+                <p>Best regards,<br>The CHiPS Administration Team</p>
+            </div>
+            <div class="footer">
+                <p>This is an automated email. Please do not reply directly to this message.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    message = MessageSchema(
+        subject="Your LMS Application has been Approved - CHiPS Portal",
+        recipients=[email_to],
+        body=html_content,
+        subtype=MessageType.html
+    )
+
+    # Bypass email sending if SMTP server is not configured
+    if not conf.MAIL_SERVER:
+        print(f"\n======================================")
+        print(f"MOCK EMAIL TO: {email_to}")
+        print(f"SUBJECT: Your LMS Application has been Approved - CHiPS Portal")
+        print(f"Username: {username}")
+        print(f"Password: {raw_password}")
+        print(f"LMS Link: {lms_link}")
+        print(f"======================================\n")
+        return
+
+    fm = FastMail(conf)
+    try:
+        await fm.send_message(message)
+    except Exception as e:
+        print(f"Failed to send LMS approval email to {email_to}: {e}")
         raise e
 
 async def send_rejection_email(email_to: str, name: str, reason: str):
@@ -471,7 +592,7 @@ async def send_otp_email(email_to: str, otp_code: str):
             </div>
             <div class="content">
                 <p>Hello,</p>
-                <p>Please use the following One-Time Password (OTP) to verify your email address during registration. This code is valid for 1 minute.</p>
+                <p>Please use the following One-Time Password (OTP) to verify your email address during registration. This code is valid for 3 minutes.</p>
                 
                 <div class="otp-box">
                     {otp_code}
@@ -492,7 +613,11 @@ async def send_otp_email(email_to: str, otp_code: str):
         subject="Your Registration OTP - CHiPS Portal",
         recipients=[email_to],
         body=html_content,
-        subtype=MessageType.html
+        subtype=MessageType.html,
+        headers={
+            "Reply-To": conf.MAIL_FROM,
+            "X-Mailer": "CHiPS-Portal-Mailer"
+        }
     )
 
     fm = FastMail(conf)

@@ -43,36 +43,36 @@
         <div class="chips-banner-metrics">
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'pending') | list | length }}</div>
+                    selectattr('status', 'equalto', 'Pending') | list | length }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'reapplied') | list | length }}</div>
+                    selectattr('status', 'equalto', 'Reapplied') | list | length }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'sent_to_uidai') | list | length }}</div>
+                    selectattr('status', 'equalto', 'Sent to UIDAI') | list | length }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'reverted') | list | length }}</div>
+                    selectattr('status', 'equalto', 'Reverted') | list | length }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'rejected') | list | length }}</div>
+                    selectattr('status', 'equalto', 'Rejected') | list | length }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'approved') | list | length }}</div>
+                    selectattr('status', 'equalto', 'Approved') | list | length }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
                 </div>
             </div>
@@ -147,12 +147,12 @@
                     <th>User Code</th>
                     <th>Status</th>
                     <th>Submitted At</th>
-                    <th>Reviewed At</th>
+                    <th>Updated At</th>
                     <th style="text-align: center;">Action</th>
                 </tr>
             </thead>
             <tbody id="pending-table-body">
-                {% for r in requests if r.status not in ['approved', 'reverted', 'rejected', 'reverted_by_chips'] %}
+                {% for r in requests if (r.status|upper) not in ['APPROVED', 'REVERTED', 'REJECTED', 'REVERTED_BY_CHIPS'] %}
                 <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
                     data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
                     data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
@@ -168,16 +168,14 @@
                     <td>{{ r.ea_code or '—' }}</td>
                     <td>{{ r.user_code or '—' }}</td>
                     <td>
-                        {% set badge_class = 'reverted' if 'revert' in r.status else r.status %}
-                        <span class="sid-badge sid-badge-{{ badge_class }}">
-                            {{ 'Reverted by CHiPS' if r.status == 'reverted_by_chips' else r.status | replace('_', ' ')
-                            |
-                            title }}
+                        {% set badge_class = 'reverted' if 'REVERT' in (r.status|upper) else (r.status|upper) %}
+                        <span class="sid-badge sid-badge-{{ badge_class|lower|replace(' ', '_') }}">
+                            {{ 'Reverted by CHiPS' if ((r.status|upper) == 'REVERTED_BY_CHIPS') else r.status | replace('_', ' ') | title }}
                         </span>
                     </td>
                     <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
                     <td>
-                        {% if r.status in ['reapplied', 'sent_to_uidai'] %}
+                        {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] %}
                             {{ r.reviewed_at if r.reviewed_at else '—' }}
                         {% else %}
                             {# Keep empty for pending status #}
@@ -239,7 +237,7 @@
                 </tr>
             </thead>
             <tbody id="approved-table-body">
-                {% for r in requests if r.status in ['approved', 'reverted', 'rejected', 'reverted_by_chips'] %}
+                {% for r in requests if (r.status|upper) in ['APPROVED', 'REVERTED', 'REJECTED', 'REVERTED_BY_CHIPS'] %}
                 <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
                     data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
                     data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}" data-user-code="{{ r.user_code or '' }}"
@@ -255,11 +253,9 @@
                     <td>{{ r.ea_code or '—' }}</td>
                     <td>{{ r.user_code or '—' }}</td>
                     <td>
-                        {% set badge_class = 'reverted' if 'revert' in r.status else r.status %}
-                        <span class="sid-badge sid-badge-{{ badge_class }}">
-                            {{ 'Reverted by CHiPS' if r.status == 'reverted_by_chips' else r.status | replace('_', ' ')
-                            |
-                            title }}
+                        {% set badge_class = 'reverted' if 'REVERT' in (r.status|upper) else (r.status|upper) %}
+                        <span class="sid-badge sid-badge-{{ badge_class|lower|replace(' ', '_') }}">
+                            {{ 'Reverted by CHiPS' if ((r.status|upper) == 'REVERTED_BY_CHIPS') else r.status | replace('_', ' ') | title }}
                         </span>
                     </td>
                     <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>

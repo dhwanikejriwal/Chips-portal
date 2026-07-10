@@ -1,10 +1,11 @@
 from backend.models.base import Base, get_ist_time
-from backend.models.lms import RequestStatus, CredentialRequest, LMS, LMSRemark
+from backend.models.lms import LMS, LMSRemark
 
 from backend.models.master_user_role import MasterUserRole
 from backend.models.master_status import MasterStatus
 from backend.models.district import District
 from backend.models.user_login import UserLogin, UserLogin as User
+from backend.models.user_profile import UserProfile
 from backend.models.candidate import Candidate, CandidateLogin
 from backend.models.dc_remark import DCRemark
 from backend.models.nseit import NSEITRequest, NSEITRemark
@@ -23,6 +24,8 @@ from backend.models.operator_activation import (
 )
 from backend.models.station_id import StationIDRequest, StationIDRemark
 from backend.models.otp_verification import OtpVerification
+from backend.models.aadhaar_district_resources import AadhaarDistrictResource
+from backend.models.admin_login_logs import AdminLoginLog
 
 __all__ = [
     "Base",
@@ -55,4 +58,6 @@ __all__ = [
     "StationIDRequest",
     "StationIDRemark",
     "OtpVerification",
+    "AadhaarDistrictResource",
+    "AdminLoginLog",
 ]

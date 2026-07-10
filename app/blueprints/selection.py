@@ -9,6 +9,7 @@ def _headers():
         raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
     return {"Authorization": f"Bearer {str(raw_token).strip()}"}
 
+
 @selection_bp.route("/dc/candidate-requests")
 def dc_candidate_requests():
     if "access_token" not in session or session.get("role") not in ["DC", "EDM"]:
@@ -24,8 +25,8 @@ def dc_candidate_requests():
             return redirect(url_for("auth.logout"))
         if response.status_code == 200:
             candidates = response.json()
-            pending_requests = [c for c in candidates if c["status"] == "Pending"]
-            approved_requests = [c for c in candidates if c["status"] in ["Approved", "Rejected"]]
+            pending_requests = [c for c in candidates if str(c["status"]).strip().upper() == "PENDING"]
+            approved_requests = [c for c in candidates if str(c["status"]).strip().upper() in ["APPROVED", "REJECTED"]]
         else:
             print(f"Backend API returned {response.status_code}: {response.text}")
             flash(f"Backend error: {response.text[:100]}", "danger")
@@ -131,4 +132,3 @@ def export_candidate_requests():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         return redirect(url_for("selection.dc_candidate_requests"))
-

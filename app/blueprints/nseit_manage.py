@@ -1,5 +1,7 @@
+# app/blueprints/nseit_manage.py
 import requests
 from flask import Blueprint, render_template, redirect, url_for, request, session, flash, current_app, Response
+from datetime import datetime, date
 
 nseit_manage_bp = Blueprint("nseit_manage", __name__)
 
@@ -8,6 +10,7 @@ def _headers():
     if isinstance(raw_token, dict):
         raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
     return {"Authorization": f"Bearer {str(raw_token).strip()}"}
+
 
 @nseit_manage_bp.route("/dc/nseit")
 def dc_nseit():
@@ -24,8 +27,8 @@ def dc_nseit():
             return redirect(url_for("auth.logout"))
         if response.status_code == 200:
             requests_list = response.json()
-            pending_requests = [r for r in requests_list if r["nseit_status"] in ["Pending", "Reapplied"]]
-            processed_requests = [r for r in requests_list if r["nseit_status"] in ["Forwarded", "Forwarded Again", "Approved", "Reverted", "Reverted by CHiPS"]]
+            pending_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["PENDING", "REAPPLIED"]]
+            processed_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["FORWARDED", "FORWARDED_AGAIN", "APPROVED", "REVERTED", "REVERTED_BY_CHIPS"]]
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
@@ -52,21 +55,107 @@ def chips_nseit():
         if response.status_code == 200:
             requests_list = response.json()
             for r in requests_list:
-                if r.get("nseit_status") == "Reapplied":
+                if str(r.get("nseit_status")).strip().upper() == "REAPPLIED":
                     has_chips_remark = any(rem.get("sender_role") == "CHIPS" for rem in r.get("remarks_history", []))
                     if has_chips_remark:
-                        r["nseit_status"] = "Reverted by CHiPS"
-            pending_requests = [r for r in requests_list if r["nseit_status"] in ["Forwarded", "Forwarded Again"]]
-            processed_requests = [r for r in requests_list if r["nseit_status"] in ["Approved", "Reverted by CHiPS"]]
+                        r["nseit_status"] = "REVERTED_BY_CHIPS"
+            pending_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["FORWARDED", "FORWARDED_AGAIN"]]
+            processed_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["APPROVED", "REVERTED_BY_CHIPS"]]
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
+        
+    aging_filter = request.args.get('aging')
+    aging_label = ""
+    if aging_filter in ['0-3', '4-7', '8-15', '15plus']:
+        labels = {
+            '0-3': '0–3 Days',
+            '4-7': '4–7 Days', 
+            '8-15': '8–15 Days',
+            '15plus': '15+ Days'
+        }
+        aging_label = labels.get(aging_filter, '')
+        
+        filtered_pending = []
+        today = date.today()
+        for r in pending_requests:
+            created_at_str = r.get("created_at")
+            if not created_at_str:
+                continue
+            try:
+                created_dt = datetime.strptime(created_at_str[:19], "%Y-%m-%d %H:%M:%S")
+                created_date = created_dt.date()
+            except Exception:
+                try:
+                    created_date = datetime.strptime(created_at_str[:10], "%Y-%m-%d").date()
+                except Exception:
+                    continue
+            
+            diff_days = (today - created_date).days
+            if aging_filter == '0-3' and diff_days <= 3:
+                filtered_pending.append(r)
+            elif aging_filter == '4-7' and 4 <= diff_days <= 7:
+                filtered_pending.append(r)
+            elif aging_filter == '8-15' and 8 <= diff_days <= 15:
+                filtered_pending.append(r)
+            elif aging_filter == '15plus' and diff_days > 15:
+                filtered_pending.append(r)
+        
+        pending_requests = filtered_pending
+    else:
+        aging_filter = None
         
     return render_template(
         "chips/chips_nseit.html",
         pending_requests=pending_requests,
         processed_requests=processed_requests,
-        approved_requests=processed_requests
+        approved_requests=processed_requests,
+        aging_filter=aging_filter,
+        aging_label=aging_label
     )
+
+@nseit_manage_bp.route("/chips/nseit/expiring")
+def chips_nseit_expiring():
+    if "access_token" not in session or session.get("role") != "Admin":
+        flash("Unauthorized access. Please log in.", "danger")
+        return redirect(url_for("auth.login"))
+
+    records = []
+    try:
+        response = requests.get(f"{current_app.config['BACKEND_API_URL']}/dashboard/nseit/expiring", timeout=8)
+        if response.status_code == 200:
+            records = response.json()
+    except requests.exceptions.RequestException:
+        records = []
+
+    return render_template(
+        "chips/nseit_expiring.html",
+        records=records,
+        count=len(records),
+        page_type="expiring",
+    )
+
+
+@nseit_manage_bp.route("/chips/nseit/expired")
+def chips_nseit_expired():
+    if "access_token" not in session or session.get("role") != "Admin":
+        flash("Unauthorized access. Please log in.", "danger")
+        return redirect(url_for("auth.login"))
+
+    records = []
+    try:
+        response = requests.get(f"{current_app.config['BACKEND_API_URL']}/dashboard/nseit/expired", timeout=8)
+        if response.status_code == 200:
+            records = response.json()
+    except requests.exceptions.RequestException:
+        records = []
+
+    return render_template(
+        "chips/nseit_expired.html",
+        records=records,
+        count=len(records),
+        page_type="expired",
+    )
+
 
 @nseit_manage_bp.route("/dc/forward-nseit/<int:r_id>", methods=["POST"])
 def forward_nseit(r_id):

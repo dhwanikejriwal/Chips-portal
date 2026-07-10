@@ -1,0 +1,1016 @@
+{% extends 'base.html' %}
+{% block title %}CG District Map N/A CHiPS Admin{% endblock %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ── Design tokens ── */
+  :root {
+    --cgm-bg:        #0a0e14;
+    --cgm-panel:     #0f1520;
+    --cgm-border:    #1e2d3d;
+    --cgm-line:      #1a2535;
+    --cgm-hi:        #eaf0f6;
+    --cgm-mid:       #8fa8bc;
+    --cgm-lo:        #4d6478;
+    --cgm-teal:      #2dd4bf;
+    --cgm-teal-dim:  #1a8f82;
+    --cgm-saffron:   #ff9933;
+    --cgm-good:      #34c97a;
+    --cgm-warn:      #e2b33d;
+    --cgm-danger:    #e25555;
+    --cgm-blue:      #3b82f6;
+    --cgm-map-low:   #0d2233;
+    --cgm-map-high:  #2dd4bf;
+    --cgm-radius:    12px;
+    --cgm-mono:      'JetBrains Mono', monospace;
+    --cgm-display:   'Space Grotesk', sans-serif;
+  }
+
+  /* ── Scope everything inside .cgm-root to avoid conflicts with portal CSS ── */
+  .cgm-root * { box-sizing: border-box; }
+
+  .cgm-root {
+    background: var(--cgm-bg);
+    min-height: calc(100vh - 80px);
+    font-family: 'Outfit', var(--cgm-display), sans-serif;
+    color: var(--cgm-hi);
+    padding: 0;
+    position: relative;
+  }
+
+  /* inner gradient glow */
+  .cgm-root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 12% 5%, rgba(45,212,191,.07) 0%, transparent 40%),
+      radial-gradient(circle at 88% 95%, rgba(255,153,51,.05) 0%, transparent 40%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Top bar ── */
+  .cgm-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--cgm-border);
+    position: relative;
+    z-index: 2;
+    background: rgba(10,14,20,.8);
+    backdrop-filter: blur(6px);
+  }
+
+  .cgm-topbar::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cgm-saffron) 0 33%, #f5f5f0 33% 66%, #138808 66% 100%);
+    opacity: .55;
+  }
+
+  .cgm-brand { display: flex; align-items: center; gap: 14px; }
+
+  .cgm-brand-mark {
+    width: 36px; height: 36px; border-radius: 9px;
+    background: conic-gradient(from 180deg, var(--cgm-saffron), #f5f5f0 33%, #138808 66%, var(--cgm-saffron));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 4px 16px rgba(45,212,191,.2);
+  }
+
+  .cgm-brand-mark::before {
+    content: ''; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--cgm-bg); box-shadow: 0 0 0 2px #1c4a8a;
+  }
+
+  .cgm-brand-text h2 {
+    font-family: var(--cgm-display); font-size: 17px; font-weight: 700;
+    margin: 0; letter-spacing: .2px; color: var(--cgm-hi);
+  }
+
+  .cgm-brand-text p {
+    margin: 1px 0 0; font-size: 10.5px; color: var(--cgm-lo);
+    font-family: var(--cgm-mono); text-transform: uppercase; letter-spacing: .5px;
+  }
+
+  .cgm-topbar-right { display: flex; align-items: center; gap: 16px; }
+
+  .cgm-live-pill {
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--cgm-mono); font-size: 10.5px; color: var(--cgm-good);
+    background: rgba(52,201,122,.09); border: 1px solid rgba(52,201,122,.25);
+    padding: 5px 12px; border-radius: 99px;
+  }
+
+  .cgm-live-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--cgm-good);
+    box-shadow: 0 0 0 0 rgba(52,201,122,.6);
+    animation: cgm-pulse 2s infinite;
+  }
+
+  @keyframes cgm-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(52,201,122,.5); }
+    70%  { box-shadow: 0 0 0 7px rgba(52,201,122,0); }
+    100% { box-shadow: 0 0 0 0 rgba(52,201,122,0); }
+  }
+
+  .cgm-clock { font-family: var(--cgm-mono); font-size: 12px; color: var(--cgm-mid); }
+
+  /* ── Stat Strip ── */
+  .cgm-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    padding: 16px 28px 0;
+    position: relative; z-index: 1;
+  }
+
+  @media(max-width:1100px) { .cgm-strip { grid-template-columns: repeat(3,1fr); } }
+  @media(max-width:700px)  { .cgm-strip { grid-template-columns: repeat(2,1fr); } }
+
+  .cgm-stat {
+    background: var(--cgm-panel);
+    border: 1px solid var(--cgm-border);
+    border-radius: var(--cgm-radius);
+    padding: 14px 16px;
+    position: relative; overflow: hidden;
+    transition: border-color .2s, transform .2s;
+  }
+
+  .cgm-stat:hover { border-color: var(--cgm-teal-dim); transform: translateY(-2px); }
+
+  .cgm-stat::before {
+    content: ''; position: absolute; top: 0; left: 0;
+    width: 3px; height: 100%; background: var(--cgm-teal); opacity: .7;
+  }
+
+  .cgm-stat.saffron::before { background: var(--cgm-saffron); }
+  .cgm-stat.good::before    { background: var(--cgm-good); }
+  .cgm-stat.warn::before    { background: var(--cgm-warn); }
+  .cgm-stat.danger::before  { background: var(--cgm-danger); }
+
+  .cgm-stat-label {
+    font-family: var(--cgm-mono); font-size: 9.5px; color: var(--cgm-lo);
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+
+  .cgm-stat-value {
+    font-family: var(--cgm-display); font-size: 26px; font-weight: 700;
+    margin-top: 5px; color: var(--cgm-hi); letter-spacing: -.3px;
+  }
+
+  .cgm-stat-sub { font-size: 10.5px; color: var(--cgm-mid); margin-top: 2px; }
+  .cgm-stat-sub.up   { color: var(--cgm-good); }
+  .cgm-stat-sub.warn { color: var(--cgm-warn); }
+
+  /* ── Main layout ── */
+  .cgm-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 16px;
+    padding: 16px 28px 28px;
+    position: relative; z-index: 1;
+    align-items: start;
+  }
+
+  @media(max-width:1100px) { .cgm-layout { grid-template-columns: 1fr; } }
+
+  /* ── Map Panel ── */
+  .cgm-map-panel {
+    background: #FFFFFF;
+    border: 1px solid var(--cgm-border);
+    border-radius: var(--cgm-radius);
+    padding: 18px 18px 12px;
+    display: flex; flex-direction: column;
+    min-height: 600px;
+    color: #1E293B;
+  }
+
+  .cgm-panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px; flex-wrap: wrap; gap: 8px;
+  }
+
+  .cgm-panel-title {
+    font-family: var(--cgm-display); font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .cgm-title-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cgm-saffron); }
+  .cgm-panel-meta { font-family: var(--cgm-mono); font-size: 10px; color: var(--cgm-lo); margin-bottom: 6px; }
+
+  /* Metric toggle */
+  .cgm-toggle {
+    display: flex; gap: 4px;
+    background: rgba(0,0,0,.3); border: 1px solid var(--cgm-border);
+    border-radius: 8px; padding: 3px;
+  }
+
+  .cgm-toggle button {
+    font-family: var(--cgm-mono); font-size: 10px; letter-spacing: .3px;
+    color: var(--cgm-mid); background: transparent; border: none;
+    padding: 5px 10px; border-radius: 5px; cursor: pointer; transition: all .15s;
+  }
+
+  .cgm-toggle button.active { background: var(--cgm-teal); color: #06231f; font-weight: 700; }
+  .cgm-toggle button:hover:not(.active) { color: var(--cgm-hi); }
+
+  /* Map wrap */
+  #cgm-map-wrap {
+    flex: 1; position: relative; display: flex;
+    align-items: center; justify-content: center;
+    min-height: 500px;
+  }
+
+  #cgm-svg { width: 100%; height: 100%; overflow: visible; }
+
+  .cgm-district-path {
+    cursor: pointer;
+    stroke-linejoin: round; stroke-linecap: round;
+    transition: fill 0.25s ease, stroke 0.25s ease, stroke-width 0.25s ease, opacity 0.25s ease, filter 0.25s ease;
+  }
+
+  .cgm-district-path:hover:not(.active) {
+    filter: brightness(1.08);
+    stroke-width: 1.5px !important;
+  }
+
+  .cgm-district-label {
+    font-family: var(--cgm-mono); font-size: 7.5px;
+    fill: #111827; pointer-events: none;
+    text-anchor: middle; letter-spacing: .2px;
+    paint-order: stroke fill;
+    stroke: #FFFFFF;
+    stroke-width: 2px;
+    font-weight: 500;
+  }
+
+  /* Legend */
+  .cgm-legend {
+    position: absolute; left: 16px; bottom: 16px;
+    display: flex; flex-direction: column; gap: 5px;
+    font-size: 9px; color: #1E293B; font-weight: 600;
+    background: rgba(255,255,255,0.95);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    width: 140px;
+    z-index: 10;
+  }
+
+  .cgm-legend-title {
+    font-size: 10px; color: #1E293B; font-weight: 600; margin-bottom: 2px;
+    text-align: left;
+  }
+
+  .cgm-legend-grad {
+    width: 100%; height: 8px; border-radius: 4px;
+    background: linear-gradient(90deg, #f7fbff, #08306b);
+    border: 1px solid #E2E8F0;
+  }
+
+  .cgm-legend-labels {
+    display: flex; justify-content: space-between;
+    font-family: var(--cgm-mono); font-size: 9px; color: #64748B;
+  }
+
+  /* ── Tooltip ── */
+  .cgm-tooltip {
+    position: fixed; pointer-events: none;
+    background: rgba(8,12,18,.97);
+    border: 1px solid var(--cgm-teal-dim);
+    border-radius: 10px; padding: 12px 15px;
+    font-size: 12px; color: var(--cgm-hi);
+    z-index: 9999;
+    box-shadow: 0 12px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(45,212,191,.1);
+    opacity: 0; transition: opacity .1s;
+    min-width: 210px; max-width: 250px;
+  }
+
+  .cgm-tt-name {
+    font-family: var(--cgm-display); font-weight: 700; font-size: 14px;
+    margin-bottom: 8px; color: var(--cgm-teal); padding-bottom: 7px;
+    border-bottom: 1px solid var(--cgm-line);
+  }
+
+  .cgm-tt-section {
+    font-family: var(--cgm-mono); font-size: 8.5px;
+    color: var(--cgm-lo); text-transform: uppercase; letter-spacing: .4px;
+    margin: 7px 0 4px;
+  }
+
+  .cgm-tt-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; font-family: var(--cgm-mono); font-size: 11px;
+    color: var(--cgm-mid); padding: 2px 0;
+  }
+
+  .cgm-tt-row b { color: var(--cgm-hi); font-weight: 600; }
+
+  .cgm-tt-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 700;
+  }
+
+  .cgm-tt-badge.ok   { background: rgba(52,201,122,.15); color: var(--cgm-good); }
+  .cgm-tt-badge.pend { background: rgba(226,179,61,.15);  color: var(--cgm-warn); }
+  .cgm-tt-badge.bad  { background: rgba(226,85,85,.15);   color: var(--cgm-danger); }
+
+  /* ── Side Panel ── */
+  .cgm-side { display: flex; flex-direction: column; gap: 14px; }
+
+  .cgm-detail {
+    background: var(--cgm-panel);
+    border: 1px solid var(--cgm-border);
+    border-radius: var(--cgm-radius);
+    padding: 20px; min-height: 600px;
+  }
+
+  .cgm-detail-empty {
+    height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; color: var(--cgm-lo); gap: 12px; padding: 40px 10px;
+  }
+
+  .cgm-detail-empty svg { opacity: .3; }
+  .cgm-detail-empty p   { font-size: 13px; max-width: 200px; line-height: 1.5; margin: 0; color: var(--cgm-mid); }
+  .cgm-detail-empty .hint { font-family: var(--cgm-mono); font-size: 10px; color: var(--cgm-teal-dim); }
+
+  /* Detail content */
+  .cgm-d-eyebrow { font-family: var(--cgm-mono); font-size: 9.5px; color: var(--cgm-lo); text-transform: uppercase; letter-spacing: .6px; }
+
+  .cgm-d-title {
+    font-family: var(--cgm-display); font-size: 22px; font-weight: 700;
+    color: var(--cgm-hi); margin: 4px 0 14px; padding-bottom: 14px;
+    border-bottom: 1px solid var(--cgm-line);
+  }
+
+  .cgm-d-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 9px; margin-bottom: 16px;
+  }
+
+  .cgm-d-box {
+    background: rgba(0,0,0,.3); border: 1px solid var(--cgm-border);
+    border-radius: 8px; padding: 11px 13px;
+  }
+
+  .cgm-d-box .lbl {
+    font-family: var(--cgm-mono); font-size: 9px; color: var(--cgm-lo);
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+
+  .cgm-d-box .val {
+    font-family: var(--cgm-display); font-size: 18px; font-weight: 700;
+    margin-top: 4px; color: var(--cgm-hi);
+  }
+
+  .cgm-d-box .val.good   { color: var(--cgm-good); }
+  .cgm-d-box .val.warn   { color: var(--cgm-warn); }
+  .cgm-d-box .val.danger { color: var(--cgm-danger); }
+
+  /* bar rows */
+  .cgm-bar-row { margin-bottom: 12px; }
+
+  .cgm-bar-top {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--cgm-mid); margin-bottom: 5px;
+  }
+
+  .cgm-bar-top b { color: var(--cgm-hi); font-family: var(--cgm-mono); font-size: 11px; }
+
+  .cgm-bar-track {
+    height: 6px; border-radius: 4px;
+    background: rgba(0,0,0,.4); border: 1px solid var(--cgm-line); overflow: hidden;
+  }
+
+  .cgm-bar-fill {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--cgm-teal-dim), var(--cgm-teal));
+    transition: width .5s ease;
+  }
+
+  .cgm-bar-fill.warn   { background: linear-gradient(90deg, #c27a00, var(--cgm-warn)); }
+  .cgm-bar-fill.danger { background: linear-gradient(90deg, #b82020, var(--cgm-danger)); }
+
+  /* Composite bar */
+  .cgm-composite-bar {
+    height: 6px; border-radius: 4px; display: flex;
+    overflow: hidden; background: rgba(0,0,0,.4);
+    border: 1px solid var(--cgm-line);
+  }
+
+  .cgm-cb-approved { background: var(--cgm-good); }
+  .cgm-cb-pending  { background: var(--cgm-warn); }
+  .cgm-cb-rejected { background: var(--cgm-danger); }
+
+  .cgm-legend-row {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    font-size: 10.5px; color: var(--cgm-mid);
+    margin-top: 5px; font-family: var(--cgm-mono);
+  }
+
+  .cgm-leg-item { display: flex; align-items: center; gap: 5px; }
+  .cgm-leg-dot  { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* rank note */
+  .cgm-rank-note {
+    margin-top: 14px; display: flex; gap: 8px; align-items: flex-start;
+    background: rgba(255,153,51,.06); border: 1px solid rgba(255,153,51,.2);
+    border-radius: 8px; padding: 10px 13px; font-size: 11.5px; color: var(--cgm-mid);
+    line-height: 1.5;
+  }
+
+  /* loading overlay */
+  .cgm-loading {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #FFFFFF; border-radius: var(--cgm-radius); z-index: 10;
+    flex-direction: column; gap: 14px; color: var(--cgm-lo);
+    font-family: var(--cgm-mono); font-size: 12px;
+  }
+
+  .cgm-spinner {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 3px solid var(--cgm-border);
+    border-top-color: var(--cgm-teal);
+    animation: cgm-spin .9s linear infinite;
+  }
+
+  @keyframes cgm-spin { to { transform: rotate(360deg); } }
+
+  /* error state */
+  .cgm-error-note {
+    background: rgba(226,85,85,.08); border: 1px solid rgba(226,85,85,.25);
+    border-radius: 8px; padding: 12px 16px; font-size: 12px; color: var(--cgm-danger);
+    font-family: var(--cgm-mono); margin: 0 28px 16px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cgm-root" id="cgm-root">
+
+  <!-- Top bar -->
+  <div class="cgm-topbar">
+    <div class="cgm-brand">
+      <div class="cgm-brand-mark"></div>
+      <div class="cgm-brand-text">
+        <h2>CG District Map &nbsp;·&nbsp; Operator &amp; Kit Overview</h2>
+        <p>Chhattisgarh · 33 Districts · Live Data</p>
+      </div>
+    </div>
+    <div class="cgm-topbar-right">
+      <div class="cgm-live-pill"><span class="cgm-live-dot"></span>LIVE</div>
+      <div class="cgm-clock" id="cgm-clock">--:--:--</div>
+    </div>
+  </div>
+
+  <!-- Loading/Error States -->
+  <div id="cgm-error" class="cgm-error-note" style="display:none; margin-top:16px;">
+    ⚠ Unable to load district data. Please refresh the page.
+  </div>
+
+  <!-- Stat Strip -->
+  <div class="cgm-strip" id="cgm-strip">
+    <div class="cgm-stat"><div class="cgm-stat-label">Total Districts</div><div class="cgm-stat-value" id="s-districts">33</div><div class="cgm-stat-sub">Chhattisgarh</div></div>
+    <div class="cgm-stat saffron"><div class="cgm-stat-label">Operator Requests</div><div class="cgm-stat-value" id="s-op-total">N/A</div><div class="cgm-stat-sub" id="s-op-sub">Loading…</div></div>
+    <div class="cgm-stat warn"><div class="cgm-stat-label">Pending Operators</div><div class="cgm-stat-value" id="s-op-pending">N/A</div><div class="cgm-stat-sub warn" id="s-op-pend-sub">awaiting review</div></div>
+    <div class="cgm-stat good"><div class="cgm-stat-label">Kit Requests</div><div class="cgm-stat-value" id="s-kit-total">N/A</div><div class="cgm-stat-sub" id="s-kit-sub">Loading…</div></div>
+    <div class="cgm-stat"><div class="cgm-stat-label">State Approval Rate</div><div class="cgm-stat-value" id="s-approval">N/A</div><div class="cgm-stat-sub up" id="s-approval-sub">operators approved</div></div>
+  </div>
+
+  <!-- Layout -->
+  <div class="cgm-layout">
+
+    <!-- Map Panel -->
+    <div class="cgm-map-panel">
+      <div class="cgm-panel-head">
+        <div class="cgm-panel-title">
+          <span class="cgm-title-dot"></span>
+          Chhattisgarh N/A District Map
+        </div>
+        <div class="cgm-toggle" id="cgm-toggle">
+          <button data-metric="approval_rate" class="active">Approval %</button>
+          <button data-metric="operator_total">Operator Request</button>
+          <button data-metric="kit_total">Kits Request</button>
+          <button data-metric="total_pending">Pending</button>
+        </div>
+      </div>
+      <div class="cgm-panel-meta" id="cgm-meta">Loading district data…</div>
+
+      <div id="cgm-map-wrap" style="position:relative;">
+        <div class="cgm-loading" id="cgm-loading">
+          <div class="cgm-spinner"></div>
+          Fetching district data…
+        </div>
+        <svg id="cgm-svg" viewBox="0 0 760 580" style="width:100%;height:100%;max-height:540px;overflow:visible;"></svg>
+        <div class="cgm-legend">
+          <div class="cgm-legend-title" id="cgm-leg-title">Number of Requests</div>
+          <div class="cgm-legend-grad"></div>
+          <div class="cgm-legend-labels">
+            <span id="cgm-leg-low">0</span>
+            <span id="cgm-leg-high">100</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="cgm-side">
+      <div class="cgm-detail" id="cgm-detail">
+        <div class="cgm-detail-empty">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+            <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.618V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+          </svg>
+          <p>Hover over any district to preview. Click to lock the full breakdown.</p>
+          <p class="hint">↑ click a district on the map</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /layout -->
+
+</div><!-- /cgm-root -->
+
+<!-- Tooltip -->
+<div class="cgm-tooltip" id="cgm-tooltip"></div>
+
+<!-- D3 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(function () {
+  // ── Clock ──────────────────────────────────────────────────────────────────
+  function tickClock() {
+    const d = new Date();
+    document.getElementById('cgm-clock').textContent =
+      d.toLocaleTimeString('en-IN', { hour12: false }) + ' IST';
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // ── Metric config ──────────────────────────────────────────────────────────
+  const MAX_OPERATOR_REQUEST = 100;
+  const MAX_KITS_REQUEST     = 100;
+  const MAX_PENDING_REQUEST  = 100;
+
+  const MAP_MAX_VALUES = {
+    operator_total: MAX_OPERATOR_REQUEST,
+    kit_total: MAX_KITS_REQUEST,
+    total_pending: MAX_PENDING_REQUEST,
+  };
+
+  const PALETTES = {
+    operator_total: ['#EFF6FF', '#BFDBFE', '#93C5FD', '#60A5FA', '#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF'],
+    kit_total:      ['#ECFDF5', '#D1FAE5', '#A7F3D0', '#6EE7B7', '#34D399', '#10B981', '#059669', '#047857'],
+    total_pending:  ['#FFF7ED', '#FEEFC7', '#FED7AA', '#FDBA74', '#FB923C', '#F97316', '#EA580C', '#B91C1C']
+  };
+
+  const METRICS = {
+    approval_rate:  { label: 'Operator Approval %', fmt: v => v.toFixed(1) + '%',  invert: false },
+    operator_total: { label: 'Operator Request',     fmt: v => Math.round(v),   invert: false },
+    kit_total:      { label: 'Kits Request',         fmt: v => Math.round(v),   invert: false },
+    total_pending:  { label: 'Pending',              fmt: v => Math.round(v),   invert: true  },
+  };
+
+  let currentMetric = 'approval_rate';
+  let DISTRICT_DATA  = null;
+  let GEO_DATA       = null;
+  let lockedDistrict = null;
+  let hoverDistrict  = null;
+  let paths, colorScale;
+
+  const fmt = n => (typeof n === 'number' ? n.toLocaleString('en-IN') : n);
+
+  let STATE_BOUNDARY_GEO = null;
+  // ── Fetch both resources in parallel ──────────────────────────────────────
+  Promise.all([
+    fetch("{{ url_for('static', filename='js/cg_districts_simplified.geojson') }}").then(r => r.json()),
+    fetch("{{ url_for('static', filename='js/cg_state_boundary.geojson') }}").then(r => r.json()),
+    fetch("{{ url_for('dashboard.cg_map_data') }}").then(r => r.json())
+  ])
+  .then(([geo, stateGeo, distData]) => {
+    GEO_DATA       = geo;
+    STATE_BOUNDARY_GEO = stateGeo;
+    DISTRICT_DATA  = distData;
+    document.getElementById('cgm-loading').style.display = 'none';
+    buildStrip();
+    buildMap();
+  })
+  .catch(err => {
+    console.error('CG map load error:', err);
+    document.getElementById('cgm-loading').style.display = 'none';
+    document.getElementById('cgm-error').style.display = 'block';
+    document.getElementById('cgm-meta').textContent = 'Failed to load data.';
+  });
+
+  // ── Build stat strip ───────────────────────────────────────────────────────
+  function buildStrip() {
+    const dNames = Object.keys(DISTRICT_DATA);
+    const opTotal   = dNames.reduce((s, d) => s + DISTRICT_DATA[d].operator_total, 0);
+    const opPending = dNames.reduce((s, d) => s + DISTRICT_DATA[d].operator_pending, 0);
+    const opApproved= dNames.reduce((s, d) => s + DISTRICT_DATA[d].operator_approved, 0);
+    const kitTotal  = dNames.reduce((s, d) => s + DISTRICT_DATA[d].kit_total, 0);
+    const kitPending= dNames.reduce((s, d) => s + DISTRICT_DATA[d].kit_pending, 0);
+    const approvalRate = opTotal > 0 ? (opApproved / opTotal * 100).toFixed(1) : 'N/A';
+
+    document.getElementById('s-op-total').textContent   = fmt(opTotal);
+    document.getElementById('s-op-sub').textContent     = `${fmt(opApproved)} approved · ${fmt(opPending)} pending`;
+    document.getElementById('s-op-pending').textContent = fmt(opPending);
+    document.getElementById('s-op-pend-sub').textContent= `${fmt(kitPending)} kit pending too`;
+    document.getElementById('s-kit-total').textContent  = fmt(kitTotal);
+    document.getElementById('s-kit-sub').textContent    = `${fmt(kitTotal - kitPending)} approved`;
+    document.getElementById('s-approval').textContent   = opTotal > 0 ? approvalRate + '%' : 'N/A';
+    document.getElementById('s-approval-sub').textContent = opTotal > 0
+      ? `of ${fmt(opTotal)} operators`
+      : 'no operator data yet';
+  }
+
+  // ── Build D3 map ───────────────────────────────────────────────────────────
+  function buildMap() {
+    const wrap = document.getElementById('cgm-map-wrap');
+    const W = wrap.clientWidth || 720, H = Math.max(480, W * 0.75);
+    const svg    = d3.select('#cgm-svg').attr('viewBox', `0 0 ${W} ${H}`);
+    const proj   = d3.geoMercator().fitExtent([[20, 16], [W - 20, H - 16]], GEO_DATA);
+    const geoPath= d3.geoPath().projection(proj);
+    const g      = svg.append('g').attr('id', 'cgm-districts-g');
+    const labelG = svg.append('g').attr('id', 'cgm-labels-g');
+
+    buildColorScale(W, H);
+
+    paths = g.selectAll('path')
+      .data(GEO_DATA.features)
+      .join('path')
+        .attr('class', 'cgm-district-path')
+        .attr('d', geoPath)
+        .attr('fill', f => safeColor(f.properties.dist_name))
+        .on('mousemove', (event, f) => onMouseMove(event, f))
+        .on('mouseleave', ()         => onMouseLeave())
+        .on('click',     (event, f) => onDistrictClick(f.properties.dist_name));
+
+    // Draw Chhattisgarh State Outer Boundary Outline
+    if (STATE_BOUNDARY_GEO) {
+      g.append('path')
+        .datum(STATE_BOUNDARY_GEO.features[0])
+        .attr('class', 'cgm-state-boundary')
+        .attr('d', geoPath)
+        .attr('fill', 'none')
+        .attr('stroke', '#1F2937')
+        .attr('stroke-width', '2.5px')
+        .attr('stroke-linejoin', 'round')
+        .attr('stroke-linecap', 'round')
+        .attr('style', 'pointer-events: none;');
+    }
+
+    // centroid labels (only short names to avoid clutter)
+    labelG.selectAll('text')
+      .data(GEO_DATA.features)
+      .join('text')
+        .attr('class', 'cgm-district-label')
+        .attr('transform', f => {
+          const c = geoPath.centroid(f);
+          return `translate(${c[0]},${c[1]})`;
+        })
+        .text(f => {
+          const n = f.properties.dist_name;
+          return n.length <= 9 ? n : n.split('-')[0];
+        });
+
+    document.getElementById('cgm-meta').textContent =
+      '33 districts · hover to preview · click to lock detail';
+
+    // toggle buttons
+    document.querySelectorAll('#cgm-toggle button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#cgm-toggle button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMetric = btn.dataset.metric;
+        refreshColors();
+        document.getElementById('cgm-meta').textContent =
+          `33 districts · shaded by ${METRICS[currentMetric].label} · click to lock detail`;
+      });
+    });
+
+    // deselect on empty click
+    svg.on('click', event => {
+      if (event.target === svg.node()) {
+        lockedDistrict = null;
+        updateDistrictStyles(true);
+      }
+    });
+  }
+
+  function safeColor(name) {
+    const m = DISTRICT_DATA[name];
+    if (!m) return '#1a2535';
+    return colorScale(m[currentMetric] || 0);
+  }
+
+  function buildColorScale(W, H) {
+    if (!DISTRICT_DATA) return;
+    
+    let mn = 0;
+    const mx = MAP_MAX_VALUES[currentMetric] || 100;
+    const colors = PALETTES[currentMetric] || PALETTES.operator_total;
+
+    const steps = [];
+    for (let i = 0; i < colors.length; i++) {
+      const fraction = i / (colors.length - 1);
+      steps.push(Math.pow(fraction, 0.7) * mx);
+    }
+
+    colorScale = d3.scaleLinear()
+      .domain(steps)
+      .range(colors)
+      .clamp(true);
+
+    // Dynamically update the legend gradient element's background color
+    const legEl = document.querySelector('.cgm-legend-grad');
+    if (legEl) {
+      legEl.style.background = 'linear-gradient(90deg, ' + colors.join(', ') + ')';
+    }
+
+    const titleEl = document.getElementById('cgm-leg-title');
+    if (titleEl) {
+      titleEl.textContent = METRICS[currentMetric].invert ? "Pending Requests" : "Number of Requests";
+    }
+
+    document.getElementById('cgm-leg-low').textContent  = METRICS[currentMetric].fmt(mn);
+    document.getElementById('cgm-leg-high').textContent = METRICS[currentMetric].fmt(mx);
+  }
+
+  function updateDistrictStyles(animate){
+    if(!paths) return;
+    
+    var colors = PALETTES[currentMetric] || PALETTES.operator_total;
+    var darkestColor = colors[colors.length - 1];
+
+    paths.each(function(f){
+      var node = d3.select(this);
+      var name = f.properties.dist_name;
+      var isActive = (name === lockedDistrict);
+      var targetNode = animate ? node.transition().duration(250) : node;
+
+      if (isActive) {
+        node.classed('active', true);
+        targetNode
+            .style('opacity', 1)
+            .style('fill', darkestColor)
+            .attr('stroke', '#FFFFFF')
+            .attr('stroke-width', '2.5px');
+        
+        var shadowClr = 'rgba(59, 130, 246, 0.35)';
+        if (currentMetric === 'kit_total') shadowClr = 'rgba(16, 185, 129, 0.35)';
+        else if (currentMetric === 'total_pending') shadowClr = 'rgba(224, 88, 12, 0.35)';
+        node.style('filter', 'drop-shadow(0 0 8px ' + shadowClr + ')');
+
+        node.raise();
+      } else {
+        node.classed('active', false);
+        targetNode
+            .style('opacity', lockedDistrict ? 0.85 : 1)
+            .style('fill', safeColor(name))
+            .attr('stroke', '#FFFFFF')
+            .attr('stroke-width', '1px')
+            .style('filter', null);
+      }
+    });
+
+    // Re-raise labels and state boundary
+    d3.select('#cgm-labels-g').raise();
+    if (d3.select('.cgm-state-boundary').node()) {
+      d3.select('.cgm-state-boundary').raise();
+    }
+  }
+
+  function refreshColors() {
+    if (!paths) return;
+    buildColorScale();
+    updateDistrictStyles(false);
+  }
+
+  // ── Tooltip ────────────────────────────────────────────────────────────────
+  const tooltip = document.getElementById('cgm-tooltip');
+
+  function onMouseMove(event, f) {
+    if (lockedDistrict) return;   // locked: don't re-render hover tooltip
+    const name = f.properties.dist_name;
+    hoverDistrict = name;
+    showTooltip(event, name);
+    showDetail(name, false);
+  }
+
+  function onMouseLeave() {
+    tooltip.style.opacity = 0;
+    hoverDistrict = null;
+    if (!lockedDistrict) {
+      document.getElementById('cgm-detail').innerHTML = emptyDetailHTML();
+    }
+  }
+
+  function onDistrictClick(name) {
+    lockedDistrict = name;
+    updateDistrictStyles(true);
+    tooltip.style.opacity = 0;
+    showDetail(name, true);
+  }
+
+  function showTooltip(event, name) {
+    const m = DISTRICT_DATA[name] || {};
+    const rate = m.operator_total > 0
+      ? (m.operator_approved / m.operator_total * 100).toFixed(1) + '%'
+      : 'N/A';
+
+    tooltip.innerHTML = `
+      <div class="cgm-tt-name">${name}</div>
+
+      <div class="cgm-tt-section">Operator Requests</div>
+      <div class="cgm-tt-row">
+        <span>Total</span><b>${m.operator_total || 0}</b>
+      </div>
+      <div class="cgm-tt-row">
+        <span>Approved</span>
+        <span class="cgm-tt-badge ok">✓ ${m.operator_approved || 0}</span>
+      </div>
+      <div class="cgm-tt-row">
+        <span>Pending</span>
+        <span class="cgm-tt-badge pend">⧖ ${m.operator_pending || 0}</span>
+      </div>
+      ${(m.operator_rejected || 0) > 0 ? `
+      <div class="cgm-tt-row">
+        <span>Rejected</span>
+        <span class="cgm-tt-badge bad">✗ ${m.operator_rejected}</span>
+      </div>` : ''}
+
+      <div class="cgm-tt-section">Kit Requests</div>
+      <div class="cgm-tt-row">
+        <span>Total</span><b>${m.kit_total || 0}</b>
+      </div>
+      <div class="cgm-tt-row">
+        <span>Pending</span>
+        <span class="cgm-tt-badge pend">⧖ ${m.kit_pending || 0}</span>
+      </div>
+
+      <div style="margin-top:8px;padding-top:7px;border-top:1px solid #1a2535;">
+      <div class="cgm-tt-row">
+        <span>Approval Rate</span>
+        <b style="color:${rateColor(m.operator_total, m.operator_approved)}">${rate}</b>
+      </div>
+      </div>
+    `;
+
+    // Position tooltip N/A keep it on screen
+    const tx = Math.min(event.clientX + 18, window.innerWidth - 260);
+    const ty = Math.min(event.clientY - 12, window.innerHeight - 300);
+    tooltip.style.left  = tx + 'px';
+    tooltip.style.top   = ty + 'px';
+    tooltip.style.opacity = 1;
+  }
+
+  function rateColor(total, approved) {
+    if (!total) return 'var(--cgm-mid)';
+    const r = approved / total;
+    if (r >= 0.75) return 'var(--cgm-good)';
+    if (r >= 0.4)  return 'var(--cgm-warn)';
+    return 'var(--cgm-danger)';
+  }
+
+  // ── Detail Panel ───────────────────────────────────────────────────────────
+  function showDetail(name, locked) {
+    const m = DISTRICT_DATA[name] || {};
+    const opT = m.operator_total   || 0;
+    const opA = m.operator_approved|| 0;
+    const opP = m.operator_pending || 0;
+    const opR = m.operator_rejected|| 0;
+    const kitT= m.kit_total        || 0;
+    const kitA= m.kit_approved     || 0;
+    const kitP= m.kit_pending      || 0;
+    const reacT = m.reactivation_total   || 0;
+    const reacP = m.reactivation_pending || 0;
+    const rate  = opT > 0 ? (opA / opT * 100).toFixed(1) : 'N/A';
+    const kitRate = kitT > 0 ? (kitA / kitT * 100).toFixed(1) : 'N/A';
+
+    // rank by approval_rate among districts with at least 1 request
+    const ranked = Object.entries(DISTRICT_DATA)
+      .filter(([, d]) => d.operator_total > 0)
+      .sort(([,a],[,b]) => b.approval_rate - a.approval_rate);
+    const rankPos = ranked.findIndex(([n]) => n === name);
+    const rankStr = rankPos >= 0 ? `#${rankPos + 1} of ${ranked.length}` : 'Unranked';
+
+    // composite bar widths
+    const opBase = opT > 0 ? opT : 1;
+    const kitBase= kitT > 0 ? kitT : 1;
+
+    document.getElementById('cgm-detail').innerHTML = `
+      <div class="cgm-d-eyebrow">${locked ? 'District Profile · Locked' : 'District Preview'}</div>
+      <div class="cgm-d-title">${name}</div>
+
+      <!-- Operator grid -->
+      <div style="font-family:var(--cgm-mono);font-size:9.5px;color:var(--cgm-lo);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+        Operator Requests
+      </div>
+      <div class="cgm-d-grid">
+        <div class="cgm-d-box">
+          <div class="lbl">Total</div>
+          <div class="val">${fmt(opT)}</div>
+        </div>
+        <div class="cgm-d-box">
+          <div class="lbl">Approved</div>
+          <div class="val ${opT > 0 ? (opA/opT >= .75 ? 'good' : opA/opT >= .4 ? 'warn' : 'danger') : ''}">${fmt(opA)}</div>
+        </div>
+        <div class="cgm-d-box">
+          <div class="lbl">Pending</div>
+          <div class="val warn">${fmt(opP)}</div>
+        </div>
+        <div class="cgm-d-box">
+          <div class="lbl">Rejected</div>
+          <div class="val ${opR > 0 ? 'danger' : ''}">${fmt(opR)}</div>
+        </div>
+      </div>
+
+      <!-- Operator composite bar -->
+      <div class="cgm-bar-row">
+        <div class="cgm-bar-top"><span>Operator breakdown</span><b>${rate !== 'N/A' ? rate + '% approved' : 'N/A'}</b></div>
+        <div class="cgm-composite-bar">
+          <div class="cgm-cb-approved" style="width:${(opA/opBase*100).toFixed(1)}%"></div>
+          <div class="cgm-cb-pending"  style="width:${(opP/opBase*100).toFixed(1)}%"></div>
+          <div class="cgm-cb-rejected" style="width:${(opR/opBase*100).toFixed(1)}%"></div>
+        </div>
+        <div class="cgm-legend-row">
+          <span class="cgm-leg-item"><span class="cgm-leg-dot" style="background:var(--cgm-good)"></span>Approved ${fmt(opA)}</span>
+          <span class="cgm-leg-item"><span class="cgm-leg-dot" style="background:var(--cgm-warn)"></span>Pending ${fmt(opP)}</span>
+          ${opR > 0 ? `<span class="cgm-leg-item"><span class="cgm-leg-dot" style="background:var(--cgm-danger)"></span>Rejected ${fmt(opR)}</span>` : ''}
+        </div>
+      </div>
+
+      <!-- Kit grid -->
+      <div style="font-family:var(--cgm-mono);font-size:9.5px;color:var(--cgm-lo);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px;">
+        Kit Requests (Station ID · L1 · L2)
+      </div>
+      <div class="cgm-d-grid">
+        <div class="cgm-d-box">
+          <div class="lbl">Total</div>
+          <div class="val">${fmt(kitT)}</div>
+        </div>
+        <div class="cgm-d-box">
+          <div class="lbl">Approved</div>
+          <div class="val good">${fmt(kitA)}</div>
+        </div>
+        <div class="cgm-d-box">
+          <div class="lbl">Pending</div>
+          <div class="val warn">${fmt(kitP)}</div>
+        </div>
+        <div class="cgm-d-box">
+          <div class="lbl">Kit Rate</div>
+          <div class="val ${kitT > 0 ? (kitA/kitT >= .75 ? 'good' : 'warn') : ''}">${kitRate !== 'N/A' ? kitRate + '%' : 'N/A'}</div>
+        </div>
+      </div>
+
+      <!-- Kit bar -->
+      <div class="cgm-bar-row">
+        <div class="cgm-bar-top"><span>Kit approval</span><b>${kitRate !== 'N/A' ? kitRate + '%' : 'N/A'}</b></div>
+        <div class="cgm-bar-track">
+          <div class="cgm-bar-fill ${kitT > 0 && kitA/kitT < .4 ? 'warn' : ''}"
+               style="width:${kitT > 0 ? (kitA/kitT*100).toFixed(1) : 0}%"></div>
+        </div>
+      </div>
+
+      ${reacT > 0 ? `
+      <!-- Reactivation -->
+      <div style="font-family:var(--cgm-mono);font-size:9.5px;color:var(--cgm-lo);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px;">
+        Reactivation Requests
+      </div>
+      <div class="cgm-d-grid">
+        <div class="cgm-d-box"><div class="lbl">Total</div><div class="val">${fmt(reacT)}</div></div>
+        <div class="cgm-d-box"><div class="lbl">Pending</div><div class="val warn">${fmt(reacP)}</div></div>
+      </div>` : ''}
+
+      <!-- Rank note -->
+      <div class="cgm-rank-note">
+        📍 <span><b style="color:var(--cgm-teal)">${name}</b> ranks <b>${rankStr}</b> by operator approval rate${opT > 0 ? `, with <b>${fmt(opT)}</b> total operator request${opT !== 1 ? 's' : ''} on record` : ' N/A no operator data yet for this district'}.
+        ${reacT > 0 ? `<br><b>${fmt(reacP)}</b> reactivation request${reacP !== 1 ? 's' : ''} pending.` : ''}</span>
+      </div>
+    `;
+  }
+
+  function emptyDetailHTML() {
+    return `
+      <div class="cgm-detail-empty">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+          <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.618V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+        </svg>
+        <p>Hover over any district to preview. Click to lock the full breakdown.</p>
+        <p class="hint">↑ click a district on the map</p>
+      </div>
+    `;
+  }
+
+})();
+</script>
+{% endblock %}

@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timedelta
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status, Security, BackgroundTasks
+
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -11,11 +12,13 @@ from backend.database import get_db
 from backend.models import UserLogin, CandidateLogin
 from backend.utils.email_utils import send_password_reset_email
 
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your_super_secret_key_change_me_in_production")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "360"))
+
 
 class LoginRequest(BaseModel):
     username: str
@@ -71,6 +74,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             "user_id": candidate_login.id,
             "r_id": candidate_login.r_id,
             "has_changed_password": candidate_login.has_changed_password
+
         }
     else:
         db_password_bytes = user.password.encode('utf-8')
@@ -87,8 +91,53 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             "district_id": user.district_id
         }
 
-        access_token = create_access_token(data=token_data)
         district_name = user.district.district_name if user.district else ""
+
+        # Track login if role is Admin (chips_admin) or DC/EDM (dc_admin)
+        admin_type = None
+        if user.role.role == "Admin":
+            admin_type = "chips_admin"
+        elif user.role.role in ["DC", "EDM"]:
+            admin_type = "dc_admin"
+
+        if admin_type:
+            from backend.models import AdminLoginLog
+            from backend.models.base import get_ist_now
+
+            # Sessions are independent per device/browser — a new login must NOT
+            # touch any other still-active session row for this admin.
+            started_at = get_ist_now()
+
+            # baseline_at = the previous session's login_time for THIS SAME USER
+            # (across any device). No prior session -> baseline is this session's
+            # own start, so a first-ever login shows zero new requests. This stays
+            # fixed for the session's lifetime, but the notifications endpoint
+            # queries against it live (see backend/routers/notifications.py) so
+            # requests that arrive during the session still show up.
+            prev_session = (
+                db.query(AdminLoginLog)
+                .filter(
+                    AdminLoginLog.admin_id == user.id,
+                    AdminLoginLog.admin_type == admin_type,
+                )
+                .order_by(AdminLoginLog.login_time.desc())
+                .first()
+            )
+            baseline_at = prev_session.login_time if prev_session else started_at
+
+            new_log = AdminLoginLog(
+                admin_id=user.id,
+                admin_type=admin_type,
+                login_time=started_at,
+                baseline_at=baseline_at,
+                is_current=True,
+            )
+            db.add(new_log)
+            db.commit()
+            db.refresh(new_log)
+            token_data["session_id"] = new_log.id
+
+        access_token = create_access_token(data=token_data)
 
         return {
             "access_token": access_token,
@@ -259,3 +308,55 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
         return {"success": True, "detail": "Password reset successfully."}
         
     raise HTTPException(status_code=404, detail="User not found")
+
+def get_current_session(
+    credentials: HTTPAuthorizationCredentials = Security(security),
+    db: Session = Depends(get_db)
+):
+    """Resolve the AdminLoginLog row this token's session was issued for.
+
+    Each device/browser login gets its own row (and its own baseline_at/
+    new_request_count), so this must be looked up by the session_id embedded
+    in the token rather than "the current session for this user" — otherwise
+    concurrent logins on multiple devices would clobber each other's state.
+    Returns None for tokens with no session (e.g. Candidate logins).
+    """
+    from backend.models import AdminLoginLog
+
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    session_id = payload.get("session_id")
+    if session_id is None:
+        return None
+    session = db.query(AdminLoginLog).filter(AdminLoginLog.id == session_id).first()
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return session
+
+@router.post("/logout")
+def logout(
+    current_user: UserLogin = Depends(get_current_user),
+    current_session=Depends(get_current_session),
+    db: Session = Depends(get_db)
+):
+    if current_session is not None:
+        from backend.models.base import get_ist_now
+        # Only this device/browser's session ends here — other active
+        # sessions for the same user must be left untouched.
+        current_session.logout_time = get_ist_now()
+        current_session.is_current = False
+        db.commit()
+
+    return {"message": "Logged out successfully"}
+

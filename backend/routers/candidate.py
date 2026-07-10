@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from backend.database import get_db
 from backend.models import Candidate, LMS, LMSRemark, NSEITRequest, NSEITRemark , District
+from backend.models.base import StatusEnum
 from backend.utils.exporter import generate_csv_export
 router = APIRouter(prefix="/candidate", tags=["candidate"])
 
@@ -102,12 +103,12 @@ def submit_lms_request(r_id: int, remark: str | None = None, login_id: int | Non
 
     lms = db.query(LMS).filter(LMS.r_id == r_id).first()
     if lms:
-        if lms.status in ["Pending", "Reapplied"]:
+        if lms.status_id in [StatusEnum.PENDING.value, StatusEnum.REAPPLIED.value]:
             raise HTTPException(status_code=400, detail="LMS request is already pending review.")
-        if lms.status in ["Reverted", "Reverted by CHiPS"]:
-            lms.status = "Reapplied"
+        if lms.status_id in [StatusEnum.REVERTED.value, StatusEnum.REVERTED_BY_CHIPS.value]:
+            lms.status_id = StatusEnum.REAPPLIED.value
         else:
-            lms.status = "Pending"
+            lms.status_id = StatusEnum.PENDING.value
     else:
         lms = LMS(r_id=r_id, status="Pending")
         db.add(lms)
@@ -122,7 +123,7 @@ def submit_lms_request(r_id: int, remark: str | None = None, login_id: int | Non
         lms_id=lms.id,
         remark=remark_text,
         candidate_by_id=login_id,
-        status_after=lms.status
+        status_after_id=lms.status_id
     )
     db.add(new_remark)
     db.commit()
@@ -147,12 +148,12 @@ def submit_nseit_request(r_id: int, remark: str | None = None, login_id: int | N
 
     nseit = db.query(NSEITRequest).filter(NSEITRequest.r_id == r_id).first()
     if nseit:
-        if nseit.status in ["Pending", "Reapplied"]:
+        if nseit.status_id in [StatusEnum.PENDING.value, StatusEnum.REAPPLIED.value]:
             raise HTTPException(status_code=400, detail="NSEIT request is already pending review.")
-        if nseit.status in ["Reverted", "Reverted by CHiPS"]:
-            nseit.status = "Reapplied"
+        if nseit.status_id in [StatusEnum.REVERTED.value, StatusEnum.REVERTED_BY_CHIPS.value]:
+            nseit.status_id = StatusEnum.REAPPLIED.value
         else:
-            nseit.status = "Pending"
+            nseit.status_id = StatusEnum.PENDING.value
     else:
         nseit = NSEITRequest(r_id=r_id, status="Pending")
         db.add(nseit)
@@ -162,7 +163,7 @@ def submit_nseit_request(r_id: int, remark: str | None = None, login_id: int | N
         nseit_id=nseit.id,
         remark=remark or "NSEIT request submitted by candidate.",
         candidate_by_id=login_id,
-        status_after=nseit.status
+        status_after_id=nseit.status_id
     )
     db.add(new_remark)
     db.commit()
@@ -178,7 +179,7 @@ def skip_lms_request(r_id: int, lms_id: str, login_id: int | None = None, db: Se
     
     lms = db.query(LMS).filter(LMS.r_id == r_id).first()
     if lms:
-        lms.status = "Skipped"
+        lms.status_id = StatusEnum.SKIPPED.value
     else:
         lms = LMS(r_id=r_id, status="Skipped")
         db.add(lms)
@@ -204,7 +205,7 @@ def skip_nseit_request(r_id: int, nseit_id: str, login_id: int | None = None, db
     
     nseit = db.query(NSEITRequest).filter(NSEITRequest.r_id == r_id).first()
     if nseit:
-        nseit.status = "Skipped"
+        nseit.status_id = StatusEnum.SKIPPED.value
     else:
         nseit = NSEITRequest(r_id=r_id, status="Skipped")
         db.add(nseit)

@@ -4,7 +4,8 @@ import csv
 import bcrypt
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
-from backend.models import MasterUserRole, District, UserLogin
+from backend.models import MasterUserRole, District, UserLogin, MasterStatus
+from backend.models.base import StatusEnum
 
 CSV_PATH = "LGD - Local Government Directory, Government of India.csv"
 
@@ -37,6 +38,33 @@ def seed_database():
         db.commit()
         print("Roles successfully verified/seeded.")
 
+        # 1.5. Seed Master Status
+        status_names = {
+            StatusEnum.PENDING: "Pending",
+            StatusEnum.APPROVED: "Approved",
+            StatusEnum.REVERTED: "Reverted",
+            StatusEnum.REAPPLIED: "Reapplied",
+            StatusEnum.SENT_TO_CHIPS: "Sent to CHiPS",
+            StatusEnum.SENT_TO_UIDAI: "Sent to UIDAI",
+            StatusEnum.UIDAI_APPROVED: "UIDAI Approved",
+            StatusEnum.UIDAI_REJECTED: "UIDAI Rejected",
+            StatusEnum.REVIEWED: "Reviewed",
+            StatusEnum.ASSIGNED: "Assigned",
+            StatusEnum.FORWARDED: "Forwarded",
+            StatusEnum.FORWARDED_AGAIN: "Forwarded Again",
+            StatusEnum.SKIPPED: "Skipped",
+            StatusEnum.REJECTED: "Rejected",
+            StatusEnum.REVERTED_BY_CHIPS: "Reverted by CHiPS",
+            StatusEnum.APPROVED_LEGACY: "Approved Legacy"
+        }
+        for status_enum, name in status_names.items():
+            existing_status = db.query(MasterStatus).filter_by(id=status_enum.value).first()
+            if not existing_status:
+                db.add(MasterStatus(id=status_enum.value, name=name))
+            else:
+                existing_status.name = name
+        db.commit()
+        print("Master statuses successfully verified/seeded.")
         # 2. Parse and Seed Districts from CSV
         print("Reading districts from CSV...")
         with open(CSV_PATH, mode='r', encoding='utf-8') as f:

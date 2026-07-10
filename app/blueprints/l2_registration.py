@@ -1,9 +1,13 @@
 # app/blueprints/l2_registration.py
 from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, Response
 import requests
+from app.utils.aging import parse_aging_filter, filter_by_aging
 
 l2_registration_bp = Blueprint("l2_registration", __name__)
 BACKEND = "http://127.0.0.1:8000/l2-registration"
+
+# Statuses that are NOT part of the pending queue for aging purposes
+_L2_NON_PENDING = {"approved", "activated", "rejected", "reverted", "reverted_by_chips", "sent_to_uidai"}
 
 def get_valid_token():
     from flask import session
@@ -31,6 +35,7 @@ def dc_list():
         
     requests_list.sort(key=lambda x: x.get("updated_at") or x.get("completed_at") or x.get("reviewed_at") or x.get("submitted_at") or "", reverse=True)
     return render_template("l2_registration/dc_list.html", requests=requests_list)
+
 
 @l2_registration_bp.route("/dc/l2-registration/new", methods=["GET", "POST"])
 def dc_new():
@@ -84,6 +89,7 @@ def dc_new():
 
     return render_template("l2_registration/submit_form.html")
 
+
 @l2_registration_bp.route("/dc/l2-registration/<int:request_id>/reapply", methods=["POST"])
 def dc_reapply(request_id):
     jwt_token = get_valid_token()
@@ -120,6 +126,7 @@ def dc_reapply(request_id):
     except requests.exceptions.ConnectionError:
         return jsonify({"status": "error", "detail": "Backend Offline."}), 500
 
+
 @l2_registration_bp.route("/chips/l2-registration", methods=["GET"])
 def chips_list():
     jwt_token = get_valid_token()
@@ -135,7 +142,21 @@ def chips_list():
     except requests.exceptions.ConnectionError:
         requests_list = []
         
-    return render_template("l2_registration/chips_list.html", requests=requests_list)
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_subset = [
+            r for r in requests_list
+            if str(r.get("status", "")).strip().lower() not in _L2_NON_PENDING
+        ]
+        requests_list = filter_by_aging(pending_subset, aging_filter, "submitted_at")
+
+    return render_template(
+        "l2_registration/chips_list.html",
+        requests=requests_list,
+        aging_filter=aging_filter,
+        aging_label=aging_label,
+    )
+
 
 @l2_registration_bp.route("/chips/l2-registration/<int:request_id>/detail-json", methods=["GET"])
 def chips_detail_json(request_id):
@@ -154,6 +175,7 @@ def chips_detail_json(request_id):
     except requests.exceptions.ConnectionError:
         return jsonify({"detail": "Backend offline"}), 500
 
+
 @l2_registration_bp.route("/chips/l2-registration/<int:request_id>/send-to-uidai", methods=["POST"])
 def chips_send_to_uidai(request_id):
     jwt_token = get_valid_token()
@@ -167,6 +189,7 @@ def chips_send_to_uidai(request_id):
     }
     requests.patch(f"{BACKEND}/{request_id}/send-to-uidai", data=form_data, headers=headers)
     return redirect(url_for("l2_registration.chips_list"))
+
 
 @l2_registration_bp.route("/chips/l2-registration/<int:request_id>/uidai-approve", methods=["POST"])
 def chips_uidai_approve(request_id):
@@ -182,6 +205,7 @@ def chips_uidai_approve(request_id):
     requests.patch(f"{BACKEND}/{request_id}/uidai-approve", data=form_data, headers=headers)
     return redirect(url_for("l2_registration.chips_list"))
 
+
 @l2_registration_bp.route("/chips/l2-registration/<int:request_id>/uidai-reject", methods=["POST"])
 def chips_uidai_reject(request_id):
     jwt_token = get_valid_token()
@@ -195,6 +219,7 @@ def chips_uidai_reject(request_id):
     }
     requests.patch(f"{BACKEND}/{request_id}/uidai-reject", data=form_data, headers=headers)
     return redirect(url_for("l2_registration.chips_list"))
+
 
 @l2_registration_bp.route("/chips/l2-registration/<int:request_id>/revert", methods=["POST"])
 def chips_revert(request_id):
@@ -210,6 +235,7 @@ def chips_revert(request_id):
     requests.patch(f"{BACKEND}/{request_id}/revert", data=form_data, headers=headers)
     return redirect(url_for("l2_registration.chips_list"))
 
+
 @l2_registration_bp.route("/chips/l2-registration/export-excel", methods=["GET"])
 def export_uidai():
     jwt_token = get_valid_token()
@@ -223,6 +249,7 @@ def export_uidai():
         headers={"Content-Disposition": "attachment; filename=uidai_l2_queue.csv"}
     )
 
+
 @l2_registration_bp.route("/chips/l2-registration/export-excel/pending", methods=["GET"])
 def export_pending():
     jwt_token = get_valid_token()
@@ -235,6 +262,7 @@ def export_pending():
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=pending_l2_queue.csv"}
     )
+
 
 @l2_registration_bp.route("/chips/l2-registration/export-excel/credentials", methods=["GET"])
 def export_creds():
@@ -257,12 +285,12 @@ def dc_export_pending():
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
     response = requests.get(f"{BACKEND}/export-excel/pending", headers=headers, params=params, stream=True)
-    from flask import Response
     return Response(
         response.content,
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=pending_l2_queue.csv"}
     )
+
 
 @l2_registration_bp.route("/dc/l2-registration/export-excel/credentials", methods=["GET"])
 def dc_export_creds():
@@ -271,7 +299,6 @@ def dc_export_creds():
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
     response = requests.get(f"{BACKEND}/export-excel/credentials", headers=headers, params=params, stream=True)
-    from flask import Response
     return Response(
         response.content,
         mimetype="text/csv",

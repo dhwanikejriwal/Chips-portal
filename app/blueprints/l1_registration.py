@@ -1,8 +1,12 @@
 # app/blueprints/l1_registration.py
-from flask import Blueprint, render_template, session, redirect, url_for, request
+from flask import Blueprint, render_template, session, redirect, url_for, request, Response
 import requests
+from app.utils.aging import parse_aging_filter, filter_by_aging
 
 l1_bp = Blueprint("l1_registration", __name__)
+
+# Statuses that are NOT part of the pending queue for aging purposes
+_L1_NON_PENDING = {"reviewed", "approved", "reverted"}
 
 @l1_bp.route("/dc/l1-registration")
 def dc_l1_portal():
@@ -70,7 +74,20 @@ def chips_l1_portal():
     except Exception:
         requests_data = []
 
-    return render_template("chips/chips_l1_registration.html", requests=requests_data)
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_subset = [
+            r for r in requests_data
+            if str(r.get("status", "")).strip().lower() not in _L1_NON_PENDING
+        ]
+        requests_data = filter_by_aging(pending_subset, aging_filter, "submitted_at")
+
+    return render_template(
+        "chips/chips_l1_registration.html",
+        requests=requests_data,
+        aging_filter=aging_filter,
+        aging_label=aging_label,
+    )
 
 FASTAPI_URL = "http://127.0.0.1:8000/l1-registration"
 
@@ -129,7 +146,6 @@ def reapply_l1(request_code):
     resp = requests.put(f"{FASTAPI_URL}/requests/{request_code}/reapply", headers=headers, data=request.form)
     return resp.content, resp.status_code, {'Content-Type': 'application/json'}
 
-from flask import Response
 
 @l1_bp.route("/l1-registration/export/<request_code>", methods=["GET"])
 def proxy_export_l1_excel(request_code):
@@ -154,15 +170,12 @@ def proxy_export_l1_excel(request_code):
         return f"Excel compilation failure: {str(excel_err)}", 500
 
 
-
-
 @l1_bp.route("/l1-registration/export", methods=["GET"])
 def proxy_export_l1_csv_v2():
     if not session.get("access_token"):
         return "Unauthorized", 401
     ids = request.args.get("ids", "")
     FASTAPI_L1_URL = "http://127.0.0.1:8000/l1-registration"
-    from flask import Response
     try:
         file_response = requests.get(f"{FASTAPI_L1_URL}/export-excel-v2", params={"ids": ids}, stream=True, timeout=20)
         if file_response.status_code == 200:

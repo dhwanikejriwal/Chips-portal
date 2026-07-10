@@ -39,8 +39,60 @@ def create_app():
 
     @app.route("/")
     def index():
-        from flask import render_template
-        return render_template("home.html")
+        from flask import render_template, current_app
+        import requests
+        
+        activated_count = "4,200<span>+</span>"
+        open_districts_count = 33
+        open_districts = []
+        try:
+            backend_url = f"{current_app.config['BACKEND_API_URL']}/dashboard/stats"
+            response = requests.get(backend_url, timeout=2)
+            if response.status_code == 200:
+                data = response.json()
+                approved = data.get("summary", {}).get("approved", 0)
+                if approved >= 0:
+                    activated_count = f"{approved:,}"
+                    
+            dist_url = f"{current_app.config['BACKEND_API_URL']}/candidate_register/districts"
+            dist_resp = requests.get(dist_url, timeout=2)
+            if dist_resp.status_code == 200:
+                districts_data = dist_resp.json()
+                open_districts_count = len(districts_data)
+                open_districts = districts_data
+        except Exception:
+            pass
+        recently_opened_count = sum(1 for d in open_districts if d.get("is_recently_opened"))
+        return render_template("home.html", activated_count=activated_count, open_districts_count=open_districts_count, open_districts=open_districts, recently_opened_count=recently_opened_count)
+        
+    @app.route("/open-districts")
+    def open_districts_page():
+        from flask import render_template, current_app
+        import requests
+        
+        open_districts = []
+        try:
+            dist_url = f"{current_app.config['BACKEND_API_URL']}/candidate_register/districts"
+            dist_resp = requests.get(dist_url, timeout=2)
+            if dist_resp.status_code == 200:
+                open_districts = dist_resp.json()
+        except Exception:
+            pass
+            
+        return render_template("open_districts.html", open_districts=open_districts)
+
+    @app.route('/favicon.ico')
+    def favicon():
+        import os
+        from flask import send_from_directory
+        return send_from_directory(os.path.join(app.root_path, 'static', 'css', 'images'),
+                                   'chips_logo.jpg', mimetype='image/jpeg')
+
+    @app.route('/candidate_uploads/<path:filename>')
+    def candidate_uploads(filename):
+        import os
+        from flask import send_from_directory
+        return send_from_directory(os.path.join(app.root_path, '..', 'uploads', 'candidate'), filename)
 
     @app.route('/favicon.ico')
     def favicon():

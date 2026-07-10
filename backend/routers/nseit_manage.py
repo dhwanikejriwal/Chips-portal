@@ -4,6 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Candidate, NSEITRequest, NSEITRemark, UserLogin, MasterUserRole
+from backend.models.base import StatusEnum
 from backend.utils.exporter import generate_csv_export
 
 from backend.routers.auth import get_current_user
@@ -107,16 +108,16 @@ def forward_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
         MasterUserRole.role == "Admin"
     ).first() is not None
 
-    if nseit.status == "Reapplied" and has_chips_remark:
-        nseit.status = "Forwarded Again"
+    if nseit.status_id == StatusEnum.REAPPLIED.value and has_chips_remark:
+        nseit.status_id = StatusEnum.FORWARDED_AGAIN.value
     else:
-        nseit.status = "Forwarded"
+        nseit.status_id = StatusEnum.FORWARDED.value
     
     new_remark = NSEITRemark(
         nseit_id=nseit.id,
         remark=clean_remark or "NSEIT request verified and forwarded to CHiPS by District Coordinator.",
         admin_by_id=payload.by_user_id,
-        status_after=nseit.status
+        status_after_id=nseit.status_id
     )
     db.add(new_remark)
     db.commit()
@@ -132,7 +133,7 @@ def approve_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
         
-    nseit.status = "Approved"
+    nseit.status_id = StatusEnum.APPROVED.value
     
     # Auto-generate NSEIT certificate ID if not already present
     if not candidate.nseit_id:
@@ -142,7 +143,7 @@ def approve_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
         nseit_id=nseit.id,
         remark=payload.remark or "NSEIT request verified and approved.",
         admin_by_id=payload.by_user_id,
-        status_after=nseit.status
+        status_after_id=nseit.status_id
     )
     db.add(new_remark)
     db.commit()
@@ -157,15 +158,15 @@ def revert_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = D
     # Check if the reverting user has Admin (CHiPS) role
     user = db.query(UserLogin).filter(UserLogin.id == payload.by_user_id).first()
     if user and user.role and user.role.role == "Admin":
-        nseit.status = "Reverted by CHiPS"
+        nseit.status_id = StatusEnum.REVERTED_BY_CHIPS.value
     else:
-        nseit.status = "Reverted"
+        nseit.status_id = StatusEnum.REVERTED.value
     
     new_remark = NSEITRemark(
         nseit_id=nseit.id,
         remark=payload.remark or "NSEIT request reverted.",
         admin_by_id=payload.by_user_id,
-        status_after=nseit.status
+        status_after_id=nseit.status_id
     )
     db.add(new_remark)
     db.commit()
@@ -215,7 +216,7 @@ def export_nseit_excel(ids: str = None, db: Session = Depends(get_db)):
             "nseit_status": n.status,
      
             "submitted_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else "",
-            "updated_at": "" if n.status in ["Pending", "Forwarded"] else (n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else "")
+            "updated_at": "" if n.status_id in [StatusEnum.PENDING.value, StatusEnum.FORWARDED.value] else (n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else "")
         })
 
     # 🌟 Full column profile headers layout dictionary map
