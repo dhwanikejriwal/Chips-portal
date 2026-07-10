@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.models.candidate import Candidate
     from backend.models.user_login import UserLogin
+    from backend.models.aadhaar_district_resources import AadhaarDistrictResource
 
 class District(Base):
     __tablename__ = "district_table"

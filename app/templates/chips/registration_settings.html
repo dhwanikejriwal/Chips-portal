@@ -80,7 +80,8 @@
 
         async function fetchDistricts() {
             try {
-                const response = await fetch(`{{ config.BACKEND_API_URL }}/dashboard/districts/settings`);
+                const baseUrl = "{{ config.BACKEND_API_URL }}".replace(/\/api\/?$/, "");
+                const response = await fetch(`${baseUrl}/dashboard/districts/settings`);
                 if (!response.ok) throw new Error("Failed to fetch settings");
                 const data = await response.json();
                 renderTable(data.districts);
@@ -183,14 +184,15 @@
             };
 
             try {
-                const response = await fetch(`{{ config.BACKEND_API_URL }}/dashboard/districts/${code}/settings`, {
+                const baseUrl = "{{ config.BACKEND_API_URL }}".replace(/\/api\/?$/, "");
+                const response = await fetch(`${baseUrl}/dashboard/districts/${code}/settings`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 
                 const data = await response.json();
-                if (data.success) {
+                if (response.ok) {
                     Swal.fire({
                         title: "Saved!",
                         text: "District settings updated successfully.",

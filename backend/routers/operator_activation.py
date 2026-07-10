@@ -121,7 +121,30 @@ def submit_operator_activation(
         )
 
 
-    # 2. Save each file to disk and create a document row
+    # 2. Create the operator activation request
+    new_request = OperatorActivationRequest(
+        dc_id=dc_id,
+        district_id=district_id,
+        role=role,
+        name_as_per_aadhaar=name_as_per_aadhaar,
+        registrar_code=registrar_code,
+        ea_code=ea_code,
+        user_code=user_code,
+        nseit_certificate_number=nseit_certificate_number,
+        operator_mobile=operator_mobile.strip() if operator_mobile else None,
+        primary_email=primary_email.strip() if primary_email else None,
+        operator_aadhaar=operator_aadhaar.strip() if operator_aadhaar else None,
+        pan_number=operator_pan.strip().upper() if operator_pan else None,
+        nseit_certification_date=cert_date,
+        nseit_certificate_expiry_date=expiry_date,
+        pincode=pincode,
+        status_id=StatusEnum.PENDING.value,
+        request_no=candidate.request_code,
+    )
+    db.add(new_request)
+    db.flush()
+
+    # 3. Save each file to disk and create a document row
     uploaded_files = {
         "hard_copy_form": hard_copy_form,
         "aadhaar_photo": aadhaar_photo,

@@ -622,6 +622,46 @@ def get_nseit_expired(db: Session = Depends(get_db)):
     except Exception:
         return []
 
+from pydantic import BaseModel
+from typing import Optional
+
+class DistrictSettingsUpdate(BaseModel):
+    registration_open: bool
+    registration_start_date: Optional[str] = None
+    registration_end_date: Optional[str] = None
+
+@router.get("/districts/settings")
+def get_district_settings(db: Session = Depends(get_db)):
+    districts = db.query(District).order_by(District.district_name).all()
+    res = []
+    for d in districts:
+        res.append({
+            "district_code": d.district_code,
+            "district_name": d.district_name,
+            "registration_open": d.registration_open,
+            "registration_start_date": d.registration_start_date,
+            "registration_end_date": d.registration_end_date,
+        })
+    return {"districts": res}
+
+@router.put("/districts/{district_code}/settings")
+def update_district_settings(district_code: str, settings: DistrictSettingsUpdate, db: Session = Depends(get_db)):
+    from datetime import datetime
+    from fastapi import HTTPException
+    
+    d = db.query(District).filter(District.district_code == district_code).first()
+    if not d:
+        raise HTTPException(status_code=404, detail="District not found")
+        
+    d.registration_open = settings.registration_open
+    d.registration_start_date = settings.registration_start_date
+    d.registration_end_date = settings.registration_end_date
+    
+    if settings.registration_open:
+        d.registration_opened_at = datetime.now().isoformat()
+        
+    db.commit()
+    return {"message": "Settings updated successfully"}
 
 
 

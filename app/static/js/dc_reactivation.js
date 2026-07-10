@@ -7,6 +7,16 @@
 let structuredOperatorList = [];
 window.currentViewingOperators = [];
 
+window.escapeHtmlString = function (text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
+
 // 🟢 INITIALIZATION ADAPTER: SET LIMIT BOUNDARIES AND TAB PERSISTENCE
 document.addEventListener("DOMContentLoaded", () => {
     window.switchReactivationView('dashboard', true);
@@ -135,10 +145,24 @@ window.addOperatorRecordToExcelLog = function () {
     };
 
     // Evaluate required entries
+    const keyToErrorIdMap = {
+        role: 'role',
+        name: 'name',
+        reg: 'reg',
+        ea: 'ea',
+        user: 'user',
+        cert: 'cert',
+        mobile: 'mobile',
+        email: 'email',
+        aadhar: 'aadhaar',
+        certDate: 'cert_date',
+        model: 'model',
+        lmsId: 'lms_id'
+    };
     for (const key in fields) {
         if (key === 'remarks') continue;
         if (!fields[key]) {
-            const errNode = document.getElementById(`err_op_${key === 'aadhar' ? 'aadhaar' : key}`);
+            const errNode = document.getElementById(`err_op_${keyToErrorIdMap[key]}`);
             if (errNode) errNode.innerText = 'This field is mandatory.';
             hasValidationError = true;
         }
@@ -280,6 +304,16 @@ window.editOperatorInStateArray = function (index) {
     }
     window.isCurrentlyEditingOperator = true;
 
+    const op = structuredOperatorList[index];
+    structuredOperatorList.splice(index, 1);
+    renderOperatorSpreadsheetRows();
+
+    // Populate form fields
+    if (document.getElementById('op_role')) document.getElementById('op_role').value = op.role || 'Operator';
+    if (document.getElementById('op_name')) document.getElementById('op_name').value = op.name || '';
+    if (document.getElementById('op_reg')) document.getElementById('op_reg').value = op.reg || '';
+    if (document.getElementById('op_ea')) document.getElementById('op_ea').value = op.ea || '';
+    if (document.getElementById('user_code')) document.getElementById('user_code').value = op.user || '';
     if (document.getElementById('op_cert')) document.getElementById('op_cert').value = op.cert || '';
     if (document.getElementById('op_mobile')) document.getElementById('op_mobile').value = op.mobile || '';
     if (document.getElementById('op_email')) document.getElementById('op_email').value = op.email || '';
@@ -349,10 +383,7 @@ window.handleFormSubmissionPipeline = function (event) {
         return;
     }
 
-    return;
-}
-
-const formElement = document.getElementById('reactivationForm');
+    const formElement = document.getElementById('reactivationForm');
 const formData = new FormData(formElement);
 
 // 📁 STRICT DOCUMENT VALIDATION LAYER
@@ -959,7 +990,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
 
     const requestCode = window.currentViewingRequestCode;
     const reqObj = (window.historyRequestsPayload || []).find(r => r.request_code === requestCode);
-    const requestStatus = reqObj ? reqObj.status : op.status;
+    const requestStatus = op.status || (reqObj ? reqObj.status : 'PENDING');
     const statusBadge = getStatusBadgeHtml(requestStatus);
 
     const fullName = op.operator_name || op.name || '—';

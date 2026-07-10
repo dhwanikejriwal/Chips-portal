@@ -166,6 +166,13 @@ def dc_dashboard():
     return render_template("dc/dc_dash.html", stats=stats)
 
 
+@dashboard_bp.route("/chips/registration-settings")
+def registration_settings():
+    if "access_token" not in session or session.get("role") != "Admin":
+        flash("Unauthorized access. Please log in.", "danger")
+        return redirect(url_for("auth.login"))
+    return render_template("chips/registration_settings.html")
+
 @dashboard_bp.route("/chips/dashboard")
 def chips_dashboard():
     if "access_token" not in session or session.get("role") != "Admin":
