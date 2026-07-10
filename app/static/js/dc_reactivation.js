@@ -1897,5 +1897,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-    });
 });
+});
+
+window.navigateWizardStep = function (stepNumber) {
+    const section1 = document.getElementById('section-operator-form-view');
+    const section2 = document.getElementById('section-documents-upload-view');
+    if (stepNumber === 1) {
+        if (section1) section1.style.display = 'block';
+        if (section2) section2.style.display = 'none';
+    } else if (stepNumber === 2) {
+        if (section1) section1.style.display = 'none';
+        if (section2) section2.style.display = 'block';
+    }
+};
+
+window.switchMainView = function (viewType, btn) {
+    const batchesContainer = document.getElementById('view-batches-container');
+    const approvedContainer = document.getElementById('view-approved-container');
+    
+    if (viewType === 'batches') {
+        if (batchesContainer) batchesContainer.style.display = 'block';
+        if (approvedContainer) approvedContainer.style.display = 'none';
+    } else {
+        if (batchesContainer) batchesContainer.style.display = 'none';
+        if (approvedContainer) approvedContainer.style.display = 'block';
+    }
+    
+    // Toggle active classes on tabs
+    document.querySelectorAll('.main-view-tab').forEach(tab => {
+        tab.classList.remove('active-view');
+        tab.style.color = '#64748b';
+        tab.style.borderBottomColor = 'transparent';
+        tab.style.fontWeight = '600';
+    });
+    
+    if (btn) {
+        btn.classList.add('active-view');
+        btn.style.color = '#007bff';
+        btn.style.borderBottomColor = '#007bff';
+        btn.style.fontWeight = '700';
+    }
+};
