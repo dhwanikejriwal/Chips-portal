@@ -114,7 +114,7 @@ window.switchReactivationView = function (targetPanel, shouldReset = false) {
 };
 
 // 🎛️ STEP-1 CACHE ENTRY VALIDATOR
-function addOperatorRecordToExcelLog() {
+window.addOperatorRecordToExcelLog = function () {
     document.querySelectorAll('.error-msg').forEach(el => el.innerText = '');
     let hasValidationError = false;
 
@@ -254,12 +254,12 @@ function renderOperatorSpreadsheetRows() {
     document.getElementById('next-step-trigger-btn').disabled = false;
 }
 
-function removeOperatorFromStateArray(index) {
+window.removeOperatorFromStateArray = function (index) {
     structuredOperatorList.splice(index, 1);
     renderOperatorSpreadsheetRows();
 }
 
-function editOperatorInStateArray(index) {
+window.editOperatorInStateArray = function (index) {
     if (window.isCurrentlyEditingOperator) {
         Swal.fire({
             title: 'Unsaved Operator Changes',
@@ -341,7 +341,7 @@ function editOperatorInStateArray(index) {
 }
 
 // 🚀 TRANSACTION ASYNC SUBMIT HANDLER
-function handleFormSubmissionPipeline(event) {
+window.handleFormSubmissionPipeline = function (event) {
     event.preventDefault();
 
     if (window.isCurrentlyEditingOperator) {
@@ -455,7 +455,7 @@ if (window.currentReapplyCode) {
 } else {
     submitRequestAction(null);
 }
-}
+
 
 function getStatusBadgeHtml(status) {
     const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
@@ -1237,7 +1237,7 @@ window.openIndividualOperatorDetailCard = function (arrayIndex) {
 
 
 // 🧼 WORKSPACE INPUT FIELD CLEANSER
-function clearFormInputs() {
+window.clearFormInputs = function () {
     document.getElementById('op_role').value = 'Supervisor';
     document.getElementById('op_name').value = '';
     document.getElementById('op_reg').value = '986';
@@ -1324,7 +1324,7 @@ function resetEntireNewRequestForm() {
 }
 
 // 🔍 DISTRICT HISTORY DATA GRID CLIENT-SIDE FILTER PIPELINE
-function applyHistoryPanelFiltersPipeline() {
+window.applyHistoryPanelFiltersPipeline = function () {
     // 1. Gather all input conditions safely
     const searchOperatorInput = document.getElementById("filter-search-operator");
     const statusInput = document.getElementById("filter-status");
@@ -1460,7 +1460,7 @@ function applyHistoryPanelFiltersPipeline() {
     if (totalEl) totalEl.textContent = totalAllStatuses;
 }
 
-function resetHistoryPanelFilters() {
+window.resetHistoryPanelFilters = function () {
     const searchOperatorInput = document.getElementById("filter-search-operator");
     if (searchOperatorInput) searchOperatorInput.value = "";
 
@@ -1613,7 +1613,6 @@ window.submitOperatorReapplication = function (data) {
             Swal.fire('Error', err.message, 'error');
         });
 };
-<<<<<<< HEAD
 
 // District Code Lookup Map
 const DISTRICT_CODES = {
