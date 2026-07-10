@@ -404,6 +404,67 @@
         sessionStorage.setItem('chips_lms_pending_status', pendingStatusVal);
         sessionStorage.setItem('chips_lms_history_status', statusVal);
 
+        // Filter Pending Queue
+        const pendingRows = document.querySelectorAll('#admin-queue-body tr');
+        let pendingIdx = 1;
+        pendingRows.forEach(row => {
+            if (row.cells.length <= 1) return; // Empty row
+
+            const matchSearch = row.getAttribute('data-code').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-name').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-phone').includes(searchVal) ||
+                row.getAttribute('data-email').toLowerCase().includes(searchVal);
+
+            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+            const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
+            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+
+            const reqStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
+            const matchStatus = (pendingStatusVal === 'all') || (reqStatus === pendingStatusVal);
+
+            if (matchSearch && matchDistrict && matchDate && matchStatus) {
+                row.style.display = '';
+                row.cells[0].innerText = pendingIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Filter History Queue
+        const approvedRows = document.querySelectorAll('#admin-approved-body tr');
+        let approvedIdx = 1;
+        approvedRows.forEach(row => {
+            if (row.cells.length <= 1) return; // Empty row
+
+            const matchSearch = row.getAttribute('data-code').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-name').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-phone').includes(searchVal) ||
+                row.getAttribute('data-email').toLowerCase().includes(searchVal);
+
+            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+            const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
+            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+
+            const reqStatus = row.getAttribute('data-status').toLowerCase();
+            const matchStatus = (statusVal === 'all') || (reqStatus === statusVal);
+
+            if (matchSearch && matchDistrict && matchDate && matchStatus) {
+                row.style.display = '';
+                row.cells[0].innerText = approvedIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const pendingCountEl = document.getElementById('pending-count');
+        if (pendingCountEl) pendingCountEl.textContent = pendingIdx - 1;
+        const pendingEmptyMsg = document.getElementById('pending-empty-msg');
+        if (pendingEmptyMsg) pendingEmptyMsg.style.display = (pendingIdx - 1 === 0) ? 'block' : 'none';
+
+        const approvedCountEl = document.getElementById('approved-count');
+        if (approvedCountEl) approvedCountEl.textContent = approvedIdx - 1;
+        const approvedEmptyMsg = document.getElementById('approved-empty-msg');
+        if (approvedEmptyMsg) approvedEmptyMsg.style.display = (approvedIdx - 1 === 0) ? 'block' : 'none';
     }
 
     function checkDateMatch(dateStr, filterVal) {
