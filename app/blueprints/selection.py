@@ -9,6 +9,7 @@ def _headers():
         raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
     return {"Authorization": f"Bearer {str(raw_token).strip()}"}
 
+
 @selection_bp.route("/dc/candidate-requests")
 def dc_candidate_requests():
     if "access_token" not in session or session.get("role") not in ["DC", "EDM"]:
@@ -131,4 +132,3 @@ def export_candidate_requests():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         return redirect(url_for("selection.dc_candidate_requests"))
-

@@ -10,6 +10,7 @@ from backend.models import District, Candidate
 from backend.models.otp_verification import OtpVerification
 from backend.utils.email_utils import send_otp_email
 
+
 router = APIRouter(prefix="/candidate_register", tags=["candidate_register"])
 
 class CandidateRegisterRequest(BaseModel):
@@ -40,6 +41,7 @@ class CandidateRegisterRequest(BaseModel):
                 raise ValueError("Only applicants from Chhattisgarh state (Pincode series starting with 49) are eligible to register.")
         return value
     
+
     @model_validator(mode='before')
     def enforce_marksheet_routing(cls, values):
         qualification = values.get('qualification')
@@ -53,52 +55,71 @@ class CandidateRegisterRequest(BaseModel):
         return values
 
 @router.get("/districts")
-def get_districts(db: Session = Depends(get_db)):
+def get_districts(all_districts: bool = False, db: Session = Depends(get_db)):
     districts = db.query(District).order_by(District.district_name).all()
-    
-    now = datetime.now()
-    open_districts = []
-    
-    for d in districts:
-        if not d.registration_open:
-            continue
-            
-        if d.registration_start_date:
-            try:
-                start_date = datetime.strptime(d.registration_start_date, "%Y-%m-%dT%H:%M")
-                if now < start_date:
-                    continue
-            except ValueError:
-                pass
-                
-        if d.registration_end_date:
-            try:
-                end_date = datetime.strptime(d.registration_end_date, "%Y-%m-%dT%H:%M")
-                if now > end_date:
-                    continue
-            except ValueError:
-                pass
-                
-        is_recently_opened = False
-        if d.registration_opened_at:
-            try:
-                # Handle isoformat with or without microseconds
-                opened_dt = datetime.fromisoformat(d.registration_opened_at)
-                if now - opened_dt <= timedelta(days=7):
-                    is_recently_opened = True
-            except ValueError:
-                pass
-
-        open_districts.append({
-            "district_code": d.district_code,
-            "district_name": d.district_name,
-            "district_short_name": d.district_short_name,
-            "registration_start_date": d.registration_start_date,
-            "registration_end_date": d.registration_end_date,
-            "is_recently_opened": is_recently_opened
-        })
-        
-    return open_districts
+    if all_districts:
+        res = []
+        for d in districts:
+            res_info = None
+            if d.aadhaar_resources:
+                res_info = {
+                    "edm_name": d.aadhaar_resources.edm_name,
+                    "edm_contact": d.aadhaar_resources.edm_contact,
+                    "edm_email": d.aadhaar_resources.edm_email,
+                    "dc_name": d.aadhaar_resources.dc_name,
+                    "dc_contact": d.aadhaar_resources.dc_contact,
+                    "dc_email": d.aadhaar_resources.dc_email,
+                    "mto_name": d.aadhaar_resources.mto_name,
+                    "mto_contact": d.aadhaar_resources.mto_contact,
+                    "mto_email": d.aadhaar_resources.mto_email,
+                    "adc_name": d.aadhaar_resources.adc_name,
+                    "adc_contact": d.aadhaar_resources.adc_contact,
+                    "adc_email": d.aadhaar_resources.adc_email,
+                }
+            res.append({
+                "district_code": d.district_code,
+                "district_name": d.district_name,
+                "district_short_name": d.district_short_name,
+                "aadhaar_resources": res_info
+            })
+        return res
+    else:
+        now = datetime.now()
+        open_districts = []
+        for d in districts:
+            if not d.registration_open:
+                continue
+            if d.registration_start_date:
+                try:
+                    start_date = datetime.strptime(d.registration_start_date, "%Y-%m-%dT%H:%M")
+                    if now < start_date:
+                        continue
+                except ValueError:
+                    pass
+            if d.registration_end_date:
+                try:
+                    end_date = datetime.strptime(d.registration_end_date, "%Y-%m-%dT%H:%M")
+                    if now > end_date:
+                        continue
+                except ValueError:
+                    pass
+            is_recently_opened = False
+            if d.registration_opened_at:
+                try:
+                    opened_dt = datetime.fromisoformat(d.registration_opened_at)
+                    if now - opened_dt <= timedelta(days=7):
+                        is_recently_opened = True
+                except ValueError:
+                    pass
+            open_districts.append({
+                "district_code": d.district_code,
+                "district_name": d.district_name,
+                "district_short_name": d.district_short_name,
+                "registration_start_date": d.registration_start_date,
+                "registration_end_date": d.registration_end_date,
+                "is_recently_opened": is_recently_opened
+            })
+        return open_districts
 
 class SendOtpRequest(BaseModel):
     email: EmailStr
@@ -247,6 +268,7 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
     db.delete(otp_record)
     db.commit()
     
+
     return {
         "success": True,
         "request_code": request_code
@@ -286,3 +308,4 @@ def track_application(payload: TrackRequest, db: Session = Depends(get_db)):
         "status": candidate.status,
         "reject_reason": reject_reason
     }
+

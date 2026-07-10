@@ -115,6 +115,16 @@
         </div>
     </div>
 
+    {% if aging_filter %}
+    <div
+        style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+        <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ pending_requests|length }}
+            found)</span>
+        <a href="{{ url_for('lms_manage.chips_lms') }}"
+            style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+    </div>
+    {% endif %}
+
     <!-- Pending Queue Table Section -->
     <div class="section-heading">
         <div class="section-heading-dot" style="background:#f59e0b;"></div>
@@ -160,8 +170,10 @@
                     data-photo="{{ req.photo_upload or '' }}" data-lms-id="{{ req.lms_id or '' }}"
                     data-lms-id="{{ req.lms_credential_id or '' }}"
                     data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-marksheet="{{ req.marksheet_upload }}"
-                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.lms_status.replace('_', ' ') | title }}"
+                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+                    data-status="{{ req.lms_status.replace('_', ' ') | title }}"
                     data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+                    data-nseit-id="{{ req.nseit_id or '' }}" data-updated="{{ req.updated_at or req.created_at }}"
                     style="border-bottom: 1px solid #edf2f7;">
                     <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
                     <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ req.request_code }}</strong></td>
@@ -181,36 +193,13 @@
                     </td>
                     <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
                     <td style="padding: 12px 15px; font-size: 14px;">
-                        {% if (req.lms_status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI', 'FORWARDED', 'FORWARDED_AGAIN'] and req.updated_at and req.updated_at != '—' %}
+                        {% if (req.lms_status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI', 'FORWARDED', 'FORWARDED_AGAIN']
+                        and req.updated_at and req.updated_at != '—' %}
                         {{ req.updated_at }}
                         {% else %}
                         —
                         {% endif %}
                     </td>
-                    <td style="padding: 12px 15px; text-align: center;">
-                        <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
-                            <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
-                                onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}')">Approve</button>
-                            <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
-                                onclick="openRevertModal('{{ req.r_id }}', '{{ req.name }}')">Revert</button>
-                            <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2.5">
-                                    <circle cx="11" cy="11" r="8" />
-                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                                </svg>
-                                Details
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <div id="pending-empty-msg" class="empty-state" style="display: none;">
-
-            <p>No pending requests</p>
-        </div>
     </div>
 
     <hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
@@ -259,7 +248,9 @@
                     data-pincode="{{ req.pincode or '' }}"
                     data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
                     data-photo="{{ req.photo_upload or '' }}" data-marksheet="{{ req.marksheet_upload }}"
-                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.lms_status.replace('_', ' ') | title }}"
+                    data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+                    data-status="{{ req.lms_status.replace('_', ' ') | title }}"
+                    data-nseit-id="{{ req.nseit_id or '' }}" data-updated="{{ req.updated_at or req.created_at }}"
                     data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
                     data-updated="{{ req.updated_at or req.created_at }}" style="border-bottom: 1px solid #edf2f7;">
                     <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
@@ -341,6 +332,27 @@
             }
         }
 
+
+        // Populate any dynamic districts from data attributes
+        const districts = new Set();
+        document.querySelectorAll('[data-district]').forEach(row => {
+            const d = row.getAttribute('data-district');
+            if (d) districts.add(d.trim());
+        });
+        const select = document.getElementById('admin-district-filter');
+        if (select) {
+            const existingValues = new Set(Array.from(select.options).map(o => o.value.toLowerCase().trim()));
+            districts.forEach(d => {
+                const val = d.toLowerCase().trim();
+                if (val && !existingValues.has(val)) {
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = d;
+                    select.appendChild(opt);
+                }
+            });
+        }
+
         filterAdminQueues();
     });
 
@@ -368,67 +380,6 @@
         sessionStorage.setItem('chips_lms_pending_status', pendingStatusVal);
         sessionStorage.setItem('chips_lms_history_status', statusVal);
 
-        // Filter Pending Queue
-        const pendingRows = document.querySelectorAll('#admin-queue-body tr');
-        let pendingIdx = 1;
-        pendingRows.forEach(row => {
-            if (row.cells.length <= 1) return; // Empty row
-
-            const matchSearch = row.getAttribute('data-code').toLowerCase().includes(searchVal) ||
-                row.getAttribute('data-name').toLowerCase().includes(searchVal) ||
-                row.getAttribute('data-phone').includes(searchVal) ||
-                row.getAttribute('data-email').toLowerCase().includes(searchVal);
-
-            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
-            const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
-            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
-
-            const reqStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
-            const matchStatus = (pendingStatusVal === 'all') || (reqStatus === pendingStatusVal);
-
-            if (matchSearch && matchDistrict && matchDate && matchStatus) {
-                row.style.display = '';
-                row.cells[0].innerText = pendingIdx++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Filter History Queue
-        const approvedRows = document.querySelectorAll('#admin-approved-body tr');
-        let approvedIdx = 1;
-        approvedRows.forEach(row => {
-            if (row.cells.length <= 1) return; // Empty row
-
-            const matchSearch = row.getAttribute('data-code').toLowerCase().includes(searchVal) ||
-                row.getAttribute('data-name').toLowerCase().includes(searchVal) ||
-                row.getAttribute('data-phone').includes(searchVal) ||
-                row.getAttribute('data-email').toLowerCase().includes(searchVal);
-
-            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
-            const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
-            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
-
-            const reqStatus = row.getAttribute('data-status').toLowerCase();
-            const matchStatus = (statusVal === 'all') || (reqStatus === statusVal);
-
-            if (matchSearch && matchDistrict && matchDate && matchStatus) {
-                row.style.display = '';
-                row.cells[0].innerText = approvedIdx++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        const pendingCountEl = document.getElementById('pending-count');
-        if (pendingCountEl) pendingCountEl.textContent = pendingIdx - 1;
-        const pendingEmptyMsg = document.getElementById('pending-empty-msg');
-        if (pendingEmptyMsg) pendingEmptyMsg.style.display = (pendingIdx - 1 === 0) ? 'block' : 'none';
-
-        const approvedCountEl = document.getElementById('approved-count');
-        if (approvedCountEl) approvedCountEl.textContent = approvedIdx - 1;
-        const approvedEmptyMsg = document.getElementById('approved-empty-msg');
-        if (approvedEmptyMsg) approvedEmptyMsg.style.display = (approvedIdx - 1 === 0) ? 'block' : 'none';
     }
 
     function checkDateMatch(dateStr, filterVal) {
@@ -598,309 +549,62 @@
                             timerProgressBar: true
                         }).then(() => {
                             sessionStorage.setItem('chips_action_reloading', 'true');
-                            window.location.reload();
-                        });
-                    } else {
-                        response.json().then(data => {
-                            Swal.fire('Error', data.detail || 'Failed to revert request.', 'error');
-                        });
-                    }
-                });
-            }
-        });
-    }
 
-    // Escaping helper
-    function escapeHtml(text) {
-        if (!text) return '';
-        return text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
+                            // 🌟 Build a status badge HTML string for inline use in remarks timeline (Unmasked Admin View)
+                            function buildStatusBadgeInline(status) {
+                                const map = {
+                                    'Approved': 'badge-approved',
+                                    'Forwarded': 'badge-forwarded',
+                                    'Forwarded Again': 'badge-forwarded-again',
+                                    'Reapplied': 'badge-reapplied',
+                                    'Reverted': 'badge-reverted',
+                                    'Reverted by CHiPS': 'badge-reverted-by-chips',
+                                    'Pending': 'badge-pending'
+                                };
+                                const cls = map[status] || 'badge-pending';
+                                return '<span class="badge ' + cls + '" style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;">' + status + '</span>';
+                            }
 
-    // Zoom photo in a custom overlay without closing the SweetAlert details modal
-    function zoomPhoto(url) {
-        viewDocument('Profile Photo', url);
-    }
+                            window.showCandidateDetails = function (d, activeView, showRemarks = true) {
+                                let statusBadge = '';
+                                const normStatus = (d.status || '').trim().toLowerCase();
+                                if (normStatus === 'approved') {
+                                    statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>';
+                                } else if (normStatus === 'forwarded') {
+                                    statusBadge = '<span class="badge badge-forwarded" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>';
+                                } else if (normStatus === 'forwarded again' || normStatus === 'forwarded_again') {
+                                    statusBadge = '<span class="badge badge-forwarded-again" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded Again</span>';
+                                } else if (normStatus === 'reapplied') {
+                                    statusBadge = '<span class="badge badge-reapplied" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>';
+                                } else if (normStatus === 'reverted_by_chips' || normStatus === 'reverted by chips') {
+                                    statusBadge = '<span class="badge badge-reverted-by-chips" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted by CHiPS</span>';
+                                } else if (normStatus === 'reverted') {
+                                    statusBadge = '<span class="badge badge-reverted" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted</span>';
+                                } else if (normStatus === 'rejected') {
+                                    statusBadge = '<span class="badge badge-rejected" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Rejected</span>';
+                                } else {
+                                    statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
+                                }
 
-    // Custom inline document viewer matching the user's mockup window
-    function viewDocument(title, fileUrl) {
-        if (!fileUrl) return;
+                                let latestRevertReason = '';
+                                const isRevertedOrRejected = ['reverted', 'reverted by chips', 'reverted_by_chips', 'rejected'].includes(normStatus);
+                                if (isRevertedOrRejected) {
+                                    try {
+                                        let remarks = [];
+                                        try { remarks = JSON.parse(d.remarksStr || '[]'); } catch (e) { }
+                                        const revertLog = remarks.slice().reverse().find(r => (r.status_after || '').toLowerCase().includes('revert') || (r.status_after || '').toLowerCase().includes('reject'));
+                                        if (revertLog && revertLog.remark) {
+                                            latestRevertReason = revertLog.remark.replace(/^(Sent to UIDAI:|UIDAI Approved\. Remarks:|UIDAI Approved\.|UIDAI Rejected\. Remarks:|Reverted back to DC:|Reverted by CHiPS:|Rejected by CHiPS:)\s*/i, '').trim();
+                                        }
+                                    } catch (e) {
+                                        console.error("Error parsing revert reason:", e);
+                                    }
+                                }
 
-        // Determine extension
-        const extension = fileUrl.split('.').pop().toLowerCase();
-        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
+                                const maskedAadhaar = d.aadhaar ? `XXXX XXXX ${d.aadhaar.slice(-4)}` : 'N/A';
 
-        // Create overlay
-        const overlay = document.createElement('div');
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100vw';
-        overlay.style.height = '100vh';
-        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
-        overlay.style.display = 'flex';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.zIndex = '99999';
-
-        // Create modal container
-        const modal = document.createElement('div');
-        modal.style.width = '90%';
-        modal.style.maxWidth = '800px';
-        modal.style.height = '85vh';
-        modal.style.maxHeight = '700px';
-        modal.style.backgroundColor = 'white';
-        modal.style.borderRadius = '12px';
-        modal.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
-        modal.style.display = 'flex';
-        modal.style.flexDirection = 'column';
-        modal.style.overflow = 'hidden';
-        modal.style.animation = 'swal2-show 0.3s ease-out';
-
-        // Create header
-        const header = document.createElement('div');
-        header.style.backgroundColor = '#1e3a8a'; // Dark Navy Blue
-        header.style.padding = '12px 20px';
-        header.style.display = 'flex';
-        header.style.justifyContent = 'space-between';
-        header.style.alignItems = 'center';
-        header.style.color = 'white';
-
-        const headerTitle = document.createElement('span');
-        headerTitle.innerText = title;
-        headerTitle.style.fontWeight = '700';
-        headerTitle.style.fontSize = '16px';
-
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-        closeBtn.style.border = 'none';
-        closeBtn.style.width = '32px';
-        closeBtn.style.height = '32px';
-        closeBtn.style.borderRadius = '50%';
-        closeBtn.style.display = 'flex';
-        closeBtn.style.alignItems = 'center';
-        closeBtn.style.justifyContent = 'center';
-        closeBtn.style.cursor = 'pointer';
-        closeBtn.style.color = 'white';
-        closeBtn.style.transition = 'background 0.2s';
-        closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
-        closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-        closeBtn.onclick = () => document.body.removeChild(overlay);
-        closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-
-        header.appendChild(headerTitle);
-        header.appendChild(closeBtn);
-
-        // Create body
-        const body = document.createElement('div');
-        body.style.flex = '1';
-        body.style.padding = '20px';
-        body.style.backgroundColor = '#f8fafc';
-        body.style.display = 'flex';
-        body.style.justifyContent = 'center';
-        body.style.alignItems = 'center';
-        body.style.overflow = 'hidden';
-
-        if (isImage) {
-            const img = document.createElement('img');
-            img.src = fileUrl;
-            img.style.maxWidth = '100%';
-            img.style.maxHeight = '100%';
-            img.style.objectFit = 'contain';
-            img.style.borderRadius = '4px';
-            body.appendChild(img);
-        } else {
-            const iframe = document.createElement('iframe');
-            iframe.src = fileUrl;
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            iframe.style.borderRadius = '4px';
-            body.appendChild(iframe);
-        }
-
-        // Create footer
-        const footer = document.createElement('div');
-        footer.style.padding = '12px 20px';
-        footer.style.borderTop = '1px solid #edf2f7';
-        footer.style.display = 'flex';
-        footer.style.justifyContent = 'flex-end';
-        footer.style.alignItems = 'center';
-        footer.style.gap = '12px';
-        footer.style.backgroundColor = 'white';
-
-        const downloadLink = document.createElement('a');
-        downloadLink.href = fileUrl;
-        const fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1) || 'document';
-        downloadLink.download = fileName;
-        downloadLink.style.display = 'inline-flex';
-        downloadLink.style.alignItems = 'center';
-        downloadLink.style.gap = '6px';
-        downloadLink.style.padding = '8px 16px';
-        downloadLink.style.borderRadius = '8px';
-        downloadLink.style.backgroundColor = '#ecfdf5';
-        downloadLink.style.color = '#10b981';
-        downloadLink.style.fontWeight = '600';
-        downloadLink.style.fontSize = '14px';
-        downloadLink.style.textDecoration = 'none';
-        downloadLink.style.cursor = 'pointer';
-        downloadLink.style.transition = 'background-color 0.2s';
-        downloadLink.onmouseenter = () => downloadLink.style.backgroundColor = '#d1fae5';
-        downloadLink.onmouseleave = () => downloadLink.style.backgroundColor = '#ecfdf5';
-        downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
-
-        const closeBtnFooter = document.createElement('button');
-        closeBtnFooter.type = 'button';
-        closeBtnFooter.style.padding = '8px 24px';
-        closeBtnFooter.style.borderRadius = '8px';
-        closeBtnFooter.style.backgroundColor = '#4f46e5';
-        closeBtnFooter.style.color = 'white';
-        closeBtnFooter.style.fontWeight = '600';
-        closeBtnFooter.style.fontSize = '14px';
-        closeBtnFooter.style.border = 'none';
-        closeBtnFooter.style.cursor = 'pointer';
-        closeBtnFooter.style.transition = 'background-color 0.2s';
-        closeBtnFooter.onmouseenter = () => closeBtnFooter.style.backgroundColor = '#4338ca';
-        closeBtnFooter.onmouseleave = () => closeBtnFooter.style.backgroundColor = '#4f46e5';
-        closeBtnFooter.onclick = () => document.body.removeChild(overlay);
-        closeBtnFooter.innerText = 'Close';
-
-        footer.appendChild(downloadLink);
-        footer.appendChild(closeBtnFooter);
-
-        modal.appendChild(header);
-        modal.appendChild(body);
-        modal.appendChild(footer);
-        overlay.appendChild(modal);
-
-        overlay.onclick = (e) => {
-            if (e.target === overlay) {
-                document.body.removeChild(overlay);
-            }
-        };
-
-        document.body.appendChild(overlay);
-    }
-
-    // Helper to build a document preview card matching the mockup design
-    function buildDocumentCard(title, fileUrl, defaultName) {
-        if (!fileUrl) return '';
-
-        // Determine file extension
-        const extension = fileUrl.split('.').pop().toLowerCase();
-        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
-
-        let previewHtml = '';
-        let previewButtonHtml = '';
-
-        if (isImage) {
-            previewHtml = `<img src="${fileUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}')">`;
-            previewButtonHtml = `
-                <button type="button" onclick="viewDocument('${title}', '${fileUrl}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                </button>
-            `;
-        } else {
-            // Render document icon
-            previewHtml = `
-                <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}')">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                </div>
-            `;
-            // For PDF or other documents, preview opens inline in custom overlay modal
-            previewButtonHtml = `
-                <button type="button" onclick="viewDocument('${title}', '${fileUrl}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                </button>
-            `;
-        }
-
-        // Extract filename for subtitle
-        const fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1) || defaultName;
-        const shortFileName = fileName.length > 22 ? fileName.substring(0, 19) + '...' : fileName;
-
-        return `
-            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                <div style="height: 100px; width: 100%; background: #f8fafc; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #edf2f7;">
-                    ${previewHtml}
-                </div>
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
-                    <div style="text-align: left; overflow: hidden; flex-grow: 1;">
-                        <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
-                        <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${fileName}">${shortFileName}</div>
-                    </div>
-                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
-                        ${previewButtonHtml}
-                        <a href="${fileUrl}" download="${fileName}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background-color: #ecfdf5; color: #10b981; text-decoration: none; cursor: pointer; transition: background-color 0.2s;" title="Download">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-
-    // 🌟 Build a status badge HTML string for inline use in remarks timeline (Unmasked Admin View)
-    function buildStatusBadgeInline(status) {
-        const map = {
-            'Approved': 'badge-approved',
-            'Forwarded': 'badge-forwarded',
-            'Forwarded Again': 'badge-forwarded-again',
-            'Reapplied': 'badge-reapplied',
-            'Reverted': 'badge-reverted',
-            'Reverted by CHiPS': 'badge-reverted-by-chips',
-            'Pending': 'badge-pending'
-        };
-        const cls = map[status] || 'badge-pending';
-        return '<span class="badge ' + cls + '" style="font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;">' + status + '</span>';
-    }
-
-    window.showCandidateDetails = function (d, activeView, showRemarks = true) {
-        let statusBadge = '';
-        const normStatus = (d.status || '').trim().toLowerCase();
-        if (normStatus === 'approved') {
-            statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>';
-        } else if (normStatus === 'forwarded') {
-            statusBadge = '<span class="badge badge-forwarded" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>';
-        } else if (normStatus === 'forwarded again' || normStatus === 'forwarded_again') {
-            statusBadge = '<span class="badge badge-forwarded-again" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded Again</span>';
-        } else if (normStatus === 'reapplied') {
-            statusBadge = '<span class="badge badge-reapplied" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>';
-        } else if (normStatus === 'reverted_by_chips' || normStatus === 'reverted by chips') {
-            statusBadge = '<span class="badge badge-reverted-by-chips" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted by CHiPS</span>';
-        } else if (normStatus === 'reverted') {
-            statusBadge = '<span class="badge badge-reverted" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted</span>';
-        } else if (normStatus === 'rejected') {
-            statusBadge = '<span class="badge badge-rejected" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Rejected</span>';
-        } else {
-            statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
-        }
-
-        let latestRevertReason = '';
-        const isRevertedOrRejected = ['reverted', 'reverted by chips', 'reverted_by_chips', 'rejected'].includes(normStatus);
-        if (isRevertedOrRejected) {
-            try {
-                let remarks = [];
-                try { remarks = JSON.parse(d.remarksStr || '[]'); } catch (e) { }
-                const revertLog = remarks.slice().reverse().find(r => (r.status_after || '').toLowerCase().includes('revert') || (r.status_after || '').toLowerCase().includes('reject'));
-                if (revertLog && revertLog.remark) {
-                    latestRevertReason = revertLog.remark.replace(/^(Sent to UIDAI:|UIDAI Approved\. Remarks:|UIDAI Approved\.|UIDAI Rejected\. Remarks:|Reverted back to DC:|Reverted by CHiPS:|Rejected by CHiPS:)\s*/i, '').trim();
-                }
-            } catch (e) {
-                console.error("Error parsing revert reason:", e);
-            }
-        }
-
-        const maskedAadhaar = d.aadhaar ? `XXXX XXXX ${d.aadhaar.slice(-4)}` : 'N/A';
-
-        if (activeView === 'details') {
-            let htmlContent = `
+                                if (activeView === 'details') {
+                                    let htmlContent = `
             <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
                     <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
@@ -993,6 +697,10 @@
                             <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Candidate Unique ID (Exam ID)</div>
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.examUniqueCode || 'None'}</div>
                         </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certificate ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.nseitId || 'None'}</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1006,29 +714,29 @@
             </div>
             `;
 
-            Swal.fire({
-                title: `<span style="font-family:inherit; font-weight:800;">LMS Certificate Details</span>`,
-                html: htmlContent,
-                showCancelButton: false,
-                showConfirmButton: true,
-                confirmButtonText: 'Close',
-                customClass: {
-                    confirmButton: 'swal-btn-close'
-                },
-                width: '600px',
-                focusConfirm: false,
-                didOpen: () => {
-                    document.getElementById('btn-show-docs').onclick = () => {
-                        window.showCandidateDetails(d, 'documents', showRemarks);
-                    };
-                    document.getElementById('btn-show-remarks').onclick = () => {
-                        window.showCandidateDetails(d, 'remarks', showRemarks);
-                    };
-                }
-            });
-        }
-        else if (activeView === 'documents') {
-            let htmlContent = `
+                                    Swal.fire({
+                                        title: `<span style="font-family:inherit; font-weight:800;">LMS Certificate Details</span>`,
+                                        html: htmlContent,
+                                        showCancelButton: false,
+                                        showConfirmButton: true,
+                                        confirmButtonText: 'Close',
+                                        customClass: {
+                                            confirmButton: 'swal-btn-close'
+                                        },
+                                        width: '600px',
+                                        focusConfirm: false,
+                                        didOpen: () => {
+                                            document.getElementById('btn-show-docs').onclick = () => {
+                                                window.showCandidateDetails(d, 'documents', showRemarks);
+                                            };
+                                            document.getElementById('btn-show-remarks').onclick = () => {
+                                                window.showCandidateDetails(d, 'remarks', showRemarks);
+                                            };
+                                        }
+                                    });
+                                }
+                                else if (activeView === 'documents') {
+                                    let htmlContent = `
             <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
                     <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
@@ -1048,110 +756,110 @@
             </div>
             `;
 
-            Swal.fire({
-                title: `<span style="font-family:inherit; font-weight:800;">Uploaded Documents</span>`,
-                html: htmlContent,
-                showCancelButton: false,
-                showConfirmButton: true,
-                confirmButtonText: 'Close',
-                showDenyButton: true,
-                denyButtonText: 'Back',
-                customClass: {
-                    confirmButton: 'swal-btn-close',
-                    denyButton: 'swal-btn-back'
-                },
-                width: '600px',
-                focusConfirm: false
-            }).then((result) => {
-                if (result.isDenied) {
-                    window.showCandidateDetails(d, 'details', showRemarks);
-                }
-            });
-        }
-        else if (activeView === 'remarks') {
-            let remarks = [];
-            try {
-                remarks = JSON.parse(d.remarksStr);
-            } catch (e) {
-                console.error("Error parsing remarks:", e);
-            }
+                                    Swal.fire({
+                                        title: `<span style="font-family:inherit; font-weight:800;">Uploaded Documents</span>`,
+                                        html: htmlContent,
+                                        showCancelButton: false,
+                                        showConfirmButton: true,
+                                        confirmButtonText: 'Close',
+                                        showDenyButton: true,
+                                        denyButtonText: 'Back',
+                                        customClass: {
+                                            confirmButton: 'swal-btn-close',
+                                            denyButton: 'swal-btn-back'
+                                        },
+                                        width: '600px',
+                                        focusConfirm: false
+                                    }).then((result) => {
+                                        if (result.isDenied) {
+                                            window.showCandidateDetails(d, 'details', showRemarks);
+                                        }
+                                    });
+                                }
+                                else if (activeView === 'remarks') {
+                                    let remarks = [];
+                                    try {
+                                        remarks = JSON.parse(d.remarksStr);
+                                    } catch (e) {
+                                        console.error("Error parsing remarks:", e);
+                                    }
 
-            function getStatusBadgeHtml(status) {
-                const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
-                let badgeClass = 'badge-pending';
-                let label = 'Pending';
+                                    function getStatusBadgeHtml(status) {
+                                        const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+                                        let badgeClass = 'badge-pending';
+                                        let label = 'Pending';
 
-                if (s.includes('approve')) {
-                    badgeClass = 'badge-approved';
-                    label = 'Approved';
-                } else if (s.includes('revert')) {
-                    if (s.includes('chips') || s.includes('admin')) {
-                        badgeClass = 'badge-reverted-by-chips';
-                        label = 'Reverted by CHiPS';
-                    } else {
-                        badgeClass = 'badge-reverted';
-                        label = 'Reverted';
-                    }
-                } else if (s.includes('forward') || s.includes('uidai')) {
-                    if (s.includes('again')) {
-                        badgeClass = 'badge-forwarded-again';
-                        label = 'Forwarded Again';
-                    } else {
-                        badgeClass = 'badge-forwarded';
-                        label = 'Forwarded';
-                    }
-                } else if (s.includes('reappl')) {
-                    badgeClass = 'badge-reapplied';
-                    label = 'Reapplied';
-                } else if (s.includes('reject')) {
-                    badgeClass = 'badge-rejected';
-                    label = 'Rejected';
-                }
-                return `<span class="badge ${badgeClass}">${label}</span>`;
-            }
+                                        if (s.includes('approve')) {
+                                            badgeClass = 'badge-approved';
+                                            label = 'Approved';
+                                        } else if (s.includes('revert')) {
+                                            if (s.includes('chips') || s.includes('admin')) {
+                                                badgeClass = 'badge-reverted-by-chips';
+                                                label = 'Reverted by CHiPS';
+                                            } else {
+                                                badgeClass = 'badge-reverted';
+                                                label = 'Reverted';
+                                            }
+                                        } else if (s.includes('forward') || s.includes('uidai')) {
+                                            if (s.includes('again')) {
+                                                badgeClass = 'badge-forwarded-again';
+                                                label = 'Forwarded Again';
+                                            } else {
+                                                badgeClass = 'badge-forwarded';
+                                                label = 'Forwarded';
+                                            }
+                                        } else if (s.includes('reappl')) {
+                                            badgeClass = 'badge-reapplied';
+                                            label = 'Reapplied';
+                                        } else if (s.includes('reject')) {
+                                            badgeClass = 'badge-rejected';
+                                            label = 'Rejected';
+                                        }
+                                        return `<span class="badge ${badgeClass}">${label}</span>`;
+                                    }
 
-            let timelineHtml = '';
-            if (showRemarks && remarks.length > 0) {
-                timelineHtml += '<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;"><div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div><div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">';
-                remarks.forEach(item => {
-                    const sender = (item.sender_role === 'CHIPS') ? 'CHIPS Admin' :
-                        (item.sender_role === 'DC') ? 'District Coordinator' :
-                            (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
-                    const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
-                    const statusAfter = item.status_after || '';
+                                    let timelineHtml = '';
+                                    if (showRemarks && remarks.length > 0) {
+                                        timelineHtml += '<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;"><div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div><div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">';
+                                        remarks.forEach(item => {
+                                            const sender = (item.sender_role === 'CHIPS') ? 'CHIPS Admin' :
+                                                (item.sender_role === 'DC') ? 'District Coordinator' :
+                                                    (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
+                                            const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
+                                            const statusAfter = item.status_after || '';
 
-                    let statusBadgeInline = '';
-                    let markerClass = 'marker-pending';
-                    if (statusAfter) {
-                        statusBadgeInline = getStatusBadgeHtml(statusAfter);
-                        const sLower = statusAfter.toLowerCase();
-                        if (sLower.includes('approve')) markerClass = 'marker-approved';
-                        else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
-                        else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
-                        else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
-                    }
+                                            let statusBadgeInline = '';
+                                            let markerClass = 'marker-pending';
+                                            if (statusAfter) {
+                                                statusBadgeInline = getStatusBadgeHtml(statusAfter);
+                                                const sLower = statusAfter.toLowerCase();
+                                                if (sLower.includes('approve')) markerClass = 'marker-approved';
+                                                else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                                                else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                                                else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+                                            }
 
-                    const stepLabel = 'LMS Certificate';
-                    const username = item.sender_username || '';
-                    const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+                                            const stepLabel = 'LMS Certificate';
+                                            const username = item.sender_username || '';
+                                            const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
 
-                    timelineHtml += '<div class="timeline-item ' + senderClass + '">';
-                    timelineHtml += '<div class="timeline-marker ' + markerClass + '" style="left: -31px !important;"></div>';
-                    timelineHtml += '<div class="timeline-content">';
-                    timelineHtml += '<div class="timeline-section-row"><span class="timeline-step-label">' + stepLabel + '</span>' + (statusAfter ? (' ' + statusBadgeInline) : '') + '</div>';
-                    timelineHtml += '<div class="timeline-by-row"><span class="timeline-by">By: <strong>' + sender + '</strong>' + (hasUsername ? ' (' + escapeHtml(username) + ')' : '') + '</span><span class="timeline-time">' + item.created_at + '</span></div>';
-                    timelineHtml += '<div class="timeline-body">' + escapeHtml(item.remark) + '</div>';
-                    timelineHtml += '</div>';
-                    timelineHtml += '</div>';
-                });
-                timelineHtml += '</div></div>';
-            } else if (showRemarks) {
-                timelineHtml += '<div style="margin-top: 15px; font-style: italic; color: #888; text-align: center; font-size: 13px;">No remarks history/actions logged yet.</div>';
-            }
+                                            timelineHtml += '<div class="timeline-item ' + senderClass + '">';
+                                            timelineHtml += '<div class="timeline-marker ' + markerClass + '" style="left: -31px !important;"></div>';
+                                            timelineHtml += '<div class="timeline-content">';
+                                            timelineHtml += '<div class="timeline-section-row"><span class="timeline-step-label">' + stepLabel + '</span>' + (statusAfter ? (' ' + statusBadgeInline) : '') + '</div>';
+                                            timelineHtml += '<div class="timeline-by-row"><span class="timeline-by">By: <strong>' + sender + '</strong>' + (hasUsername ? ' (' + escapeHtml(username) + ')' : '') + '</span><span class="timeline-time">' + item.created_at + '</span></div>';
+                                            timelineHtml += '<div class="timeline-body">' + escapeHtml(item.remark) + '</div>';
+                                            timelineHtml += '</div>';
+                                            timelineHtml += '</div>';
+                                        });
+                                        timelineHtml += '</div></div>';
+                                    } else if (showRemarks) {
+                                        timelineHtml += '<div style="margin-top: 15px; font-style: italic; color: #888; text-align: center; font-size: 13px;">No remarks history/actions logged yet.</div>';
+                                    }
 
-            const headerStatusBadge = getStatusBadgeHtml(d.status);
+                                    const headerStatusBadge = getStatusBadgeHtml(d.status);
 
-            let htmlContent = `
+                                    let htmlContent = `
             <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                     <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
@@ -1161,88 +869,89 @@
             </div>
             `;
 
-            Swal.fire({
-                title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
-                html: htmlContent,
-                showCancelButton: false,
-                showConfirmButton: true,
-                confirmButtonText: 'Close',
-                showDenyButton: true,
-                denyButtonText: 'Back',
-                customClass: {
-                    confirmButton: 'swal-btn-close',
-                    denyButton: 'swal-btn-back'
-                },
-                width: '600px',
-                focusConfirm: false
-            }).then((result) => {
-                if (result.isDenied) {
-                    window.showCandidateDetails(d, 'details', showRemarks);
-                }
-            });
-        }
-    };
+                                    Swal.fire({
+                                        title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+                                        html: htmlContent,
+                                        showCancelButton: false,
+                                        showConfirmButton: true,
+                                        confirmButtonText: 'Close',
+                                        showDenyButton: true,
+                                        denyButtonText: 'Back',
+                                        customClass: {
+                                            confirmButton: 'swal-btn-close',
+                                            denyButton: 'swal-btn-back'
+                                        },
+                                        width: '600px',
+                                        focusConfirm: false
+                                    }).then((result) => {
+                                        if (result.isDenied) {
+                                            window.showCandidateDetails(d, 'details', showRemarks);
+                                        }
+                                    });
+                                }
+                            };
 
-    function openDetailsModal(row) {
-        const d = {
-            id: row.getAttribute('data-id'),
-            code: row.getAttribute('data-code'),
-            name: row.getAttribute('data-name'),
-            phone: row.getAttribute('data-phone'),
-            email: row.getAttribute('data-email'),
-            qualification: row.getAttribute('data-qualification'),
-            dob: row.getAttribute('data-dob'),
-            aadhaar: row.getAttribute('data-aadhaar'),
-            address: row.getAttribute('data-address') || '',
-            pincode: row.getAttribute('data-pincode') || '',
-            isOperator: row.getAttribute('data-is-operator') || 'No',
-            photo: row.getAttribute('data-photo') || '',
-            lmsId: row.getAttribute('data-lms-id') || '',
-            lmsId: row.getAttribute('data-lms-id') || '',
-            examUniqueCode: row.getAttribute('data-exam-unique-code') || '',
-            marksheet: row.getAttribute('data-marksheet'),
-            tenthMarksheet: row.getAttribute('data-tenth-marksheet') || '',
-            status: row.getAttribute('data-status'),
-            remarksStr: row.getAttribute('data-remarks') || '[]',
-            created: row.getAttribute('data-created') || '',
-            district: row.getAttribute('data-district') || ''
-        };
-        window.showCandidateDetails(d, 'details', true);
-    }
+                            function openDetailsModal(row) {
+                                const d = {
+                                    id: row.getAttribute('data-id'),
+                                    code: row.getAttribute('data-code'),
+                                    name: row.getAttribute('data-name'),
+                                    phone: row.getAttribute('data-phone'),
+                                    email: row.getAttribute('data-email'),
+                                    qualification: row.getAttribute('data-qualification'),
+                                    dob: row.getAttribute('data-dob'),
+                                    aadhaar: row.getAttribute('data-aadhaar'),
+                                    address: row.getAttribute('data-address') || '',
+                                    pincode: row.getAttribute('data-pincode') || '',
+                                    isOperator: row.getAttribute('data-is-operator') || 'No',
+                                    photo: row.getAttribute('data-photo') || '',
+                                    lmsId: row.getAttribute('data-lms-id') || '',
+                                    lmsId: row.getAttribute('data-lms-id') || '',
+                                    examUniqueCode: row.getAttribute('data-exam-unique-code') || '',
+                                    nseitId: row.getAttribute('data-nseit-id') || '',
+                                    marksheet: row.getAttribute('data-marksheet'),
+                                    tenthMarksheet: row.getAttribute('data-tenth-marksheet') || '',
+                                    status: row.getAttribute('data-status'),
+                                    remarksStr: row.getAttribute('data-remarks') || '[]',
+                                    created: row.getAttribute('data-created') || '',
+                                    district: row.getAttribute('data-district') || ''
+                                };
+                                window.showCandidateDetails(d, 'details', true);
+                            }
 
-    // Export helper function to fetch Excel stream from backend
-    function exportTableToExcel(tableID, filename = 'export.csv') {
-        const ids = [];
-        let rowsSelector = '';
+                            // Export helper function to fetch Excel stream from backend
+                            function exportTableToExcel(tableID, filename = 'export.csv') {
+                                const ids = [];
+                                let rowsSelector = '';
 
-        if (tableID === 'admin-pending-table') {
-            rowsSelector = '#admin-queue-body tr';
-        } else {
-            rowsSelector = '#admin-approved-body tr';
-        }
+                                if (tableID === 'admin-pending-table') {
+                                    rowsSelector = '#admin-queue-body tr';
+                                } else {
+                                    rowsSelector = '#admin-approved-body tr';
+                                }
 
-        const rows = document.querySelectorAll(rowsSelector);
-        rows.forEach(row => {
-            if (row.style.display !== 'none' && row.cells.length > 1) {
-                const id = row.getAttribute('data-id');
-                if (id) ids.push(id);
-            }
-        });
+                                const rows = document.querySelectorAll(rowsSelector);
+                                rows.forEach(row => {
+                                    if (row.style.display !== 'none' && row.cells.length > 1) {
+                                        const id = row.getAttribute('data-id');
+                                        if (id) ids.push(id);
+                                    }
+                                });
 
-        if (ids.length === 0) {
-            Swal.fire({
-                title: 'No Records Found',
-                text: 'There is no data loaded in this table queue to export.',
-                icon: 'info',
-                confirmButtonColor: '#4f46e5'
-            });
-            return;
-        }
+                                if (ids.length === 0) {
+                                    Swal.fire({
+                                        title: 'No Records Found',
+                                        text: 'There is no data loaded in this table queue to export.',
+                                        icon: 'info',
+                                        confirmButtonColor: '#4f46e5'
+                                    });
+                                    return;
+                                }
 
-        // Redirects straight to the corresponding backend pipeline router query parameter
-        const baseUrl = "{{ url_for('auth.proxy_backend_excel_export', module_endpoint='lms-requests') }}";
-        window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
-    }
+                                // Redirects straight to the corresponding backend pipeline router query parameter
+                                const baseUrl = "{{ url_for('auth.proxy_backend_excel_export', module_endpoint='lms-requests') }}";
+                                window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
+                            }
 
 </script>
 {% endblock %}

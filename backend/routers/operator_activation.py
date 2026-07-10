@@ -1,5 +1,6 @@
 # backend/routers/operator_activation.py
 import re
+
 import os
 import shutil
 from datetime import datetime
@@ -15,6 +16,7 @@ from backend.models.operator_activation import (
 )
 from backend.models.district import District
 from backend.models.base import StatusEnum
+from backend.models import Candidate, NSEITRequest, User
 
 from backend.utils.ocr_utils import (
     extract_text_from_file, 
@@ -29,6 +31,7 @@ from backend.utils.ocr_utils import (
 from backend.routers.auth import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
+
 
 UPLOAD_BASE = "uploads/operator_activation"
 
@@ -85,86 +88,37 @@ def submit_operator_activation(
     cert_date = parse_optional_date(nseit_certification_date)
     expiry_date = parse_optional_date(nseit_certificate_expiry_date)
 
-    new_request = OperatorActivationRequest(
-        dc_id=dc_id,
-        district_id=district_id,
-        role=role,
-        name_as_per_aadhaar=name_as_per_aadhaar,
-        registrar_code=registrar_code,
-        ea_code=ea_code,
-        user_code=user_code,
-        nseit_certificate_number=nseit_certificate_number,
-        operator_mobile=operator_mobile,
-        primary_email=primary_email,
-        operator_aadhaar=operator_aadhaar,
-        # 🌟 FIXED: Maps incoming form payload field key onto your correct database table column name 'pan_number'
-        pan_number=operator_pan.strip().upper() if operator_pan else None,
-        nseit_certification_date=cert_date,
-        nseit_certificate_expiry_date=expiry_date,
-        pincode=pincode,
-        status="pending",
-    )
-    db.add(new_request)
-    # Generate request_no sequentially based on the highest existing number (not id)
-    # This prevents gaps caused by rolled-back transactions or deleted dev data
-    last_req = db.query(OperatorActivationRequest).filter(
-        OperatorActivationRequest.request_no.isnot(None),
-        OperatorActivationRequest.id != new_request.id
-    ).order_by(OperatorActivationRequest.id.desc()).first()
+    # 1. Enforce workflow validation rule: Candidate must be registered
+    candidate = None
+    if operator_mobile:
+        candidate = db.query(Candidate).filter(Candidate.mobile == operator_mobile.strip()).first()
+    
+    if not candidate and operator_aadhaar:
+        clean_aadhaar = operator_aadhaar.strip()
+        if len(clean_aadhaar) == 4:
+            candidate = db.query(Candidate).filter(Candidate.aadhaar.like(f"%{clean_aadhaar}")).first()
+        else:
+            candidate = db.query(Candidate).filter(Candidate.aadhaar == clean_aadhaar).first()
 
-    if last_req and last_req.request_no:
-        try:
-            last_num = int(re.sub(r'[^\d]', '', last_req.request_no))
-        except (ValueError, TypeError):
-            last_num = 0
-    else:
-        last_num = 0
-    new_request.request_no = f"RP-A{last_num + 1:04d}"
-    db.flush()
+    if not candidate:
+        raise HTTPException(
+            status_code=400,
+            detail="Candidate is not registered on the portal. The process must start with candidate registration."
+        )
 
+    # Check if candidate has completed NSEIT
+    nseit_done = False
+    nseit_req = db.query(NSEITRequest).filter(NSEITRequest.r_id == candidate.r_id).first()
+    if nseit_req and nseit_req.status_id in [StatusEnum.APPROVED.value, StatusEnum.SKIPPED.value]:
+        nseit_done = True
+    elif candidate.nseit_id:
+        nseit_done = True
 
-    # --- OCR Validation Logic ---
-    try:
-        field_errors = {}
-        
-        # Extract text from Aadhaar and validate
-        aadhaar_text = extract_text_from_file(aadhaar_photo)
-        err = validate_aadhaar(aadhaar_text, name_as_per_aadhaar)
-        if err: field_errors['aadhaar_photo'] = err
-        
-        # Extract text from PAN and validate
-        pan_text = extract_text_from_file(pan_card)
-        err = validate_pan(pan_text, name_as_per_aadhaar)
-        if err: field_errors['pan_card'] = err
-
-        # Validate Consent Form
-        consent_text = extract_text_from_file(hard_copy_form)
-        err = validate_consent_form(consent_text, name_as_per_aadhaar)
-        if err: field_errors['hard_copy_form'] = err
-
-        # Validate Passbook
-        passbook_text = extract_text_from_file(passbook)
-        err = validate_passbook(passbook_text, name_as_per_aadhaar)
-        if err: field_errors['passbook'] = err
-
-        # Validate NSEIT Certificate
-        nseit_text = extract_text_from_file(nseit_certificate)
-        err = validate_nseit_certificate(nseit_text, name_as_per_aadhaar, nseit_certificate_number)
-        if err: field_errors['nseit_certificate'] = err
-
-        # Validate Excel Sheet
-        excel_bytes = excel_sheet.file.read()
-        err = validate_excel_sheet(excel_bytes, name_as_per_aadhaar, operator_mobile)
-        if err: field_errors['excel_sheet'] = err
-        excel_sheet.file.seek(0)
-        
-        if field_errors:
-            raise HTTPException(status_code=400, detail={"field_errors": field_errors})
-            
-    except HTTPException:
-        db.rollback() # Rollback request creation if validation fails
-        raise
-    # --- End OCR Validation Logic ---
+    if not nseit_done:
+        raise HTTPException(
+            status_code=400,
+            detail="Candidate has not completed the NSEIT exam. Operator activation can only be requested after NSEIT is completed."
+        )
 
 
     # 2. Save each file to disk and create a document row
@@ -180,6 +134,7 @@ def submit_operator_activation(
     dist = db.query(District).filter(District.district_code == new_request.district_id).first()
     dist_name = dist.district_name if dist else f"DISTRICT_{new_request.district_id}"
     folder = f"{UPLOAD_BASE}/{dist_name}/{new_request.request_no}"
+
     os.makedirs(folder, exist_ok=True)
 
     for doc_type, upload in uploaded_files.items():
@@ -234,6 +189,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
+
     result = []
     for r in requests:
         remarks_history = [
@@ -241,8 +197,8 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
                 "author_role": rm.author_role.upper(),
                 "remark": rm.remark,
                 "created_at": str(rm.created_at)[:16],
-                "status_after": rm.status_after,
-                "sender_username": rm.author.username if rm.author else "",
+
+
             }
             for rm in r.remarks
         ]
@@ -251,6 +207,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
         dist_name = r.district.district_name if r.district else "—"
         # 🌟 UNIFORM SCHEMA FIX: Normalize status to lowercase for accurate template matching
         clean_status = str(r.status or "PENDING").strip().upper()
+
 
         result.append(
             {
@@ -263,6 +220,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
                 "primary_email": r.primary_email,
                 "ea_code": r.ea_code,
                 "user_code": r.user_code,
+
                 "district_name": dist_name,
                 "status": clean_status,
                 "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
@@ -273,6 +231,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
 
     # Sort descending by latest action (reviewed_at if it exists, else submitted_at)
     result.sort(key=lambda x: x["reviewed_at"] or x["submitted_at"], reverse=True)
+
     return result
 
 # ─────────────────────────────────────────────
@@ -293,6 +252,7 @@ def get_all_requests(db: Session = Depends(get_db)):
         dist_name = r.district.district_name if r.district else "—"
         clean_status = str(r.status or "PENDING").strip().upper()
 
+
         result.append(
             {
                 "id": r.id,
@@ -310,6 +270,7 @@ def get_all_requests(db: Session = Depends(get_db)):
                 "user_code": r.user_code,
                 "status": clean_status,
                 "remark_to_uidai": r.remarks[-1].remark if r.remarks else "—",
+
                 "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
                 "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
                 "reviewed_by": r.reviewed_by,
@@ -318,6 +279,7 @@ def get_all_requests(db: Session = Depends(get_db)):
 
     # Sort descending by latest action (reviewed_at if it exists, else submitted_at)
     result.sort(key=lambda x: x["reviewed_at"] or x["submitted_at"], reverse=True)
+
     return result
 
 
@@ -375,6 +337,7 @@ def export_to_excel(ids: str = None, db: Session = Depends(get_db)):
     return response
 
 
+
 @router.get("/export-excel/pending")
 def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
     """🌟 FIXED: Export Pending activation queue records including all profile fields."""
@@ -413,6 +376,7 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
             idx,
             r.request_no or "—",
             dist_name,
+
             r.role if r.role else "—",
             r.name_as_per_aadhaar,
             r.registrar_code if r.registrar_code else "—",
@@ -432,6 +396,7 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = "attachment; filename=pending_activation_complete_report.csv"
     return response
+
 
 
 @router.get("/export-excel/credentials")
@@ -472,6 +437,7 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
             idx,
             r.request_no or "—",
             dist_name,
+
             r.role if r.role else "—",
             r.name_as_per_aadhaar,
             r.registrar_code if r.registrar_code else "—",
@@ -492,6 +458,7 @@ def export_credentials_to_excel(ids: str = None, db: Session = Depends(get_db)):
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = "attachment; filename=credentials_history_complete_report.csv"
     return response
+
 
 
 @router.get("/{request_id}")
@@ -525,12 +492,14 @@ def get_request_detail(request_id: int, db: Session = Depends(get_db)):
             "created_at": str(rm.created_at)[:16],
             "status_after": rm.status_after,
             "sender_username": rm.author.username if rm.author else "",
+
         }
         for rm in r.remarks
     ]
 
     dist_name = r.district.district_name if r.district else "—"
     clean_status = str(r.status or "PENDING").strip().upper()
+
     latest_remark = r.remarks[-1].remark if r.remarks else None
 
     return {
@@ -555,6 +524,7 @@ def get_request_detail(request_id: int, db: Session = Depends(get_db)):
         "status": clean_status,
         "rejection_reason": latest_remark,
         "chips_remarks": r.remarks[-1].remark if r.remarks else "—",
+
         "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else None,
         "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
         "reviewed_by": r.reviewed_by,
@@ -582,6 +552,7 @@ def approve_request(
         raise HTTPException(status_code=400, detail=f"Cannot approve a request with status: {r.status}.")
 
     r.status_id = StatusEnum.APPROVED.value
+
     r.reviewed_by = reviewed_by
     r.chips_remarks = chips_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)  # IST
@@ -605,6 +576,7 @@ def reject_request(
     request_id: int,
     reviewed_by: int = Form(...),
     rejection_reason: str = Form(None),
+
     chips_remarks: str = Form(None),
     db: Session = Depends(get_db),
 ):
@@ -617,23 +589,27 @@ def reject_request(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
     if r.status_id not in [StatusEnum.PENDING.value, StatusEnum.SENT_TO_UIDAI.value, StatusEnum.REAPPLIED.value]:
+
         raise HTTPException(
             status_code=400, detail=f"Cannot revert a request with status: {r.status}"
         )
 
     r.status_id = StatusEnum.REVERTED.value
+
     r.reviewed_by = reviewed_by
     r.chips_remarks = chips_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)  # IST
 
     # Create a remark record so DC can see the rejection reason
     remark_text = rejection_reason.strip() if rejection_reason else "Request reverted to District Coordinator."
+
     remark = OperatorActivationRemark(
         request_id=r.id,
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=remark_text,
         status_after_id=StatusEnum.REVERTED.value,
+
     )
     db.add(remark)
     db.commit()
@@ -672,11 +648,13 @@ def send_to_uidai(
     )
     db.add(remark)
 
+
     db.commit()
     return {"message": "Sent to UIDAI.", "request_id": r.id}
 
 
 @router.patch("/{request_id}/uidai-approve")  # 🌟 Kept as PATCH to maintain codebase uniformity
+
 def uidai_approve(
     request_id: int,
     reviewed_by: int = Form(...),
@@ -715,6 +693,7 @@ def uidai_reject(
     request_id: int,
     reviewed_by: int = Form(...),
     uidai_remarks: str = Form(None),
+
     db: Session = Depends(get_db),
 ):
     r = (
@@ -729,12 +708,14 @@ def uidai_reject(
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
     remark_text = uidai_remarks.strip() if uidai_remarks else "Request rejected by UIDAI."
+
     remark = OperatorActivationRemark(
         request_id=r.id,
         author_id=reviewed_by,
         author_role="chips_admin",
         remark=remark_text,  # 🌟 Requirement 4: Strip out prefix text safely
         status_after_id=StatusEnum.REJECTED.value,
+
     )
     db.add(remark)
     db.commit()
@@ -785,6 +766,7 @@ def reapply_request(
         raise HTTPException(status_code=404, detail="Request not found.")
 
     if r.status_id not in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value, StatusEnum.REVERTED_BY_CHIPS.value]:
+
         raise HTTPException(
             status_code=400, detail=f"Cannot reapply a request with status: {r.status}"
         )
@@ -875,12 +857,14 @@ def reapply_request(
 
     # Save DC remark
     remark_text = reapply_remark.strip() if reapply_remark else "Request modified and reapplied."
+
     remark = OperatorActivationRemark(
         request_id=r.id,
         author_id=dc_id,
         author_role="dc",
         remark=remark_text,
         status_after="reapplied",
+
     )
     db.add(remark)
     db.commit()
@@ -889,6 +873,7 @@ def reapply_request(
         "status": "success",
         "redirect_url": "/auth/dc/operator-activation?reapplied=true"
     }
+
 
 
 # ─────────────────────────────────────────────

@@ -10,9 +10,17 @@ from flask import (
     current_app,
 )
 import requests
+from app.utils.aging import parse_aging_filter, filter_by_aging
 
 operator_activation_bp = Blueprint("operator_activation", __name__)
 
+# Statuses that are NOT part of the "pending" queue for aging purposes
+_ACTIVATION_NON_PENDING_STATUSES = {
+    "approved", "reviewed", "activated",
+    "sent_to_uidai", "sent to uidai",
+    "reverted", "reverted_by_chips",
+    "rejected",
+}
 
 def backend_url():
     api_url = current_app.config.get("BACKEND_API_URL", "http://127.0.0.1:8000/api")
@@ -26,8 +34,8 @@ def backend_url():
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["GET"])
 def dc_submit_form():
-
     return redirect(url_for("operator_activation.dc_requests_list"))
+
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["POST"])
 def dc_submit():
@@ -67,9 +75,6 @@ def dc_submit():
         if file_obj and file_obj.filename:
             files[field] = (file_obj.filename, file_obj.read(), file_obj.content_type)
 
-    
-
-
     try:
         url = f"{backend_url()}/submit"
         if reapply_id:
@@ -79,7 +84,6 @@ def dc_submit():
             url, data=form_data, files=files if files else None, headers=headers
         )
         if response.status_code == 200:
-
             return jsonify({"status": "success", "redirect_url": url_for("operator_activation.dc_requests_list")}), 200
         else:
             detail = response.json().get("detail", "Submission failed.")
@@ -168,12 +172,6 @@ def dc_reapply(request_id):
     return redirect(url_for("operator_activation.dc_requests_list"))
 
 
-
-
-# ───────────────────────────────────────────────────────────────────
-# 🌟 ADDED MISSING ASYNCHRONOUS JSON REAPPLY BRIDGE HANDLER
-# ───────────────────────────────────────────────────────────────────
-
 @operator_activation_bp.route("/dc/operator-activation/<int:id>/reapply-json", methods=["POST"])
 def dc_reapply_json_handler(id):
     jwt_token = session.get("access_token")
@@ -215,6 +213,8 @@ def dc_reapply_json_handler(id):
             
     except requests.exceptions.ConnectionError:
         return jsonify({"status": "error", "message": "Backend microservice core offline."}), 500
+
+
 # ─────────────────────────────────────────────
 # CHIPS ADMIN ROUTES
 # ─────────────────────────────────────────────
@@ -236,8 +236,19 @@ def chips_all_requests():
     except requests.exceptions.ConnectionError:
         requests_list = []
 
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_subset = [
+            r for r in requests_list
+            if str(r.get("status", "")).strip().lower() not in _ACTIVATION_NON_PENDING_STATUSES
+        ]
+        requests_list = filter_by_aging(pending_subset, aging_filter, "submitted_at")
+
     return render_template(
-        "operator_activation/chips_list.html", requests=requests_list
+        "operator_activation/chips_list.html",
+        requests=requests_list,
+        aging_filter=aging_filter,
+        aging_label=aging_label,
     )
 
 

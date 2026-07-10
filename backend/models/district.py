@@ -24,3 +24,4 @@ class District(Base):
     # Relationships
     users: Mapped[list["UserLogin"]] = relationship("UserLogin", back_populates="district")
     candidates: Mapped[list["Candidate"]] = relationship("Candidate", back_populates="district_rel")
+    aadhaar_resources: Mapped["AadhaarDistrictResource | None"] = relationship("AadhaarDistrictResource", back_populates="district", uselist=False)

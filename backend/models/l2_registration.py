@@ -23,6 +23,7 @@ class L2RegistrationRequest(Base):
     tech_center_remarks = Column(Text, nullable=True)
     operator_name = Column(String(100), nullable=False)
     operator_id = Column(String(50), nullable=False)
+    # 🌟 FIXED: Changed nullable to True so the database can successfully save empty values when this field is left blank
     unique_id = Column(String(50), nullable=True)
     block = Column(String(100), nullable=False)
     address_of_govt_premises = Column(Text, nullable=False)

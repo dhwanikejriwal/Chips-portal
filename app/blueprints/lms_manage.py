@@ -1,5 +1,7 @@
+# app/blueprints/lms_manage.py
 import requests
 from flask import Blueprint, render_template, redirect, url_for, request, session, flash, current_app, Response
+from app.utils.aging import parse_aging_filter, filter_by_aging
 
 lms_manage_bp = Blueprint("lms_manage", __name__)
 
@@ -8,6 +10,7 @@ def _headers():
     if isinstance(raw_token, dict):
         raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
     return {"Authorization": f"Bearer {str(raw_token).strip()}"}
+
 
 @lms_manage_bp.route("/dc/lms")
 def dc_lms():
@@ -61,11 +64,17 @@ def chips_lms():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
+
     return render_template(
         "chips/chips_lms.html",
         pending_requests=pending_requests,
         processed_requests=processed_requests,
-        approved_requests=processed_requests
+        approved_requests=processed_requests,
+        aging_filter=aging_filter,
+        aging_label=aging_label
     )
 
 @lms_manage_bp.route("/dc/forward-lms/<int:r_id>", methods=["POST"])

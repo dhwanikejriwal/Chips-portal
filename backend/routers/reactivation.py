@@ -1,5 +1,6 @@
 # backend/routers/reactivation.py
 from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -17,6 +18,7 @@ from backend.database import SessionLocal
 from backend.routers.auth import get_current_user
 from backend.models import User, District
 from backend.models.base import to_name, get_ist_now, StatusEnum
+
 
 # 🌟 CONNECTED: Pulling from your exact, unchanged model class baseline definitions
 from backend.models.reactivation import (
@@ -44,16 +46,20 @@ def get_db():
     finally:
         db.close()
 
-# Directory to store uploaded files
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "reactivation")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def generate_dynamic_request_code(db: Session, district_id: str, district_name: str) -> str:
-    name_clean = district_name.strip().lower()
-    district_map = {"raipur": "RP", "bilaspur": "BP", "durg": "DG"}
-    prefix = district_map.get(name_clean, "".join([c for c in name_clean if c.isalnum()])[:2].upper())
-    if len(prefix) != 2: prefix = "XX"
+    district = db.query(District).filter(District.district_code == str(district_id)).first()
+    prefix = district.district_short_name if district else None
+    
+    if not prefix:
+        name_clean = district_name.strip().lower()
+        district_map = {"raipur": "RP", "bilaspur": "BP", "durg": "DG"}
+        prefix = district_map.get(name_clean, "".join([c for c in name_clean if c.isalnum()])[:2].upper())
+        if len(prefix) != 2: prefix = "XX"
+
     
     last_req = db.query(OperatorReactivationRequest).filter(
         OperatorReactivationRequest.district_id == district_id
@@ -67,6 +73,7 @@ def generate_dynamic_request_code(db: Session, district_id: str, district_name: 
             next_num = db.query(OperatorReactivationRequest).filter(
                 OperatorReactivationRequest.district_id == district_id
             ).count() + 1
+
     else:
         next_num = db.query(OperatorReactivationRequest).filter(
             OperatorReactivationRequest.district_id == district_id
@@ -85,6 +92,7 @@ async def submit_operator_reactivation(
     manual_operators: str = Form(...), 
     reapply_request_code: str = Form(None),
     dc_remark: str = Form(None),
+
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -140,6 +148,7 @@ async def submit_operator_reactivation(
                     ReactivationOperator.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value])
                 ).delete()
         else:
+
             req_code = generate_dynamic_request_code(db, str(current_user.district_id), district_name)
     
             new_request = OperatorReactivationRequest(
@@ -155,6 +164,7 @@ async def submit_operator_reactivation(
 
         active_req_id = req.id if reapply_request_code else new_request.id
         request_folder = os.path.join(BASE_DIR, "uploads", "reactivation", district_folder, req_code)
+
         os.makedirs(request_folder, exist_ok=True)
         document_files = {"training_photo": training_photo, "nodal_letter": nodal_letter, "om_letter": om_letter, "attendance_list": attendance_list}
 
@@ -166,6 +176,7 @@ async def submit_operator_reactivation(
             if reapply_request_code:
                 db.query(ReactivationDocument).filter(ReactivationDocument.request_id == active_req_id, ReactivationDocument.doc_type == doc_type).delete()
                 
+
             uploaded_file.file.seek(0, 2)
             bytes_size = uploaded_file.file.tell()
             uploaded_file.file.seek(0)
@@ -179,6 +190,7 @@ async def submit_operator_reactivation(
             parsed_cert_date = date.fromisoformat(op['certDate']) if op.get('certDate') else None
             new_op = ReactivationOperator(
                 request_id=active_req_id,
+
                 role=op.get('role', '').strip(),
                 operator_name=str(op.get('name', '')).strip(),
                 registrar_code=op.get('reg', '').strip(),
@@ -211,6 +223,7 @@ async def submit_operator_reactivation(
                 remark_history=msg,
                 sender_role="DC",
                 status_after="REAPPLIED" if reapply_request_code else "PENDING"
+
             ))
             
         db.commit()
@@ -247,6 +260,7 @@ async def get_reactivation_requests(
             "submitted_at": str(req.created_at)[:19] if req.created_at else "",
             "district_name": dist_name or "Raipur",
             "revert_reason": next((r.remark_history for r in reversed(req.remarks) if r.status_after_id in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]), "")
+
         })
     return compiled_list
 
@@ -268,6 +282,7 @@ async def get_reactivation_requests_with_operators(
     compiled_list = []
     for req, dist_name in requests:
         operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).all()
+
         ops_data = [
             {
                 "id": op.id,
@@ -283,6 +298,7 @@ async def get_reactivation_requests_with_operators(
                 "lms_certificate_id": op.lms_certificate_id or "",
                 "certificate_number": op.certificate_number or "",
                 "aadhaar_number": op.aadhaar_number or "",
+
                 "certification_date": str(op.certification_date) if op.certification_date else "",
                 "remarks": op.remarks or "",
                 "reject_reason": op.reject_reason or ""
@@ -292,6 +308,7 @@ async def get_reactivation_requests_with_operators(
         
         # 🌟 CONNECTED: Order matching your model 'timestamp' attribute mapping definitions
         remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_id == req.id).order_by(ReactivationRemarkHistory.timestamp.asc()).all()
+
         timeline_logs = [
             {
                 "id": rm.id,
@@ -301,6 +318,7 @@ async def get_reactivation_requests_with_operators(
                 "timestamp": str(rm.timestamp)[:19] if rm.timestamp else "",
                 "status_after": rm.status_after,
                 "operator_id": rm.operator_id,
+
             }
             for rm in remarks_hist
         ]
@@ -315,6 +333,7 @@ async def get_reactivation_requests_with_operators(
             "updated_at": str(req.updated_at)[:19] if req.updated_at else "",
             "district_name": dist_name or "Raipur",
             "revert_reason": next((r.remark_history for r in reversed(req.remarks) if r.status_after_id in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]), ""),
+
             "operators": ops_data,
             "timeline_logs": timeline_logs
         })
@@ -328,6 +347,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
         raise HTTPException(status_code=404, detail="Request not found")
         
     operators = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).all()
+
     ops_data = [
         {
             "id": op.id,
@@ -343,6 +363,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
             "lms_certificate_id": op.lms_certificate_id or "",
             "certificate_number": op.certificate_number or "",
             "aadhaar_number": op.aadhaar_number or "",
+
             "certification_date": str(op.certification_date) if op.certification_date else "",
             "remarks": op.remarks or "",
             "reject_reason": op.reject_reason or ""
@@ -354,6 +375,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
         raise HTTPException(status_code=404, detail="Request not found")
         
     remarks_hist = db.query(ReactivationRemarkHistory).filter(ReactivationRemarkHistory.request_id == req.id).order_by(ReactivationRemarkHistory.timestamp.asc()).all()
+
     timeline_logs = [
         {
             "id": rm.id,
@@ -363,6 +385,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
             "timestamp": str(rm.timestamp)[:19] if rm.timestamp else "",
             "status_after": rm.status_after,
             "operator_id": rm.operator_id,
+
         }
         for rm in remarks_hist
     ]
@@ -389,6 +412,7 @@ async def get_individual_operators_by_batch(request_code: str, db: Session = Dep
         "documents": docs_data,
         "batch_status": req.status,
         "batch_revert_reason": batch_revert_reason
+
     }
 
 
@@ -413,6 +437,7 @@ async def activate_individual_operator(operator_id: int, reason: Optional[str] =
             remark_history=remark_text,
             sender_role="CHIPS_ADMIN",
             status_after_id=op.status_id
+
         ))
         db.commit()
     return {"success": True}
@@ -437,6 +462,7 @@ async def send_to_uidai_individual_operator(operator_id: int, remarks: Optional[
             remark_history=remark_text,
             sender_role="CHIPS_ADMIN",
             status_after_id=op.status_id
+
         ))
         db.commit()
     return {"success": True}
@@ -483,6 +509,7 @@ async def reject_individual_operator(operator_id: int, reason: str = Form(...), 
             remark_history=reason.strip(),
             sender_role="CHIPS_ADMIN",
             status_after_id=op.status_id
+
         ))
         db.commit()
     return {"success": True}
@@ -504,6 +531,7 @@ async def update_and_reapply_operator(
     user_code: str = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
+
 ):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if not op:
@@ -537,6 +565,7 @@ async def update_and_reapply_operator(
         remark_history=f"Operator '{op.operator_name}' Reapplied and Details Updated",
         sender_role="DC",
         status_after_id=req.status_id if req else StatusEnum.REAPPLIED.value
+
     ))
 
     db.commit()
@@ -545,6 +574,7 @@ async def update_and_reapply_operator(
 
 @router.post("/requests/{request_code}/finalize")
 async def finalize_batch_request(request_code: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+
     try:
         req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
         if req: 
@@ -578,6 +608,7 @@ async def finalize_batch_request(request_code: str, db: Session = Depends(get_db
                 sender_role="CHIPS_ADMIN", 
                 status_after_id=req.status_id
             ))
+
             db.commit()
         return {"success": True}
     except Exception as e:
@@ -608,6 +639,7 @@ async def revert_batch_request(request_code: str, revert_reason: str = Form(...)
                 status_after_id=StatusEnum.REVERTED.value
             ))
             
+
         db.commit()
     return {"success": True}
 
@@ -691,6 +723,7 @@ async def reject_all_operators_in_batch(request_code: str, reason: str = Form(..
             ))
         
         db.commit()
+
     return {"success": True}
 
 
@@ -712,6 +745,7 @@ def export_operators_to_excel_stream(request_code: str, db: Session = Depends(ge
         "Role": o.role,
         "Name As Per Aadhaar": o.operator_name,
         "Aadhaar Number": o.aadhaar_number,
+
         "Registrar Code": o.registrar_code,
         "EA Code": o.ea_code,
         "User Code": o.user_code,
@@ -720,6 +754,7 @@ def export_operators_to_excel_stream(request_code: str, db: Session = Depends(ge
         "Mobile": o.operator_mobile,
         "Primary E-MAIL ID": o.email_id,
         "Status": get_display_status(o.status)
+
     } for i, o in enumerate(operators)])
     excel_buffer = io.BytesIO()
     with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer: 
@@ -747,6 +782,7 @@ def export_all_operators_to_csv_stream(ids: str = None, db: Session = Depends(ge
     else:
         query = query.filter(ReactivationOperator.status_id.notin_([StatusEnum.REVERTED.value, StatusEnum.APPROVED.value, StatusEnum.REJECTED.value]))
         
+
     if user_role_str == "dc":
         query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
         
@@ -821,6 +857,7 @@ def export_uidai_operators_to_csv_stream(ids: str = None, db: Session = Depends(
     else:
         query = query.filter(ReactivationOperator.status_id == StatusEnum.SENT_TO_UIDAI.value)
         
+
     if user_role_str == "dc":
         query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
         
@@ -881,6 +918,7 @@ async def get_reactivation_file(request_code: str, file_type: str, db: Session =
         
     doc = db.query(ReactivationDocument).filter(
         ReactivationDocument.request_id == req.id,
+
         ReactivationDocument.doc_type == file_type
     ).first()
     if not doc or not os.path.exists(doc.path):
@@ -896,3 +934,4 @@ async def get_reactivation_file(request_code: str, file_type: str, db: Session =
         media_type=mime_type,
         content_disposition_type="inline"
     )
+

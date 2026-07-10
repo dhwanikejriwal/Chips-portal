@@ -47,8 +47,6 @@ def seed_database():
                 existing_status.name = name
         db.commit()
         print("Master statuses successfully verified/seeded.")
-
-
         # 2. Parse and Seed Districts from CSV
         print("Reading districts from CSV...")
         with open(CSV_PATH, mode='r', encoding='utf-8') as f:

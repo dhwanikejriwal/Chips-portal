@@ -418,6 +418,16 @@
             </div>
         </div>
         <div class="form-card-container">
+            {% if aging_filter %}
+            <div
+                style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+                <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ requests|length }}
+                    found)</span>
+                <a href="/auth/chips/reactivation"
+                    style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+            </div>
+            {% endif %}
+
             <!-- Global Filter Bar -->
             <div class="filter-bar">
                 <div class="filter-group filter-group-search">
@@ -2423,7 +2433,100 @@
             document.getElementById('admin-history-status-filter').value = 'all';
         }
 
+        // ── URL Query Parameters Parsing ────────────────────────────────
+        const urlParams = new URLSearchParams(window.location.search);
+        const qDist = urlParams.get('district');
+        const qStatus = urlParams.get('status');
+
+        if (qDist) {
+            const distSelect = document.getElementById('admin-district-filter');
+            let matched = false;
+            if (distSelect) {
+                const val = qDist.toLowerCase().trim();
+                for (let opt of distSelect.options) {
+                    if (opt.value.toLowerCase().trim() === val) {
+                        distSelect.value = opt.value;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (!matched) {
+                const searchInput = document.getElementById('admin-search-input');
+                if (searchInput) {
+                    searchInput.value = qDist;
+                }
+            }
+        }
+
+        if (qStatus) {
+            const statusL = qStatus.toLowerCase().trim();
+            const pendingStatusSelect = document.getElementById('admin-pending-status-filter');
+            const historyStatusSelect = document.getElementById('admin-history-status-filter');
+
+            if (statusL === 'pending') {
+                if (pendingStatusSelect) pendingStatusSelect.value = 'all';
+            } else if (statusL === 'sent_to_uidai') {
+                if (pendingStatusSelect) pendingStatusSelect.value = 'SENT_TO_UIDAI';
+            } else if (statusL === 'approved') {
+                if (historyStatusSelect) historyStatusSelect.value = 'REVIEWED';
+            } else if (statusL === 'rejected') {
+                if (historyStatusSelect) historyStatusSelect.value = 'REVERTED';
+            }
+        }
+
         filterAdminQueues();
+
+        // Populate any dynamic districts from data attributes (from Mayur's branch/general compatibility)
+        const districts = new Set();
+        document.querySelectorAll('[data-district]').forEach(row => {
+            const d = row.getAttribute('data-district');
+            if (d) districts.add(d.trim());
+        });
+        const select = document.getElementById('admin-district-filter');
+        if (select) {
+            const existingValues = new Set(Array.from(select.options).map(o => o.value.toLowerCase().trim()));
+            districts.forEach(d => {
+                const val = d.toLowerCase().trim();
+                if (val && !existingValues.has(val)) {
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = d;
+                    select.appendChild(opt);
+                }
+            });
+        }
+
+        // ── Deep-link scroll + highlight flash ──────────────────────────
+        if (qDist || qStatus) {
+            function flashEl(el) {
+                if (!el) return;
+                el.style.transition = 'box-shadow 0.4s ease, outline 0.4s ease';
+                el.style.outline = '2px solid rgba(59,130,246,0.6)';
+                el.style.boxShadow = '0 0 0 4px rgba(59,130,246,0.18), 0 4px 20px rgba(59,130,246,0.22)';
+                setTimeout(() => { el.style.outline = ''; el.style.boxShadow = ''; }, 2200);
+            }
+            const statusL = (qStatus || '').toLowerCase().trim();
+            setTimeout(() => {
+                let scrollTarget, flashTarget;
+                if (!statusL || statusL === 'pending') {
+                    scrollTarget = document.getElementById('admin-pending-table') || document.getElementById('pending-cards-container');
+                    flashTarget = document.getElementById('admin-pending-status-filter');
+                } else if (statusL === 'sent_to_uidai') {
+                    scrollTarget = document.getElementById('admin-uidai-table') || document.getElementById('uidai-cards-container');
+                    flashTarget = document.getElementById('admin-pending-status-filter');
+                } else {
+                    const historyTable = document.getElementById('admin-approved-table') || document.getElementById('approved-cards-container');
+                    scrollTarget = historyTable;
+                    flashTarget = document.getElementById('admin-history-status-filter');
+                }
+                if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (flashTarget) {
+                    const bar = flashTarget.closest('div[style*="flex"]') || flashTarget.closest('.filter-bar') || flashTarget;
+                    flashEl(bar);
+                }
+            }, 200);
+        }
     });
 </script>
 {% endblock %}

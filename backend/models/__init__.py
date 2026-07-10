@@ -38,7 +38,6 @@ __all__ = [
     "DCRemark",
     "LMS",
     "LMSRemark",
-
     "NSEITRequest",
     "NSEITRemark",
     "L1RegistrationRequest",
@@ -55,4 +54,6 @@ __all__ = [
     "StationIDRequest",
     "StationIDRemark",
     "OtpVerification",
+    "AadhaarDistrictResource",
+    "AdminLoginLog",
 ]

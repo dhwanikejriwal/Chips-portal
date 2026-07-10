@@ -1,6 +1,7 @@
 import os, json
 import requests
 from flask import Blueprint, render_template, request, jsonify, session, redirect, Response
+from app.utils.aging import parse_aging_filter, filter_by_aging
 
 reactivation_bp = Blueprint('reactivation', __name__)
 
@@ -92,7 +93,12 @@ def view_reactivation_dashboard():
     except Exception as e:
         print(f"❌ CRITICAL BLUEPRINT DIAGNOSTIC LOOP ERROR: {str(e)}")
         requests_history = []
-        
+
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_subset = [r for r in requests_history if r.get("status") == "PENDING"]
+        requests_history = filter_by_aging(pending_subset, aging_filter, "created_at")
+
     # Extract flattened activated operators list
     activated_operators = []
     all_operators = []
@@ -116,10 +122,16 @@ def view_reactivation_dashboard():
         
     # 🌟 CONNECTED: Resolves correct structural template path targets
     template_path = "chips/chips_reactivation.html" if "/chips" in request.path else "dc/dc_reactivation.html"
-    return render_template(template_path, requests=requests_history, requests_history=requests_history, activated_operators=activated_operators, all_operators=all_operators)
+    return render_template(
+        template_path,
+        requests=requests_history,
+        requests_history=requests_history,
+        activated_operators=activated_operators,
+        all_operators=all_operators,
+        aging_filter=aging_filter,
+        aging_label=aging_label
+    )
 
-
-import json  # Ensure json is imported at the top of the file!
 
 @reactivation_bp.route("/dc/submit", methods=["POST"])
 def submit_reactivation_form():
@@ -222,6 +234,7 @@ def proxy_export_operators_excel(request_code):
     except Exception as excel_err:
         return f"Excel compilation transport failure: {str(excel_err)}", 500
 
+
 @reactivation_bp.route("/reactivation/export-csv-all", methods=["GET"])
 def proxy_export_all_reactivation():
     if not session.get("username") or session.get("role") not in ["DC", "EDM", "Admin"]:
@@ -272,6 +285,7 @@ def proxy_export_uidai_reactivation():
             return f"Backend Error: {response.status_code}", response.status_code
     except Exception as e:
         return f"Proxy Request Failed: {str(e)}", 500
+
 
 @reactivation_bp.route("/reactivation/requests/<request_code>/files/<file_type>", methods=["GET"])
 def proxy_reactivation_file(request_code, file_type):

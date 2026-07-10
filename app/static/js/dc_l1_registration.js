@@ -806,4 +806,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Attempt load if not just cleared
     window.loadL1Draft();
 });
-

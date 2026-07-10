@@ -52,6 +52,16 @@ def login():
 @auth_bp.route("/logout")
 def logout():
     role = session.get("role")
+    access_token = session.get("access_token")
+
+    if access_token and role in ["Admin", "DC", "EDM"]:
+        backend_url = f"{current_app.config['BACKEND_API_URL']}/auth/logout"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        try:
+            requests.post(backend_url, headers=headers, timeout=5)
+        except Exception as e:
+            print(f"Error calling backend logout: {e}")
+
     session.clear()
     flash("You have been logged out successfully.", "success")
     if role == "Candidate":

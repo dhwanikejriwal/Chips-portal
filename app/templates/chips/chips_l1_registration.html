@@ -49,6 +49,14 @@
 
 {% block content %}
 
+{% if aging_filter %}
+<div
+    style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+    <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ requests|length }} found)</span>
+    <a href="{{ url_for('l1_registration.chips_l1_portal') }}"
+        style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+</div>
+{% endif %}
 <!-- Jinja2 Metric Calculations -->
 {% set total_requests = requests|length %}
 {% set metrics = namespace(pending=0, approved=0, reverted=0) %}
@@ -204,7 +212,8 @@
                     </td>
                     <td>{{ req.created_at|string|truncate(16, True, '') if req.created_at else '—' }}</td>
                     <td>
-                        {% if (req.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and req.updated_at and req.updated_at != '—' %}
+                        {% if (req.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and req.updated_at and req.updated_at
+                        != '—' %}
                         {{ req.updated_at|string|truncate(16, True, '') }}
                         {% else %}
                         —
@@ -507,7 +516,29 @@
             sessionStorage.removeItem('chips_l1_history_status');
         }
 
-        if (sessionStorage.getItem('chips_l1_search') !== null) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const qDist = urlParams.get('district');
+        const qStatus = urlParams.get('status');
+
+        if (qDist || qStatus) {
+            if (qDist) {
+                const globalSearch = document.getElementById('global-search');
+                if (globalSearch) globalSearch.value = qDist;
+            }
+
+            if (qStatus) {
+                const statusL = qStatus.toLowerCase().trim();
+                const pendingStatus = document.getElementById('pending-status');
+                const historyStatus = document.getElementById('history-status');
+                if (statusL === 'pending') {
+                    if (pendingStatus) pendingStatus.value = 'pending';
+                } else if (statusL === 'reapplied') {
+                    if (pendingStatus) pendingStatus.value = 'reapplied';
+                } else if (['approved', 'reverted'].includes(statusL)) {
+                    if (historyStatus) historyStatus.value = statusL;
+                }
+            }
+        } else if (sessionStorage.getItem('chips_l1_search') !== null) {
             document.getElementById('global-search').value = sessionStorage.getItem('chips_l1_search');
             document.getElementById('global-district').value = sessionStorage.getItem('chips_l1_district');
             document.getElementById('global-date').value = sessionStorage.getItem('chips_l1_date');
@@ -530,6 +561,33 @@
         }
 
         filterAllTables();
+
+        // ── Deep-link scroll + highlight flash ──────────────────────────
+        if (qDist || qStatus) {
+            function flashEl(el) {
+                if (!el) return;
+                el.style.transition = 'box-shadow 0.4s ease, outline 0.4s ease';
+                el.style.outline = '2px solid rgba(59,130,246,0.6)';
+                el.style.boxShadow = '0 0 0 4px rgba(59,130,246,0.18), 0 4px 20px rgba(59,130,246,0.22)';
+                setTimeout(() => { el.style.outline = ''; el.style.boxShadow = ''; }, 2200);
+            }
+            const statusL = (qStatus || '').toLowerCase().trim();
+            setTimeout(() => {
+                let scrollTarget, flashTarget;
+                if (!statusL || ['pending', 'reapplied'].includes(statusL)) {
+                    scrollTarget = document.getElementById('pending-table');
+                    flashTarget = document.getElementById('global-search');
+                } else {
+                    scrollTarget = document.getElementById('history-table');
+                    flashTarget = document.getElementById('history-status');
+                }
+                if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (flashTarget) {
+                    const bar = flashTarget.closest('div[style]') || flashTarget.parentElement;
+                    flashEl(bar || flashTarget);
+                }
+            }, 200);
+        }
     });
 </script>
 {% endblock %}
