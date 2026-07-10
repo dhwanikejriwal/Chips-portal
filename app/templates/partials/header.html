@@ -675,7 +675,6 @@
     }
 </style>
 
-
 <header class="header">
     <div class="logo-section">
         {% if session.get('access_token') and session.get('role') != 'Candidate' %}
@@ -694,6 +693,172 @@
     </div>
 
     {% if session.get('access_token') %}
+    <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; position: relative;">
+        {% if session.get('role') != 'Candidate' %}
+        <!-- Notification Bell Container -->
+        <div class="notification-container" style="position: relative;">
+            <button id="notification-bell-btn" class="notification-bell-btn"
+                style="background: none; border: none; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: 50%; transition: all 0.2s; outline: none; width: 40px; height: 40px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span id="notification-badge" class="notification-dot"></span>
+            </button>
+
+            <!-- Dropdown panel -->
+            <div id="notification-dropdown" class="notification-dropdown">
+                <div class="notification-panel-header">
+                    <div class="notification-panel-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="notification-panel-title">Notifications</div>
+                        <div class="notification-panel-subtitle">{% if session.get('role') in ['DC', 'EDM'] %}Reverted /
+                            rejected by CHiPS &amp; new candidate requests{% else %}Since your last login{% endif %}
+                        </div>
+                    </div>
+                    <button type="button" id="notification-close-btn" class="notification-panel-close"
+                        aria-label="Close">&times;</button>
+                </div>
+
+                <div class="notification-groups">
+                    {% if session.get('role') in ['DC', 'EDM'] %}
+                    <!-- DC/EDM: credentials = new candidate requests; everything else = reverted/rejected by CHiPS -->
+                    <div class="notification-group-card">
+                        <div class="notification-group-icon credentials">
+                            <i class="ti ti-id-badge-2"></i>
+                        </div>
+                        <div>
+                            <div class="notification-group-name">
+                                New LMS &amp; NSEIT requests
+                                <span class="notification-group-tag new">New</span>
+                            </div>
+                            <div class="notification-group-desc">New and reapplied credential &amp; exam requests from
+                                candidates</div>
+                            <div id="notification-group-credentials-breakdown" class="notification-group-breakdown">
+                            </div>
+                        </div>
+                        <div id="notification-group-credentials-count" class="notification-group-count">0</div>
+                    </div>
+                    <div class="notification-group-card">
+                        <div class="notification-group-icon registration">
+                            <i class="ti ti-arrow-back-up"></i>
+                        </div>
+                        <div>
+                            <div class="notification-group-name">
+                                Reverted / rejected by CHiPS
+                                <span class="notification-group-tag returned">Returned</span>
+                            </div>
+                            <div class="notification-group-desc">Station ID, L1, L2, operator activation &amp;
+                                reactivation sent back for action</div>
+                            <div id="notification-group-registration-breakdown" class="notification-group-breakdown">
+                            </div>
+                        </div>
+                        <div id="notification-group-registration-count" class="notification-group-count">0</div>
+                    </div>
+                    {% else %}
+                    <div class="notification-group-card">
+                        <div class="notification-group-icon registration">
+                            <i class="ti ti-user-check"></i>
+                        </div>
+                        <div>
+                            <div class="notification-group-name">Registration and activation</div>
+                            <div class="notification-group-desc">Station ID, L1, L2, operator activation and
+                                reactivation</div>
+                            <div id="notification-group-registration-breakdown" class="notification-group-breakdown">
+                            </div>
+                        </div>
+                        <div id="notification-group-registration-count" class="notification-group-count">0</div>
+                    </div>
+                    <div class="notification-group-card">
+                        <div class="notification-group-icon credentials">
+                            <i class="ti ti-id-badge-2"></i>
+                        </div>
+                        <div>
+                            <div class="notification-group-name">Credentials and exams</div>
+                            <div class="notification-group-desc">LMS credential and NSEIT exam requests</div>
+                            <div id="notification-group-credentials-breakdown" class="notification-group-breakdown">
+                            </div>
+                        </div>
+                        <div id="notification-group-credentials-count" class="notification-group-count">0</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div id="notification-empty-state" class="notification-empty-state">
+                    <div class="notification-empty-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 4h16v16H4z" opacity="0"></path>
+                            <path d="M22 6 12 13 2 6"></path>
+                            <path d="M2 6h20v12H2z"></path>
+                        </svg>
+                    </div>
+                    <div class="notification-empty-title">You're all caught up</div>
+                    <div class="notification-empty-desc">No new requests since your last login.</div>
+                </div>
+
+                <div id="notification-type-list" class="notification-type-list"></div>
+
+                <div class="notification-view-all-wrap">
+                    <button type="button" id="notification-view-all" class="notification-view-all-btn">
+                        <span id="notification-view-all-label">View all requests</span>
+                        <svg id="notification-view-all-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="user-profile-box" style="margin-left: 0;">
+            <div class="profile-avatar">
+                {% if session.get('role') == 'Candidate' and status_data and status_data.photo_upload %}
+                <img src="{{ status_data.photo_upload }}" alt="User Photo">
+                {% else %}
+                {{ (session.get('username') or 'U')[0] | upper }}
+                {% endif %}
+            </div>
+
+            <div class="user-info">
+                <span class="user-name">{{ session.get('username', '') }}</span>
+                {% if session.get('role') == 'Admin' %}
+                <span class="user-role">CHIPS Administrator</span>
+                {% elif session.get('role') == 'Candidate' %}
+                <span class="user-role">Candidate</span>
+                {% else %}
+                <span class="user-role">District Coordinator ({{ session.get('district_name', '') }})</span>
+                {% endif %}
+            </div>
+            {% if session.get('role') == 'Candidate' %}
+            <a href="{{ url_for('candidate.profile') }}"
+                style="color: #3c3489; text-decoration: none; font-size: 12px; font-weight: 600; padding-left: 12px; border-left: 1px solid #cbd5e1; transition: all 0.2s ease;">Profile</a>
+            {% endif %}
+            <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+        </div>
+    </div>
+    {% else %}
+    <div class="header-actions">
+        <a href="/" class="header-btn-home-button"
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 500; text-decoration: none; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); cursor: pointer; margin-right: 8px;">
+            <i class="ti ti-home" style="font-size:16px;"></i>Home
+        </a>
+        <a href="{{ url_for('auth.login') }}" class="header-btn-login-button"
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 500; text-decoration: none; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); cursor: pointer;">
+            <i class="ti ti-lock" style="font-size:16px;"></i>DC/CHIPS Login
+        </a>
+    </div>
+    {% endif %}
+</header>
+    {% if session.get('access_token') and session.get('role') != 'Candidate' %}
     <script>
         (function () {
             const BACKEND_API_URL = "{{ config['BACKEND_API_URL'] }}";
