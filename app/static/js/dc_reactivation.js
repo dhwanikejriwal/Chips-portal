@@ -455,6 +455,7 @@ if (window.currentReapplyCode) {
 } else {
     submitRequestAction(null);
 }
+}
 
 
 function getStatusBadgeHtml(status) {
