@@ -165,7 +165,12 @@ async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
     db.commit()
     
     # Send email asynchronously
-    await send_otp_email(payload.email, otp)
+    email_sent = await send_otp_email(payload.email, otp)
+    if not email_sent:
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to send OTP. Please check if your email address exists and is correct."
+        )
     
     return {"success": True, "message": "OTP sent successfully"}
 
