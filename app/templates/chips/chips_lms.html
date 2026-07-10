@@ -200,6 +200,30 @@
                         —
                         {% endif %}
                     </td>
+                    <td style="padding: 12px 15px; text-align: center;">
+                        <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                            <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                                onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}')">Approve</button>
+                            <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                                onclick="openRevertModal('{{ req.r_id }}', '{{ req.name }}')">Revert</button>
+                            <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                                Details
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="pending-empty-msg" class="empty-state" style="display: none;">
+            <i class="ti ti-inbox" style="font-size: 32px; color: #a0aec0; margin-bottom: 8px;"></i>
+            <p>No pending requests</p>
+        </div>
     </div>
 
     <hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
@@ -549,6 +573,17 @@
                             timerProgressBar: true
                         }).then(() => {
                             sessionStorage.setItem('chips_action_reloading', 'true');
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error', 'Failed to revert request.', 'error');
+                    }
+                }).catch(() => {
+                    Swal.fire('Error', 'Failed to revert request.', 'error');
+                });
+            }
+        });
+    }
 
                             // 🌟 Build a status badge HTML string for inline use in remarks timeline (Unmasked Admin View)
                             function buildStatusBadgeInline(status) {
