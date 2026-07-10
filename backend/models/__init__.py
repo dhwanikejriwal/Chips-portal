@@ -24,6 +24,8 @@ from backend.models.operator_activation import (
 )
 from backend.models.station_id import StationIDRequest, StationIDRemark
 from backend.models.otp_verification import OtpVerification
+from backend.models.aadhaar_district_resources import AadhaarDistrictResource
+from backend.models.admin_login_logs import AdminLoginLog
 
 __all__ = [
     "Base",
