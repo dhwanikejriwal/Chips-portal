@@ -675,6 +675,7 @@
     }
 </style>
 
+
 <header class="header">
     <div class="logo-section">
         {% if session.get('access_token') and session.get('role') != 'Candidate' %}
@@ -687,172 +688,225 @@
             </svg>
         </button>
         {% endif %}
-        <img src="{{ url_for('static', filename='css/images/chips_logo.jpg') }}" alt="CHiPS Logo">
-        <h1><a href="/" style="color: inherit; text-decoration: none;">Aadhaar Operator Request Portal</a></h1>
+        <img src="{{ url_for('static', filename='css/images/gov_logo.jpg') }}" alt="Government Logo">
+        <img src="{{ url_for('static', filename='css/images/chips_logo.jpg') }}" alt="CHiPS Logo" style="margin-left: -4px;">
+        <h1 style="color: #1a202c; user-select: none; cursor: default;">Aadhaar Operator Request Portal</h1>
     </div>
 
     {% if session.get('access_token') %}
-    <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; position: relative;">
-        {% if session.get('role') != 'Candidate' %}
-        <!-- Notification Bell Container -->
-        <div class="notification-container" style="position: relative;">
-            <button id="notification-bell-btn" class="notification-bell-btn"
-                style="background: none; border: none; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: 50%; transition: all 0.2s; outline: none; width: 40px; height: 40px;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                </svg>
-                <span id="notification-badge" class="notification-dot"></span>
-            </button>
+    <script>
+        (function () {
+            const BACKEND_API_URL = "{{ config['BACKEND_API_URL'] }}";
+            const ACCESS_TOKEN = "{{ session.get('access_token') }}";
+            const USER_ROLE = "{{ session.get('role') }}";
+            const isChips = USER_ROLE === 'Admin';
+            
+            const dropdown = document.getElementById('notification-dropdown');
+            const bellBtn = document.getElementById('notification-bell-btn');
+            const closeBtn = document.getElementById('notification-close-btn');
+            const badge = document.getElementById('notification-badge');
+            
+            const groupRegistrationCount = document.getElementById('notification-group-registration-count');
+            const groupCredentialsCount = document.getElementById('notification-group-credentials-count');
+            const groupRegistrationBreakdown = document.getElementById('notification-group-registration-breakdown');
+            const groupCredentialsBreakdown = document.getElementById('notification-group-credentials-breakdown');
+            
+            const emptyState = document.getElementById('notification-empty-state');
+            const typeList = document.getElementById('notification-type-list');
+            const viewAllBtn = document.getElementById('notification-view-all');
+            const viewAllLabel = document.getElementById('notification-view-all-label');
+            const viewAllChevron = document.getElementById('notification-view-all-chevron');
 
-            <!-- Dropdown panel -->
-            <div id="notification-dropdown" class="notification-dropdown">
-                <div class="notification-panel-header">
-                    <div class="notification-panel-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <div class="notification-panel-title">Notifications</div>
-                        <div class="notification-panel-subtitle">{% if session.get('role') in ['DC', 'EDM'] %}Reverted /
-                            rejected by CHiPS &amp; new candidate requests{% else %}Since your last login{% endif %}
-                        </div>
-                    </div>
-                    <button type="button" id="notification-close-btn" class="notification-panel-close"
-                        aria-label="Close">&times;</button>
-                </div>
+            let lastSummary = null;
+            let isTypeListExpanded = false;
 
-                <div class="notification-groups">
-                    {% if session.get('role') in ['DC', 'EDM'] %}
-                    <!-- DC/EDM: credentials = new candidate requests; everything else = reverted/rejected by CHiPS -->
-                    <div class="notification-group-card">
-                        <div class="notification-group-icon credentials">
-                            <i class="ti ti-id-badge-2"></i>
-                        </div>
-                        <div>
-                            <div class="notification-group-name">
-                                New LMS &amp; NSEIT requests
-                                <span class="notification-group-tag new">New</span>
-                            </div>
-                            <div class="notification-group-desc">New and reapplied credential &amp; exam requests from
-                                candidates</div>
-                            <div id="notification-group-credentials-breakdown" class="notification-group-breakdown">
-                            </div>
-                        </div>
-                        <div id="notification-group-credentials-count" class="notification-group-count">0</div>
-                    </div>
-                    <div class="notification-group-card">
-                        <div class="notification-group-icon registration">
-                            <i class="ti ti-arrow-back-up"></i>
-                        </div>
-                        <div>
-                            <div class="notification-group-name">
-                                Reverted / rejected by CHiPS
-                                <span class="notification-group-tag returned">Returned</span>
-                            </div>
-                            <div class="notification-group-desc">Station ID, L1, L2, operator activation &amp;
-                                reactivation sent back for action</div>
-                            <div id="notification-group-registration-breakdown" class="notification-group-breakdown">
-                            </div>
-                        </div>
-                        <div id="notification-group-registration-count" class="notification-group-count">0</div>
-                    </div>
-                    {% else %}
-                    <div class="notification-group-card">
-                        <div class="notification-group-icon registration">
-                            <i class="ti ti-user-check"></i>
-                        </div>
-                        <div>
-                            <div class="notification-group-name">Registration and activation</div>
-                            <div class="notification-group-desc">Station ID, L1, L2, operator activation and
-                                reactivation</div>
-                            <div id="notification-group-registration-breakdown" class="notification-group-breakdown">
-                            </div>
-                        </div>
-                        <div id="notification-group-registration-count" class="notification-group-count">0</div>
-                    </div>
-                    <div class="notification-group-card">
-                        <div class="notification-group-icon credentials">
-                            <i class="ti ti-id-badge-2"></i>
-                        </div>
-                        <div>
-                            <div class="notification-group-name">Credentials and exams</div>
-                            <div class="notification-group-desc">LMS credential and NSEIT exam requests</div>
-                            <div id="notification-group-credentials-breakdown" class="notification-group-breakdown">
-                            </div>
-                        </div>
-                        <div id="notification-group-credentials-count" class="notification-group-count">0</div>
-                    </div>
-                    {% endif %}
-                </div>
+            const TYPE_URLS = {
+                'L1': '/chips/l1-requests',
+                'L2': '/chips/l2-requests',
+                'station_id': '/chips/station-id-requests',
+                'operator_activation': '/chips/activation-requests',
+                'operator_reactivation': '/chips/reactivation-requests',
+                'LMS': '/chips/lms-requests',
+                'NSEIT': '/chips/nseit-requests'
+            };
 
-                <div id="notification-empty-state" class="notification-empty-state">
-                    <div class="notification-empty-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M4 4h16v16H4z" opacity="0"></path>
-                            <path d="M22 6 12 13 2 6"></path>
-                            <path d="M2 6h20v12H2z"></path>
-                        </svg>
-                    </div>
-                    <div class="notification-empty-title">You're all caught up</div>
-                    <div class="notification-empty-desc">No new requests since your last login.</div>
-                </div>
+            if (USER_ROLE === 'dc' || USER_ROLE === 'edm') {
+                TYPE_URLS['L1'] = '/dc/l1-requests';
+                TYPE_URLS['L2'] = '/dc/l2-requests';
+                TYPE_URLS['station_id'] = '/dc/station-id-requests';
+                TYPE_URLS['operator_activation'] = '/dc/activation-requests';
+                TYPE_URLS['operator_reactivation'] = '/dc/reactivation-requests';
+                TYPE_URLS['LMS'] = '/candidate-requests';
+                TYPE_URLS['NSEIT'] = '/candidate-requests';
+            }
 
-                <div id="notification-type-list" class="notification-type-list"></div>
+            const REVERT_REJECT_TYPES = ['L1', 'L2', 'station_id', 'operator_activation', 'operator_reactivation'];
 
-                <div class="notification-view-all-wrap">
-                    <button type="button" id="notification-view-all" class="notification-view-all-btn">
-                        <span id="notification-view-all-label">View all requests</span>
-                        <svg id="notification-view-all-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+            function renderTypeList(data) {
+                typeList.innerHTML = '';
+                (data.types || []).forEach(function(t) {
+                    const url = TYPE_URLS[t.key];
+                    if (!url) return;
+                    const row = document.createElement('a');
+                    row.className = 'notification-type-row' + (t.count > 0 ? ' has-new' : '');
+                    const qs = [];
+                    if (data.baseline_at) qs.push(`highlight_since=${encodeURIComponent(data.baseline_at)}`);
+                    if (!isChips && REVERT_REJECT_TYPES.indexOf(t.key) !== -1) qs.push('status=reverted_rejected');
+                    row.href = url + (qs.length ? `?${qs.join('&')}` : '');
+                    // Tag each row so new candidate requests and returned
+                    // (reverted/rejected) items are distinguishable at a glance.
+                    let tag = '';
+                    if ((t.revert_count || 0) > 0) tag = `<span class="notification-type-tag revert">${t.revert_count} revert</span>`;
+                    else if ((t.new_count || 0) > 0) tag = `<span class="notification-type-tag new">${t.new_count} new</span>`;
+                    row.innerHTML = `<span>${t.label}${tag}</span><span class="notification-type-count">${t.count}</span>`;
+                    typeList.appendChild(row);
+                });
+            }
 
-        <div class="user-profile-box" style="margin-left: 0;">
-            <div class="profile-avatar">
-                {% if session.get('role') == 'Candidate' and status_data and status_data.photo_upload %}
-                <img src="{{ status_data.photo_upload }}" alt="User Photo">
-                {% else %}
-                {{ (session.get('username') or 'U')[0] | upper }}
-                {% endif %}
-            </div>
+            // Render the "N new · M revert" line under a group card, showing only
+            // the non-zero sides. Hidden entirely when the group is empty.
+            function renderBreakdown(el, group) {
+                if (!el) return;
+                const newCount = group ? (group.new_count || 0) : 0;
+                const revertCount = group ? (group.revert_count || 0) : 0;
+                const parts = [];
+                if (newCount > 0) parts.push(`<span class="nb-new">${newCount} new</span>`);
+                if (revertCount > 0) parts.push(`<span class="nb-revert">${revertCount} revert</span>`);
+                if (parts.length === 0) {
+                    el.style.display = 'none';
+                    el.innerHTML = '';
+                    return;
+                }
+                el.innerHTML = parts.join('<span class="nb-sep">·</span>');
+                el.style.display = 'flex';
+            }
 
-            <div class="user-info">
-                <span class="user-name">{{ session.get('username', '') }}</span>
-                {% if session.get('role') == 'Admin' %}
-                <span class="user-role">CHIPS Administrator</span>
-                {% elif session.get('role') == 'Candidate' %}
-                <span class="user-role">Candidate</span>
-                {% else %}
-                <span class="user-role">District Coordinator ({{ session.get('district_name', '') }})</span>
-                {% endif %}
-            </div>
-            {% if session.get('role') == 'Candidate' %}
-            <a href="{{ url_for('candidate.profile') }}"
-                style="color: #3c3489; text-decoration: none; font-size: 12px; font-weight: 600; padding-left: 12px; border-left: 1px solid #cbd5e1; transition: all 0.2s ease;">Profile</a>
-            {% endif %}
-            <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
-        </div>
-    </div>
-    {% else %}
-    <div class="header-actions">
-        <a href="/" class="header-btn-home-button"
-            style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 500; text-decoration: none; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); cursor: pointer; margin-right: 8px;">
-            <i class="ti ti-home" style="font-size:16px;"></i>Home
-        </a>
-        <a href="{{ url_for('auth.login') }}" class="header-btn-login-button"
-            style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 500; text-decoration: none; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); cursor: pointer;">
-            <i class="ti ti-lock" style="font-size:16px;"></i>DC/CHIPS Login
-        </a>
-    </div>
+            // Session latch for the bell's red indicator (Part 3 — badge persists
+            // for the whole session regardless of UI interaction, and only resets
+            // on the next login). A count can drop mid-session — a DC resolving a
+            // revert, or any item being acted on — so we latch the peak count in
+            // sessionStorage and never let the displayed badge fall below it for
+            // the life of the session.
+            //
+            // The latch is keyed by the session's baseline_at (which changes on
+            // every fresh login) rather than by role, so a logout→login in the
+            // same tab — or a different user of the same role — starts a clean
+            // latch instead of inheriting the previous session's lit badge.
+            const BADGE_LATCH_PREFIX = 'notif-badge-latch-' + (USER_ROLE || 'x') + '-';
+
+            function badgeLatchKey(data) {
+                return BADGE_LATCH_PREFIX + (data.baseline_at || 'na');
+            }
+
+            function pruneOldLatches(currentKey) {
+                // Keep only this session's latch so sessionStorage doesn't grow
+                // across repeated logins in the same tab.
+                for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                    const k = sessionStorage.key(i);
+                    if (k && k.startsWith(BADGE_LATCH_PREFIX) && k !== currentKey) {
+                        sessionStorage.removeItem(k);
+                    }
+                }
+            }
+
+            function renderNotifications(data) {
+                lastSummary = data;
+
+                const latchKey = badgeLatchKey(data);
+                pruneOldLatches(latchKey);
+
+                const liveCount = data.new_request_count || 0;
+                let latchedCount = parseInt(sessionStorage.getItem(latchKey) || '0', 10);
+                if (liveCount > latchedCount) {
+                    latchedCount = liveCount;
+                    sessionStorage.setItem(latchKey, String(latchedCount));
+                }
+                // Peak count seen this session — never drops back to 0 once shown.
+                const shownCount = latchedCount;
+
+                badge.textContent = shownCount > 99 ? '99+' : shownCount;
+                badge.classList.toggle('is-visible', shownCount > 0);
+
+                const groups = data.groups || [];
+                const registrationGroup = groups.find(g => g.name === 'Registration and activation');
+                const credentialsGroup = groups.find(g => g.name === 'Credentials and exams');
+                groupRegistrationCount.textContent = registrationGroup ? registrationGroup.count : 0;
+                groupCredentialsCount.textContent = credentialsGroup ? credentialsGroup.count : 0;
+                renderBreakdown(groupRegistrationBreakdown, registrationGroup);
+                renderBreakdown(groupCredentialsBreakdown, credentialsGroup);
+
+                emptyState.style.display = shownCount > 0 ? 'none' : 'flex';
+
+                if (isTypeListExpanded) renderTypeList(data);
+            }
+
+            function loadNotifications() {
+                fetch(`${BACKEND_API_URL}/notifications/summary`, {
+                    headers: {
+                        'Authorization': `Bearer ${ACCESS_TOKEN}`
+                    }
+                })
+                .then(res => {
+                    if (res.status === 200) return res.json();
+                    throw new Error('Failed to fetch');
+                })
+                .then(renderNotifications)
+                .catch(err => console.error('Notifications fetch error:', err));
+            }
+
+            loadNotifications();
+
+            // Keep the count live while this page stays open, so new requests and
+            // reverts that arrive during the session appear without a reload
+            // (Part 4). 20s sits in the spec's 15–30s band.
+            setInterval(loadNotifications, 20000);
+
+            // Browsers throttle setInterval heavily in background tabs (often to
+            // once a minute or slower), so a session left open in an unfocused tab
+            // can sit on stale counts far longer than the interval suggests.
+            // Refresh immediately whenever the tab regains focus/visibility so
+            // switching back always shows the latest state without a manual reload.
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden) loadNotifications();
+            });
+            window.addEventListener('focus', loadNotifications);
+
+            let isDropdownOpen = false;
+            function setDropdownOpen(open) {
+                isDropdownOpen = open;
+                dropdown.style.display = open ? 'block' : 'none';
+            }
+
+            bellBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                setDropdownOpen(!isDropdownOpen);
+                if (isDropdownOpen) {
+                    // Refresh so anything that arrived since page load shows up.
+                    loadNotifications();
+                }
+            });
+
+            // Expands the panel in place to list every individual request type
+            // with its own new-request count, instead of navigating away.
+            viewAllBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                isTypeListExpanded = !isTypeListExpanded;
+                typeList.classList.toggle('is-expanded', isTypeListExpanded);
+                viewAllChevron.classList.toggle('is-open', isTypeListExpanded);
+                viewAllLabel.textContent = isTypeListExpanded ? 'Hide requests' : 'View all requests';
+                if (isTypeListExpanded && lastSummary) renderTypeList(lastSummary);
+            });
+
+            closeBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                setDropdownOpen(false);
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!dropdown.contains(e.target) && e.target !== bellBtn && !bellBtn.contains(e.target)) {
+                    setDropdownOpen(false);
+                }
+            });
+        })();
+    </script>
     {% endif %}
