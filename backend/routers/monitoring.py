@@ -78,31 +78,31 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
             op_act_reqs_q = db.query(OperatorActivationRequest).filter(OperatorActivationRequest.district_id == dist_code)
             op_act_reqs = filter_by_date(op_act_reqs_q, OperatorActivationRequest, date_field="submitted_at").all()
             op_act_total = len(op_act_reqs)
-            op_act_reverts = sum(1 for r in op_act_reqs if r.status in ["Reverted", "Reverted by CHiPS"])
+            op_act_reverts = sum(1 for r in op_act_reqs if r.status_id in [StatusEnum.REVERTED.value, StatusEnum.REVERTED_BY_CHIPS.value])
             op_act_revert_pct = round((op_act_reverts / op_act_total * 100), 1) if op_act_total > 0 else 0.0
 
             st_id_reqs_q = db.query(StationIDRequest).filter(StationIDRequest.district_id == dist_code)
             st_id_reqs = filter_by_date(st_id_reqs_q, StationIDRequest, date_field="submitted_at").all()
             st_id_total = len(st_id_reqs)
-            st_id_reverts = sum(1 for r in st_id_reqs if r.status in ["Reverted", "Reverted by CHiPS"])
+            st_id_reverts = sum(1 for r in st_id_reqs if r.status_id in [StatusEnum.REVERTED.value, StatusEnum.REVERTED_BY_CHIPS.value])
             st_id_revert_pct = round((st_id_reverts / st_id_total * 100), 1) if st_id_total > 0 else 0.0
 
             l1_reqs_q = db.query(L1RegistrationRequest).filter(L1RegistrationRequest.district_id == dist_code)
             l1_reqs = filter_by_date(l1_reqs_q, L1RegistrationRequest, date_field="created_at").all()
             l1_total = len(l1_reqs)
-            l1_reverts = sum(1 for r in l1_reqs if r.status in ["Reverted", "Reverted by CHiPS"])
+            l1_reverts = sum(1 for r in l1_reqs if r.status_id in [StatusEnum.REVERTED.value, StatusEnum.REVERTED_BY_CHIPS.value])
             l1_revert_pct = round((l1_reverts / l1_total * 100), 1) if l1_total > 0 else 0.0
 
             l2_reqs_q = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.district_id == dist_code)
             l2_reqs = filter_by_date(l2_reqs_q, L2RegistrationRequest, date_field="submitted_at").all()
             l2_total = len(l2_reqs)
-            l2_reverts = sum(1 for r in l2_reqs if r.status in ["Reverted", "Reverted by CHiPS"])
+            l2_reverts = sum(1 for r in l2_reqs if r.status_id in [StatusEnum.REVERTED.value, StatusEnum.REVERTED_BY_CHIPS.value])
             l2_revert_pct = round((l2_reverts / l2_total * 100), 1) if l2_total > 0 else 0.0
 
             react_reqs_q = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.district_id == dist_code)
             react_reqs = filter_by_date(react_reqs_q, OperatorReactivationRequest, date_field="created_at").all()
             react_total = len(react_reqs)
-            react_reverts = sum(1 for r in react_reqs if r.status in ["Reverted", "Reverted by CHiPS"])
+            react_reverts = sum(1 for r in react_reqs if r.status_id in [StatusEnum.REVERTED.value, StatusEnum.REVERTED_BY_CHIPS.value])
             react_revert_pct = round((react_reverts / react_total * 100), 1) if react_total > 0 else 0.0
 
             avg_holding = (cand_holding_hours + lms_holding_hours + nseit_holding_hours) / 3
@@ -113,8 +113,8 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
             else:
                 health_status = "Critical"
                 
-            pending_total = sum(1 for c in cands if c.status == "Pending")
-            rejected_total = sum(1 for c in cands if c.status == "Rejected")
+            pending_total = sum(1 for c in cands if c.status_id == StatusEnum.PENDING.value)
+            rejected_total = sum(1 for c in cands if c.status_id == StatusEnum.REJECTED.value)
             reverted_total = op_act_reverts + st_id_reverts + l1_reverts + l2_reverts + react_reverts
 
             result.append({
@@ -174,14 +174,14 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         lms_status = "Not Initiated"
         if lms:
             if lms.id in skipped_lms_ids:
-                lms_status = "Not Initiated" if c.status == "Rejected" else "Skipped"
+                lms_status = "Not Initiated" if c.status_id == StatusEnum.REJECTED.value else "Skipped"
             else:
                 lms_status = lms.status
             
         nseit_status = "Not Initiated"
         if nseit:
             if nseit.id in skipped_nseit_ids:
-                nseit_status = "Not Initiated" if c.status == "Rejected" else "Skipped"
+                nseit_status = "Not Initiated" if c.status_id == StatusEnum.REJECTED.value else "Skipped"
             else:
                 nseit_status = nseit.status
         

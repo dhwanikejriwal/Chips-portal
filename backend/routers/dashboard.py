@@ -28,14 +28,14 @@ router = APIRouter()
 # reverted  = counts toward reversion rate
 _WORKFLOW_STATUS_SETS = {
     "lms": {
-        "terminal": {"approved", "reverted", "reverted by chips"},
+        "terminal": {"approved", "reverted", "reverted_by_chips"},
         "approved": {"approved"},
-        "reverted": {"reverted", "reverted by chips"},
+        "reverted": {"reverted", "reverted_by_chips"},
     },
     "nseit": {
-        "terminal": {"approved", "reverted", "reverted by chips"},
+        "terminal": {"approved", "reverted", "reverted_by_chips"},
         "approved": {"approved"},
-        "reverted": {"reverted", "reverted by chips"},
+        "reverted": {"reverted", "reverted_by_chips"},
     },
     "activation": {
         "terminal": {"approved", "rejected", "reverted", "reverted_by_chips"},
