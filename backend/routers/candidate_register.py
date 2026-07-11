@@ -238,9 +238,11 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
         except ValueError:
             pass
 
-    count = db.query(Candidate).filter(Candidate.district == payload.district).count()
+    global_count = db.query(Candidate).count()
     short_name = district_obj.district_short_name or "CAN"
-    request_code = f"{short_name}-A{count + 1:04d}"
+    dist_code = district_obj.district_code or ""
+    mobile_suffix = payload.mobile[-5:] if payload.mobile else "12345"
+    request_code = f"{short_name}-{mobile_suffix}{dist_code}A{global_count + 1:04d}"
 
     try:
         dob_parsed = datetime.strptime(payload.dob, "%Y-%m-%d").date()
@@ -286,13 +288,13 @@ class TrackRequest(BaseModel):
 def track_application(payload: TrackRequest, db: Session = Depends(get_db)):
     identifier = payload.identifier.strip()
     
-    # Search by email or mobile
+    # Search by request_code or mobile
     candidate = db.query(Candidate).filter(
-        (Candidate.email == identifier) | (Candidate.mobile == identifier)
+        (Candidate.request_code == identifier) | (Candidate.mobile == identifier)
     ).first()
     
     if not candidate:
-        raise HTTPException(status_code=404, detail="No application found with this email or mobile number.")
+        raise HTTPException(status_code=404, detail="No application found with this Acknowledgment ID or mobile number.")
         
     from backend.models.dc_remark import DCRemark
     reject_reason = None
