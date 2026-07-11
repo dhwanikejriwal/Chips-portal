@@ -623,5 +623,7 @@ async def send_otp_email(email_to: str, otp_code: str):
     fm = FastMail(conf)
     try:
         await fm.send_message(message)
+        return True
     except Exception as e:
         print(f"Failed to send email to {email_to}: {e}")
+        return False

@@ -243,8 +243,8 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     
     counts_map = dict(status_counts)
     
-    # "pending" represents all active items waiting for processing
-    pending_count = counts_map.get("pending", 0)
+    # "sent_to_chips" is also treated as pending in the application lifecycle
+    pending_count = counts_map.get("pending", 0) + counts_map.get("sent_to_chips", 0)
     
     summary = {
         "total": sum(counts_map.values()),
@@ -262,7 +262,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         func.count(OperatorActivationRequest.id).label("total"),
         func.count(case((OperatorActivationRequest.status == "approved", 1))).label("approved"),
         func.count(case((OperatorActivationRequest.status == "rejected", 1))).label("rejected"),
-        func.count(case((OperatorActivationRequest.status == "pending", 1))).label("pending"),
+        func.count(case((OperatorActivationRequest.status.in_(["pending", "sent_to_chips"]), 1))).label("pending"),
         func.avg(func.extract("epoch", OperatorActivationRequest.reviewed_at - OperatorActivationRequest.submitted_at) / 3600).label("avg_pending_hours")
     ).select_from(User)\
      .outerjoin(District, User.district_id == District.district_code)\

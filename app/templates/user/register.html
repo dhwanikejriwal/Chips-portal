@@ -117,7 +117,7 @@
                             <button type="button" id="btn-verify-otp" class="btn btn-dark-pill" style="white-space: nowrap;">Verify</button>
                         </div>
                         <div id="otp_message" style="font-size: 13px; font-weight: 500; margin-top: 6px;"></div>
-                        <div style="color: #D97706; font-size: 12px; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px; background: #FEF3C7; padding: 6px 10px; border-radius: 4px; border: 1px solid #FDE68A;">
+                        <div id="otp_warning_message" style="color: #D97706; font-size: 12px; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px; background: #FEF3C7; padding: 6px 10px; border-radius: 4px; border: 1px solid #FDE68A;">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                             Didn't receive it? Please check your Spam or Junk folder.
                         </div>
@@ -543,12 +543,20 @@
                 msgDiv.style.color = "#10b981";
                 emailInput.readOnly = true;
                 
-                // Set to Resend OTP with a 30s cooldown
-                this.textContent = "Wait 30s...";
-                setTimeout(() => {
-                    this.disabled = false;
-                    this.textContent = "Resend OTP";
-                }, 30000);
+                // Set to Resend OTP with a 30s countdown
+                let timeLeft = 30;
+                this.textContent = `Wait ${timeLeft}s...`;
+                const btnSendOtp = this;
+                const countdown = setInterval(() => {
+                    timeLeft--;
+                    if (timeLeft <= 0) {
+                        clearInterval(countdown);
+                        btnSendOtp.disabled = false;
+                        btnSendOtp.textContent = "Resend OTP";
+                    } else {
+                        btnSendOtp.textContent = `Wait ${timeLeft}s...`;
+                    }
+                }, 1000);
             } else {
                 // If it failed due to duplicates, hide the OTP section completely
                 document.getElementById('email_otp_section').style.display = 'none';
@@ -608,6 +616,7 @@
                 document.getElementById('email_verified').value = 'true';
                 document.getElementById('btn-send-otp').style.display = 'none';
                 document.getElementById('otp_code').readOnly = true;
+                document.getElementById('otp_warning_message').style.display = 'none';
                 this.style.display = 'none';
             } else {
                 msgDiv.textContent = data.detail || "Invalid OTP.";

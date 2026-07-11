@@ -34,35 +34,7 @@ def backend_url():
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["GET"])
 def dc_submit_form():
-
-# --- FRIEND'S UPDATED CODE ---
     return redirect(url_for("operator_activation.dc_requests_list"))
-# --- YOUR LOCAL CODE ---
-    jwt_token = session.get("access_token")
-    if not jwt_token:
-        return redirect(url_for("auth.login"))
-        
-    reapply_id = request.args.get("reapply_id")
-    request_data = None
-    
-    if reapply_id:
-        headers = {"Authorization": f"Bearer {jwt_token}"}
-        backend_api_url = backend_url()
-        try:
-            response = requests.get(f"{backend_api_url}/{reapply_id}/detail", headers=headers)
-            if response.status_code == 200:
-                request_data = response.json()
-        except requests.exceptions.ConnectionError:
-            pass
-            
-    return render_template(
-        "operator_activation/submit_form.html",
-        district_name=session.get("district_name", ""),
-        request_data=request_data,
-        reapply_id=reapply_id
-    )
-# ---------------------------
-
 
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["POST"])
@@ -112,15 +84,7 @@ def dc_submit():
             url, data=form_data, files=files if files else None, headers=headers
         )
         if response.status_code == 200:
-
-# --- FRIEND'S UPDATED CODE ---
             return jsonify({"status": "success", "redirect_url": url_for("operator_activation.dc_requests_list")}), 200
-# --- YOUR LOCAL CODE ---
-            if reapply_id:
-                return redirect(url_for("operator_activation.dc_requests_list", reapplied="true"))
-            return redirect(url_for("operator_activation.dc_requests_list", submitted="true"))
-# ---------------------------
-
         else:
             detail = response.json().get("detail", "Submission failed.")
             if isinstance(detail, dict) and "field_errors" in detail:

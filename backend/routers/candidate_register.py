@@ -165,76 +165,12 @@ async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
     db.commit()
     
     # Send email asynchronously
-    await send_otp_email(payload.email, otp)
-    
-    return {"success": True, "message": "OTP sent successfully"}
-
-@router.post("/verify-otp")
-def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
-    record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
-    
-    if not record:
-        raise HTTPException(status_code=400, detail="OTP request not found for this email")
-    
-    if record.is_verified:
-        return {"success": True, "message": "Email is already verified"}
-        
-    if record.otp_code != payload.otp_code:
-        raise HTTPException(status_code=400, detail="Invalid OTP code")
-        
-    if datetime.now() > record.expires_at:
-        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
-        
-    record.is_verified = True
-    db.commit()
-    
-    return {"success": True, "message": "Email verified successfully"}
-
-class SendOtpRequest(BaseModel):
-    email: EmailStr
-    mobile: str = None
-
-class VerifyOtpRequest(BaseModel):
-    email: EmailStr
-    otp_code: str
-
-@router.post("/send-otp")
-async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
-    email_exists = db.query(Candidate).filter(Candidate.email == payload.email).first()
-    
-    mobile_exists = None
-    if payload.mobile:
-        mobile_exists = db.query(Candidate).filter(Candidate.mobile == payload.mobile).first()
-        
-    if email_exists or mobile_exists:
-        field_errors = {}
-        if email_exists:
-            field_errors["email"] = "Email is already registered"
-        if mobile_exists:
-            field_errors["mobile"] = "Mobile number is already registered"
-        raise HTTPException(status_code=400, detail={"field_errors": field_errors})
-
-    otp = "".join(secrets.choice("0123456789") for _ in range(6))
-    expires = datetime.now() + timedelta(minutes=1)
-
-    existing_record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
-    if existing_record:
-        existing_record.otp_code = otp
-        existing_record.expires_at = expires
-        existing_record.is_verified = False
-    else:
-        new_record = OtpVerification(
-            email=payload.email,
-            otp_code=otp,
-            expires_at=expires,
-            is_verified=False
+    email_sent = await send_otp_email(payload.email, otp)
+    if not email_sent:
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to send OTP. Please check if your email address exists and is correct."
         )
-        db.add(new_record)
-    
-    db.commit()
-    
-    # Send email asynchronously
-    await send_otp_email(payload.email, otp)
     
     return {"success": True, "message": "OTP sent successfully"}
 
@@ -302,9 +238,11 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
         except ValueError:
             pass
 
-    count = db.query(Candidate).filter(Candidate.district == payload.district).count()
+    global_count = db.query(Candidate).count()
     short_name = district_obj.district_short_name or "CAN"
-    request_code = f"{short_name}-A{count + 1:04d}"
+    dist_code = district_obj.district_code or ""
+    mobile_suffix = payload.mobile[-5:] if payload.mobile else "12345"
+    request_code = f"{short_name}-{mobile_suffix}{dist_code}A{global_count + 1:04d}"
 
     try:
         dob_parsed = datetime.strptime(payload.dob, "%Y-%m-%d").date()
@@ -350,13 +288,13 @@ class TrackRequest(BaseModel):
 def track_application(payload: TrackRequest, db: Session = Depends(get_db)):
     identifier = payload.identifier.strip()
     
-    # Search by email or mobile
+    # Search by request_code or mobile
     candidate = db.query(Candidate).filter(
-        (Candidate.email == identifier) | (Candidate.mobile == identifier)
+        (Candidate.request_code == identifier) | (Candidate.mobile == identifier)
     ).first()
     
     if not candidate:
-        raise HTTPException(status_code=404, detail="No application found with this email or mobile number.")
+        raise HTTPException(status_code=404, detail="No application found with this Acknowledgment ID or mobile number.")
         
     from backend.models.dc_remark import DCRemark
     reject_reason = None

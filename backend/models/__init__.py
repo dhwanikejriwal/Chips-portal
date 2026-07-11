@@ -40,8 +40,6 @@ __all__ = [
     "DCRemark",
     "LMS",
     "LMSRemark",
-    "RequestStatus",
-    "CredentialRequest",
     "NSEITRequest",
     "NSEITRemark",
     "L1RegistrationRequest",

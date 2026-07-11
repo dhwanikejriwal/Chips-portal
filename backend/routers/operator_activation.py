@@ -142,21 +142,6 @@ def submit_operator_activation(
         request_no=candidate.request_code,
     )
     db.add(new_request)
-    # Generate request_no sequentially based on the highest existing number (not id)
-    # This prevents gaps caused by rolled-back transactions or deleted dev data
-    last_req = db.query(OperatorActivationRequest).filter(
-        OperatorActivationRequest.request_no.isnot(None),
-        OperatorActivationRequest.id != new_request.id
-    ).order_by(OperatorActivationRequest.id.desc()).first()
-
-    if last_req and last_req.request_no:
-        try:
-            last_num = int(re.sub(r'[^\d]', '', last_req.request_no))
-        except (ValueError, TypeError):
-            last_num = 0
-    else:
-        last_num = 0
-    new_request.request_no = f"RP-A{last_num + 1:04d}"
     db.flush()
 
     # 3. Save each file to disk and create a document row

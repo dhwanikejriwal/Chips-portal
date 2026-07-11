@@ -322,28 +322,6 @@ window.editOperatorInStateArray = function (index) {
     if (document.getElementById('op_model')) document.getElementById('op_model').value = op.model || '';
     if (document.getElementById('op_lms_id')) document.getElementById('op_lms_id').value = op.lmsId || '';
     if (document.getElementById('op_remarks')) document.getElementById('op_remarks').value = op.remarks || '';
-    
-    if (document.getElementById('editing_op_id')) document.getElementById('editing_op_id').value = op.id || '';
-    if (document.getElementById('editing_op_status')) document.getElementById('editing_op_status').value = op.status || '';
-    if (document.getElementById('editing_op_reject_reason')) document.getElementById('editing_op_reject_reason').value = op.reject_reason || '';
-
-    // Show operator revert reason if present
-    const reasonContainer = document.getElementById('operator-revert-reason-container');
-    const reasonText = document.getElementById('operator-revert-reason-text');
-    const reasonLabel = document.getElementById('operator-revert-reason-label');
-    
-    if (!window.isReapplyBatchReverted && reasonContainer && reasonText && reasonLabel && op.reject_reason) {
-        reasonText.innerText = op.reject_reason;
-        const statusLower = (op.status || '').toLowerCase();
-        if (statusLower.includes('reject')) {
-            reasonLabel.innerText = 'REJECT REASON / REMARKS';
-        } else {
-            reasonLabel.innerText = 'REVERT REASON / REMARKS';
-        }
-        reasonContainer.style.display = 'block';
-    } else if (reasonContainer) {
-        reasonContainer.style.display = 'none';
-    }
 
     if (document.getElementById('editing_op_id')) document.getElementById('editing_op_id').value = op.id || '';
     if (document.getElementById('editing_op_status')) document.getElementById('editing_op_status').value = op.status || '';

@@ -22,6 +22,11 @@ def _headers():
     return {"Authorization": f"Bearer {session.get('access_token', '')}"}
 
 
+# ─────────────────────────────────────────────
+# DC ROUTES
+# ─────────────────────────────────────────────
+
+
 @station_id_bp.route("/dc/station-id/list", methods=["GET"])
 def dc_list():
     if not session.get("access_token"):
@@ -195,8 +200,6 @@ def chips_approve(request_id):
     except Exception as network_err:
         return jsonify({"success": False, "error": f"Gateway microservice link timeout: {str(network_err)}"}), 500
 
-    except Exception as network_err:
-        return jsonify({"success": False, "error": f"Gateway microservice link timeout: {str(network_err)}"}), 500
 
 @station_id_bp.route("/chips/station-id/<int:request_id>/revert", methods=["POST"])
 def chips_revert(request_id):

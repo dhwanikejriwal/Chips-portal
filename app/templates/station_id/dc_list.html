@@ -179,6 +179,7 @@
         <div class="empty-state-icon"></div>
         <p>No pending request records found matching current scope.</p>
     </div>
+</div>
 
 <hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
 
@@ -272,6 +273,7 @@
         <div class="empty-state-icon"></div>
         <p>No historical request logs found matching current scope.</p>
     </div>
+</div>
 
 
 <script>
@@ -288,19 +290,11 @@
         };
     }
 
-    <script>
-        // Date Period Prefixes helper
-        function getDatePrefixes() {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = (now.getMonth() + 1).toString().padStart(2, '0');
-            const d = now.getDate().toString().padStart(2, '0');
-            return {
-                today: `${y}-${m}-${d}`,
-                month: `${y}-${m}`,
-                year: `${y}`
-            };
-        }
+    // Modal remarks parser
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
 
     function getStatusBadgeHtml(status) {
         const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
@@ -347,8 +341,6 @@
                 else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
                 else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
             }
-            return `<span class="badge ${badgeClass}">${label}</span>`;
-        }
 
             const stepLabel = 'Station ID Request';
             const username = r.sender_username || '';
@@ -357,26 +349,7 @@
             let cleanRemark = (r.remark || '').trim();
 
 
-                const statusAfter = r.status_after || '';
-                let statusBadgeHtmlInline = '';
-                let markerClass = 'marker-pending';
-                if (statusAfter) {
-                    statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
-                    const sLower = statusAfter.toLowerCase();
-                    if (sLower.includes('approve')) markerClass = 'marker-approved';
-                    else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
-                    else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
-                    else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
-                }
-
-                const stepLabel = 'Station ID Request';
-                const username = r.sender_username || '';
-                const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate' && sender !== 'CHiPS Admin' && sender !== 'CHIPS Admin';
-
-                let cleanRemark = (r.remark || '').trim();
-
-
-                html += `
+            html += `
                 <div class="timeline-item ${senderClass}">
                     <div class="timeline-marker ${markerClass}"></div>
                     <div class="timeline-content">
@@ -391,10 +364,10 @@
                     </div>
                 </div>
             `;
-            });
-            html += `</div></div>`;
-            return html;
-        }
+        });
+        html += `</div></div>`;
+        return html;
+    }
 
     // Details/Reapply modal popup
     window.showStationIdDetails = function (d, activeView) {
@@ -749,6 +722,9 @@
                             matchDate = rowDate >= thirtyDaysAgo;
                         }
                     }
+                    const show = matchQ && matchStatus && matchDate;
+                    row.style.display = show ? '' : 'none';
+                    if (show) visible++;
                 });
                 const tbl = document.getElementById(`${sec}-table`);
                 const emg = document.getElementById(`${sec}-empty-msg`);
@@ -798,139 +774,12 @@
                 const id = row.getAttribute('data-id');
                 if (id) ids.push(id);
             }
-        };
-
-        function openDetailsModal(row) {
-            const d = {
-                id: row.getAttribute('data-id'),
-                reqNo: row.getAttribute('data-request-no'),
-                dist: row.getAttribute('data-district'),
-                model: row.getAttribute('data-model'),
-                userType: row.getAttribute('data-user-type'),
-                customR: row.getAttribute('data-custom-reason'),
-                kits: row.getAttribute('data-kits'),
-                status: row.getAttribute('data-status'),
-                assignedStationId: row.getAttribute('data-assigned-station-id') || '',
-                remarksStr: row.getAttribute('data-remarks') || '[]',
-                submittedAt: row.getAttribute('data-created') || '—'
-            };
-            window.showStationIdDetails(d, 'details');
-        }
-
-        function toggleRaCustom(val, def) {
-            const w = document.getElementById('ra-custom-wrapper');
-            const t = document.getElementById('ra-custom-reason');
-            w.style.display = val === 'custom' ? 'block' : 'none';
-            if (val === 'custom' && !t.value) t.value = def || '';
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            // Check if this load was triggered by an action reload
-            const isActionReload = sessionStorage.getItem('dc_action_reloading') === 'true';
-            sessionStorage.removeItem('dc_action_reloading');
-
-            if (!isActionReload) {
-                sessionStorage.removeItem('dc_sid_search');
-                sessionStorage.removeItem('dc_sid_date');
-                sessionStorage.removeItem('dc_pending_status');
-                sessionStorage.removeItem('dc_log_status');
-            }
-
-            // 🌟 FIXED: Read saved filters from sessionStorage on page load
-            if (sessionStorage.getItem('dc_sid_search') !== null) {
-                document.getElementById('sid-search').value = sessionStorage.getItem('dc_sid_search');
-                document.getElementById('sid-date-filter').value = sessionStorage.getItem('dc_sid_date');
-                document.getElementById('pending-status-filter').value = sessionStorage.getItem('dc_pending_status');
-                document.getElementById('log-status-filter').value = sessionStorage.getItem('dc_log_status');
-            } else {
-                document.getElementById('sid-search').value = '';
-                document.getElementById('sid-date-filter').value = 'month';
-                document.getElementById('pending-status-filter').value = 'all';
-                document.getElementById('log-status-filter').value = 'all';
-            }
-
-            window.filterAllTables = function () {
-                const q = (document.getElementById('sid-search').value || '').toLowerCase().trim();
-                const df = document.getElementById('sid-date-filter').value;
-                const p = getDatePrefixes();
-                const now = new Date();
-
-                const pending_sf = document.getElementById('pending-status-filter').value;
-                const log_sf = document.getElementById('log-status-filter').value;
-
-                // 🌟 FIXED: Save current filter criteria to sessionStorage dynamically
-                sessionStorage.setItem('dc_sid_search', document.getElementById('sid-search').value);
-                sessionStorage.setItem('dc_sid_date', df);
-                sessionStorage.setItem('dc_pending_status', pending_sf);
-                sessionStorage.setItem('dc_log_status', log_sf);
-
-                ['pending', 'log'].forEach(sec => {
-                    const sf = (sec === 'pending') ? pending_sf : log_sf;
-                    const rows = document.querySelectorAll(`#${sec}-tbody tr[data-id]`);
-                    let visible = 0;
-                    rows.forEach(row => {
-                        const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
-                        const dist = (row.getAttribute('data-district') || '').toLowerCase();
-                        const model = (row.getAttribute('data-model') || '').toLowerCase();
-                        const status = (row.getAttribute('data-status') || '').toLowerCase();
-                        const created = row.getAttribute('data-created') || '';
-
-                        const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
-                        const customReason = (row.getAttribute('data-custom-reason') || '').toLowerCase();
-
-                        const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || customReason.includes(q);
-                        const matchStatus = (sf === 'all') || (status === sf);
-
-                        let matchDate = true;
-                        if (df === 'today') {
-                            matchDate = created.startsWith(p.today);
-                        } else if (df === 'week') {
-                            // Show entries from the last 7 days
-                            if (!created) {
-                                matchDate = false;
-                            } else {
-                                const rowDate = new Date(created.replace(' ', 'T'));
-                                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                                matchDate = rowDate >= sevenDaysAgo;
-                            }
-                        } else if (df === 'month') {
-                            // Show entries from the last 30 days
-                            if (!created) {
-                                matchDate = false;
-                            } else {
-                                const rowDate = new Date(created.replace(' ', 'T'));
-                                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                                matchDate = rowDate >= thirtyDaysAgo;
-                            }
-                        }
-                        const show = matchQ && matchStatus && matchDate;
-                        row.style.display = show ? '' : 'none';
-                        if (show) visible++;
-                    });
-                    const tbl = document.getElementById(`${sec}-table`);
-                    const emg = document.getElementById(`${sec}-empty-msg`);
-                    const cnt = document.getElementById(`${sec}-count`);
-                    if (emg) emg.style.display = (visible === 0) ? 'block' : 'none';
-                    if (cnt) cnt.textContent = visible;
-                });
-            };
-
-            window.clearAllFilters = function () {
-                document.getElementById('sid-search').value = '';
-                document.getElementById('pending-status-filter').value = 'all';
-                document.getElementById('log-status-filter').value = 'all';
-                document.getElementById('sid-date-filter').value = 'month';
-                sessionStorage.removeItem('dc_sid_search');
-                filterAllTables();
-            };
-
-            window.filterAllTables();
         });
 
-        // Export helper function to fetch Excel stream from backend
-        function exportTableToExcel(tableID, filename = 'export.xlsx') {
-            const table = document.getElementById(tableID);
-            if (!table) return;
+        if (ids.length === 0) {
+            Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#3085d6' });
+            return;
+        }
 
         window.location.href = `/auth/station-id/export?ids=${ids.join(',')}`;
 
