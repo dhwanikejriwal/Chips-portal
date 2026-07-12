@@ -24,6 +24,8 @@
                     <h2 class="panel-title">LMS Certificate Verification</h2>
                     {% if (status_data.lms_status|upper) == 'APPROVED' %}
                     <span class="status-badge approved">Approved</span>
+                    {% elif (status_data.lms_status|upper) == 'SKIPPED' %}
+                    <span class="status-badge skipped" style="background-color: #f3f4f6; color: #4b5563;">Skipped</span>
                     {% elif (status_data.lms_status|upper) == 'FORWARDED' %}
                     <span class="status-badge forwarded">Forwarded</span>
                     {% elif (status_data.lms_status|upper) == 'FORWARDED_AGAIN' %}
@@ -41,6 +43,7 @@
                     {% endif %}
                 </div>
 
+                {% if (status_data.lms_status|upper) in ['APPROVED', 'SKIPPED'] %}
                 {% if (status_data.lms_status|upper) == 'APPROVED' %}
                 <div
                     style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -52,18 +55,28 @@
                             Sent:</strong> An email has been sent to your registered email address (<strong>{{
                             status_data.email }}</strong>) containing your LMS login credentials and website link.
                         Please log in using those credentials to complete the mandatory 16-hour video training and
-                        obtain your certificate.</p>
+                        obtain your certificate. Please also check your Spam or Junk folder if you have not received it.</p>
                 </div>
+                {% else %}
+                <div
+                    style="background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; margin-bottom: 8px; font-size: 16px; font-weight: 600;">LMS Request
+                        Skipped</h4>
+                    <p style="margin: 0; font-size: 14px; line-height: 1.5;">You skipped the LMS training request.</p>
+                </div>
+                {% endif %}
                 <div
                     style="margin-bottom: 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
                     <div
                         style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                         <span class="form-label" style="font-weight: 600; color: #4a5568; margin-bottom: 0;">Your LMS
                             ID</span>
+                        {% if not status_data.lms_id %}
                         <button type="button" onclick="toggleEditLmsForm()" class="btn btn-xs btn-outline"
                             style="background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                            {% if status_data.lms_id %}Edit LMS ID{% else %}Add LMS ID{% endif %}
+                            Add LMS ID
                         </button>
+                        {% endif %}
                     </div>
 
                     {% if status_data.lms_id %}
@@ -75,23 +88,29 @@
                     <div id="lms-id-display-block" style="color: #64748b; font-style: italic;">
                         No LMS ID registered yet.
                     </div>
-                    {% endif %}
 
                     <div id="lms-id-edit-block" style="display: none; margin-top: 12px;">
                         <form method="POST" action="{{ url_for('candidate.update_lms_id') }}"
-                            style="display: flex; gap: 10px; align-items: center;">
-                            <input type="text" name="lms_id" class="form-input" value="{{ status_data.lms_id or '' }}"
-                                placeholder="Enter LMS ID..." required
-                                style="margin: 0; padding: 8px 12px; max-width: 250px;">
-                            <button type="submit" class="btn btn-sm"
-                                style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Save</button>
-                            <button type="button" onclick="toggleEditLmsForm()" class="btn btn-sm"
-                                style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Cancel</button>
+                            style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+                            <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
+                                <input type="text" name="lms_id" class="form-input" value=""
+                                    placeholder="Enter LMS ID..." required
+                                    style="margin: 0; padding: 8px 12px; max-width: 250px;">
+                                <button type="submit" class="btn btn-sm"
+                                    style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Save</button>
+                                <button type="button" onclick="toggleEditLmsForm()" class="btn btn-sm"
+                                    style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Cancel</button>
+                            </div>
+                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #b45309; font-weight: 500; display: flex; align-items: center; gap: 4px;">
+                                <i class="ti ti-alert-triangle" style="font-size: 16px;"></i> Please fill the LMS ID carefully, as you will not be able to change it later.
+                            </p>
                         </form>
                     </div>
+                    {% endif %}
                 </div>
                 <p style="font-size: 15px;">You can now proceed to the next step: <a
-                        href="{{ url_for('candidate.candidate_nseit') }}"
+                        href="{% if status_data.nseit_id and status_data.nseit_id != 'None' and (status_data.nseit_status|upper) == 'NOT INITIATED' %}javascript:void(0);{% else %}{{ url_for('candidate.candidate_nseit') }}{% endif %}"
+                        {% if status_data.nseit_id and status_data.nseit_id != 'None' and (status_data.nseit_status|upper) == 'NOT INITIATED' %}onclick="confirmNseitRedirect(event)"{% endif %}
                         style="color: #4f46e5; font-weight: 600; text-decoration: underline;">NSEIT Certificate
                         verification</a>.</p>
                 {% elif (status_data.lms_status|upper) in ['PENDING', 'REAPPLIED'] %}
@@ -102,7 +121,8 @@
                         %}Pending Verification{% endif %}
                     </h4>
                     <p style="margin: 0 0 12px; font-size: 14px; line-height: 1.5;">Your request has been successfully
-                        {% if (status_data.lms_status|upper) == 'REAPPLIED' %}reapplied{% else %}submitted{% endif %} and is
+                        {% if (status_data.lms_status|upper) == 'REAPPLIED' %}reapplied{% else %}submitted{% endif %}
+                        and is
                         currently pending verification of Administrator.</p>
                     <p style="margin: 0; font-size: 14px; font-weight: 500; line-height: 1.5;"><strong>Next
                             Step:</strong> Please wait for approval. Once Administrator grants final approval, an email
@@ -138,15 +158,7 @@
                 </div>
                 {% endif %}
 
-                <div class="aadhaar-reminder-box">
-                    <div class="aadhaar-reminder-icon">
-                        <i class="ti ti-alert-triangle"></i>
-                    </div>
-                    <div class="aadhaar-reminder-content">
-                        <p>Please make sure that your <strong>Full Name</strong> and <strong>Mobile Number</strong>
-                            entered below match <strong>exactly as per your Aadhaar Card</strong>.</p>
-                    </div>
-                </div>
+
 
                 <form method="POST" action="{{ url_for('candidate.candidate_lms') }}">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
@@ -154,27 +166,30 @@
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="name" class="form-label">Full Name *</label>
                             <input type="text" id="name" name="name" class="form-input" value="{{ status_data.name }}"
-                                required>
+                                readonly style="background-color: #f1f5f9; cursor: not-allowed;" required>
                         </div>
 
                         <!-- Mobile Number -->
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="mobile" class="form-label">Mobile Number *</label>
                             <input type="tel" id="mobile" name="mobile" class="form-input"
-                                value="{{ status_data.mobile }}" pattern="[0-9]{10}" required>
+                                value="{{ status_data.mobile }}" pattern="[0-9]{10}"
+                                readonly style="background-color: #f1f5f9; cursor: not-allowed;" required>
                         </div>
 
                         <!-- Email Address -->
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="email" class="form-label">Email Address *</label>
                             <input type="email" id="email" name="email" class="form-input"
-                                value="{{ status_data.email }}" required>
+                                value="{{ status_data.email }}"
+                                readonly style="background-color: #f1f5f9; cursor: not-allowed;" required>
                         </div>
 
                         <!-- Operational District -->
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="district" class="form-label">Operational District *</label>
-                            <select id="district" name="district" class="form-input" required>
+                            <select id="district" name="district" class="form-input"
+                                style="pointer-events: none; background-color: #f1f5f9; cursor: not-allowed;" tabindex="-1" required>
                                 {% for d in districts %}
                                 <option value="{{ d.district_code }}" {% if d.district_code==status_data.district
                                     %}selected{% endif %}>
@@ -198,7 +213,8 @@
             </div>
 
             <!-- Mandatory LMS Training Information (Rendered below the card container) -->
-            {% if (status_data.lms_status|upper) not in ['APPROVED', 'PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN'] %}
+            {% if (status_data.lms_status|upper) not in ['APPROVED', 'PENDING', 'FORWARDED', 'REAPPLIED',
+            'FORWARDED_AGAIN'] %}
             <div
                 style="background: #eef2ff; border: 1px solid #e0e7ff; color: #3730a3; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <h4
@@ -215,54 +231,55 @@
         </div>
 
         <!-- Side Panel: Remarks Log History -->
-        <div style="height: 100%; display: flex; flex-direction: column; justify-content: flex-start; min-height: 400px;">
+        <div
+            style="height: 100%; display: flex; flex-direction: column; justify-content: flex-start; min-height: 400px;">
             <div class="side-panel" style="display: flex; flex-direction: column; overflow: hidden; max-height: 100%;">
-            <h3
-                style="font-size: 16px; font-weight: 600; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
-                Request History Log</h3>
-            <div class="remarks-timeline">
-                {% if status_data.lms_remarks %}
-                {% for r in status_data.lms_remarks %}
-                <div class="remark-log-item {% if r.sender_role in ['CHIPS', 'DC', 'EDM'] %}by-admin{% endif %}">
-                    <div class="remark-section-row">
-                        <span class="remark-step-label">LMS Credential</span>
+                <h3
+                    style="font-size: 16px; font-weight: 600; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                    Request History Log</h3>
+                <div class="remarks-timeline">
+                    {% if status_data.lms_remarks %}
+                    {% for r in status_data.lms_remarks %}
+                    <div class="remark-log-item {% if r.sender_role in ['CHIPS', 'DC', 'EDM'] %}by-admin{% endif %}">
+                        <div class="remark-section-row">
+                            <span class="remark-step-label">LMS Credential</span>
 
-                        <!-- 🌟 FIXED DICTIONARY LOOKUP: Correctly pulls the backend string key -->
-                        {% set db_status = r.get('status_after') or 'Pending' %}
+                            <!-- 🌟 FIXED DICTIONARY LOOKUP: Correctly pulls the backend string key -->
+                            {% set db_status = r.get('status_after') or 'Pending' %}
 
-                        <!-- Filter administrative jargon like "Reverted by CHiPS" to just "Reverted" for the candidate -->
-                        {% if 'revert' in db_status | lower %}
-                        {% set calculated_status = 'Reverted' %}
-                        {% elif 'forward' in db_status | lower %}
-                        {% set calculated_status = 'Forwarded' %}
-                        {% else %}
-                        {% set calculated_status = db_status %}
-                        {% endif %}
+                            <!-- Filter administrative jargon like "Reverted by CHiPS" to just "Reverted" for the candidate -->
+                            {% if 'revert' in db_status | lower %}
+                            {% set calculated_status = 'Reverted' %}
+                            {% elif 'forward' in db_status | lower %}
+                            {% set calculated_status = 'Forwarded' %}
+                            {% else %}
+                            {% set calculated_status = db_status %}
+                            {% endif %}
 
-                        <span
-                            class="remark-status-badge badge-{{ calculated_status | lower | replace(' ', '-') }} {{ calculated_status | lower | replace(' ', '-') }}">
-                            {{ calculated_status }}
-                        </span>
+                            <span
+                                class="remark-status-badge badge-{{ calculated_status | lower | replace(' ', '-') }} {{ calculated_status | lower | replace(' ', '-') }}">
+                                {{ calculated_status | title }}
+                            </span>
+                        </div>
+                        <div class="remark-by-row">
+                            <span class="remark-sender">By: <strong>
+                                    {% if r.sender_role in ['CHIPS', 'DC', 'EDM'] %}
+                                    Administrator
+                                    {% else %}
+                                    You
+                                    {% endif %}
+                                </strong></span>
+                            <span class="remark-time">{{ r.created_at }}</span>
+                        </div>
+                        <div class="remark-body">{{ r.remark }}</div>
                     </div>
-                    <div class="remark-by-row">
-                        <span class="remark-sender">By: <strong>
-                                {% if r.sender_role in ['CHIPS', 'DC', 'EDM'] %}
-                                Administrator
-                                {% else %}
-                                You
-                                {% endif %}
-                            </strong></span>
-                        <span class="remark-time">{{ r.created_at }}</span>
-                    </div>
-                    <div class="remark-body">{{ r.remark }}</div>
+                    {% endfor %}
+                    {% else %}
+                    <p style="color: #718096; font-size: 14px;">No remarks logs yet. Your submission and administrator
+                        feedback will appear here.</p>
+                    {% endif %}
                 </div>
-                {% endfor %}
-                {% else %}
-                <p style="color: #718096; font-size: 14px;">No remarks logs yet. Your submission and administrator
-                    feedback will appear here.</p>
-                {% endif %}
             </div>
-        </div>
         </div>
     </div>
 </div>
@@ -278,6 +295,28 @@
             edit.style.display = 'none';
             if (display) display.style.display = 'inline-block';
         }
+    }
+
+    function confirmNseitRedirect(event) {
+        event.preventDefault();
+        Swal.fire({
+            title: '<span style="font-family:\'Inter\', sans-serif; font-weight: 700; color: #1f2937;">Already Have ID!</span>',
+            html: '<span style="font-family:\'Inter\', sans-serif; font-size: 15px; color: #4b5563; line-height: 1.6;">You already have and filled your <strong>NSEIT ID</strong>. If you want to get a new one, click <strong>Proceed</strong>. Otherwise, click <strong>Cancel</strong>.</span>',
+            icon: 'warning',
+            iconColor: '#f59e0b',
+            showCancelButton: true,
+            confirmButtonColor: '#3b82f6',
+            cancelButtonColor: '#ef4444',
+            confirmButtonText: 'Proceed & Request New',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                popup: 'swal2-border-radius-lg'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = "{{ url_for('candidate.candidate_nseit') }}";
+            }
+        });
     }
 </script>
 {% endblock %}

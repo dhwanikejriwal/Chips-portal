@@ -71,7 +71,7 @@ def run_migrations():
             Base.metadata.create_all(bind=engine)
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE candidate_table ADD COLUMN IF NOT EXISTS exam_unique_code VARCHAR(100);"))
-                conn.execute(text("ALTER TABLE candidate_login_table ADD COLUMN IF NOT EXISTS has_changed_password BOOLEAN DEFAULT FALSE;"))
+                conn.execute(text("ALTER TABLE candidate_login_table ADD COLUMN IF NOT EXISTS has_changed_password INTEGER DEFAULT 0;"))
             print("Success: Checked and added new columns if missing!")
         except Exception as e:
             with open("migration_error.log", "w") as f:

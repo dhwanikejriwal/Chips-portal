@@ -13,7 +13,7 @@ class NSEITRequest(Base):
     __tablename__ = "nseit_request_table"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    r_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidate_table.r_id"), unique=True, nullable=False, name="R_Id")
+    request_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidate_table.id"), unique=True, nullable=False)
     
     status_id: Mapped[int] = mapped_column(Integer, ForeignKey("master_status.id"), default=1)
 
@@ -37,7 +37,7 @@ class NSEITRemark(Base):
     __tablename__ = "nseit_request_remark_table"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    nseit_id: Mapped[int] = mapped_column(Integer, ForeignKey("nseit_request_table.id"), nullable=False, name="R_Id")
+    request_id: Mapped[int] = mapped_column(Integer, ForeignKey("nseit_request_table.id"), nullable=False)
     remark: Mapped[str] = mapped_column(String(1000), nullable=False)
     time: Mapped[datetime] = mapped_column(DateTime, default=get_ist_now, nullable=False)
     
@@ -56,13 +56,35 @@ class NSEITRemark(Base):
         else:
             self.status_after_id = to_code(value)
     
-    admin_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("user_login_table.id"), nullable=True)
-    candidate_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("candidate_login_table.id"), nullable=True)
-    is_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sender_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    receiver_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_public: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
     # Relationships
     nseit_request: Mapped[NSEITRequest] = relationship("NSEITRequest", back_populates="remarks")
     
-    admin_author: Mapped["UserLogin | None"] = relationship("UserLogin", back_populates="nseit_remarks_written", foreign_keys=[admin_by_id])
-    candidate_author: Mapped["CandidateLogin | None"] = relationship("CandidateLogin", back_populates="nseit_remarks_written", foreign_keys=[candidate_by_id])
+    sender_admin: Mapped["UserLogin | None"] = relationship("UserLogin", foreign_keys=[sender_id], primaryjoin="NSEITRemark.sender_id == UserLogin.id", viewonly=True)
+    sender_candidate: Mapped["CandidateLogin | None"] = relationship("CandidateLogin", foreign_keys=[sender_id], primaryjoin="NSEITRemark.sender_id == CandidateLogin.id", viewonly=True)
+
+    @property
+    def is_candidate_sender(self) -> bool:
+        if self.nseit_request and self.nseit_request.candidate and self.nseit_request.candidate.login:
+            return self.sender_id == self.nseit_request.candidate.login.id
+        return False
+
+    @property
+    def admin_by_id(self) -> int | None:
+        return None if self.is_candidate_sender else self.sender_id
+
+    @property
+    def candidate_by_id(self) -> int | None:
+        return self.sender_id if self.is_candidate_sender else None
+
+    @property
+    def admin_author(self) -> "UserLogin | None":
+        return None if self.is_candidate_sender else self.sender_admin
+
+    @property
+    def candidate_author(self) -> "CandidateLogin | None":
+        return self.sender_candidate if self.is_candidate_sender else None
 

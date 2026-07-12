@@ -279,7 +279,7 @@ def _seed_candidate_pipeline(db: Session, dc_map: dict, admin_user: UserLogin):
         }[status]
 
         db.add(DCRemark(
-            r_id=c.r_id,
+            request_id=c.id,
             remark=remark_text,
             time=t[1],
             by=dc_user.id,
@@ -291,7 +291,7 @@ def _seed_candidate_pipeline(db: Session, dc_map: dict, admin_user: UserLogin):
 
         # Create CandidateLogin for approved candidate
         c_login = CandidateLogin(
-            r_id=c.r_id,
+            request_id=c.id,
             user_id=email,
             password=hp("Test@123")
         )
@@ -312,7 +312,7 @@ def _seed_candidate_pipeline(db: Session, dc_map: dict, admin_user: UserLogin):
         lms_status = lms_pool[i % len(lms_pool)]
 
         lms = LMS(
-            r_id=c.r_id,
+            request_id=c.id,
             status=lms_status,
             created_at=t[2],
             updated_at=t[3]
@@ -324,7 +324,7 @@ def _seed_candidate_pipeline(db: Session, dc_map: dict, admin_user: UserLogin):
         _add_lms_remarks(db, lms, lms_status, dc_user, admin_user, c_login, t[2], t[3])
 
         if lms_status in ["Approved", "Skipped"]:
-            c.lms_id = f"LMS{c.r_id:05d}"
+            c.lms_id = f"LMS{c.id:05d}"
             # Next: NSEIT stage
             # 31 Candidates who completed LMS:
             # 10 Pending NSEIT, 6 Reverted NSEIT, 4 Reverted by CHiPS NSEIT, 4 Reapplied NSEIT, 7 Completed (Approved/Skipped) NSEIT
@@ -339,7 +339,7 @@ def _seed_candidate_pipeline(db: Session, dc_map: dict, admin_user: UserLogin):
             nseit_status = nseit_pool[i % len(nseit_pool)]
 
             nseit = NSEITRequest(
-                r_id=c.r_id,
+                request_id=c.id,
                 status=nseit_status,
                 created_at=t[4],
                 updated_at=t[5]
@@ -351,8 +351,8 @@ def _seed_candidate_pipeline(db: Session, dc_map: dict, admin_user: UserLogin):
             _add_nseit_remarks(db, nseit, nseit_status, dc_user, admin_user, c_login, t[4], t[5])
 
             if nseit_status in ["Approved", "Skipped"]:
-                c.nseit_id = f"NSEIT{c.r_id:05d}"
-                c.exam_unique_code = f"EXAM-{c.r_id:05d}"
+                c.nseit_id = f"NSEIT{c.id:05d}"
+                c.exam_unique_code = f"EXAM-{c.id:05d}"
 
                 # Next: Operator Activation stage
                 # 7 candidates who completed NSEIT:
@@ -416,42 +416,42 @@ def _seed_candidate_pipeline(db: Session, dc_map: dict, admin_user: UserLogin):
 
 def _add_lms_remarks(db, lms, status, dc_user, admin_user, c_login, c_time, u_time):
     if status == "Pending":
-        db.add(LMSRemark(lms_id=lms.id, remark="LMS request submitted by candidate.", candidate_by_id=c_login.id, status_after="Pending", time=c_time))
+        db.add(LMSRemark(request_id=lms.id, remark="LMS request submitted by candidate.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Pending", time=c_time))
     elif status == "Approved":
-        db.add(LMSRemark(lms_id=lms.id, remark="LMS request submitted.", candidate_by_id=c_login.id, status_after="Pending", time=c_time))
-        db.add(LMSRemark(lms_id=lms.id, remark="LMS details verified & approved.", admin_by_id=admin_user.id, status_after="Approved", time=u_time))
+        db.add(LMSRemark(request_id=lms.id, remark="LMS request submitted.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Pending", time=c_time))
+        db.add(LMSRemark(request_id=lms.id, remark="LMS details verified & approved.", sender_id=admin_user.id, receiver_id=c_login.id, is_public=1, status_after="Approved", time=u_time))
     elif status == "Skipped":
-        db.add(LMSRemark(lms_id=lms.id, remark="Request skipped. Candidate provided existing LMS ID.", candidate_by_id=c_login.id, status_after="Skipped", time=c_time))
+        db.add(LMSRemark(request_id=lms.id, remark="Request skipped. Candidate provided existing LMS ID.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Skipped", time=c_time))
     elif status == "Reverted":
-        db.add(LMSRemark(lms_id=lms.id, remark="LMS request submitted.", candidate_by_id=c_login.id, status_after="Pending", time=c_time))
-        db.add(LMSRemark(lms_id=lms.id, remark="Document mismatch. Reverting back to candidate.", admin_by_id=dc_user.id, status_after="Reverted", time=u_time))
+        db.add(LMSRemark(request_id=lms.id, remark="LMS request submitted.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Pending", time=c_time))
+        db.add(LMSRemark(request_id=lms.id, remark="Document mismatch. Reverting back to candidate.", sender_id=dc_user.id, receiver_id=c_login.id, is_public=1, status_after="Reverted", time=u_time))
     elif status == "Reverted by CHiPS":
-        db.add(LMSRemark(lms_id=lms.id, remark="LMS request submitted.", candidate_by_id=c_login.id, status_after="Pending", time=c_time))
-        db.add(LMSRemark(lms_id=lms.id, remark="Reverted by state admin for verification.", admin_by_id=admin_user.id, status_after="Reverted by CHiPS", time=u_time))
+        db.add(LMSRemark(request_id=lms.id, remark="LMS request submitted.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Pending", time=c_time))
+        db.add(LMSRemark(request_id=lms.id, remark="Reverted by state admin for verification.", sender_id=admin_user.id, receiver_id=c_login.id, is_public=1, status_after="Reverted by CHiPS", time=u_time))
     elif status == "Reapplied":
-        db.add(LMSRemark(lms_id=lms.id, remark="LMS request submitted.", candidate_by_id=c_login.id, status_after="Pending", time=c_time - timedelta(days=2)))
-        db.add(LMSRemark(lms_id=lms.id, remark="Reverted for correction.", admin_by_id=dc_user.id, status_after="Reverted", time=c_time - timedelta(days=1)))
-        db.add(LMSRemark(lms_id=lms.id, remark="Corrected and resubmitted.", candidate_by_id=c_login.id, status_after="Reapplied", time=c_time))
+        db.add(LMSRemark(request_id=lms.id, remark="LMS request submitted.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Pending", time=c_time - timedelta(days=2)))
+        db.add(LMSRemark(request_id=lms.id, remark="Reverted for correction.", sender_id=dc_user.id, receiver_id=c_login.id, is_public=1, status_after="Reverted", time=c_time - timedelta(days=1)))
+        db.add(LMSRemark(request_id=lms.id, remark="Corrected and resubmitted.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Reapplied", time=c_time))
 
 
 def _add_nseit_remarks(db, nseit, status, dc_user, admin_user, c_login, c_time, u_time):
     if status == "Pending":
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="NSEIT request submitted by candidate.", candidate_by_id=c_login.id, status_after="Pending", time=c_time))
+        db.add(NSEITRemark(request_id=nseit.id, remark="NSEIT request submitted by candidate.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Pending", time=c_time))
     elif status == "Approved":
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="NSEIT details submitted.", candidate_by_id=c_login.id, status_after="Pending", time=c_time))
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="NSEIT verification completed. Approved.", admin_by_id=admin_user.id, status_after="Approved", time=u_time))
+        db.add(NSEITRemark(request_id=nseit.id, remark="NSEIT details submitted.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Pending", time=c_time))
+        db.add(NSEITRemark(request_id=nseit.id, remark="NSEIT verification completed. Approved.", sender_id=admin_user.id, receiver_id=c_login.id, is_public=1, status_after="Approved", time=u_time))
     elif status == "Skipped":
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="Skipped. Candidate provided existing NSEIT certificate.", candidate_by_id=c_login.id, status_after="Skipped", time=c_time))
+        db.add(NSEITRemark(request_id=nseit.id, remark="Skipped. Candidate provided existing NSEIT certificate.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Skipped", time=c_time))
     elif status == "Reverted":
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="NSEIT request submitted.", candidate_by_id=c_login.id, status_after="Pending", time=c_time))
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="Certificate copy is not readable.", admin_by_id=dc_user.id, status_after="Reverted", time=u_time))
+        db.add(NSEITRemark(request_id=nseit.id, remark="NSEIT request submitted.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Pending", time=c_time))
+        db.add(NSEITRemark(request_id=nseit.id, remark="Certificate copy is not readable.", sender_id=dc_user.id, receiver_id=c_login.id, is_public=1, status_after="Reverted", time=u_time))
     elif status == "Reverted by CHiPS":
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="NSEIT request submitted.", candidate_by_id=c_login.id, status_after="Pending", time=c_time))
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="CHIPS admin reverted due to name match issue.", admin_by_id=admin_user.id, status_after="Reverted by CHiPS", time=u_time))
+        db.add(NSEITRemark(request_id=nseit.id, remark="NSEIT request submitted.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Pending", time=c_time))
+        db.add(NSEITRemark(request_id=nseit.id, remark="CHIPS admin reverted due to name match issue.", sender_id=admin_user.id, receiver_id=c_login.id, is_public=1, status_after="Reverted by CHiPS", time=u_time))
     elif status == "Reapplied":
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="NSEIT request submitted.", candidate_by_id=c_login.id, status_after="Pending", time=c_time - timedelta(days=2)))
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="Reverted by state admin.", admin_by_id=admin_user.id, status_after="Reverted by CHiPS", time=c_time - timedelta(days=1)))
-        db.add(NSEITRemark(nseit_id=nseit.id, remark="Reapplied with certificate scan.", candidate_by_id=c_login.id, status_after="Reapplied", time=c_time))
+        db.add(NSEITRemark(request_id=nseit.id, remark="NSEIT request submitted.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Pending", time=c_time - timedelta(days=2)))
+        db.add(NSEITRemark(request_id=nseit.id, remark="Reverted by state admin.", sender_id=admin_user.id, receiver_id=c_login.id, is_public=1, status_after="Reverted by CHiPS", time=c_time - timedelta(days=1)))
+        db.add(NSEITRemark(request_id=nseit.id, remark="Reapplied with certificate scan.", sender_id=c_login.id, receiver_id=dc_user.id, is_public=1, status_after="Reapplied", time=c_time))
 
 
 # ──────────────────────────── station pipeline ────────────────────────────

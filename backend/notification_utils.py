@@ -145,7 +145,7 @@ def _compute_dc_snapshot(district_id, baseline_at, db):
 
     # LMS / NSEIT: new = created since baseline, OR reapplied since baseline.
     def _creds_new_count(model):
-        q = db.query(model).join(Candidate, model.r_id == Candidate.r_id)
+        q = db.query(model).join(Candidate, model.request_id == Candidate.id)
         if district_id:
             q = q.filter(Candidate.district == district_id)
         n = 0
@@ -238,16 +238,16 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
         # admin. Use the most recent forward-remark's timestamp instead of
         # created_at, and only count requests currently awaiting CHiPS action.
         lms_forward_sub = (
-            db.query(LMSRemark.lms_id.label("lms_id"), func.max(LMSRemark.time).label("forwarded_at"))
+            db.query(LMSRemark.request_id.label("lms_id"), func.max(LMSRemark.time).label("forwarded_at"))
             .filter(LMSRemark.status_after.in_(FORWARDED_STATUSES))
-            .group_by(LMSRemark.lms_id)
+            .group_by(LMSRemark.request_id)
             .subquery()
         )
         lms_query = (
             db.query(lms_forward_sub.c.forwarded_at)
             .select_from(LMS)
             .join(lms_forward_sub, LMS.id == lms_forward_sub.c.lms_id)
-            .join(Candidate, LMS.r_id == Candidate.r_id)
+            .join(Candidate, LMS.request_id == Candidate.id)
             .filter(LMS.status.in_(FORWARDED_STATUSES), lms_forward_sub.c.forwarded_at > baseline_at)
         )
         lms_dates = [make_naive(row[0]) for row in lms_query.all()]
@@ -255,16 +255,16 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
         type_counts["lms"] = len(lms_dates)
 
         nseit_forward_sub = (
-            db.query(NSEITRemark.nseit_id.label("nseit_id"), func.max(NSEITRemark.time).label("forwarded_at"))
+            db.query(NSEITRemark.request_id.label("nseit_id"), func.max(NSEITRemark.time).label("forwarded_at"))
             .filter(NSEITRemark.status_after.in_(FORWARDED_STATUSES))
-            .group_by(NSEITRemark.nseit_id)
+            .group_by(NSEITRemark.request_id)
             .subquery()
         )
         nseit_query = (
             db.query(nseit_forward_sub.c.forwarded_at)
             .select_from(NSEITRequest)
             .join(nseit_forward_sub, NSEITRequest.id == nseit_forward_sub.c.nseit_id)
-            .join(Candidate, NSEITRequest.r_id == Candidate.r_id)
+            .join(Candidate, NSEITRequest.request_id == Candidate.id)
             .filter(NSEITRequest.status.in_(FORWARDED_STATUSES), nseit_forward_sub.c.forwarded_at > baseline_at)
         )
         nseit_dates = [make_naive(row[0]) for row in nseit_query.all()]
@@ -273,14 +273,14 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
     else:
         # For a DC admin, the candidate's own submission is what lands in
         # their queue — created_at is the right cutoff.
-        lms_query = db.query(LMS).join(Candidate, LMS.r_id == Candidate.r_id).filter(LMS.created_at > baseline_at)
+        lms_query = db.query(LMS).join(Candidate, LMS.request_id == Candidate.id).filter(LMS.created_at > baseline_at)
         if dc_district_id:
             lms_query = lms_query.filter(Candidate.district == dc_district_id)
         lms_dates = [make_naive(r.created_at) for r in lms_query.all()]
         credentials_exams_dates += lms_dates
         type_counts["lms"] = len(lms_dates)
 
-        nseit_query = db.query(NSEITRequest).join(Candidate, NSEITRequest.r_id == Candidate.r_id).filter(NSEITRequest.created_at > baseline_at)
+        nseit_query = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id).filter(NSEITRequest.created_at > baseline_at)
         if dc_district_id:
             nseit_query = nseit_query.filter(Candidate.district == dc_district_id)
         nseit_dates = [make_naive(r.created_at) for r in nseit_query.all()]

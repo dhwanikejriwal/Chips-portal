@@ -524,6 +524,7 @@ async def send_password_reset_otp_email(email_to: str, name: str, otp_code: str)
         await fm.send_message(message)
     except Exception as e:
         print(f"Failed to send email to {email_to}: {e}")
+        raise e
 
 
 async def send_otp_email(email_to: str, otp_code: str):

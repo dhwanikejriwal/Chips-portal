@@ -15,7 +15,7 @@ class LMS(Base):
     __tablename__ = "LMS_table"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    r_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidate_table.r_id"), unique=True, nullable=False, name="R_Id")
+    request_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidate_table.id"), unique=True, nullable=False)
     
     status_id: Mapped[int] = mapped_column(Integer, ForeignKey("master_status.id"), default=1)
 
@@ -39,7 +39,7 @@ class LMSRemark(Base):
     __tablename__ = "lms_remark_table"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    lms_id: Mapped[int] = mapped_column(Integer, ForeignKey("LMS_table.id"), nullable=False, name="R_id")
+    request_id: Mapped[int] = mapped_column(Integer, ForeignKey("LMS_table.id"), nullable=False)
     remark: Mapped[str] = mapped_column(String(1000), nullable=False)
     time: Mapped[datetime] = mapped_column(DateTime, default=get_ist_now, nullable=False)
     
@@ -58,12 +58,34 @@ class LMSRemark(Base):
         else:
             self.status_after_id = to_code(value)
     
-    admin_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("user_login_table.id"), nullable=True)
-    candidate_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("candidate_login_table.id"), nullable=True)
-    is_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sender_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    receiver_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_public: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
     # Relationships
     lms_request: Mapped[LMS] = relationship("LMS", back_populates="remarks")
     
-    admin_author: Mapped["UserLogin | None"] = relationship("UserLogin", back_populates="lms_remarks_written", foreign_keys=[admin_by_id])
-    candidate_author: Mapped["CandidateLogin | None"] = relationship("CandidateLogin", back_populates="lms_remarks_written", foreign_keys=[candidate_by_id])
+    sender_admin: Mapped["UserLogin | None"] = relationship("UserLogin", foreign_keys=[sender_id], primaryjoin="LMSRemark.sender_id == UserLogin.id", viewonly=True)
+    sender_candidate: Mapped["CandidateLogin | None"] = relationship("CandidateLogin", foreign_keys=[sender_id], primaryjoin="LMSRemark.sender_id == CandidateLogin.id", viewonly=True)
+
+    @property
+    def is_candidate_sender(self) -> bool:
+        if self.lms_request and self.lms_request.candidate and self.lms_request.candidate.login:
+            return self.sender_id == self.lms_request.candidate.login.id
+        return False
+
+    @property
+    def admin_by_id(self) -> int | None:
+        return None if self.is_candidate_sender else self.sender_id
+
+    @property
+    def candidate_by_id(self) -> int | None:
+        return self.sender_id if self.is_candidate_sender else None
+
+    @property
+    def admin_author(self) -> "UserLogin | None":
+        return None if self.is_candidate_sender else self.sender_admin
+
+    @property
+    def candidate_author(self) -> "CandidateLogin | None":
+        return self.sender_candidate if self.is_candidate_sender else None

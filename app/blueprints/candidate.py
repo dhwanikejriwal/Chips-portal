@@ -3,6 +3,19 @@ from flask import Blueprint, render_template, redirect, url_for, request, sessio
 
 candidate_bp = Blueprint("candidate", __name__)
 
+@candidate_bp.before_request
+def load_candidate_name():
+    if "access_token" in session and session.get("role") == "Candidate" and not session.get("candidate_name"):
+        r_id = session.get("r_id")
+        if r_id:
+            backend_url = f"{current_app.config['BACKEND_API_URL']}/candidate/status/{r_id}"
+            try:
+                res = requests.get(backend_url)
+                if res.status_code == 200:
+                    session["candidate_name"] = res.json().get("name", "")
+            except Exception:
+                pass
+
 @candidate_bp.route("/candidate/instructions")
 def instructions():
     if "access_token" not in session or session.get("role") != "Candidate":
@@ -141,7 +154,7 @@ def skip_lms():
     try:
         response = requests.post(backend_url, params={"lms_id": lms_id, "login_id": login_id})
         if response.status_code == 200:
-            flash("LMS step skipped and ID registered successfully!", "success")
+            flash("LMS step skipped successfully!", "success")
         else:
             detail = response.json().get("detail", "Failed to skip LMS request.")
             flash(detail, "danger")

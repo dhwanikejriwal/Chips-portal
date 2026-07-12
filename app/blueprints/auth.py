@@ -37,6 +37,7 @@ def login():
                 elif data["role"] == "Candidate":
                     session["r_id"] = data.get("r_id")
                     session["has_changed_password"] = data.get("has_changed_password", True)
+                    session["candidate_name"] = data.get("name", "")
                     return redirect(url_for("candidate.instructions"))
                 else:
                     flash("Role not supported in this interface.", "danger")

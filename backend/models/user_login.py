@@ -20,7 +20,7 @@ class UserLogin(Base):
     password: Mapped[str] = mapped_column(String(255), nullable=False)
     district_id: Mapped[str | None] = mapped_column(String(20), ForeignKey("district_table.district_code"), nullable=True)
     roleid: Mapped[int] = mapped_column(Integer, ForeignKey("master_user_role.id"), nullable=False)
-    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    is_active: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
     # Relationships
     role: Mapped["MasterUserRole"] = relationship("MasterUserRole", back_populates="users")
@@ -29,7 +29,7 @@ class UserLogin(Base):
     
     dc_remarks: Mapped[list["DCRemark"]] = relationship("DCRemark", back_populates="author")
     
-    lms_remarks_written: Mapped[list["LMSRemark"]] = relationship("LMSRemark", back_populates="admin_author", foreign_keys="[LMSRemark.admin_by_id]")
+    lms_remarks_written: Mapped[list["LMSRemark"]] = relationship("LMSRemark", foreign_keys="[LMSRemark.sender_id]", primaryjoin="LMSRemark.sender_id == UserLogin.id", viewonly=True)
     
-    nseit_remarks_written: Mapped[list["NSEITRemark"]] = relationship("NSEITRemark", back_populates="admin_author", foreign_keys="[NSEITRemark.admin_by_id]")
+    nseit_remarks_written: Mapped[list["NSEITRemark"]] = relationship("NSEITRemark", foreign_keys="[NSEITRemark.sender_id]", primaryjoin="NSEITRemark.sender_id == UserLogin.id", viewonly=True)
 

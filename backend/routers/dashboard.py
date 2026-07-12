@@ -59,11 +59,11 @@ def _fetch_workflow_rows(db, workflow):
     """
     if workflow == "lms":
         return db.query(LMS.created_at, LMS.updated_at, LMS.status, District.district_name)\
-            .join(Candidate, LMS.r_id == Candidate.r_id)\
+            .join(Candidate, LMS.request_id == Candidate.id)\
             .outerjoin(District, Candidate.district == District.district_code).all()
     if workflow == "nseit":
         return db.query(NSEITRequest.created_at, NSEITRequest.updated_at, NSEITRequest.status, District.district_name)\
-            .join(Candidate, NSEITRequest.r_id == Candidate.r_id)\
+            .join(Candidate, NSEITRequest.request_id == Candidate.id)\
             .outerjoin(District, Candidate.district == District.district_code).all()
     if workflow == "activation":
         return db.query(OperatorActivationRequest.submitted_at, OperatorActivationRequest.reviewed_at,
@@ -653,7 +653,7 @@ def update_district_settings(district_code: str, settings: DistrictSettingsUpdat
     if not d:
         raise HTTPException(status_code=404, detail="District not found")
         
-    d.registration_open = settings.registration_open
+    d.registration_open = 1 if settings.registration_open else 0
     d.registration_start_date = settings.registration_start_date
     d.registration_end_date = settings.registration_end_date
     

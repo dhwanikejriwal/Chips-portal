@@ -9,10 +9,11 @@
 
 {% block content %}
 
-{% set total_requests = pending_requests | length + approved_requests | length %}
 {% set pending_count = pending_requests | length %}
 {% set approved_count = approved_requests | selectattr('status', 'equalto', 'Approved') | list | length %}
 {% set reverted_count = approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length %}
+{% set hold_count = hold_requests | length %}
+{% set total_requests = pending_count + approved_count + reverted_count + hold_count %}
 
 <!-- Stats Row -->
 <!-- Gradient Admin Banner -->
@@ -34,6 +35,10 @@
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ pending_count }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ hold_count }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">On Hold</div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ approved_count }}</div>
@@ -141,6 +146,8 @@
                             onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')">Approve</button>
                         <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
                             onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')">Reject</button>
+                        <button type="button" class="btn btn-sm" style="background-color: #6c757d; color: white;"
+                            onclick="openHoldModal('{{ req.r_id }}', '{{ req.name }}')">Hold</button>
                         <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'), false)">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2.5">
@@ -158,6 +165,81 @@
     <div id="pending-empty-msg" class="empty-state" style="display: none;">
 
         <p>No pending requests</p>
+    </div>
+</div>
+
+<hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
+
+<!-- On Hold Queue Table Section -->
+<div class="section-heading" style="margin-top: 40px;">
+    <div class="section-heading-dot" style="background:#6c757d;"></div>
+    <h3>On Hold Requests</h3>
+    <span class="section-count" id="hold-count-badge">–</span>
+    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+        <button type="button" onclick="exportBackend('admin-hold-table')" class="btn btn-sm"
+            style="display: inline-flex; align-items: center; background-color: #007bff; color: white; border: none; cursor: pointer;">
+            Export to CSV
+        </button>
+    </div>
+</div>
+<div class="sid-table-wrapper">
+    <table class="sid-table" id="admin-hold-table">
+        <thead>
+            <tr>
+                <th>S.No</th>
+                <th>Request Code</th>
+                <th>District</th>
+                <th>Candidate Name</th>
+                <th>Mobile No</th>
+                <th>Email ID</th>
+                <th>Status</th>
+                <th>Submitted At</th>
+                <th>Updated At</th>
+                <th style="text-align: center;">Action</th>
+            </tr>
+        </thead>
+        <tbody id="admin-hold-body">
+            {% for req in hold_requests %}
+            <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+                data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+                data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+                data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
+                data-pincode="{{ req.pincode or '' }}"
+                data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+                data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+                data-marksheet="{{ req.marksheet_upload }}"
+                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.status }}"
+                data-login-id="{{ req.generated_login_id or '' }}"
+                data-password="{{ req.generated_password_raw or '' }}"
+                data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+                data-updated="{{ req.updated_at or req.created_at }}">
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ req.request_code }}</strong></td>
+                <td>{{ req.district_name }}</td>
+                <td>{{ req.name }}</td>
+                <td>{{ req.mobile }}</td>
+                <td>{{ req.email }}</td>
+                <td>
+                    <span class="badge" style="background: #f3f4f6; color: #374151;">On Hold</span>
+                </td>
+                <td>{{ req.created_at }}</td>
+                <td>{{ req.updated_at or req.created_at }}</td>
+                <td style="text-align: center;">
+                    <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Details
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div id="hold-empty-msg" class="empty-state" style="display: none;">
+        <p>No candidates currently on hold</p>
     </div>
 </div>
 
@@ -267,6 +349,9 @@
         <p>No log history</p>
     </div>
 </div>
+
+
+
 
 
 <script>
@@ -448,10 +533,65 @@
             }
         });
 
+        // Filter hold requests
+        const holdRows = document.querySelectorAll('#admin-hold-body tr');
+        let holdIndex = 1;
+        let holdCount = 0;
+        holdRows.forEach(row => {
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return; // skip "no rows" row
+
+            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+            const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
+            const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+            const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
+            const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
+            const rowCreated = row.getAttribute('data-created') || '';
+
+            const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+            const matchesDistrict = district === 'all' || rowDistrict === district;
+
+            let matchesDate = true;
+            if (dateFilter === 'today') {
+                matchesDate = rowCreated.startsWith(todayPrefix);
+            } else if (dateFilter === 'week') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last7Days = new Date(now);
+                    last7Days.setDate(now.getDate() - 7);
+                    last7Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last7Days;
+                }
+            } else if (dateFilter === 'month') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last30Days = new Date(now);
+                    last30Days.setDate(now.getDate() - 30);
+                    last30Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last30Days;
+                }
+            }
+
+            if (matchesQuery && matchesDistrict && matchesDate) {
+                row.style.display = '';
+                if (row.cells[0]) {
+                    row.cells[0].innerText = holdIndex++;
+                }
+                holdCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
         const pendingCountEl = document.getElementById('pending-count');
         if (pendingCountEl) pendingCountEl.textContent = pendingCount;
         const approvedCountEl = document.getElementById('approved-count');
         if (approvedCountEl) approvedCountEl.textContent = approvedCount;
+        const holdCountBadgeEl = document.getElementById('hold-count-badge');
+        if (holdCountBadgeEl) holdCountBadgeEl.textContent = holdCount;
 
         const pendingTable = document.getElementById('admin-pending-table');
         const pendingEmptyMsg = document.getElementById('pending-empty-msg');
@@ -460,6 +600,89 @@
         const approvedTable = document.getElementById('admin-approved-table');
         const approvedEmptyMsg = document.getElementById('approved-empty-msg');
         if (approvedEmptyMsg) approvedEmptyMsg.style.display = (approvedCount === 0) ? 'block' : 'none';
+
+        const holdTable = document.getElementById('admin-hold-table');
+        const holdEmptyMsg = document.getElementById('hold-empty-msg');
+        if (holdEmptyMsg) holdEmptyMsg.style.display = (holdCount === 0) ? 'block' : 'none';
+    }
+
+    // Open SweetAlert for Placing requests On Hold
+    function openHoldModal(rId, candidateName) {
+        Swal.fire({
+            title: 'Place Request On Hold',
+            html: `
+                    <div style="text-align: left; padding: 0 10px;">
+                        <p style="margin-bottom: 15px; font-size: 14px; color: #555;">
+                            Are you sure you want to put candidate <strong>${candidateName}</strong> on hold?
+                        </p>
+                        
+                        <div>
+                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">Hold Remark (Mandatory) *</label>
+                            <textarea id="swal-hold-remark" class="swal2-textarea" style="width: 100%; height: 85px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="State the reason for placing this candidate request on hold..."></textarea>
+                        </div>
+                    </div>
+                `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Place On Hold',
+            confirmButtonColor: '#6c757d',
+            cancelButtonColor: '#3085d6',
+            preConfirm: () => {
+                const remark = document.getElementById('swal-hold-remark').value.trim();
+                if (!remark) {
+                    Swal.showValidationMessage('Please provide a hold reason remark.');
+                    return false;
+                }
+                return { remark: remark };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const remark = result.value.remark;
+
+                Swal.fire({
+                    title: 'Processing...',
+                    text: 'Placing candidate request on hold...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                const payload = new URLSearchParams();
+                payload.append("remark", remark);
+
+                fetch(`/auth/dc/hold-candidate/${rId}`, {
+                    method: 'POST',
+                    body: payload,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        Swal.fire({
+                            title: 'Placed On Hold!',
+                            text: 'The candidate onboarding request has been placed on hold successfully.',
+                            icon: 'success',
+                            confirmButtonColor: '#6c757d',
+                            timer: 3000,
+                            timerProgressBar: true
+                        }).then(() => {
+                            sessionStorage.setItem('dc_action_reloading', 'true');
+                            window.location.reload();
+                        });
+                    } else {
+                        response.json().then(data => {
+                            const errorDetail = data.detail || 'Failed to place request on hold. Please try again.';
+                            Swal.fire('Error', errorDetail, 'error');
+                        }).catch(() => {
+                            Swal.fire('Error', 'Failed to place request on hold.', 'error');
+                        });
+                    }
+                }).catch(() => {
+                    Swal.fire('Error', 'Failed to connect to backend server.', 'error');
+                });
+            }
+        });
     }
 
     // Open SweetAlert for Approving candidate requests
@@ -940,6 +1163,8 @@
             statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">' + d.status.charAt(0).toUpperCase() + d.status.slice(1).toLowerCase().replace(/_/g, " ") + '</span>';
         } else if (dStatus === 'rejected') {
             statusBadge = '<span class="badge badge-rejected" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Rejected</span>';
+        } else if (dStatus === 'on hold') {
+            statusBadge = '<span class="badge" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: #e2e8f0; color: #475569;">On Hold</span>';
         } else {
             statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
         }
@@ -952,7 +1177,9 @@
                 try {
                     const remarksArray = JSON.parse(d.remarksStr);
                     if (remarksArray && remarksArray.length > 0) {
-                        let latestRemark = remarksArray[0].remark;
+                        let latestRemarkObj = remarksArray[0];
+                        let latestRemark = latestRemarkObj.remark;
+                        let remarkTime = latestRemarkObj.created_at || '';
 
                         let emailFailedBadgeHtml = '';
                         if (latestRemark.includes('[Email Failed]')) {
@@ -963,13 +1190,16 @@
                         }
 
                         const dStatusLower = (d.status || '').toLowerCase();
-                        const badgeColor = (dStatusLower === 'approved') ? '#16a34a' : ((dStatusLower === 'rejected') ? '#dc2626' : '#888');
-                        const badgeBg = (dStatusLower === 'approved') ? '#dcfce7' : ((dStatusLower === 'rejected') ? '#fee2e2' : '#f1f5f9');
-                        const titleText = (dStatusLower === 'approved') ? 'Approval Remark' : ((dStatusLower === 'rejected') ? 'Rejection Remark' : 'Admin Remark');
+                        const badgeColor = (dStatusLower === 'approved') ? '#16a34a' : ((dStatusLower === 'rejected') ? '#dc2626' : ((dStatusLower === 'on hold') ? '#475569' : '#888'));
+                        const badgeBg = (dStatusLower === 'approved') ? '#dcfce7' : ((dStatusLower === 'rejected') ? '#fee2e2' : ((dStatusLower === 'on hold') ? '#f1f5f9' : '#f1f5f9'));
+                        const titleText = (dStatusLower === 'approved') ? 'Approval Remark' : ((dStatusLower === 'rejected') ? 'Rejection Remark' : ((dStatusLower === 'on hold') ? 'Hold Remark' : 'Admin Remark'));
 
                         adminRemarkHtml = `
                         <div style="margin-bottom: 15px; padding: 12px; border-radius: 8px; background-color: ${badgeBg}; border-left: 4px solid ${badgeColor}; font-size: 13px;">
-                            <div style="font-weight: 700; color: ${badgeColor}; margin-bottom: 4px;">${titleText}:</div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span style="font-weight: 700; color: ${badgeColor};">${titleText}:</span>
+                                <span style="font-size: 11px; color: #64748b; font-weight: 500;">${remarkTime}</span>
+                            </div>
                             <div style="color: #334155;">${escapeHtml(latestRemark)}</div>
                         </div>
                         `;
@@ -1063,6 +1293,10 @@
                     <!-- View Documents Button -->
                     <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
                         <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Documents</button>
+                        ${dStatus === 'on hold' ? `
+                            <button type="button" id="btn-detail-approve" style="padding: 8px 16px; border-radius: 8px; background: #28a745; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#218838'" onmouseout="this.style.background='#28a745'">Approve</button>
+                            <button type="button" id="btn-detail-reject" style="padding: 8px 16px; border-radius: 8px; background: #dc3545; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#c82333'" onmouseout="this.style.background='#dc3545'">Reject</button>
+                        ` : ''}
                     </div>
                 </div>
                 `;
@@ -1082,6 +1316,20 @@
                     document.getElementById('btn-show-docs').onclick = () => {
                         window.showCandidateDetails(d, 'documents', showRemarks);
                     };
+                    const btnApprove = document.getElementById('btn-detail-approve');
+                    if (btnApprove) {
+                        btnApprove.onclick = () => {
+                            Swal.close();
+                            openApproveModal(d.id, d.name, d.email);
+                        };
+                    }
+                    const btnReject = document.getElementById('btn-detail-reject');
+                    if (btnReject) {
+                        btnReject.onclick = () => {
+                            Swal.close();
+                            openRejectModal(d.id, d.name);
+                        };
+                    }
                 }
             });
         }
@@ -1095,7 +1343,7 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
                         ${(d.photo && d.photo !== 'None' && d.photo !== 'null' && d.photo !== '') ? buildDocumentCard('Profile Photo', d.photo, 'profile_photo.jpg') : ''}
 
-                        ${(d.marksheet && d.marksheet !== 'None' && d.marksheet !== 'null' && d.marksheet !== '') ? buildDocumentCard('Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf') : ''}
+                        ${(d.marksheet && d.marksheet !== 'None' && d.marksheet !== 'null' && d.marksheet !== '') ? buildDocumentCard('Highest Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf') : ''}
                         ${(d.tenthMarksheet && d.tenthMarksheet !== 'None' && d.tenthMarksheet !== 'null' && d.tenthMarksheet !== '') ? buildDocumentCard('10th Marksheet', d.tenthMarksheet, '10th_marksheet.pdf') : ''}
                     </div>
                 </div>

@@ -17,7 +17,7 @@ class District(Base):
     district_short_name: Mapped[str] = mapped_column(String(10), nullable=False)
     
     # Registration Settings
-    registration_open: Mapped[bool] = mapped_column(default=True, nullable=False)
+    registration_open: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     registration_start_date: Mapped[str] = mapped_column(String(50), nullable=True)
     registration_end_date: Mapped[str] = mapped_column(String(50), nullable=True)
     registration_opened_at: Mapped[str] = mapped_column(String(50), nullable=True)

@@ -4,7 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Candidate, NSEITRequest, NSEITRemark, UserLogin, MasterUserRole
-from backend.models.base import StatusEnum
+from backend.models.base import StatusEnum, get_ist_now
 from backend.utils.exporter import generate_csv_export
 
 from backend.routers.auth import get_current_user
@@ -17,22 +17,16 @@ class NSEITActionRequest(BaseModel):
 
 @router.get("/candidates")
 def get_nseit_requests(district_code: str | None = None, db: Session = Depends(get_db)):
-    query = db.query(NSEITRequest).join(Candidate, NSEITRequest.r_id == Candidate.r_id)
+    query = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id)
     if district_code and district_code != "all":
         query = query.filter(Candidate.district == district_code)
     nseit_requests = query.order_by(func.coalesce(NSEITRequest.updated_at, NSEITRequest.created_at).desc()).all()
-    
-    # Exclude skipped NSEIT requests
-    skipped_nseit_ids = {r.nseit_id for r in db.query(NSEITRemark.nseit_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
-    
     result = []
     for n in nseit_requests:
-        if n.id in skipped_nseit_ids:
-            continue
         c = n.candidate
         district_name = c.district_rel.district_name if c.district_rel else "Unknown"
         
-        remarks = db.query(NSEITRemark).filter(NSEITRemark.nseit_id == n.id).order_by(NSEITRemark.time.asc()).all()
+        remarks = db.query(NSEITRemark).filter(NSEITRemark.request_id == n.id).order_by(NSEITRemark.time.asc()).all()
         remarks_history = []
         for r in remarks:
             sender_role = "Candidate"
@@ -61,7 +55,7 @@ def get_nseit_requests(district_code: str | None = None, db: Session = Depends(g
         
         result.append({
             "nseit_request_id": n.id,
-            "r_id": c.r_id,
+            "r_id": c.id,
             "request_code": c.request_code,
             "name": c.name,
             "mobile": c.mobile,
@@ -94,29 +88,42 @@ def forward_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
     if not clean_remark:
         raise HTTPException(status_code=400, detail="Forward remarks are mandatory.")
     
-    nseit = db.query(NSEITRequest).filter(NSEITRequest.r_id == r_id).first()
+    nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == r_id).first()
     if not nseit:
         raise HTTPException(status_code=404, detail="NSEIT Request not found")
         
     # Check if this request has any remarks from CHiPS (Admin role) in its history
+    from backend.models.candidate import CandidateLogin
+    import sqlalchemy as sa
     has_chips_remark = db.query(NSEITRemark).join(
-        UserLogin, NSEITRemark.admin_by_id == UserLogin.id
+        NSEITRequest, NSEITRemark.request_id == NSEITRequest.id
+    ).join(
+        Candidate, NSEITRequest.request_id == Candidate.id
+    ).join(
+        CandidateLogin, Candidate.id == CandidateLogin.request_id
+    ).join(
+        UserLogin, NSEITRemark.sender_id == UserLogin.id
     ).join(
         MasterUserRole, UserLogin.roleid == MasterUserRole.id
     ).filter(
-        NSEITRemark.nseit_id == nseit.id,
-        MasterUserRole.role == "Admin"
+        NSEITRemark.request_id == nseit.id,
+        MasterUserRole.role == "Admin",
+        NSEITRemark.sender_id != CandidateLogin.id
     ).first() is not None
 
     if nseit.status_id == StatusEnum.REAPPLIED.value and has_chips_remark:
         nseit.status_id = StatusEnum.FORWARDED_AGAIN.value
     else:
         nseit.status_id = StatusEnum.FORWARDED.value
+    nseit.updated_at = get_ist_now()
     
+    chips_user = db.query(UserLogin).join(MasterUserRole).filter(MasterUserRole.role == "Admin").first()
     new_remark = NSEITRemark(
-        nseit_id=nseit.id,
+        request_id=nseit.id,
         remark=clean_remark or "NSEIT request verified and forwarded to CHiPS by District Coordinator.",
-        admin_by_id=payload.by_user_id,
+        sender_id=payload.by_user_id,
+        receiver_id=chips_user.id if chips_user else None,
+        is_public=1,
         status_after_id=nseit.status_id
     )
     db.add(new_remark)
@@ -125,24 +132,26 @@ def forward_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
 
 @router.post("/approve/{r_id}")
 def approve_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = Depends(get_db)):
-    nseit = db.query(NSEITRequest).filter(NSEITRequest.r_id == r_id).first()
+    nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == r_id).first()
     if not nseit:
         raise HTTPException(status_code=404, detail="NSEIT Request not found")
         
-    candidate = db.query(Candidate).filter(Candidate.r_id == r_id).first()
+    candidate = db.query(Candidate).filter(Candidate.id == r_id).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
         
     nseit.status_id = StatusEnum.APPROVED.value
-    
-    # Auto-generate NSEIT certificate ID if not already present
-    if not candidate.nseit_id:
-        candidate.nseit_id = f"NSEIT{r_id:05d}"
-    
+    nseit.updated_at = get_ist_now()
+    candidate_login_id = None
+    if candidate.login:
+        candidate_login_id = candidate.login.id
+
     new_remark = NSEITRemark(
-        nseit_id=nseit.id,
+        request_id=nseit.id,
         remark=payload.remark or "NSEIT request verified and approved.",
-        admin_by_id=payload.by_user_id,
+        sender_id=payload.by_user_id,
+        receiver_id=candidate_login_id,
+        is_public=1,
         status_after_id=nseit.status_id
     )
     db.add(new_remark)
@@ -151,7 +160,7 @@ def approve_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
 
 @router.post("/revert/{r_id}")
 def revert_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = Depends(get_db)):
-    nseit = db.query(NSEITRequest).filter(NSEITRequest.r_id == r_id).first()
+    nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == r_id).first()
     if not nseit:
         raise HTTPException(status_code=404, detail="NSEIT Request not found")
         
@@ -161,11 +170,19 @@ def revert_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = D
         nseit.status_id = StatusEnum.REVERTED_BY_CHIPS.value
     else:
         nseit.status_id = StatusEnum.REVERTED.value
+    nseit.updated_at = get_ist_now()
     
+    candidate = db.query(Candidate).filter(Candidate.id == r_id).first()
+    candidate_login_id = None
+    if candidate and candidate.login:
+        candidate_login_id = candidate.login.id
+
     new_remark = NSEITRemark(
-        nseit_id=nseit.id,
+        request_id=nseit.id,
         remark=payload.remark or "NSEIT request reverted.",
-        admin_by_id=payload.by_user_id,
+        sender_id=payload.by_user_id,
+        receiver_id=candidate_login_id,
+        is_public=1,
         status_after_id=nseit.status_id
     )
     db.add(new_remark)
@@ -173,16 +190,16 @@ def revert_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = D
     return {"success": True, "detail": "NSEIT Request reverted."}
 
 @router.get("/export-excel")
-def export_nseit_excel(ids: str = None, db: Session = Depends(get_db)):
+def export_nseit_excel(ids: str = None, table_id: str = None, db: Session = Depends(get_db)):
     """
     🌟 FIXED: Fetches comprehensive profile field values directly from the database context
     and streams them as a fully itemized, un-truncated CSV report.
     """
     # Join Candidate to pull all related columns
-    query = db.query(NSEITRequest).join(Candidate, NSEITRequest.r_id == Candidate.r_id)
+    query = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id)
     if ids:
         id_list = [int(x) for x in ids.split(",") if x.isdigit()]
-        query = query.filter(NSEITRequest.r_id.in_(id_list))
+        query = query.filter(NSEITRequest.request_id.in_(id_list))
         
     nseit_records = query.order_by(Candidate.request_code.asc()).all()
 
@@ -194,18 +211,42 @@ def export_nseit_excel(ids: str = None, db: Session = Depends(get_db)):
             
         district_name = c.district_rel.district_name if c.district_rel else "Unknown"
         
-        # 🌟 Maps ALL backend attributes to ensure all details are fetched
+        status_upper = n.status.upper() if n.status else ""
+        if status_upper in ["APPROVED", "APPROVED_LEGACY"]:
+            is_pending = False
+            nseit_status_str = "Approved"
+        elif status_upper == "REVERTED_BY_CHIPS":
+            is_pending = False
+            nseit_status_str = "Reverted by CHiPS"
+        elif status_upper == "REVERTED":
+            is_pending = False
+            nseit_status_str = "Reverted"
+        elif status_upper == "SKIPPED":
+            is_pending = False
+            nseit_status_str = "Skipped"
+        elif status_upper in ["FORWARDED", "PENDING"]:
+            if table_id == "admin-chips-table":
+                is_pending = False
+                nseit_status_str = "Forwarded"
+            else:
+                is_pending = True
+                nseit_status_str = "Pending"
+        else:
+            is_pending = False
+            if table_id == "admin-chips-table":
+                nseit_status_str = "Forwarded Again"
+            else:
+                nseit_status_str = "Reapplied"
+
         export_data.append({
             "s_no": idx + 1,
-
             "request_code": c.request_code,
             "district_name": district_name,
-
             "name": c.name,
             "mobile": c.mobile,
             "email": c.email,
-            "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "N/A",
-            "aadhaar": f"{c.aadhaar}" if c.aadhaar else "N/A",  # Escape string formatting
+            "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "",
+            "aadhaar": f"{c.aadhaar}" if c.aadhaar else "",  # Added apostrophe to keep Excel from altering string truncation bounds
             "qualification": c.qualification,
             "address": c.address or "",
             "pincode": c.pincode or "",
@@ -213,10 +254,9 @@ def export_nseit_excel(ids: str = None, db: Session = Depends(get_db)):
             "lms_id": c.lms_id or "None",
             "exam_unique_code": c.exam_unique_code or "None",
             "nseit_certificate_id": c.nseit_id or "None",
-            "nseit_status": n.status,
-     
+            "nseit_status": nseit_status_str,
             "submitted_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else "",
-            "updated_at": "" if n.status_id in [StatusEnum.PENDING.value, StatusEnum.FORWARDED.value] else (n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else "")
+            "updated_at": (n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else "") if not is_pending else ""
         })
 
     # 🌟 Full column profile headers layout dictionary map

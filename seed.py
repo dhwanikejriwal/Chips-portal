@@ -55,7 +55,8 @@ def seed_database():
             StatusEnum.SKIPPED: "Skipped",
             StatusEnum.REJECTED: "Rejected",
             StatusEnum.REVERTED_BY_CHIPS: "Reverted by CHiPS",
-            StatusEnum.APPROVED_LEGACY: "Approved Legacy"
+            StatusEnum.APPROVED_LEGACY: "Approved Legacy",
+            StatusEnum.ON_HOLD: "On Hold"
         }
         for status_enum, name in status_names.items():
             existing_status = db.query(MasterStatus).filter_by(id=status_enum.value).first()

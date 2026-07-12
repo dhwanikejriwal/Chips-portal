@@ -24,6 +24,8 @@
                     <h2 class="panel-title">NSEIT Certificate Verification</h2>
                     {% if (status_data.nseit_status|upper) == 'APPROVED' %}
                     <span class="status-badge approved">Approved</span>
+                    {% elif (status_data.nseit_status|upper) == 'SKIPPED' %}
+                    <span class="status-badge skipped" style="background-color: #f3f4f6; color: #4b5563;">Skipped</span>
                     {% elif (status_data.nseit_status|upper) == 'FORWARDED' %}
                     <span class="status-badge forwarded">Forwarded</span>
                     {% elif (status_data.nseit_status|upper) == 'FORWARDED_AGAIN' %}
@@ -41,6 +43,7 @@
                     {% endif %}
                 </div>
 
+                {% if (status_data.nseit_status|upper) in ['APPROVED', 'SKIPPED'] %}
                 {% if (status_data.nseit_status|upper) == 'APPROVED' %}
                 <!-- 🌟 Updated Success State Block -->
                 <div
@@ -54,6 +57,14 @@
                         schedule your exam date. Once you successfully pass the examination and receive your official
                         Certificate ID, please register it using the form below.</p>
                 </div>
+                {% else %}
+                <div
+                    style="background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; margin-bottom: 8px; font-size: 16px; font-weight: 600;">NSEIT Request
+                        Skipped</h4>
+                    <p style="margin: 0; font-size: 14px; line-height: 1.5;">You skipped the NSEIT exam request by providing an existing NSEIT Certificate ID.</p>
+                </div>
+                {% endif %}
 
                 <!-- 🌟 Mirrored Dynamic ID Addition/Modification Module from lms.html -->
                 <div
@@ -62,11 +73,12 @@
                         style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                         <span class="form-label" style="font-weight: 600; color: #4a5568; margin-bottom: 0;">Your NSEIT
                             Certificate ID</span>
+                        {% if not (status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00')) %}
                         <button type="button" onclick="toggleEditNseitForm()" class="btn btn-xs btn-outline"
                             style="background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                            {% if status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00') %}Edit NSEIT
-                            ID{% else %}Add NSEIT ID{% endif %}
+                            Add NSEIT ID
                         </button>
+                        {% endif %}
                     </div>
 
                     {% if status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00') %}
@@ -78,23 +90,25 @@
                     <div id="nseit-id-display-block" style="color: #64748b; font-style: italic;">
                         No NSEIT ID registered yet.
                     </div>
-                    {% endif %}
 
                     <div id="nseit-id-edit-block" style="display: none; margin-top: 12px;">
                         <form method="POST" action="{{ url_for('candidate.update_nseit_id') }}"
-                            style="display: flex; gap: 10px; align-items: center;">
-
-                            <input type="text" name="nseit_id" class="form-input"
-                                value="{% if status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00') %}{{ status_data.nseit_id }}{% endif %}"
-                                placeholder="Enter NSEIT ID..." required
-                                style="margin: 0; padding: 8px 12px; max-width: 250px;">
-
-                            <button type="submit" class="btn btn-sm"
-                                style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Save</button>
-                            <button type="button" onclick="toggleEditNseitForm()" class="btn btn-sm"
-                                style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Cancel</button>
+                            style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+                            <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
+                                <input type="text" name="nseit_id" class="form-input" value=""
+                                    placeholder="Enter NSEIT ID..." required
+                                    style="margin: 0; padding: 8px 12px; max-width: 250px;">
+                                <button type="submit" class="btn btn-sm"
+                                    style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Save</button>
+                                <button type="button" onclick="toggleEditNseitForm()" class="btn btn-sm"
+                                    style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Cancel</button>
+                            </div>
+                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #b45309; font-weight: 500; display: flex; align-items: center; gap: 4px;">
+                                <i class="ti ti-alert-triangle" style="font-size: 16px;"></i> Please fill the NSEIT ID carefully, as you will not be able to change it later.
+                            </p>
                         </form>
                     </div>
+                    {% endif %}
                 </div>
                 <p style="font-size: 15px; color: #4a5568;">Once your certificate registration is fully saved, the
                     subsequent operator activation pathways will become accessible.</p>
@@ -124,16 +138,7 @@
                 </div>
                 {% endif %}
 
-                <div class="aadhaar-reminder-box">
-                    <div class="aadhaar-reminder-icon">
-                        <i class="ti ti-alert-triangle"></i>
-                    </div>
-                    <div class="aadhaar-reminder-content">
-                        <p>Please make sure that your <strong>Full Name</strong> entered below matches <strong>exactly
-                                as per your Aadhaar Card</strong> and <strong>LMS ID & Unique ID</strong> is correctly
-                            filled.</p>
-                    </div>
-                </div>
+
 
                 <form method="POST" action="{{ url_for('candidate.candidate_nseit') }}">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
@@ -141,7 +146,7 @@
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="name" class="form-label">Full Name *</label>
                             <input type="text" id="name" name="name" class="form-input" value="{{ status_data.name }}"
-                                required>
+                                readonly style="background-color: #f1f5f9; cursor: not-allowed;" required>
                         </div>
 
                         <!-- Candidate Unique ID (Request Code) -->
@@ -149,14 +154,16 @@
                             <label for="exam_unique_code" class="form-label">Candidate Unique ID (Certificate Exam ID)
                                 *</label>
                             <input type="text" id="exam_unique_code" name="exam_unique_code" class="form-input"
-                                value="{{ status_data.exam_unique_code }}" required>
+                                value="{% if status_data.exam_unique_code and status_data.exam_unique_code != 'None' %}{{ status_data.exam_unique_code }}{% endif %}"
+                                {% if status_data.exam_unique_code and status_data.exam_unique_code != 'None' %}readonly style="background-color: #f1f5f9; cursor: not-allowed;"{% endif %} required>
                         </div>
 
                         <!-- LMS ID -->
                         <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
                             <label for="lms_id" class="form-label">LMS ID *</label>
-                            <input type="text" id="lms_id" name="lms_id" class="form-input"
-                                value="{{ status_data.lms_id or '' }}" placeholder="Enter your LMS ID..." required>
+                             <input type="text" id="lms_id" name="lms_id" class="form-input"
+                                 value="{% if status_data.lms_id and status_data.lms_id != 'None' %}{{ status_data.lms_id }}{% endif %}" placeholder="Enter your LMS ID..."
+                                 {% if status_data.lms_id and status_data.lms_id != 'None' %}readonly style="background-color: #f1f5f9; cursor: not-allowed;"{% endif %} required>
                             <span style="font-size: 11px; color: #718096; margin-top: 4px; display: block;"></span>
                         </div>
                     </div>
@@ -219,7 +226,7 @@
 
                         <span
                             class="remark-status-badge badge-{{ calculated_status | lower | replace(' ', '-') }} {{ calculated_status | lower | replace(' ', '-') }}">
-                            {{ calculated_status }}
+                            {{ calculated_status | title }}
                         </span>
                     </div>
                     <div class="remark-by-row">

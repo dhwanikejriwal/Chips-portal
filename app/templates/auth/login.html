@@ -36,14 +36,19 @@
 
 
 
-  <form action="{{ url_for('auth.login') }}" method="POST">
+  <form action="{{ url_for('auth.login', mode=request.args.get('mode', 'staff')) }}" method="POST">
     <div class="form-group" style="margin-bottom:16px">
       <label class="form-label">Username</label>
       <input type="text" name="username" placeholder="Enter your username" required autocomplete="username">
     </div>
     <div class="form-group" style="margin-bottom:24px">
       <label class="form-label">Password</label>
-      <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+      <div style="position: relative; display: flex; align-items: center; width: 100%;">
+        <input type="password" id="password-input" name="password" placeholder="••••••••" required autocomplete="current-password" style="width: 100%; padding-right: 40px; box-sizing: border-box;">
+        <span onclick="togglePasswordVisibility()" style="position: absolute; right: 12px; cursor: pointer; color: var(--color-text-muted); display: flex; align-items: center; z-index: 10;">
+          <i id="toggle-password-icon" class="ti ti-eye" style="font-size: 20px;"></i>
+        </span>
+      </div>
       <div id="forgot-password-container" style="text-align: right; margin-top: 8px;">
         <a href="{{ url_for('auth.forgot_password') }}"
           style="font-size: 13px; color: var(--color-primary); text-decoration: none; font-weight: 500;">Forgot
@@ -69,6 +74,18 @@
     const desc = document.getElementById('login-desc');
     const switchLink = document.getElementById('login-switch-link');
 
+    // Update the form action dynamically
+    const form = document.querySelector('form');
+    if (form) {
+      const url = new URL(form.action, window.location.origin);
+      url.searchParams.set('mode', mode);
+      form.action = url.pathname + url.search;
+    }
+
+    // Update browser address bar without reloading
+    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?mode=' + mode;
+    window.history.replaceState({ path: newUrl }, '', newUrl);
+
     if (mode === 'candidate') {
       title.textContent = 'Candidate Login';
       desc.textContent = 'Access your application dashboard and training logs';
@@ -83,6 +100,18 @@
         switchLink.innerHTML = `Are you a candidate? <span style="color:var(--color-primary);font-weight:500;cursor:pointer" onclick="showLogin('candidate')">Candidate Login</span>`;
       }
       document.getElementById('forgot-password-container').style.display = 'none';
+    }
+  }
+
+  function togglePasswordVisibility() {
+    const pwdInput = document.getElementById('password-input');
+    const pwdIcon = document.getElementById('toggle-password-icon');
+    if (pwdInput.type === 'password') {
+      pwdInput.type = 'text';
+      pwdIcon.className = 'ti ti-eye-off';
+    } else {
+      pwdInput.type = 'password';
+      pwdIcon.className = 'ti ti-eye';
     }
   }
 

@@ -27,6 +27,7 @@ def dc_candidate_requests():
             candidates = response.json()
             pending_requests = [c for c in candidates if str(c["status"]).strip().upper() == "PENDING"]
             approved_requests = [c for c in candidates if str(c["status"]).strip().upper() in ["APPROVED", "REJECTED"]]
+            hold_requests = [c for c in candidates if str(c["status"]).strip().upper() == "ON HOLD"]
         else:
             print(f"Backend API returned {response.status_code}: {response.text}")
             flash(f"Backend error: {response.text[:100]}", "danger")
@@ -36,7 +37,8 @@ def dc_candidate_requests():
     return render_template(
         "dc/dc_candidate_requests.html",
         pending_requests=pending_requests,
-        approved_requests=approved_requests
+        approved_requests=approved_requests,
+        hold_requests=hold_requests
     )
 
 
@@ -132,3 +134,32 @@ def export_candidate_requests():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         return redirect(url_for("selection.dc_candidate_requests"))
+
+
+@selection_bp.route("/dc/hold-candidate/<int:r_id>", methods=["POST"])
+def hold_candidate(r_id):
+    if "access_token" not in session or session.get("role") not in ["DC", "EDM", "Admin"]:
+        return {"detail": "Unauthorized"}, 401
+        
+    remark = request.form.get("remark")
+    by_user_id = session.get("user_id")
+    
+    if not by_user_id:
+        return {"detail": "Admin user ID session expired. Please log in again."}, 400
+        
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/selection/hold-candidate/{r_id}"
+    try:
+        response = requests.post(
+            backend_url,
+            json={"remark": remark, "by_user_id": int(by_user_id)},
+            headers=_headers()
+        )
+        if response.status_code == 200:
+            return {"success": True}
+        else:
+            try:
+                return response.json(), response.status_code
+            except Exception:
+                return {"detail": response.text}, response.status_code
+    except requests.exceptions.RequestException:
+        return {"detail": "Error connecting to backend API server."}, 500

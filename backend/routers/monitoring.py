@@ -23,8 +23,8 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
         districts = db.query(District).order_by(District.district_name.asc()).all()
         
         # Exclude skipped LMS and NSEIT requests
-        skipped_lms_ids = {r.lms_id for r in db.query(LMSRemark.lms_id).filter(LMSRemark.remark.like("%skipped%")).all()}
-        skipped_nseit_ids = {r.nseit_id for r in db.query(NSEITRemark.nseit_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
+        skipped_lms_ids = {r.request_id for r in db.query(LMSRemark.request_id).filter(LMSRemark.remark.like("%skipped%")).all()}
+        skipped_nseit_ids = {r.request_id for r in db.query(NSEITRemark.request_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
         
         now = get_ist_now()
         start_date = None
@@ -67,11 +67,11 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
             cands = filter_by_date(cands_q, Candidate).all()
             cand_holding_hours = calc_avg_holding(cands)
             
-            lms_reqs_q = db.query(LMS).join(Candidate, LMS.r_id == Candidate.r_id).filter(Candidate.district == dist_code)
+            lms_reqs_q = db.query(LMS).join(Candidate, LMS.request_id == Candidate.id).filter(Candidate.district == dist_code)
             lms_reqs = filter_by_date(lms_reqs_q, LMS).all()
             lms_holding_hours = calc_avg_holding(lms_reqs)
             
-            nseit_reqs_q = db.query(NSEITRequest).join(Candidate, NSEITRequest.r_id == Candidate.r_id).filter(Candidate.district == dist_code)
+            nseit_reqs_q = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id).filter(Candidate.district == dist_code)
             nseit_reqs = filter_by_date(nseit_reqs_q, NSEITRequest).all()
             nseit_holding_hours = calc_avg_holding(nseit_reqs)
 
@@ -158,8 +158,8 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="District not found")
         
     # Exclude skipped LMS and NSEIT requests
-    skipped_lms_ids = {r.lms_id for r in db.query(LMSRemark.lms_id).filter(LMSRemark.remark.like("%skipped%")).all()}
-    skipped_nseit_ids = {r.nseit_id for r in db.query(NSEITRemark.nseit_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
+    skipped_lms_ids = {r.request_id for r in db.query(LMSRemark.request_id).filter(LMSRemark.remark.like("%skipped%")).all()}
+    skipped_nseit_ids = {r.request_id for r in db.query(NSEITRemark.request_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
 
     # Get all candidates in district
     candidates = db.query(Candidate).filter(Candidate.district == district_code).order_by(
@@ -168,8 +168,8 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
     
     cand_list = []
     for c in candidates:
-        lms = db.query(LMS).filter(LMS.r_id == c.r_id).first()
-        nseit = db.query(NSEITRequest).filter(NSEITRequest.r_id == c.r_id).first()
+        lms = db.query(LMS).filter(LMS.request_id == c.id).first()
+        nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == c.id).first()
         
         lms_status = "Not Initiated"
         if lms:
@@ -186,7 +186,7 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
                 nseit_status = nseit.status
         
         cand_list.append({
-            "r_id": c.r_id,
+            "r_id": c.id,
             "request_code": c.request_code,
             "name": c.name,
             "mobile": c.mobile,
@@ -199,7 +199,7 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         })
         
     # Get LMS requests in district
-    lms_requests = db.query(LMS).join(Candidate, LMS.r_id == Candidate.r_id).filter(
+    lms_requests = db.query(LMS).join(Candidate, LMS.request_id == Candidate.id).filter(
         Candidate.district == district_code
     ).order_by(
         func.coalesce(LMS.updated_at, LMS.created_at).desc()
@@ -210,7 +210,7 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         if l.id in skipped_lms_ids:
             continue
         lms_list.append({
-            "r_id": l.candidate.r_id,
+            "r_id": l.candidate.id,
             "request_code": l.candidate.request_code,
             "name": l.candidate.name,
             "email": l.candidate.email,
@@ -221,7 +221,7 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         })
         
     # Get NSEIT requests in district
-    nseit_requests = db.query(NSEITRequest).join(Candidate, NSEITRequest.r_id == Candidate.r_id).filter(
+    nseit_requests = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id).filter(
         Candidate.district == district_code
     ).order_by(
         func.coalesce(NSEITRequest.updated_at, NSEITRequest.created_at).desc()
@@ -232,7 +232,7 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         if n.id in skipped_nseit_ids:
             continue
         nseit_list.append({
-            "r_id": n.candidate.r_id,
+            "r_id": n.candidate.id,
             "request_code": n.candidate.request_code,
             "name": n.candidate.name,
             "email": n.candidate.email,
@@ -258,11 +258,11 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
         
     district_name = candidate.district_rel.district_name if candidate.district_rel else "Unknown"
     
-    lms = db.query(LMS).filter(LMS.r_id == candidate.r_id).first()
-    nseit = db.query(NSEITRequest).filter(NSEITRequest.r_id == candidate.r_id).first()
+    lms = db.query(LMS).filter(LMS.request_id == candidate.id).first()
+    nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == candidate.id).first()
     
-    skipped_lms_ids = {r.lms_id for r in db.query(LMSRemark.lms_id).filter(LMSRemark.remark.like("%skipped%")).all()}
-    skipped_nseit_ids = {r.nseit_id for r in db.query(NSEITRemark.nseit_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
+    skipped_lms_ids = {r.request_id for r in db.query(LMSRemark.request_id).filter(LMSRemark.remark.like("%skipped%")).all()}
+    skipped_nseit_ids = {r.request_id for r in db.query(NSEITRemark.request_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
     
     lms_status = "Not Initiated"
     if lms:
@@ -292,7 +292,7 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
     })
     
     # 2. DC Remarks/Actions for Candidate Onboarding
-    remarks = db.query(DCRemark).filter(DCRemark.r_id == candidate.r_id).all()
+    remarks = db.query(DCRemark).filter(DCRemark.request_id == candidate.id).all()
     for r in remarks:
         role_name = r.author.role.role if r.author and r.author.role else "Admin"
         timeline.append({
@@ -308,7 +308,7 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
         
     # 3. LMS Remarks/Actions
     if lms and lms.id not in skipped_lms_ids:
-        lms_remarks = db.query(LMSRemark).filter(LMSRemark.lms_id == lms.id).all()
+        lms_remarks = db.query(LMSRemark).filter(LMSRemark.request_id == lms.id).all()
         for r in lms_remarks:
             sender_role = "Candidate"
             sender_username = "Candidate"
@@ -336,7 +336,7 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
             
     # 4. NSEIT Remarks/Actions
     if nseit and nseit.id not in skipped_nseit_ids:
-        nseit_remarks = db.query(NSEITRemark).filter(NSEITRemark.nseit_id == nseit.id).all()
+        nseit_remarks = db.query(NSEITRemark).filter(NSEITRemark.request_id == nseit.id).all()
         for r in nseit_remarks:
             sender_role = "Candidate"
             sender_username = "Candidate"
@@ -371,7 +371,7 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
         del t["timestamp"]
         
     return {
-        "r_id": candidate.r_id,
+        "r_id": candidate.id,
         "request_code": candidate.request_code,
         "name": candidate.name,
         "mobile": candidate.mobile,

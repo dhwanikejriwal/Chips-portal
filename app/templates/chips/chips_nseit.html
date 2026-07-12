@@ -137,8 +137,8 @@
             <select id="admin-pending-status-filter" class="table-input"
                 style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
                 <option value="all">All Statuses</option>
-                <option value="forwarded">Forwarded</option>
-                <option value="forwarded again">Forwarded Again</option>
+                <option value="forwarded">Pending</option>
+                <option value="forwarded again">Reapplied</option>
             </select>
 
             <button class="btn btn-sm"
@@ -185,18 +185,16 @@
                     <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
                     <td style="padding: 12px 15px; font-size: 14px;">
                         {% if (req.nseit_status|upper) == 'FORWARDED_AGAIN' %}
-                        <span class="badge badge-forwarded-again"
-                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded
-                            Again</span>
+                        <span class="badge badge-reapplied"
+                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>
                         {% else %}
-                        <span class="badge badge-forwarded"
-                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>
+                        <span class="badge badge-pending"
+                            style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>
                         {% endif %}
                     </td>
                     <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
                     <td style="padding: 12px 15px; font-size: 14px;">
-                        {% if (req.nseit_status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI', 'FORWARDED', 'FORWARDED_AGAIN']
-                        and req.updated_at and req.updated_at != '—' %}
+                        {% if (req.nseit_status|upper) == 'FORWARDED_AGAIN' and req.updated_at and req.updated_at != '—' %}
                         {{ req.updated_at }}
                         {% else %}
                         —
@@ -837,9 +835,9 @@
         if (normStatus === 'approved') {
             statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>';
         } else if (normStatus === 'forwarded') {
-            statusBadge = '<span class="badge badge-forwarded" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>';
+            statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
         } else if (normStatus === 'forwarded again' || normStatus === 'forwarded_again') {
-            statusBadge = '<span class="badge badge-forwarded-again" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded Again</span>';
+            statusBadge = '<span class="badge badge-reapplied" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>';
         } else if (normStatus === 'reapplied') {
             statusBadge = '<span class="badge badge-reapplied" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>';
         } else if (normStatus === 'reverted_by_chips' || normStatus === 'reverted by chips') {
@@ -1008,9 +1006,9 @@
                     ${buildDocumentCard('Profile Photo', d.photo, 'profile_photo.jpg')}
 
 <!-- === FRIEND'S UPDATED CODE === -->
-                    ${d.marksheet ? buildDocumentCard('Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf') : ''}
+                    ${d.marksheet ? buildDocumentCard('Highest Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf') : ''}
 <!-- === YOUR LOCAL CODE === -->
-                    ${(d.marksheet && d.marksheet !== 'None' && d.marksheet !== 'null' && d.marksheet !== '') ? buildDocumentCard('Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf') : ''}
+                    ${(d.marksheet && d.marksheet !== 'None' && d.marksheet !== 'null' && d.marksheet !== '') ? buildDocumentCard('Highest Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf') : ''}
 <!-- ============================= -->
 
                     ${d.tenthMarksheet ? buildDocumentCard('10th Marksheet', d.tenthMarksheet, '10th_marksheet.pdf') : ''}
@@ -1210,7 +1208,7 @@
         }
 
         // Redirects straight to the corresponding backend pipeline router query parameter
-        window.location.href = `/auth/nseit-manage/export?ids=${ids.join(',')}`;
+        window.location.href = `/auth/nseit-manage/export?ids=${ids.join(',')}&table_id=${tableID}`;
     }
 
 </script>

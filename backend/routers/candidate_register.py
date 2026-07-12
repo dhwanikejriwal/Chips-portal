@@ -87,7 +87,7 @@ def get_districts(all_districts: bool = False, db: Session = Depends(get_db)):
         now = datetime.now()
         open_districts = []
         for d in districts:
-            if not d.registration_open:
+            if d.registration_open != 1:
                 continue
             if d.registration_start_date:
                 try:
@@ -152,13 +152,13 @@ async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
     if existing_record:
         existing_record.otp_code = otp
         existing_record.expires_at = expires
-        existing_record.is_verified = False
+        existing_record.is_verified = 0
     else:
         new_record = OtpVerification(
             email=payload.email,
             otp_code=otp,
             expires_at=expires,
-            is_verified=False
+            is_verified=0
         )
         db.add(new_record)
     
@@ -181,7 +181,7 @@ def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
     if not record:
         raise HTTPException(status_code=400, detail="OTP request not found for this email")
     
-    if record.is_verified:
+    if record.is_verified == 1:
         return {"success": True, "message": "Email is already verified"}
         
     if record.otp_code != payload.otp_code:
@@ -190,7 +190,7 @@ def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
     if datetime.now() > record.expires_at:
         raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
         
-    record.is_verified = True
+    record.is_verified = 1
     db.commit()
     
     return {"success": True, "message": "Email verified successfully"}
@@ -199,7 +199,7 @@ def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
 def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(get_db)):
     # 1. Verify that the email was validated via OTP
     otp_record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
-    if not otp_record or not otp_record.is_verified:
+    if not otp_record or otp_record.is_verified != 1:
         raise HTTPException(status_code=400, detail="Email address has not been verified with OTP.")
 
     # [DUPLICATE CHECK] You can comment out this block below to allow duplicate registrations during testing
@@ -218,7 +218,7 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
         raise HTTPException(status_code=400, detail="Invalid district code")
 
     # Validate that district is actively accepting registrations
-    if not district_obj.registration_open:
+    if district_obj.registration_open != 1:
         raise HTTPException(status_code=400, detail="Registration is currently closed for this district.")
         
     now = datetime.now()
@@ -262,7 +262,7 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
         aadhaar=payload.aadhaar,
         address=payload.address,
         pincode=payload.pincode,
-        is_existing_operator=(payload.is_existing_operator.lower() == "true"),
+        is_existing_operator=(1 if payload.is_existing_operator.lower() == "true" else 0),
         photo_upload=payload.photo_upload,
         marksheet_upload=payload.marksheet_upload,       
         tenth_marksheet_upload=payload.tenth_marksheet_upload, 
@@ -294,13 +294,28 @@ def track_application(payload: TrackRequest, db: Session = Depends(get_db)):
     ).first()
     
     if not candidate:
-        raise HTTPException(status_code=404, detail="No application found with this Acknowledgment ID or mobile number.")
+        from backend.models.hold_candidate import HoldCandidate
+        hold_candidate = db.query(HoldCandidate).filter(
+            (HoldCandidate.request_code == identifier) | (HoldCandidate.mobile == identifier)
+        ).first()
+        if not hold_candidate:
+            raise HTTPException(status_code=404, detail="No application found with this Acknowledgment ID or mobile number.")
+        
+        return {
+            "success": True,
+            "request_code": hold_candidate.request_code,
+            "email": hold_candidate.email,
+            "name": hold_candidate.name,
+            "district": hold_candidate.district_rel.district_name if hold_candidate.district_rel else hold_candidate.district,
+            "status": "On Hold",
+            "reject_reason": hold_candidate.hold_remark
+        }
         
     from backend.models.dc_remark import DCRemark
     reject_reason = None
     if candidate.status_id == StatusEnum.REJECTED.value:
         latest_remark = db.query(DCRemark).filter(
-            DCRemark.r_id == candidate.r_id, 
+            DCRemark.request_id == candidate.id, 
             DCRemark.status_after_id == StatusEnum.REJECTED.value
         ).order_by(desc(DCRemark.time)).first()
         if latest_remark:

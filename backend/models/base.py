@@ -35,6 +35,7 @@ class StatusEnum(int, Enum):
     REJECTED = 14
     REVERTED_BY_CHIPS = 15
     APPROVED_LEGACY = 16
+    ON_HOLD = 17
 
 def to_code(status_str: str) -> int:
     if not status_str:

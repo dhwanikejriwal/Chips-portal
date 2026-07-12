@@ -21,16 +21,19 @@
         display: flex;
         align-items: center;
         gap: 16px;
+        min-width: 0;
+        flex-shrink: 1;
     }
 
     .logo-section img {
         height: 50px;
         width: auto;
         transition: height 0.3s ease;
+        flex-shrink: 0;
     }
 
     .logo-section h1 {
-        font-size: 26px;
+        font-size: 24px;
         font-weight: 700;
         color: #1a202c;
         margin: 0;
@@ -49,6 +52,7 @@
         border-radius: 10px;
         border: 1px solid #e2e8f0;
         transition: all 0.3s ease;
+        flex-shrink: 0;
     }
 
     /* 📸 ── PERFECTLY BOUNDED SMALL HEADER AVATAR VIEWPORT ── */
@@ -91,6 +95,10 @@
         font-weight: 600;
         color: #1e293b;
         transition: font-size 0.3s ease;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+        max-width: 180px;
     }
 
     .user-role {
@@ -130,11 +138,20 @@
         }
 
         .logo-section h1 {
-            font-size: 22px;
+            font-size: 18px;
         }
 
         .logo-section img {
             height: 44px;
+        }
+
+        .logo-section {
+            gap: 10px !important;
+        }
+
+        .user-profile-box {
+            gap: 8px !important;
+            padding: 5px 10px !important;
         }
     }
 
@@ -149,7 +166,7 @@
         }
 
         .logo-section h1 {
-            font-size: 18px;
+            font-size: 15px;
         }
 
         .logo-section img {
@@ -179,7 +196,7 @@
         }
 
         .logo-section h1 {
-            font-size: 16px;
+            font-size: 13px;
         }
 
         .logo-section img {
@@ -188,6 +205,10 @@
 
         .user-name {
             font-size: 12px;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+            max-width: 120px;
         }
 
         .user-role {
@@ -214,7 +235,7 @@
         }
 
         .logo-section h1 {
-            font-size: 14px;
+            font-size: 12px;
         }
 
         .logo-section img {
@@ -238,6 +259,9 @@
             width: 28px !important;
             height: 28px !important;
             font-size: 12px !important;
+        }
+        .user-name {
+            max-width: 90px;
         }
     }
 
@@ -693,7 +717,7 @@
     </div>
 
     {% if session.get('access_token') %}
-    <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; position: relative;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; position: relative; flex-shrink: 0;">
         {% if session.get('role') != 'Candidate' %}
         <!-- Notification Bell Container -->
         <div class="notification-container" style="position: relative;">
@@ -829,7 +853,11 @@
             </div>
 
             <div class="user-info">
+                {% if session.get('role') == 'Candidate' %}
+                <span class="user-name">{{ session.get('candidate_name') or session.get('username', '') }}</span>
+                {% else %}
                 <span class="user-name">{{ session.get('username', '') }}</span>
+                {% endif %}
                 {% if session.get('role') == 'Admin' %}
                 <span class="user-role">CHIPS Administrator</span>
                 {% elif session.get('role') == 'Candidate' %}

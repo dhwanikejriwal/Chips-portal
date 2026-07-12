@@ -72,9 +72,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             "district_id": candidate.district if candidate else None,
             "district_name": district_name,
             "user_id": candidate_login.id,
-            "r_id": candidate_login.r_id,
-            "has_changed_password": candidate_login.has_changed_password
-
+            "r_id": candidate_login.request_id,
+            "has_changed_password": candidate_login.has_changed_password,
+            "name": candidate.name if candidate else ""
         }
     else:
         db_password_bytes = user.password.encode('utf-8')
@@ -130,7 +130,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
                 admin_type=admin_type,
                 login_time=started_at,
                 baseline_at=baseline_at,
-                is_current=True,
+                is_current=1,
             )
             db.add(new_log)
             db.commit()
@@ -199,12 +199,15 @@ def change_password(payload: ChangePasswordRequest, current_user = Depends(get_c
     if not bcrypt.checkpw(payload.current_password.encode('utf-8'), db_password_bytes):
         raise HTTPException(status_code=400, detail="Incorrect current password.")
 
+    if payload.current_password == payload.new_password:
+        raise HTTPException(status_code=400, detail="New password cannot be the same as the current password.")
+
     salt = bcrypt.gensalt()
     hashed_pw = bcrypt.hashpw(payload.new_password.encode('utf-8'), salt).decode('utf-8')
 
     current_user.password = hashed_pw
     if isinstance(current_user, CandidateLogin):
-        current_user.has_changed_password = True
+        current_user.has_changed_password = 1
 
     db.commit()
     return {"success": True, "detail": "Password updated successfully."}
@@ -218,7 +221,7 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 @router.post("/forgot-password")
-def forgot_password(payload: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(UserLogin).filter(UserLogin.username == payload.username).first()
     candidate = None
     email_to = None
@@ -257,28 +260,39 @@ def forgot_password(payload: ForgotPasswordRequest, background_tasks: Background
     from backend.utils.email_utils import send_password_reset_otp_email
     
     otp_code = "".join([str(secrets.randbelow(10)) for _ in range(6)])
-    expire = datetime.utcnow() + timedelta(minutes=15)
+    expire = datetime.utcnow() + timedelta(minutes=3)
     
     # Store OTP using canonical_username as the key
     db_otp = db.query(OtpVerification).filter(OtpVerification.email == canonical_username).first()
     if db_otp:
         db_otp.otp_code = otp_code
         db_otp.expires_at = expire
-        db_otp.is_verified = False
+        db_otp.is_verified = 0
     else:
         new_otp = OtpVerification(email=canonical_username, otp_code=otp_code, expires_at=expire)
         db.add(new_otp)
     db.commit()
     
-    background_tasks.add_task(
-        send_password_reset_otp_email,
-        email_to=email_to,
-        name=name,
-        otp_code=otp_code
-    )
+    if not email_to or not email_to.strip():
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send OTP. Please check your credentials, or try again after some time."
+        )
+        
+    try:
+        await send_password_reset_otp_email(
+            email_to=email_to,
+            name=name,
+            otp_code=otp_code
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send OTP. Please check your credentials, or try again after some time."
+        )
     
     # Return canonical_username so the frontend knows what to send to reset-password
-    return {"success": True, "detail": "An OTP has been sent to your email address.", "canonical_username": canonical_username}
+    return {"success": True, "detail": "An OTP has been sent to your email address. (Please check spam folder if not received.)", "canonical_username": canonical_username}
 
 @router.post("/reset-password")
 def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
@@ -289,12 +303,35 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
         raise HTTPException(status_code=400, detail="Invalid OTP.")
     if db_otp.expires_at < datetime.utcnow():
         raise HTTPException(status_code=400, detail="OTP has expired.")
+
+    # Password strength check
+    password = payload.new_password
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password is too weak. Must be at least 6 characters.")
+        
+    strength = 0
+    if len(password) >= 8:
+        strength += 1
+    import re
+    if re.search(r'[A-Z]', password):
+        strength += 1
+    if re.search(r'[a-z]', password):
+        strength += 1
+    if re.search(r'[0-9]', password):
+        strength += 1
+    if re.search(r'[^A-Za-z0-9]', password):
+        strength += 1
+        
+    if strength <= 2:
+        raise HTTPException(status_code=400, detail="Password is too weak. Please make a stronger password.")
         
     salt = bcrypt.gensalt()
     hashed_pw = bcrypt.hashpw(payload.new_password.encode('utf-8'), salt).decode('utf-8')
     
     user = db.query(UserLogin).filter(UserLogin.username == payload.username).first()
     if user:
+        if bcrypt.checkpw(payload.new_password.encode('utf-8'), user.password.encode('utf-8')):
+            raise HTTPException(status_code=400, detail="New password cannot be the same as the current password.")
         user.password = hashed_pw
         db.delete(db_otp)
         db.commit()
@@ -302,6 +339,8 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
         
     candidate = db.query(CandidateLogin).filter(CandidateLogin.user_id == payload.username).first()
     if candidate:
+        if bcrypt.checkpw(payload.new_password.encode('utf-8'), candidate.password.encode('utf-8')):
+            raise HTTPException(status_code=400, detail="New password cannot be the same as the current password.")
         candidate.password = hashed_pw
         db.delete(db_otp)
         db.commit()
@@ -355,7 +394,7 @@ def logout(
         # Only this device/browser's session ends here — other active
         # sessions for the same user must be left untouched.
         current_session.logout_time = get_ist_now()
-        current_session.is_current = False
+        current_session.is_current = 0
         db.commit()
 
     return {"message": "Logged out successfully"}

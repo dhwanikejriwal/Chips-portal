@@ -28,7 +28,8 @@ def dc_nseit():
         if response.status_code == 200:
             requests_list = response.json()
             pending_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["PENDING", "REAPPLIED"]]
-            processed_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["FORWARDED", "FORWARDED_AGAIN", "APPROVED", "REVERTED", "REVERTED_BY_CHIPS"]]
+            processed_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["APPROVED", "REVERTED", "REVERTED_BY_CHIPS"]]
+            sent_to_chips_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["FORWARDED", "FORWARDED_AGAIN"]]
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
@@ -36,6 +37,7 @@ def dc_nseit():
         "dc/dc_nseit.html",
         pending_requests=pending_requests,
         processed_requests=processed_requests,
+        sent_to_chips_requests=sent_to_chips_requests,
         approved_requests=processed_requests
     )
 
@@ -241,7 +243,7 @@ def export_nseit_proxy():
     ids = request.args.get("ids", "")
     backend_url = f"{current_app.config['BACKEND_API_URL']}/nseit_manage/export-excel"
     try:
-        response = requests.get(backend_url, params={"ids": ids}, headers=_headers(), stream=True)
+        response = requests.get(backend_url, params=request.args.to_dict(), headers=_headers(), stream=True)
         if response.status_code == 401:
             return redirect(url_for("auth.logout"))
         if response.status_code == 200:

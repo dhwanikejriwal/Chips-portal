@@ -108,7 +108,7 @@ def submit_operator_activation(
 
     # Check if candidate has completed NSEIT
     nseit_done = False
-    nseit_req = db.query(NSEITRequest).filter(NSEITRequest.r_id == candidate.r_id).first()
+    nseit_req = db.query(NSEITRequest).filter(NSEITRequest.request_id == candidate.id).first()
     if nseit_req and nseit_req.status_id in [StatusEnum.APPROVED.value, StatusEnum.SKIPPED.value]:
         nseit_done = True
     elif candidate.nseit_id:

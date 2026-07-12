@@ -8,6 +8,7 @@ from backend.models.user_login import UserLogin, UserLogin as User
 from backend.models.user_profile import UserProfile
 from backend.models.candidate import Candidate, CandidateLogin
 from backend.models.dc_remark import DCRemark
+from backend.models.hold_candidate import HoldCandidate
 from backend.models.nseit import NSEITRequest, NSEITRemark
 from backend.models.l1_registration import L1RegistrationRequest, L1RegistrationRemarkHistory
 from backend.models.reactivation import (
@@ -58,4 +59,5 @@ __all__ = [
     "OtpVerification",
     "AadhaarDistrictResource",
     "AdminLoginLog",
+    "HoldCandidate",
 ]

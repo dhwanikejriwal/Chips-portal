@@ -14,7 +14,7 @@ from backend.models.base import Base, get_ist_now, to_code, to_name
 class Candidate(Base):
     __tablename__ = "candidate_table"
 
-    r_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     request_code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     mobile: Mapped[str] = mapped_column(String(15), nullable=False)
@@ -28,7 +28,7 @@ class Candidate(Base):
     aadhaar: Mapped[str] = mapped_column(String(12), nullable=False)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     pincode: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    is_existing_operator: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_existing_operator: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     photo_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
     marksheet_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
     tenth_marksheet_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -58,14 +58,14 @@ class CandidateLogin(Base):
     __tablename__ = "candidate_login_table"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    r_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidate_table.r_id"), unique=True, nullable=False)
+    request_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidate_table.id"), unique=True, nullable=False)
     user_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
-    has_changed_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    has_changed_password: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Relationships
     candidate: Mapped[Candidate] = relationship("Candidate", back_populates="login")
     
-    lms_remarks_written: Mapped[list["LMSRemark"]] = relationship("LMSRemark", back_populates="candidate_author", foreign_keys="[LMSRemark.candidate_by_id]")
+    lms_remarks_written: Mapped[list["LMSRemark"]] = relationship("LMSRemark", foreign_keys="[LMSRemark.sender_id]", primaryjoin="LMSRemark.sender_id == CandidateLogin.id", viewonly=True)
     
-    nseit_remarks_written: Mapped[list["NSEITRemark"]] = relationship("NSEITRemark", back_populates="candidate_author", foreign_keys="[NSEITRemark.candidate_by_id]")
+    nseit_remarks_written: Mapped[list["NSEITRemark"]] = relationship("NSEITRemark", foreign_keys="[NSEITRemark.sender_id]", primaryjoin="NSEITRemark.sender_id == CandidateLogin.id", viewonly=True)
