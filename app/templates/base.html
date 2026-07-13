@@ -253,6 +253,381 @@
             });
         })();
     </script>
+
+    {% if ENABLE_LANGUAGE_TOGGLE %}
+    <div id="google_translate_element" style="display: none;"></div>
+    <style>
+        /* Hide all default Google Translate banner, frames, and dropdown widgets */
+        body {
+            top: 0 !important;
+        }
+        #google_translate_element,
+        .skiptranslate,
+        .goog-te-banner-frame,
+        .goog-te-balloon-frame,
+        .goog-te-gadget-icon,
+        .goog-logo-link,
+        .goog-te-gadget,
+        .goog-te-gadget-simple,
+        .goog-te-menu-value,
+        iframe.skiptranslate,
+        iframe[class*="skiptranslate"],
+        #goog-gt-tt,
+        [class*="goog-"],
+        [id*="goog-"],
+        [class*="skiptranslate"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            width: 0 !important;
+            position: absolute !important;
+            left: -9999px !important;
+            top: -9999px !important;
+            z-index: -9999 !important;
+        }
+    </style>
+    <script>
+        (function () {
+            const HINDI_TRANSLATIONS = {{ HINDI_TRANSLATIONS | safe }};
+            let currentLang = sessionStorage.getItem('portal_lang');
+            
+            if (!currentLang) {
+                currentLang = 'en';
+                sessionStorage.setItem('portal_lang', 'en');
+                document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname;
+            }
+
+            const updateToggleButtons = () => {
+                const labels = document.querySelectorAll('.lang-toggle-label');
+                labels.forEach(lbl => {
+                    lbl.textContent = currentLang === 'en' ? 'हिंदी' : 'English';
+                });
+            };
+
+            const excludeDatabaseTables = (root = document) => {
+                root.querySelectorAll('td').forEach(el => {
+                    const isActionButton = el.querySelector('button, a.btn, input[type="button"], input[type="submit"]');
+                    const isStatusBadge = el.querySelector('[class*="badge"], [class*="status"]');
+                    
+                    if (isStatusBadge || (!isActionButton)) {
+                        el.classList.add('notranslate');
+                        el.setAttribute('translate', 'no');
+                        el.querySelectorAll('*').forEach(child => {
+                            child.classList.add('notranslate');
+                            child.setAttribute('translate', 'no');
+                        });
+                    } else {
+                        el.classList.remove('notranslate');
+                        el.removeAttribute('translate');
+                        el.querySelectorAll('*').forEach(child => {
+                            if (!child.classList.contains('lang-toggle-btn') && !child.classList.contains('lang-toggle-label')) {
+                                child.classList.remove('notranslate');
+                                child.removeAttribute('translate');
+                            }
+                        });
+                    }
+                });
+            };
+
+            const applyHybridCorrections = (element) => {
+                if (currentLang !== 'hi') return;
+                
+                const dict = HINDI_TRANSLATIONS;
+                const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
+
+                const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+                    acceptNode: function(node) {
+                        const parent = node.parentNode;
+                        if (parent && parent.nodeType === Node.ELEMENT_NODE) {
+                            if (parent.tagName === 'SCRIPT' || 
+                                parent.tagName === 'STYLE' || 
+                                parent.classList.contains('notranslate') || 
+                                parent.getAttribute('translate') === 'no' ||
+                                (typeof parent.closest === 'function' && parent.closest('.notranslate'))
+                            ) {
+                                return NodeFilter.FILTER_REJECT;
+                            }
+                            return NodeFilter.FILTER_ACCEPT;
+                        }
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                });
+
+                const textNodes = [];
+                let node;
+                while (node = walker.nextNode()) {
+                    textNodes.push(node);
+                }
+
+                textNodes.forEach(textNode => {
+                    const text = textNode.nodeValue;
+                    const parent = textNode.parentNode;
+                    if (!parent) return;
+
+                    const normalizedText = text.replace(/\s+/g, ' ').trim();
+                    
+                    let matchedKey = null;
+                    for (const key of sortedKeys) {
+                        if (normalizedText.toLowerCase() === key.toLowerCase()) {
+                            matchedKey = key;
+                            break;
+                        }
+                    }
+
+                    if (matchedKey) {
+                        textNode.nodeValue = dict[matchedKey];
+                        parent.classList.add('notranslate');
+                        parent.setAttribute('translate', 'no');
+                    } else {
+                        let escapedText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        let replaced = escapedText;
+                        let hasChanged = false;
+
+                        for (const key of sortedKeys) {
+                            const escapedKey = key.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\s+/g, '\\s+');
+                            const regex = new RegExp('\\b' + escapedKey + '\\b', 'gi');
+                            if (regex.test(replaced)) {
+                                replaced = replaced.replace(regex, `<span class="notranslate" translate="no">${dict[key]}</span>`);
+                                hasChanged = true;
+                            }
+                        }
+
+                        if (hasChanged) {
+                            const tempSpan = document.createElement('span');
+                            tempSpan.innerHTML = replaced;
+                            while (tempSpan.firstChild) {
+                                parent.insertBefore(tempSpan.firstChild, textNode);
+                            }
+                            parent.removeChild(textNode);
+                        }
+                    }
+                });
+
+                const inputs = element.querySelectorAll('input[placeholder], textarea[placeholder]');
+                inputs.forEach(input => {
+                    if (input.closest('.notranslate')) return;
+                    let ph = input.getAttribute('placeholder');
+                    let phChanged = false;
+                    for (const key of sortedKeys) {
+                        const regex = new RegExp('\\b' + key + '\\b', 'gi');
+                        if (ph && regex.test(ph)) {
+                            ph = ph.replace(regex, dict[key]);
+                            phChanged = true;
+                        }
+                    }
+                    if (phChanged) {
+                        input.setAttribute('placeholder', ph);
+                        input.classList.add('notranslate');
+                        input.setAttribute('translate', 'no');
+                    }
+                });
+
+                const buttons = element.querySelectorAll('input[type="submit"], input[type="button"]');
+                buttons.forEach(btn => {
+                    let val = btn.value;
+                    let valChanged = false;
+                    for (const key of sortedKeys) {
+                        const regex = new RegExp('\\b' + key + '\\b', 'gi');
+                        if (val && regex.test(val)) {
+                            val = val.replace(regex, dict[key]);
+                            valChanged = true;
+                        }
+                    }
+                    if (valChanged) {
+                        btn.value = val;
+                        btn.classList.add('notranslate');
+                        btn.setAttribute('translate', 'no');
+                    }
+                });
+
+                const selects = element.querySelectorAll('select');
+                selects.forEach(sel => {
+                    sel.classList.add('notranslate');
+                    sel.setAttribute('translate', 'no');
+                    
+                    const options = sel.querySelectorAll('option');
+                    options.forEach(opt => {
+                        opt.classList.add('notranslate');
+                        opt.setAttribute('translate', 'no');
+                    });
+                });
+            };
+
+            window.togglePortalLanguage = function () {
+                const newLang = currentLang === 'en' ? 'hi' : 'en';
+                sessionStorage.setItem('portal_lang', newLang);
+                if (newLang === 'hi') {
+                    document.cookie = "googtrans=/en/hi; path=/;";
+                    document.cookie = "googtrans=/en/hi; path=/; domain=." + window.location.hostname;
+                } else {
+                    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname;
+                }
+                window.location.reload();
+            };
+
+            if (currentLang === 'hi') {
+                // Run corrections and table exclusions immediately before Google Translate loads
+                excludeDatabaseTables(document.body);
+                applyHybridCorrections(document.body);
+
+                document.cookie = "googtrans=/en/hi; path=/;";
+                
+                window.googleTranslateElementInit = function () {
+                    new google.translate.TranslateElement({
+                        pageLanguage: 'en',
+                        includedLanguages: 'hi',
+                        autoDisplay: false
+                    }, 'google_translate_element');
+                };
+
+                const gtScript = document.createElement('script');
+                gtScript.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+                document.body.appendChild(gtScript);
+            }
+
+            // --- Hindi Transliteration for Remarks/Reason fields ---
+            const setupTransliteration = () => {
+                const isRemarksField = (el) => {
+                    if (!el) return false;
+                    const id = (el.id || '').toLowerCase();
+                    const name = (el.name || '').toLowerCase();
+                    const ph = (el.placeholder || '').toLowerCase();
+                    return id.includes('remark') || name.includes('remark') || ph.includes('remark') ||
+                           id.includes('reason') || name.includes('reason') || ph.includes('reason') ||
+                           id.includes('टिप्पणी') || ph.includes('टिप्पणी');
+                };
+
+                const fetchTransliteration = async (text) => {
+                    try {
+                        const url = `https://inputtools.google.com/request?text=${encodeURIComponent(text)}&itc=hi-t-i0-und&num=1&cp=0-0&cs=1&ie=utf-8&oe=utf-8`;
+                        const res = await fetch(url);
+                        if (!res.ok) return null;
+                        const data = await res.json();
+                        if (data && data[0] === 'SUCCESS' && data[1] && data[1][0] && data[1][0][1]) {
+                            return data[1][0][1][0];
+                        }
+                    } catch (e) {
+                        console.error('Transliteration failed:', e);
+                    }
+                    return null;
+                };
+
+                const handleInputKey = async (e) => {
+                    const el = e.target;
+                    if (!el || !el.dataset.transliterationEnabled) return;
+                    
+                    if (e.keyCode === 32 || e.keyCode === 13) {
+                        const val = el.value;
+                        const start = el.selectionStart;
+                        
+                        const textBeforeCursor = val.substring(0, start);
+                        const match = textBeforeCursor.match(/(\S+)$/);
+                        if (!match) return;
+                        
+                        const lastWord = match[1];
+                        if (/[\u0900-\u097F]/.test(lastWord)) return;
+                        
+                        e.preventDefault();
+                        
+                        const translated = await fetchTransliteration(lastWord);
+                        if (translated) {
+                            const newTextBeforeCursor = textBeforeCursor.substring(0, textBeforeCursor.length - lastWord.length) + translated;
+                            const textAfterCursor = val.substring(start);
+                            el.value = newTextBeforeCursor + textAfterCursor;
+                            el.selectionStart = el.selectionEnd = newTextBeforeCursor.length;
+                        }
+                        
+                        const currentStart = el.selectionStart;
+                        const currentVal = el.value;
+                        const suffix = e.keyCode === 32 ? ' ' : '\n';
+                        el.value = currentVal.substring(0, currentStart) + suffix + currentVal.substring(currentStart);
+                        el.selectionStart = el.selectionEnd = currentStart + 1;
+                        
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                };
+
+                const injectToggleSwitch = (el) => {
+                    if (el.dataset.transliterationSetup) return;
+                    el.dataset.transliterationSetup = 'true';
+                    
+                    const container = document.createElement('div');
+                    container.className = 'transliteration-toggle-container notranslate';
+                    container.setAttribute('translate', 'no');
+                    container.style.cssText = 'display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 12px; font-weight: 500; color: #4b5563; user-select: none;';
+                    
+                    const chk = document.createElement('input');
+                    chk.type = 'checkbox';
+                    chk.className = 'transliteration-chk';
+                    chk.style.cssText = 'cursor: pointer; width: 14px; height: 14px; margin: 0;';
+                    
+                    const lbl = document.createElement('label');
+                    lbl.textContent = 'Type in Hindi / हिंदी में लिखें';
+                    lbl.style.cssText = 'cursor: pointer; margin: 0;';
+                    
+                    container.appendChild(chk);
+                    container.appendChild(lbl);
+                    
+                    el.parentNode.insertBefore(container, el.nextSibling);
+                    
+                    chk.addEventListener('change', () => {
+                        if (chk.checked) {
+                            el.dataset.transliterationEnabled = 'true';
+                            el.classList.add('notranslate');
+                            el.setAttribute('translate', 'no');
+                        } else {
+                            delete el.dataset.transliterationEnabled;
+                        }
+                    });
+                    
+                    el.addEventListener('keydown', handleInputKey);
+                };
+
+                document.addEventListener('focusin', (e) => {
+                    if (e.target && (e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && e.target.type === 'text'))) {
+                        if (isRemarksField(e.target)) {
+                            injectToggleSwitch(e.target);
+                        }
+                    }
+                });
+            };
+
+            const runSetup = () => {
+                updateToggleButtons();
+                excludeDatabaseTables();
+                setupTransliteration();
+                
+                if (currentLang === 'hi') {
+                    applyHybridCorrections(document.body);
+                }
+                
+                const tableObserver = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        mutation.addedNodes.forEach((node) => {
+                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                excludeDatabaseTables(node);
+                                
+                                if (currentLang === 'hi') {
+                                    applyHybridCorrections(node);
+                                }
+                            }
+                        });
+                    });
+                });
+                tableObserver.observe(document.body, { childList: true, subtree: true });
+            };
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', runSetup);
+            } else {
+                runSetup();
+            }
+        })();
+    </script>
+    {% endif %}
 </body>
 
 </html>

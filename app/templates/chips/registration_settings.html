@@ -1,238 +1,190 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registration Settings | CHiPS Admin</title>
-    <link rel="stylesheet" href="/static/css/common.css">
-    <link rel="stylesheet" href="/static/css/layout.css">
-    <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% extends "base.html" %}
+{% block title %}Registration Settings | CHiPS Admin{% endblock %}
+
+{% block extra_css %}
+<!-- Flatpickr for Date/Time selection -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<style>
+    .settings-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
+    .settings-table th, .settings-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    .settings-table th { background-color: #f8fafc; font-weight: 600; color: #475569; text-transform: uppercase; font-size: 12px; }
+    .settings-table tbody tr:hover { background-color: #f1f5f9; }
     
-    <!-- Flatpickr for better Date/Time selection -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    /* Toggle Switch CSS */
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 24px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+    input:checked + .slider { background-color: #10b981; }
+    input:focus + .slider { box-shadow: 0 0 1px #10b981; }
+    input:checked + .slider:before { transform: translateX(20px); }
 
-    <style>
-        .settings-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
-        .settings-table th, .settings-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        .settings-table th { background-color: #f8fafc; font-weight: 600; color: #475569; text-transform: uppercase; font-size: 12px; }
-        .settings-table tbody tr:hover { background-color: #f1f5f9; }
-        
-        /* Toggle Switch CSS */
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: #10b981; }
-        input:focus + .slider { box-shadow: 0 0 1px #10b981; }
-        input:checked + .slider:before { transform: translateX(20px); }
+    .date-input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-family: inherit; }
+    .save-btn { background-color: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; transition: 0.2s; }
+    .save-btn:hover { background-color: #2563eb; }
+    .save-btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
+</style>
+{% endblock %}
 
-        .date-input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-family: inherit; }
-        .save-btn { background-color: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; transition: 0.2s; }
-        .save-btn:hover { background-color: #2563eb; }
-        .save-btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
-    </style>
-</head>
-<body>
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <h2 style="margin-bottom: 5px;">District Registration Settings</h2>
+    <div style="font-size: 14px; color: #64748b;">Control candidate registration access per district</div>
+</div>
 
-    {% include "partials/header.html" %}
+<div style="display: flex; gap: 15px; margin-bottom: 15px;">
+    <input type="text" id="districtSearch" onkeyup="filterDistricts()" placeholder="Search by district name..." style="flex: 1; max-width: 300px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+    <select id="statusFilter" onchange="filterDistricts()" style="padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; cursor: pointer;">
+        <option value="all">All Statuses</option>
+        <option value="open">Open</option>
+        <option value="closed">Closed</option>
+    </select>
+</div>
 
-    <div class="main-layout">
-        {% include "partials/sidebar.html" %}
+<table class="settings-table">
+    <thead>
+        <tr>
+            <th style="width: 25%">District</th>
+            <th style="width: 15%; text-align: center;">Registration Open</th>
+            <th style="width: 25%">Start Date (Optional)</th>
+            <th style="width: 25%">End Date (Optional)</th>
+            <th style="width: 10%; text-align: center;">Action</th>
+        </tr>
+    </thead>
+    <tbody id="districts-tbody">
+        <tr><td colspan="5" style="text-align: center; padding: 20px;">Loading districts...</td></tr>
+    </tbody>
+</table>
 
-        <main class="content">
-            <div style="margin-bottom: 20px;">
-                <h2 style="margin-bottom: 5px;">District Registration Settings</h2>
-                <div style="font-size: 14px; color: #64748b;">Control candidate registration access per district</div>
-            </div>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        fetchDistricts();
+    });
 
-            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <input type="text" id="districtSearch" onkeyup="filterDistricts()" placeholder="Search by district name..." style="flex: 1; max-width: 300px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
-                <select id="statusFilter" onchange="filterDistricts()" style="padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; cursor: pointer;">
-                    <option value="all">All Statuses</option>
-                    <option value="open">Open</option>
-                    <option value="closed">Closed</option>
-                </select>
-            </div>
-
-            <table class="settings-table">
-                <thead>
-                    <tr>
-                        <th style="width: 25%">District</th>
-                        <th style="width: 15%; text-align: center;">Registration Open</th>
-                        <th style="width: 25%">Start Date (Optional)</th>
-                        <th style="width: 25%">End Date (Optional)</th>
-                        <th style="width: 10%; text-align: center;">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="districts-tbody">
-                    <tr><td colspan="5" style="text-align: center; padding: 20px;">Loading districts...</td></tr>
-                </tbody>
-            </table>
-        </main>
-    </div>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            fetchDistricts();
-        });
-
-        async function fetchDistricts() {
-            try {
-                const baseUrl = "{{ config.BACKEND_API_URL }}".replace(/\/api\/?$/, "");
-                const response = await fetch(`${baseUrl}/dashboard/districts/settings`);
-                if (!response.ok) throw new Error("Failed to fetch settings");
-                const data = await response.json();
-                renderTable(data.districts);
-            } catch (err) {
-                Swal.fire("Error", err.message, "error");
-            }
+    async function fetchDistricts() {
+        try {
+            const baseUrl = "{{ config.BACKEND_API_URL }}".replace(/\/api\/?$/, "");
+            const response = await fetch(`${baseUrl}/dashboard/districts/settings`);
+            if (!response.ok) throw new Error("Failed to fetch settings");
+            const data = await response.json();
+            renderTable(data.districts);
+        } catch (err) {
+            Swal.fire("Error", err.message, "error");
         }
+    }
 
-        function renderTable(districts) {
-            const tbody = document.getElementById("districts-tbody");
-            tbody.innerHTML = "";
+    function renderTable(districts) {
+        const tbody = document.getElementById("districts-tbody");
+        tbody.innerHTML = "";
 
-            districts.forEach(d => {
-                const tr = document.createElement("tr");
-                tr.className = "district-row";
-                tr.setAttribute("data-name", d.district_name.toLowerCase());
-                tr.setAttribute("data-status", d.registration_open ? "open" : "closed");
-                tr.innerHTML = `
-                    <td><strong>${d.district_name}</strong></td>
-                    <td style="text-align: center;">
-                        <label class="switch">
-                            <input type="checkbox" id="open_${d.district_code}" ${d.registration_open ? 'checked' : ''} onchange="enableSave('${d.district_code}')">
-                            <span class="slider"></span>
-                        </label>
-                    </td>
-                    <td>
-                        <input type="text" class="date-input" id="start_${d.district_code}" value="${d.registration_start_date || ''}" placeholder="Select start date">
-                    </td>
-                    <td>
-                        <input type="text" class="date-input" id="end_${d.district_code}" value="${d.registration_end_date || ''}" placeholder="Select end date">
-                    </td>
-                    <td style="text-align: center;">
-                        <button class="save-btn" id="btn_${d.district_code}" onclick="saveSettings('${d.district_code}')" disabled>Save</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+        districts.forEach(d => {
+            const tr = document.createElement("tr");
+            tr.className = "district-row";
+            tr.setAttribute("data-name", d.district_name.toLowerCase());
+            tr.setAttribute("data-status", d.registration_open ? "open" : "closed");
+            tr.innerHTML = `
+                <td><strong>${d.district_name}</strong></td>
+                <td style="text-align: center;">
+                    <label class="switch">
+                        <input type="checkbox" id="open_${d.district_code}" ${d.registration_open ? 'checked' : ''} onchange="enableSave('${d.district_code}')">
+                        <span class="slider"></span>
+                    </label>
+                </td>
+                <td>
+                    <input type="text" class="date-input" id="start_${d.district_code}" value="${d.registration_start_date || ''}" placeholder="Select start date">
+                </td>
+                <td>
+                    <input type="text" class="date-input" id="end_${d.district_code}" value="${d.registration_end_date || ''}" placeholder="Select end date">
+                </td>
+                <td style="text-align: center;">
+                    <button class="save-btn" id="btn_${d.district_code}" disabled onclick="saveSettings('${d.district_code}')">Save</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
 
-            // Initialize Flatpickr on all date inputs
-            flatpickr(".date-input", {
+            flatpickr(`#start_${d.district_code}`, {
                 enableTime: true,
-                dateFormat: "Y-m-d\\TH:i",
-                altInput: true,
-                altFormat: "F j, Y h:i K",
-                onChange: function(selectedDates, dateStr, instance) {
-                    const idParts = instance.element.id.split('_');
-                    if (idParts.length > 1) {
-                        enableSave(idParts[1]);
-                    }
-                }
+                dateFormat: "Y-m-d H:i",
+                onChange: () => enableSave(d.district_code)
             });
-        }
-
-        function enableSave(code) {
-            document.getElementById(`btn_${code}`).disabled = false;
-        }
-
-        function filterDistricts() {
-            const input = document.getElementById("districtSearch").value.toLowerCase();
-            const statusFilter = document.getElementById("statusFilter").value;
-            const rows = document.querySelectorAll(".district-row");
-
-            rows.forEach(row => {
-                const name = row.getAttribute("data-name");
-                const status = row.getAttribute("data-status");
-                
-                const matchesName = name.includes(input);
-                const matchesStatus = statusFilter === "all" || status === statusFilter;
-
-                if (matchesName && matchesStatus) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
-                }
+            flatpickr(`#end_${d.district_code}`, {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                onChange: () => enableSave(d.district_code)
             });
-        }
+        });
+    }
 
-        async function saveSettings(code) {
-            const btn = document.getElementById(`btn_${code}`);
-            
-            const startVal = document.getElementById(`start_${code}`).value;
-            const endVal = document.getElementById(`end_${code}`).value;
+    function enableSave(code) {
+        document.getElementById(`btn_${code}`).disabled = false;
+    }
 
-            if (startVal && endVal) {
-                const startDate = new Date(startVal);
-                const endDate = new Date(endVal);
-                if (endDate <= startDate) {
-                    Swal.fire("Validation Error", "End date must be after start date.", "warning");
-                    return;
-                }
+    function filterDistricts() {
+        const q = document.getElementById("districtSearch").value.toLowerCase().trim();
+        const sf = document.getElementById("statusFilter").value;
+        const rows = document.querySelectorAll(".district-row");
+
+        rows.forEach(row => {
+            const name = row.getAttribute("data-name");
+            const status = row.getAttribute("data-status");
+
+            const matchQ = !q || name.includes(q);
+            const matchStatus = sf === "all" || status === sf;
+
+            if (matchQ && matchStatus) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
             }
+        });
+    }
 
-            btn.disabled = true;
-            btn.innerText = "Saving...";
+    async function saveSettings(code) {
+        const btn = document.getElementById(`btn_${code}`);
+        btn.disabled = true;
+        btn.innerText = "Saving...";
 
-            const payload = {
-                registration_open: document.getElementById(`open_${code}`).checked,
-                registration_start_date: startVal || null,
-                registration_end_date: endVal || null
-            };
+        const payload = {
+            district_code: code,
+            registration_open: document.getElementById(`open_${code}`).checked,
+            registration_start_date: document.getElementById(`start_${code}`).value || null,
+            registration_end_date: document.getElementById(`end_${code}`).value || null
+        };
 
-            try {
-                const baseUrl = "{{ config.BACKEND_API_URL }}".replace(/\/api\/?$/, "");
-                const response = await fetch(`${baseUrl}/dashboard/districts/${code}/settings`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+        try {
+            const baseUrl = "{{ config.BACKEND_API_URL }}".replace(/\/api\/?$/, "");
+            const response = await fetch(`${baseUrl}/dashboard/districts/settings`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                Swal.fire({
+                    title: "Success",
+                    text: "Settings updated successfully!",
+                    icon: "success",
+                    timer: 1500,
+                    showConfirmButton: false
                 });
-                
-                const data = await response.json();
-                if (response.ok) {
-                    Swal.fire({
-                        title: "Saved!",
-                        text: "District settings updated successfully.",
-                        icon: "success",
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                    btn.innerText = "Save";
-
-                    // Update row's data-status attribute for filtering
-                    const tr = btn.closest("tr");
-                    if (tr) {
-                        tr.setAttribute("data-status", payload.registration_open ? "open" : "closed");
-                        filterDistricts(); // Re-apply filter immediately
-                    }
-                } else {
-                    throw new Error(data.error || "Failed to update");
-                }
-            } catch (err) {
-                Swal.fire("Error", err.message, "error");
-                btn.disabled = false;
                 btn.innerText = "Save";
+
+                const tr = btn.closest("tr");
+                if (tr) {
+                    tr.setAttribute("data-status", payload.registration_open ? "open" : "closed");
+                    filterDistricts();
+                }
+            } else {
+                throw new Error(data.error || "Failed to update");
             }
+        } catch (err) {
+            Swal.fire("Error", err.message, "error");
+            btn.disabled = false;
+            btn.innerText = "Save";
         }
-    </script>
-    <script>
-        // Sidebar Toggle Collapse/Expand persistence
-        const sidebar = document.querySelector('.sidebar');
-        const toggleBtn = document.getElementById('sidebar-toggle');
-        
-        if (sidebar && toggleBtn) {
-            if (localStorage.getItem('sidebar-collapsed') === 'true') {
-                sidebar.classList.add('collapsed');
-            }
-            
-            toggleBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('collapsed');
-                localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
-            });
-        }
-    </script>
-</body>
-</html>
+    }
+</script>
+{% endblock %}

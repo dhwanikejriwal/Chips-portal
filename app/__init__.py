@@ -94,4 +94,22 @@ def create_app():
         from flask import send_from_directory
         return send_from_directory(os.path.join(app.root_path, '..', 'uploads', 'candidate'), filename)
 
+    # Multi-language support configuration context processor
+    @app.context_processor
+    def inject_language_toggle():
+        import json
+        import os
+        translations_path = os.path.join(app.root_path, 'translations', 'hi.json')
+        hindi_translations = {}
+        if os.path.exists(translations_path):
+            try:
+                with open(translations_path, 'r', encoding='utf-8') as f:
+                    hindi_translations = json.load(f)
+            except Exception as e:
+                app.logger.error(f"Error loading hi.json: {e}")
+        return {
+            'ENABLE_LANGUAGE_TOGGLE': app.config.get('ENABLE_LANGUAGE_TOGGLE', True),
+            'HINDI_TRANSLATIONS': json.dumps(hindi_translations, ensure_ascii=False)
+        }
+
     return app

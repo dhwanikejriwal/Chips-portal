@@ -16,3 +16,5 @@ class Config:
     # Flask Session Settings (6 Hours lifetime)
     from datetime import timedelta
     PERMANENT_SESSION_LIFETIME = timedelta(hours=6)
+    # Multi-language configuration toggle (Default: True)
+    ENABLE_LANGUAGE_TOGGLE = os.getenv("ENABLE_LANGUAGE_TOGGLE", "True").strip().lower() in ("true", "1", "yes")
