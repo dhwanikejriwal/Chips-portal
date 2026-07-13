@@ -42,6 +42,16 @@ def eligibility():
     return render_template("user/eligibility.html")
 
 
+@candidate_register_bp.route("/check-mobile", methods=["GET"])
+def check_mobile():
+    mobile = request.args.get("mobile")
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/candidate_register/check-mobile"
+    try:
+        response = requests.get(backend_url, params={"mobile": mobile})
+        return response.json(), response.status_code
+    except Exception:
+        return {"exists": False}, 500
+
 @candidate_register_bp.route("/send-otp", methods=["POST"])
 def send_otp():
     email = request.json.get("email")

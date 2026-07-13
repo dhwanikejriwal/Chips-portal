@@ -162,7 +162,7 @@ def approve_lms_request(r_id: int, payload: LMSActionRequest, db: Session = Depe
             import asyncio
             from backend.utils.email_utils import send_lms_approval_email
             
-            lms_username = candidate.lms_id or ""
+            lms_username = candidate.email or ""
             lms_password = "Test@123"
             lms_link = "https://lms.gov.in"
             

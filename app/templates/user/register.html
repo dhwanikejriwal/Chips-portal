@@ -135,7 +135,7 @@
                                 <line x1="12" y1="9" x2="12" y2="13" />
                                 <line x1="12" y1="17" x2="12.01" y2="17" />
                             </svg>
-                            Didn't receive it? Please check your Spam or Junk folder.
+                            Didn't receive it? Please check if the email address you entered is correct, or check your Spam or Junk folder.
                         </div>
                     </div>
                     <input type="hidden" id="email_verified" name="email_verified"
@@ -523,11 +523,58 @@
                     const emailErr = document.getElementById('email_error');
                     emailErr.textContent = "Please verify your email address using OTP before submitting.";
                     emailErr.style.display = 'block';
-                    document.getElementById('email').scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    document.getElementById('email').focus({ preventScroll: true });
                 }
+                
+                // Scroll to the first visible error field
+                setTimeout(() => {
+                    const visibleErrors = Array.from(document.querySelectorAll('[id$="_error"], [style*="color: #e53e3e"], [style*="color: rgb(229, 62, 62)"]'))
+                        .filter(el => {
+                            const style = window.getComputedStyle(el);
+                            return style.display !== 'none' && (style.color === 'rgb(229, 62, 62)' || el.textContent.trim().length > 0);
+                        });
+                    if (visibleErrors.length > 0) {
+                        visibleErrors[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        const inputId = visibleErrors[0].id.replace('_error', '');
+                        const inputEl = document.getElementById(inputId);
+                        if (inputEl) inputEl.focus({ preventScroll: true });
+                    }
+                }, 50);
+                
                 console.log("Validation blocked deployment pipeline loop execution context.");
             }
+        });
+    }
+    
+    // Validate mobile number instantly after typing (reaches 10 digits)
+    const mobileField = document.getElementById('mobile');
+    if (mobileField) {
+        mobileField.addEventListener('input', async function () {
+            const val = this.value.trim();
+            const errorDiv = document.getElementById('mobile_error');
+            if (val.length === 10) {
+                try {
+                    const response = await fetch(`{{ url_for('candidate_register.check_mobile') }}?mobile=${val}`);
+                    const data = await response.json();
+                    if (data.exists) {
+                        errorDiv.textContent = "Mobile number is already registered";
+                        errorDiv.style.display = 'block';
+                    } else {
+                        errorDiv.style.display = 'none';
+                    }
+                } catch (e) {
+                    console.error("Error checking mobile number availability:", e);
+                }
+            } else {
+                errorDiv.style.display = 'none';
+            }
+        });
+    }
+
+    // Restrict name field to letters and spaces only
+    const nameField = document.getElementById('name');
+    if (nameField) {
+        nameField.addEventListener('input', function () {
+            this.value = this.value.replace(/[^a-zA-Z\s]/g, '');
         });
     }
 
@@ -539,7 +586,8 @@
         const mobile = mobileInput ? mobileInput.value : null;
         const msgDiv = document.getElementById('otp_message');
 
-        if (!email || !emailInput.checkValidity()) {
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!email || !emailRegex.test(email)) {
             msgDiv.textContent = "Please enter a valid email address first.";
             msgDiv.style.color = "#e53e3e";
             document.getElementById('email_otp_section').style.display = 'block';
@@ -663,7 +711,7 @@
     // -----------------
 
     // Restore form data if there was a validation error
-    document.addEventListener('DOMContentLoaded', () => {
+    function initPage() {
         const serverFormData = JSON.parse(document.getElementById('server-form-data').textContent);
         if (serverFormData) {
             for (const [key, value] of Object.entries(serverFormData)) {
@@ -712,10 +760,29 @@
             const existingPhoto = document.querySelector('input[name="existing_photo"]');
             if (existingPhoto && existingPhoto.value) document.getElementById('photo').removeAttribute('required');
 
-            // If there's an error banner, scroll to it
-            const alert = document.querySelector('.alert');
-            if (alert) alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // If there's an error banner or field errors, scroll to them
+            setTimeout(() => {
+                const alert = document.querySelector('.alert');
+                if (alert) {
+                    alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    const serverErrors = Array.from(document.querySelectorAll('[style*="color: #e53e3e"], [style*="color: rgb(229, 62, 62)"], [id$="_error"]'))
+                        .filter(el => {
+                            const style = window.getComputedStyle(el);
+                            return style.display !== 'none' && el.textContent.trim().length > 0;
+                        });
+                    if (serverErrors.length > 0) {
+                        serverErrors[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            }, 300);
         }
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPage);
+    } else {
+        initPage();
+    }
 </script>
 {% endblock %}

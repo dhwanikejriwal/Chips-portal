@@ -194,7 +194,8 @@
                     </td>
                     <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
                     <td style="padding: 12px 15px; font-size: 14px;">
-                        {% if (req.nseit_status|upper) == 'FORWARDED_AGAIN' and req.updated_at and req.updated_at != '—' %}
+                        {% if (req.nseit_status|upper) == 'FORWARDED_AGAIN' and req.updated_at and req.updated_at != '—'
+                        %}
                         {{ req.updated_at }}
                         {% else %}
                         —
@@ -496,7 +497,7 @@
             title: 'Approve NSEIT Request',
             html: `
                 <div style="text-align: left;">
-                    <p>Approve candidate <strong>${name}</strong>'s request. A default NSEIT Certificate ID will be assigned.</p>
+                    <p>Approve candidate <strong>${name}</strong>'s NSEIT request.</p>
                     <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Approval Remarks (Mandatory)</label>
                     <textarea id="swal-remark" class="swal2-textarea" placeholder="Enter remarks..." style="margin: 0; width: 100%; box-sizing: border-box; height: 100px;"></textarea>
                 </div>
@@ -850,25 +851,25 @@
             statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
         }
 
-    let latestRevertReason = '';
-    const isRevertedOrRejected = ['reverted', 'reverted by chips', 'reverted_by_chips', 'rejected'].includes(normStatus);
-    if (isRevertedOrRejected) {
-        try {
-            let remarks = [];
-            try { remarks = JSON.parse(d.remarksStr || '[]'); } catch (e) { }
-            const revertLog = remarks.slice().reverse().find(r => (r.status_after || '').toLowerCase().includes('revert') || (r.status_after || '').toLowerCase().includes('reject'));
-            if (revertLog && revertLog.remark) {
-                latestRevertReason = revertLog.remark.replace(/^(Sent to UIDAI:|UIDAI Approved\. Remarks:|UIDAI Approved\.|UIDAI Rejected\. Remarks:|Reverted back to DC:|Reverted by CHiPS:|Rejected by CHiPS:)\s*/i, '').trim();
+        let latestRevertReason = '';
+        const isRevertedOrRejected = ['reverted', 'reverted by chips', 'reverted_by_chips', 'rejected'].includes(normStatus);
+        if (isRevertedOrRejected) {
+            try {
+                let remarks = [];
+                try { remarks = JSON.parse(d.remarksStr || '[]'); } catch (e) { }
+                const revertLog = remarks.slice().reverse().find(r => (r.status_after || '').toLowerCase().includes('revert') || (r.status_after || '').toLowerCase().includes('reject'));
+                if (revertLog && revertLog.remark) {
+                    latestRevertReason = revertLog.remark.replace(/^(Sent to UIDAI:|UIDAI Approved\. Remarks:|UIDAI Approved\.|UIDAI Rejected\. Remarks:|Reverted back to DC:|Reverted by CHiPS:|Rejected by CHiPS:)\s*/i, '').trim();
+                }
+            } catch (e) {
+                console.error("Error parsing revert reason:", e);
             }
-        } catch (e) {
-            console.error("Error parsing revert reason:", e);
         }
-    }
 
-    const maskedAadhaar = d.aadhaar ? `XXXX XXXX ${d.aadhaar.slice(-4)}` : 'N/A';
+        const maskedAadhaar = d.aadhaar ? `XXXX XXXX ${d.aadhaar.slice(-4)}` : 'N/A';
 
-    if (activeView === 'details') {
-        let htmlContent = `
+        if (activeView === 'details') {
+            let htmlContent = `
             <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
                     <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
@@ -974,29 +975,29 @@
             </div>
             `;
 
-        Swal.fire({
-            title: `<span style="font-family:inherit; font-weight:800;">NSEIT Certificate Details</span>`,
-            html: htmlContent,
-            showCancelButton: false,
-            showConfirmButton: true,
-            confirmButtonText: 'Close',
-            customClass: {
-                confirmButton: 'swal-btn-close'
-            },
-            width: '600px',
-            focusConfirm: false,
-            didOpen: () => {
-                document.getElementById('btn-show-docs').onclick = () => {
-                    window.showCandidateDetails(d, 'documents', showRemarks);
-                };
-                document.getElementById('btn-show-remarks').onclick = () => {
-                    window.showCandidateDetails(d, 'remarks', showRemarks);
-                };
-            }
-        });
-    }
-    else if (activeView === 'documents') {
-        let htmlContent = `
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">NSEIT Certificate Details</span>`,
+                html: htmlContent,
+                showCancelButton: false,
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                customClass: {
+                    confirmButton: 'swal-btn-close'
+                },
+                width: '600px',
+                focusConfirm: false,
+                didOpen: () => {
+                    document.getElementById('btn-show-docs').onclick = () => {
+                        window.showCandidateDetails(d, 'documents', showRemarks);
+                    };
+                    document.getElementById('btn-show-remarks').onclick = () => {
+                        window.showCandidateDetails(d, 'remarks', showRemarks);
+                    };
+                }
+            });
+        }
+        else if (activeView === 'documents') {
+            let htmlContent = `
             <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
                     <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
@@ -1016,110 +1017,110 @@
             </div>
             `;
 
-        Swal.fire({
-            title: `<span style="font-family:inherit; font-weight:800;">Uploaded Documents</span>`,
-            html: htmlContent,
-            showCancelButton: false,
-            showConfirmButton: true,
-            confirmButtonText: 'Close',
-            showDenyButton: true,
-            denyButtonText: 'Back',
-            customClass: {
-                confirmButton: 'swal-btn-close',
-                denyButton: 'swal-btn-back'
-            },
-            width: '600px',
-            focusConfirm: false
-        }).then((result) => {
-            if (result.isDenied) {
-                window.showCandidateDetails(d, 'details', showRemarks);
-            }
-        });
-    }
-    else if (activeView === 'remarks') {
-        let remarks = [];
-        try {
-            remarks = JSON.parse(d.remarksStr);
-        } catch (e) {
-            console.error("Error parsing remarks:", e);
-        }
-
-        function getStatusBadgeHtml(status) {
-            const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
-            let badgeClass = 'badge-pending';
-            let label = 'Pending';
-
-            if (s.includes('approve')) {
-                badgeClass = 'badge-approved';
-                label = 'Approved';
-            } else if (s.includes('revert')) {
-                if (s.includes('chips') || s.includes('admin')) {
-                    badgeClass = 'badge-reverted-by-chips';
-                    label = 'Reverted by CHiPS';
-                } else {
-                    badgeClass = 'badge-reverted';
-                    label = 'Reverted';
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Uploaded Documents</span>`,
+                html: htmlContent,
+                showCancelButton: false,
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                showDenyButton: true,
+                denyButtonText: 'Back',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false
+            }).then((result) => {
+                if (result.isDenied) {
+                    window.showCandidateDetails(d, 'details', showRemarks);
                 }
-            } else if (s.includes('forward') || s.includes('uidai')) {
-                if (s.includes('again')) {
-                    badgeClass = 'badge-forwarded-again';
-                    label = 'Forwarded Again';
-                } else {
-                    badgeClass = 'badge-forwarded';
-                    label = 'Forwarded';
-                }
-            } else if (s.includes('reappl')) {
-                badgeClass = 'badge-reapplied';
-                label = 'Reapplied';
-            } else if (s.includes('reject')) {
-                badgeClass = 'badge-rejected';
-                label = 'Rejected';
-            }
-            return `<span class="badge ${badgeClass}">${label}</span>`;
-        }
-
-        let timelineHtml = '';
-        if (showRemarks && remarks.length > 0) {
-            timelineHtml += '<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;"><div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div><div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">';
-            remarks.forEach(item => {
-                const sender = (item.sender_role === 'CHIPS') ? 'CHIPS Admin' :
-                    (item.sender_role === 'DC') ? 'District Coordinator' :
-                        (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
-                const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
-                const statusAfter = item.status_after || '';
-
-                let statusBadgeInline = '';
-                let markerClass = 'marker-pending';
-                if (statusAfter) {
-                    statusBadgeInline = getStatusBadgeHtml(statusAfter);
-                    const sLower = statusAfter.toLowerCase();
-                    if (sLower.includes('approve')) markerClass = 'marker-approved';
-                    else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
-                    else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
-                    else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
-                }
-
-                const stepLabel = 'NSEIT Certificate';
-                const username = item.sender_username || '';
-                const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
-
-                timelineHtml += '<div class="timeline-item ' + senderClass + '">';
-                timelineHtml += '<div class="timeline-marker ' + markerClass + '"></div>';
-                timelineHtml += '<div class="timeline-content">';
-                timelineHtml += '<div class="timeline-section-row"><span class="timeline-step-label">' + stepLabel + '</span>' + (statusAfter ? (' ' + statusBadgeInline) : '') + '</div>';
-                timelineHtml += '<div class="timeline-by-row"><span class="timeline-by">By: <strong>' + sender + '</strong>' + (hasUsername ? ' (' + escapeHtml(username) + ')' : '') + '</span><span class="timeline-time">' + item.created_at + '</span></div>';
-                timelineHtml += '<div class="timeline-body">' + escapeHtml(item.remark) + '</div>';
-                timelineHtml += '</div>';
-                timelineHtml += '</div>';
             });
-            timelineHtml += '</div></div>';
-        } else if (showRemarks) {
-            timelineHtml += '<div style="margin-top: 15px; font-style: italic; color: #888; text-align: center; font-size: 13px;">No remarks history/actions logged yet.</div>';
         }
+        else if (activeView === 'remarks') {
+            let remarks = [];
+            try {
+                remarks = JSON.parse(d.remarksStr);
+            } catch (e) {
+                console.error("Error parsing remarks:", e);
+            }
 
-        const headerStatusBadge = getStatusBadgeHtml(d.status);
+            function getStatusBadgeHtml(status) {
+                const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+                let badgeClass = 'badge-pending';
+                let label = 'Pending';
 
-        let htmlContent = `
+                if (s.includes('approve')) {
+                    badgeClass = 'badge-approved';
+                    label = 'Approved';
+                } else if (s.includes('revert')) {
+                    if (s.includes('chips') || s.includes('admin')) {
+                        badgeClass = 'badge-reverted-by-chips';
+                        label = 'Reverted by CHiPS';
+                    } else {
+                        badgeClass = 'badge-reverted';
+                        label = 'Reverted';
+                    }
+                } else if (s.includes('forward') || s.includes('uidai')) {
+                    if (s.includes('again')) {
+                        badgeClass = 'badge-forwarded-again';
+                        label = 'Forwarded Again';
+                    } else {
+                        badgeClass = 'badge-forwarded';
+                        label = 'Forwarded';
+                    }
+                } else if (s.includes('reappl')) {
+                    badgeClass = 'badge-reapplied';
+                    label = 'Reapplied';
+                } else if (s.includes('reject')) {
+                    badgeClass = 'badge-rejected';
+                    label = 'Rejected';
+                }
+                return `<span class="badge ${badgeClass}">${label}</span>`;
+            }
+
+            let timelineHtml = '';
+            if (showRemarks && remarks.length > 0) {
+                timelineHtml += '<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;"><div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div><div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">';
+                remarks.forEach(item => {
+                    const sender = (item.sender_role === 'CHIPS') ? 'CHIPS Admin' :
+                        (item.sender_role === 'DC') ? 'District Coordinator' :
+                            (item.sender_role === 'EDM') ? 'District Manager (EDM)' : 'Candidate';
+                    const senderClass = (item.sender_role === 'CHIPS' || item.sender_role === 'DC' || item.sender_role === 'EDM') ? 'chips' : 'candidate';
+                    const statusAfter = item.status_after || '';
+
+                    let statusBadgeInline = '';
+                    let markerClass = 'marker-pending';
+                    if (statusAfter) {
+                        statusBadgeInline = getStatusBadgeHtml(statusAfter);
+                        const sLower = statusAfter.toLowerCase();
+                        if (sLower.includes('approve')) markerClass = 'marker-approved';
+                        else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                        else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                        else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+                    }
+
+                    const stepLabel = 'NSEIT Certificate';
+                    const username = item.sender_username || '';
+                    const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
+                    timelineHtml += '<div class="timeline-item ' + senderClass + '">';
+                    timelineHtml += '<div class="timeline-marker ' + markerClass + '"></div>';
+                    timelineHtml += '<div class="timeline-content">';
+                    timelineHtml += '<div class="timeline-section-row"><span class="timeline-step-label">' + stepLabel + '</span>' + (statusAfter ? (' ' + statusBadgeInline) : '') + '</div>';
+                    timelineHtml += '<div class="timeline-by-row"><span class="timeline-by">By: <strong>' + sender + '</strong>' + (hasUsername ? ' (' + escapeHtml(username) + ')' : '') + '</span><span class="timeline-time">' + item.created_at + '</span></div>';
+                    timelineHtml += '<div class="timeline-body">' + escapeHtml(item.remark) + '</div>';
+                    timelineHtml += '</div>';
+                    timelineHtml += '</div>';
+                });
+                timelineHtml += '</div></div>';
+            } else if (showRemarks) {
+                timelineHtml += '<div style="margin-top: 15px; font-style: italic; color: #888; text-align: center; font-size: 13px;">No remarks history/actions logged yet.</div>';
+            }
+
+            const headerStatusBadge = getStatusBadgeHtml(d.status);
+
+            let htmlContent = `
             <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                     <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
@@ -1129,26 +1130,26 @@
             </div>
             `;
 
-        Swal.fire({
-            title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
-            html: htmlContent,
-            showCancelButton: false,
-            showConfirmButton: true,
-            confirmButtonText: 'Close',
-            showDenyButton: true,
-            denyButtonText: 'Back',
-            customClass: {
-                confirmButton: 'swal-btn-close',
-                denyButton: 'swal-btn-back'
-            },
-            width: '600px',
-            focusConfirm: false
-        }).then((result) => {
-            if (result.isDenied) {
-                window.showCandidateDetails(d, 'details', showRemarks);
-            }
-        });
-    }
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+                html: htmlContent,
+                showCancelButton: false,
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                showDenyButton: true,
+                denyButtonText: 'Back',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false
+            }).then((result) => {
+                if (result.isDenied) {
+                    window.showCandidateDetails(d, 'details', showRemarks);
+                }
+            });
+        }
     };
 
     window.openDetailsModal = function (row) {

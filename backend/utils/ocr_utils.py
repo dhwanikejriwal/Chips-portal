@@ -35,6 +35,7 @@ def extract_text_from_bytes(file_bytes: bytes, content_type: str, lang: str = "e
             poppler_path = os.getenv("POPPLER_PATH")
             if not poppler_path:
                 common_poppler = [
+                    r"C:\Program Files\poppler-26.02.0\Library\bin",
                     r"C:\poppler-26.02.0\Library\bin",
                     r"C:\poppler\Library\bin", 
                     r"C:\Release-24.02.0-0\poppler-24.02.0\Library\bin",

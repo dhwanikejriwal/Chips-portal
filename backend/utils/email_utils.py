@@ -201,6 +201,7 @@ async def send_lms_approval_email(email_to: str, name: str, username: str, raw_p
                 
                 <p>Please click the button below to access the LMS portal:</p>
                 <a href="{lms_link}" class="btn" style="color: #ffffff;">Go to LMS Portal</a>
+                <p style="margin-top: 15px; font-size: 14px;">Or use this link: <a href="{lms_link}" target="_blank">{lms_link}</a></p>
                 
                 <p>For security reasons, we strongly recommend that you change your password upon your first login.</p>
                 <p>Best regards,<br>The CHiPS Administration Team</p>

@@ -129,8 +129,23 @@ class VerifyOtpRequest(BaseModel):
     email: EmailStr
     otp_code: str
 
+@router.get("/check-mobile")
+def check_mobile(mobile: str, db: Session = Depends(get_db)):
+    exists = db.query(Candidate).filter(Candidate.mobile == mobile).first()
+    return {"exists": exists is not None}
+
 @router.post("/send-otp")
 async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
+    from email_validator import validate_email, EmailNotValidError
+    try:
+        # Validate deliverability (check MX records)
+        validate_email(payload.email, check_deliverability=True)
+    except EmailNotValidError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Email delivery check failed: {str(e)}"
+        )
+
     email_exists = db.query(Candidate).filter(Candidate.email == payload.email).first()
     
     mobile_exists = None
