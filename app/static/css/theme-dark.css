@@ -1,0 +1,471 @@
+/* ==========================================================================
+   DARK THEME — component override layer.
+
+   The portal's older component CSS (dc_style.css, parts of common/layout, the
+   notification panel) hardcodes light hex values, much of it with !important,
+   and was never tokenised. This file is the SINGLE place that re-skins those
+   legacy surfaces for dark mode. It contains no values of its own — every
+   declaration references a token from tokens.css — so all theme values still
+   live in exactly one place.
+
+   Loaded LAST in base.html <head> so these rules win over the legacy
+   !important light rules by specificity (attribute + class) and source order.
+
+   Token-driven surfaces (request_section .rs-card, the header, etc.) are NOT
+   here — they flip automatically when tokens.css swaps the variables.
+   ========================================================================== */
+
+/* ---- Page + generic white surfaces ---- */
+html[data-theme="dark"] body {
+    background: var(--app-bg) !important;
+}
+
+/* chips_dash.html forces `.content { background-color: #F8FAFC !important; }`
+   in its own extra_css — that paints over the whole scrollable pane with a
+   fixed light color no matter the theme, which is why cards further down
+   looked dark while the canvas behind them (and any text sitting directly
+   on it, e.g. the Operator/Kit Requests Overview title) stayed pale/washed
+   out. Re-flip it here so it tracks the theme like everywhere else. */
+html[data-theme="dark"] .content {
+    background-color: var(--app-bg) !important;
+}
+
+/* ---- Dashboard banner: darken the gradient so it stops out-shouting the data ---- */
+html[data-theme="dark"] .chips-header-banner {
+    background: var(--banner-bg) !important;
+    border: 1px solid var(--banner-border) !important;
+}
+
+/* KPI / metric tiles are intentionally left uniform (translucent white on the
+   gradient) in BOTH themes — no status colours, ever. Nothing to override. */
+
+/* ---- Filter bar card + inputs/selects ---- */
+html[data-theme="dark"] .filter-bar {
+    background: var(--surface-card) !important;
+    border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .filter-input,
+html[data-theme="dark"] .table-input,
+html[data-theme="dark"] .rs-filter,
+html[data-theme="dark"] .form-control-input {
+    /* background-COLOR only — some selects set an inline `background:` shorthand
+       carrying a chevron image; overriding the shorthand would erase it. */
+    background-color: var(--surface-input) !important;
+    border-color: var(--border-strong) !important;
+    color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] .filter-input::placeholder,
+html[data-theme="dark"] .table-input::placeholder,
+html[data-theme="dark"] .form-control-input::placeholder {
+    color: var(--text-faint) !important;
+}
+
+html[data-theme="dark"] .rs-count {
+    background: var(--surface-input) !important;
+    color: var(--text-muted) !important;
+    border-color: var(--border) !important;
+}
+
+/* ---- Section-header bars (chips-table-header-bar / section-heading / sec-header) ---- */
+html[data-theme="dark"] .chips-table-header-bar,
+html[data-theme="dark"] .sec-header,
+html[data-theme="dark"] .section-heading {
+    background-color: var(--surface-band) !important;
+    border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .chips-table-header-bar .section-heading {
+    background-color: transparent !important;
+}
+
+html[data-theme="dark"] .sec-title,
+html[data-theme="dark"] .section-heading h2,
+html[data-theme="dark"] .section-heading h3,
+html[data-theme="dark"] .chips-table-header-bar h2,
+html[data-theme="dark"] .dash-title {
+    color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] .dash-subtitle {
+    color: var(--text-secondary) !important;
+}
+
+html[data-theme="dark"] .sec-count,
+html[data-theme="dark"] .section-count {
+    background: var(--surface-subtle) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* ---- Legacy .sid-table (used on pages that don't use .rs-card) ---- */
+html[data-theme="dark"] .sid-table-wrapper {
+    background: var(--surface-card) !important;
+    border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .sid-table thead tr,
+html[data-theme="dark"] .sid-table th {
+    background: var(--surface-band) !important;
+    color: var(--text-label) !important;
+    border-color: var(--border-subtle) !important;
+}
+
+html[data-theme="dark"] .sid-table td {
+    color: var(--text-primary) !important;
+    border-color: var(--border-subtle) !important;
+}
+
+html[data-theme="dark"] .sid-table tbody tr:hover td {
+    background: var(--surface-hover) !important;
+}
+
+/* ---- Status pills: invert to deep fill + pale text (both pill systems) ---- */
+html[data-theme="dark"] .badge-pending,
+html[data-theme="dark"] .sid-badge-pending,
+html[data-theme="dark"] .badge-reapplied,
+html[data-theme="dark"] .sid-badge-reapplied,
+html[data-theme="dark"] .rs-pill--pending {
+    background-color: var(--st-pending-bg) !important;
+    color: var(--st-pending-fg) !important;
+}
+
+html[data-theme="dark"] .badge-forwarded,
+html[data-theme="dark"] .badge-forwarded-again,
+html[data-theme="dark"] .badge-sent_to_uidai,
+html[data-theme="dark"] .sid-badge-sent_to_uidai {
+    background-color: var(--st-uidai-bg) !important;
+    color: var(--st-uidai-fg) !important;
+}
+
+html[data-theme="dark"] .badge-reverted,
+html[data-theme="dark"] .badge-reverted-by-chips,
+html[data-theme="dark"] .sid-badge-reverted {
+    background-color: var(--st-reverted-bg) !important;
+    color: var(--st-reverted-fg) !important;
+}
+
+html[data-theme="dark"] .badge-approved,
+html[data-theme="dark"] .sid-badge-approved,
+html[data-theme="dark"] .badge-allotted,
+html[data-theme="dark"] .sid-badge-allotted,
+html[data-theme="dark"] .badge-reviewed,
+html[data-theme="dark"] .sid-badge-reviewed,
+html[data-theme="dark"] .badge-done,
+html[data-theme="dark"] .sid-badge-done,
+html[data-theme="dark"] .rs-pill--done {
+    background-color: var(--st-approved-bg) !important;
+    color: var(--st-approved-fg) !important;
+}
+
+html[data-theme="dark"] .badge-rejected,
+html[data-theme="dark"] .sid-badge-rejected,
+html[data-theme="dark"] .rs-pill--rejected {
+    background-color: var(--st-rejected-bg) !important;
+    color: var(--st-rejected-fg) !important;
+}
+
+html[data-theme="dark"] .rs-pill--progress {
+    background-color: var(--st-progress-bg) !important;
+    color: var(--st-progress-fg) !important;
+}
+
+html[data-theme="dark"] .sid-badge-not_started,
+html[data-theme="dark"] .badge-neutral {
+    background-color: var(--surface-subtle) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* ---- Scrollbars ---- */
+html[data-theme="dark"] .scroll:hover {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+html[data-theme="dark"] .scroll:hover::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+}
+
+html[data-theme="dark"] .sid-table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+}
+
+/* ---- Sidebar: swap its base + active-icon tokens (structure/JS untouched) ---- */
+html[data-theme="dark"] .sidebar {
+    --sb-bg: var(--surface-sidebar);
+}
+
+html[data-theme="dark"] .sidebar .nav-link.active {
+    color: var(--sidebar-active-fg);
+}
+
+/* ---- Notification panel: dark container so the popover isn't a white slab ---- */
+html[data-theme="dark"] .notification-dropdown {
+    background: var(--surface-card) !important;
+    border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .notification-panel-title,
+html[data-theme="dark"] .notification-empty-title {
+    color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] .notification-panel-subtitle,
+html[data-theme="dark"] .notification-panel-close,
+html[data-theme="dark"] .notification-empty-desc,
+html[data-theme="dark"] .notification-group-desc {
+    color: var(--text-secondary) !important;
+}
+
+html[data-theme="dark"] .notification-group-card {
+    background: var(--surface-subtle) !important;
+    border-color: var(--border-subtle) !important;
+}
+
+html[data-theme="dark"] .notification-group-name,
+html[data-theme="dark"] .notification-group-count {
+    color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] .notification-type-list {
+    border-color: var(--border-subtle) !important;
+}
+
+html[data-theme="dark"] .notification-type-row {
+    color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] .notification-type-row:hover {
+    background: var(--surface-hover) !important;
+}
+
+html[data-theme="dark"] .notification-empty-icon {
+    background: var(--surface-subtle) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* ---- Nested batch cards inside a request-section group (rs-group) ---- */
+html[data-theme="dark"] .rs-group-body {
+    background: var(--app-bg) !important;   /* recessed well; cards sit elevated on it */
+}
+
+html[data-theme="dark"] .rs-card.request-card > .rs-head {
+    background: var(--surface-band) !important;
+}
+
+/* Batch header metadata (Submitted / Updated · dates) is inline dark text —
+   lift it so it stays legible on the dark band. */
+html[data-theme="dark"] .rs-head-controls span {
+    color: var(--text-secondary) !important;
+}
+
+html[data-theme="dark"] .rs-head-controls strong {
+    color: var(--text-primary) !important;
+}
+
+/* ---- DC dashboards: bespoke filter wrapper + view tabs + empty states ---- */
+html[data-theme="dark"] .filter-wrapper {
+    background: var(--surface-card) !important;
+    border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .main-view-tab {
+    color: var(--text-secondary) !important;
+}
+
+html[data-theme="dark"] .main-view-tab.active-view {
+    color: var(--action) !important;
+    border-bottom-color: var(--action) !important;
+}
+
+html[data-theme="dark"] .empty-state {
+    background: var(--surface-card) !important;
+    border-color: var(--border-strong) !important;
+    color: var(--text-secondary) !important;
+}
+
+html[data-theme="dark"] .empty-state p {
+    color: var(--text-secondary) !important;
+}
+
+/* ---- District Registration Settings page (registration_settings.html) ---- */
+html[data-theme="dark"] .settings-table {
+    background: var(--surface-card) !important;
+}
+
+html[data-theme="dark"] .settings-table th {
+    background-color: var(--surface-band) !important;
+    color: var(--text-label) !important;
+    border-color: var(--border-subtle) !important;
+}
+
+html[data-theme="dark"] .settings-table td {
+    color: var(--text-primary) !important;
+    border-color: var(--border-subtle) !important;
+}
+
+html[data-theme="dark"] .settings-table tbody tr:hover {
+    background-color: var(--surface-hover) !important;
+}
+
+/* Inline-styled search + status filter + date pickers on the settings page. */
+html[data-theme="dark"] #districtSearch,
+html[data-theme="dark"] #statusFilter,
+html[data-theme="dark"] .date-input {
+    background-color: var(--surface-input) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-strong) !important;
+}
+
+/* ---- Outline-style "Revert" row-action button — white-fill/red-border in
+   light mode, used verbatim across chips_reactivation.html, dc_style.css,
+   operator_activation/chips_list.html, l2_registration/chips_list.html and
+   station_id/chips_list.html. One rule re-skins all of them. ---- */
+html[data-theme="dark"] .btn-revert {
+    background: var(--surface-card) !important;
+    border-color: var(--st-rejected-fg) !important;
+    color: var(--st-rejected-fg) !important;
+}
+html[data-theme="dark"] .btn-revert:hover {
+    background: var(--st-rejected-bg) !important;
+}
+
+/* ---- Purple "Reapplied" chip (station_id/chips_list.html) ---- */
+html[data-theme="dark"] .reapplied-chip {
+    background: var(--st-uidai-bg) !important;
+    color: var(--st-uidai-fg) !important;
+}
+
+/* ---- "Filtered by aging" info banner (chips_reactivation.html) ---- */
+html[data-theme="dark"] .aging-filter-notice {
+    background: var(--st-progress-bg) !important;
+    border-left-color: var(--action) !important;
+    color: var(--st-progress-fg) !important;
+}
+html[data-theme="dark"] .aging-filter-notice-link {
+    color: var(--action) !important;
+}
+
+/* ---- Kit Registration status page (kit_registration/chips_list.html) ---- */
+html[data-theme="dark"] .kit-pending {
+    background-color: var(--st-pending-bg) !important;
+    color: var(--st-pending-fg) !important;
+}
+html[data-theme="dark"] .kit-done {
+    background-color: var(--st-approved-bg) !important;
+    color: var(--st-approved-fg) !important;
+}
+html[data-theme="dark"] .kit-na {
+    background-color: var(--surface-subtle) !important;
+    color: var(--text-secondary) !important;
+}
+html[data-theme="dark"] .pending-days {
+    color: var(--st-pending-fg) !important;
+}
+html[data-theme="dark"] .pending-days.high {
+    color: var(--st-rejected-fg) !important;
+}
+html[data-theme="dark"] .kit-complete {
+    color: var(--st-approved-fg) !important;
+}
+
+/* ==========================================================================
+   CHiPS admin dashboard — "Operator requests" / "Kit request" tabs
+   (chips_dash.html). These two tabs are React components styled with raw
+   Tailwind CDN utility classes (bg-white, text-slate-*, ...) that have no
+   idea `data-theme` exists. Re-skin the exact Tailwind classes the JSX
+   emits, scoped to the two React mount roots, so the sub-nav, KPI card
+   wells, aging report, health tracker and trend-chart cards all flip with
+   the rest of the portal instead of staying frozen white.
+   ========================================================================== */
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) {
+    color: var(--text-primary);
+}
+
+/* Card / panel backgrounds */
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .bg-white {
+    background-color: var(--surface-card) !important;
+}
+
+/* Sub-nav track */
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .bg-slate-100\/90 {
+    background-color: var(--surface-subtle) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .border-slate-200\/50 {
+    border-color: var(--border-strong) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .border-slate-300\/50 {
+    border-color: var(--border-strong) !important;
+}
+
+/* Card borders */
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .border-slate-200\/80,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .border-slate-100 {
+    border-color: var(--border-subtle) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .hover\:border-slate-300\/80:hover {
+    border-color: var(--border-strong) !important;
+}
+
+/* Text colors */
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-slate-950,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-slate-900,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-slate-800,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-slate-700 {
+    color: var(--text-primary) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-slate-600,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-slate-500,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-slate-400 {
+    color: var(--text-secondary) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .hover\:text-slate-950:hover {
+    color: var(--text-primary) !important;
+}
+
+/* Pale chip/badge/progress-track fills */
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .bg-slate-50,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .bg-slate-100 {
+    background-color: var(--surface-subtle) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .hover\:bg-slate-50:hover {
+    background-color: var(--surface-hover) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .border-slate-100\/50,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .border-slate-100\/80 {
+    border-color: var(--border-subtle) !important;
+}
+
+/* "15+ Days" overdue accent (rose) and NSEIT expiry-monitor callouts —
+   invert to deep-fill/pale-text, same convention as the status pills. */
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .bg-rose-50 {
+    background-color: var(--st-rejected-bg) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-rose-500,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-rose-600,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-rose-950 {
+    color: var(--st-rejected-fg) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .border-rose-100\/40,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .border-rose-100\/50,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .border-rose-200\/60 {
+    border-color: var(--border-subtle) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .from-rose-50\/80,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .to-rose-50 {
+    background-image: none !important;
+    background-color: var(--st-rejected-bg) !important;
+}
+
+/* Amber "expiring soon" callout — same deep-fill/pale-text inversion. */
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-amber-950,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .text-amber-600 {
+    color: var(--st-pending-fg) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .border-amber-200\/60 {
+    border-color: var(--border-subtle) !important;
+}
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .from-amber-50\/80,
+html[data-theme="dark"] :is(#operator-requests-react-root, #kit-requests-react-root) .to-amber-50 {
+    background-image: none !important;
+    background-color: var(--st-pending-bg) !important;
+}

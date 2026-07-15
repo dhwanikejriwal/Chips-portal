@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Theme bootstrap — MUST run before any CSS so the page paints in the
+         correct theme with no flash (FOUC). Explicit choice (portal-theme)
+         wins forever; otherwise fall back to the OS preference. -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('portal-theme');
+                if (t !== 'dark' && t !== 'light') {
+                    t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Chips Portal{% endblock %}</title>
+    <!-- Modern Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- i18n runtime — loaded early (before inline scripts that use window.i18n).
+         Sets <html lang> from the persisted choice and translates all
+         data-i18n* marked nodes from /static/i18n/{en,hi}.json. -->
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+    <!-- Main Style -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/request_section.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pending_alerts.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+
+    <!-- 🌟 GLOBAL INTERACTIVE POPUP INFRASTRUCTURE: SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.min.css">
+    <!-- SheetJS CDN for xlsx downloads -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    {% block extra_css %}{% endblock %}
+
+    <!-- Dark-theme component overrides — loaded LAST so it re-skins legacy
+         hardcoded-hex components (incl. any dc_style.css pulled in via
+         extra_css above) that variables alone can't reach. Hex-free: every
+         rule references a token from tokens.css. -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme-dark.css') }}">
+
+    <!-- Highlight for rows linked to from the notification panel / dashboard KPIs -->
+    <style>
+        /* Devanagari-capable fallback in the global stack. Latin text keeps
+           rendering in Outfit; Hindi glyphs fall through to Noto Sans
+           Devanagari instead of a random system font. !important mirrors the
+           same-selector rule in dc/dc_style.css so this (later in the
+           cascade) wins and the stack is consistent portal-wide. */
+        body, input, select, textarea, button {
+            font-family: 'Outfit', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        }
+
+        .row-highlight-new {
+            position: relative;
+            background: rgba(245, 158, 11, 0.08) !important;
+            box-shadow: inset 3px 0 0 0 #f59e0b;
+            animation: row-highlight-fade 2.5s ease-out 1;
+        }
+        @keyframes row-highlight-fade {
+            0% { background: rgba(245, 158, 11, 0.22) !important; }
+            100% { background: rgba(245, 158, 11, 0.08) !important; }
+        }
+        .row-status-match {
+            position: relative;
+            background: rgba(37, 99, 235, 0.08) !important;
+            box-shadow: inset 3px 0 0 0 #2563eb;
+            animation: row-status-fade 2.5s ease-out 1;
+        }
+        @keyframes row-status-fade {
+            0% { background: rgba(37, 99, 235, 0.20) !important; }
+            100% { background: rgba(37, 99, 235, 0.08) !important; }
+        }
+        .row-status-dim { opacity: 0.45; }
+    </style>
+    <!-- Tab Session Enforcer -->
+    {% if session.get('access_token') %}
+    <script>
+        (function () {
+            var referrer = document.referrer || "";
+            var isLoginRedirect = referrer.indexOf("/auth/login") !== -1;
+            if (isLoginRedirect) {
+                sessionStorage.setItem('session_active', 'true');
+            } else if (!sessionStorage.getItem('session_active')) {
+                // Tab closed & reopened or opened in a new tab: log out to clear server session
+                window.location.href = "{{ url_for('auth.logout') }}";
+            }
+        })();
+    </script>
+    {% endif %}
+</head>
+
+<body>
+    <!-- Header -->
+    {% block header %}
+    {% include 'partials/header.html' %}
+    {% endblock %}
+
+    <div class="{% if session.get('access_token') %}main-layout{% endif %}">
+        <!-- Sidebar -->
+        {% block sidebar %}
+        {% if session.get('access_token') %}
+        {% include 'partials/sidebar.html' %}
+        {% endif %}
+        {% endblock %}
+
+        <!-- Page Specific Content Wrapper -->
+        {% block page_wrapper %}
+        <div class="{% if session.get('access_token') %}content{% endif %}">
+            <!-- Flash messages -->
+            <div class="flash-container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+            </div>
+            {% block content %}{% endblock %}
+        </div>
+        {% endblock %}
+    </div>
+
+    <!-- Sidebar state + toggle/pin/tooltip/auto-collapse behaviour now lives in
+         partials/sidebar.html (co-located with the sidebar markup + styles, and
+         only loaded when authenticated). It persists { collapsed, pinned } under
+         the "chips.sidebar" localStorage key and owns the #sidebar-toggle click. -->
+    <style>
+        /* Flash Alert Timer Animation */
+        .flash-container .alert,
+        .flash-container .alert-flash {
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            transition: all 0.5s ease-out;
+            transform-origin: top;
+        }
+        .flash-container .alert::after,
+        .flash-container .alert-flash::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: rgba(0, 0, 0, 0.2);
+            animation: collapseTimer 3s linear forwards;
+        }
+        @keyframes collapseTimer {
+            0% { width: 100%; }
+            100% { width: 0%; }
+        }
+        .flash-container .alert.fade-out,
+        .flash-container .alert-flash.fade-out {
+            opacity: 0;
+            transform: scaleY(0);
+            margin-bottom: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            border-width: 0;
+        }
+    </style>
+    <script>
+        // Auto-dismiss flash messages with collapse animation after 3 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            var alerts = document.querySelectorAll('.flash-container .alert, .flash-container .alert-flash');
+            alerts.forEach(function(alert) {
+                setTimeout(function() {
+                    alert.classList.add('fade-out');
+                    setTimeout(function() {
+                        alert.remove();
+                    }, 500); // Wait for the transition to finish
+                }, 3000);
+            });
+        });
+    </script>
+
+    <!-- Highlight rows for requests newer than the notification panel's cutoff -->
+    <script>
+        (function () {
+            var params = new URLSearchParams(window.location.search);
+            var highlightSince = params.get('highlight_since');
+            if (!highlightSince) return;
+            var cutoff = new Date(highlightSince.replace(' ', 'T'));
+            if (isNaN(cutoff.getTime())) return;
+
+            function applyHighlights() {
+                var candidates = document.querySelectorAll('[data-created], [data-updated]');
+                var firstMatch = null;
+                candidates.forEach(function (el) {
+                    var raw = el.getAttribute('data-updated') || el.getAttribute('data-created');
+                    if (!raw) return;
+                    var ts = new Date(raw.replace(' ', 'T'));
+                    if (isNaN(ts.getTime()) || ts <= cutoff) return;
+                    el.classList.add('row-highlight-new');
+                    if (!firstMatch) firstMatch = el;
+                });
+                if (firstMatch) {
+                    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+
+            // Delay slightly so any page-specific JS that filters/renders rows
+            // from the same server-rendered data attributes has settled.
+            window.addEventListener('load', function () {
+                setTimeout(applyHighlights, 300);
+            });
+        })();
+    </script>
+
+    <!-- Filter/highlight rows by status bucket (used by DC dashboard KPI links
+         and the notification panel's reverted/rejected links) -->
+    <script>
+        (function () {
+            var params = new URLSearchParams(window.location.search);
+            var wantStatus = params.get('status');
+            if (!wantStatus) return;
+            wantStatus = wantStatus.trim().toLowerCase();
+
+            // Same bucketing rules as _status_bucket() in blueprints/dashboard.py.
+            function bucket(raw) {
+                var s = (raw || '').toString().trim().toLowerCase();
+                if (['approved', 'reviewed', 'activated', 'assigned', 'sent_to_uidai', 'sent to uidai'].indexOf(s) !== -1) return 'approved';
+                if (s === 'rejected') return 'rejected';
+                if (['reverted', 'reverted by chips', 'reverted_by_chips'].indexOf(s) !== -1) return 'reverted';
+                return 'pending';
+            }
+
+            // "reverted_rejected" is a combined sentinel used by the DC
+            // notification panel, since a type's reverted/rejected count
+            // there isn't broken down by exact bucket.
+            function matchesWant(rowBucket) {
+                if (wantStatus === 'reverted_rejected') return rowBucket === 'reverted' || rowBucket === 'rejected';
+                return rowBucket === wantStatus;
+            }
+
+            function apply() {
+                var rows = document.querySelectorAll('[data-status]');
+                if (!rows.length) return;
+                var firstMatch = null;
+                rows.forEach(function (el) {
+                    if (matchesWant(bucket(el.getAttribute('data-status')))) {
+                        el.classList.add('row-status-match');
+                        if (!firstMatch) firstMatch = el;
+                    } else {
+                        el.classList.add('row-status-dim');
+                    }
+                });
+                if (firstMatch) {
+                    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+
+            window.addEventListener('load', function () {
+                setTimeout(apply, 300);
+            });
+        })();
+    </script>
+</body>
+
+</html>

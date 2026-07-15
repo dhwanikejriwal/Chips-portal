@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Currently Open Districts | CHiPS Registration{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { background-color: #F8F9FA; font-family: 'Inter', sans-serif; color: #0E1121; margin: 0; padding: 0; }
+    
+    .back-nav { padding: 20px 40px; background: transparent; }
+    .back-btn { display: inline-flex; align-items: center; gap: 6px; color: #6C4FE8; font-weight: 600; text-decoration: none; font-size: 14px; transition: color 0.2s; }
+    .back-btn:hover { color: #5540C8; }
+
+    .od-container { max-width: 1000px; margin: 0 auto 40px auto; padding: 0 20px; }
+    .od-section-label { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6C4FE8; margin-bottom: 10px; }
+    .od-section-title { font-size: 28px; font-weight: 800; color: #0E1121; margin: 0 0 30px 0; }
+    
+    .od-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .od-card { background: white; border: 1px solid #EAECF2; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); transition: transform 0.2s, box-shadow 0.2s; }
+    .od-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.06); }
+    .od-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .od-card-title { margin: 0; font-size: 16px; font-weight: 700; color: #0E1121; line-height: 1.2; }
+    .od-badge { background: #E8F5EF; color: #0F7A50; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; line-height: 1; }
+    
+    .od-card-body { font-size: 13px; color: #6B7080; display: flex; flex-direction: column; gap: 10px; }
+    .od-date-row { display: flex; align-items: center; gap: 8px; }
+    .od-date-text { color: #0E1121; font-weight: 600; font-size: 13px; line-height: 1.2; }
+    
+    .od-empty-state { background: white; border: 1px dashed #D0D3DE; border-radius: 12px; padding: 60px 40px; text-align: center; }
+    .od-empty-title { font-size: 16px; font-weight: 600; color: #3A3F5C; margin-bottom: 4px; }
+    .od-empty-sub { font-size: 14px; color: #6B7080; }
+</style>
+{% endblock %}
+
+{% block sidebar %}{% endblock %}
+
+{% block page_wrapper %}
+<div class="back-nav">
+    <a href="/" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back to Home
+    </a>
+</div>
+
+<div class="od-container">
+    <div class="od-section-label">Currently Open</div>
+    <h1 class="od-section-title">Districts Accepting Registrations</h1>
+
+    {% if open_districts %}
+    <div class="od-grid">
+        {% for district in open_districts %}
+        <div class="od-card">
+            <div class="od-card-header">
+                <h2 class="od-card-title">
+                    {{ district.district_name }}
+                    {% if district.is_recently_opened %}
+                    <span style="background: #FEF3C7; color: #D97706; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; margin-left: 6px; vertical-align: middle;">NEW</span>
+                    {% endif %}
+                </h2>
+                <span class="od-badge">Open</span>
+            </div>
+            
+            <div class="od-card-body">
+                <div class="od-date-row">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6C4FE8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    {% if district.registration_start_date %}
+                        Starts: <span class="od-date-text">{{ district.registration_start_date.split('T')[0] }}</span>
+                    {% else %}
+                        Starts: <span class="od-date-text">Now</span>
+                    {% endif %}
+                </div>
+                <div class="od-date-row">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    {% if district.registration_end_date %}
+                        Ends: <span class="od-date-text">{{ district.registration_end_date.split('T')[0] }}</span>
+                    {% else %}
+                        Ends: <span class="od-date-text">Until further notice</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="od-empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 16px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <div class="od-empty-title">No districts currently open</div>
+        <div class="od-empty-sub">Please check back later for new registration periods.</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

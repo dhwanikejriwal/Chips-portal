@@ -1,0 +1,997 @@
+{% extends 'base.html' %}
+
+{% block title %}My L2 Registration Requests — CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+{% endblock %}
+
+{% block content %}
+{% from 'partials/request_section.html' import request_section %}
+
+<!-- === FRIEND'S UPDATED CODE === -->
+<!-- Standardized L2 Registration Dashboard Banner -->
+<div class="chips-header-banner">
+    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div
+                style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+            </div>
+            <div>
+                <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">L2 Registration Dashboard</h1>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Track and manage your L2 Registration
+                    requests</p>
+            </div>
+        </div>
+        <a href="/auth/dc/l2-registration/new"
+            style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); color: white; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; transition: background 0.2s;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New Request
+        </a>
+    </div>
+    <div class="chips-banner-metrics">
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED']) | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
+            </div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-awaiting-l2">{{
+                awaiting_l2 | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Awaiting L2
+            </div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'SENT_TO_UIDAI') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
+            </div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'REVERTED') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'REJECTED') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                requests | selectattr('status', 'equalto', 'APPROVED') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+        </div>
+        <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{
+                requests | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <div class="filter-group filter-group-search">
+        <label>Search Request</label>
+        <input type="text" id="dc-search-input" class="filter-input"
+            placeholder="Search by ID, Operator, Station, Client..." oninput="filterAllTables()">
+    </div>
+    <div class="filter-group">
+        <label>Time Period</label>
+        <select id="dc-date-filter" class="filter-input" onchange="filterAllTables()">
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">Week</option>
+            <option value="month" selected>Month</option>
+        </select>
+    </div>
+    <div class="filter-group-button" style="flex: 0 0 auto;">
+        <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Clear Filters
+        </button>
+    </div>
+</div>
+
+<!-- Pending Section -->
+{% set pending_controls %}
+<select id="pending-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="pending">Pending</option>
+    <option value="sent_to_uidai">Sent to UIDAI</option>
+    <option value="reapplied">Reapplied</option>
+</select>
+<button class="rs-export" onclick="exportFilteredL2('pending')">Export to CSV</button>
+{% endset %}
+{% call request_section(
+    variant='progress',
+    title='Pending L2 registration queue',
+    count='–', count_id='pending-count',
+    controls=pending_controls,
+    min_width=1050,
+    columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'Operator name'},
+        {'label': 'Operator ID'},
+        {'label': 'New station ID'},
+        {'label': 'Client version'},
+        {'label': 'Client type'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='pending-requests-table', body_id='pending-table-body',
+    empty_id='pending-empty-msg',
+    empty_message='No pending pipeline records found matching current filter scope.') %}
+            {% set ns_pending = namespace(count=1) %}
+            {% for r in requests if (r.status|upper) not in ['APPROVED', 'REVERTED', 'REJECTED'] %}
+            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
+                data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
+                data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
+                data-new-station-id="{{ r.new_station_id }}" data-new-machine-id="{{ r.new_machine_id }}"
+                data-ea-code="{{ r.ea_code }}" data-reg-code="{{ r.reg_code }}"
+                data-old-station-id="{{ r.old_station_id or '' }}" data-old-machine-id="{{ r.old_machine_id or '' }}"
+                data-reason-for-l2-registration="{{ r.reason_for_l2_registration or '' }}"
+                data-tech-center-remarks="{{ r.tech_center_remarks or '' }}" data-unique-id="{{ r.unique_id }}"
+                data-block="{{ r.block }}" data-address-of-govt-premises="{{ r.address_of_govt_premises }}"
+                data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+                data-district="{{ r.district_name or 'Raipur' }}"
+                data-remarks='{{ r.remarks_history | tojson | safe }}'>
+
+                <td>{{ ns_pending.count }}</td>
+                <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
+                <td>{{ r.operator_name }}</td>
+                <td>{{ r.operator_id }}</td>
+                <td><strong>{{ r.new_station_id }}</strong></td>
+                <td>{{ r.client_version }}</td>
+                <td>{{ r.client_type }}</td>
+                <td>
+                    <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                        {{ r.status | replace('_', ' ') | title }}
+                    </span>
+                </td>
+                <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
+                <td>
+                    {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and r.updated_at and r.updated_at != '—' %}
+                    {{ r.updated_at }}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">
+                    <button class="btn-details" onclick="openL2DetailsModal(this.closest('tr'))">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Details
+                    </button>
+                </td>
+            </tr>
+            {% set ns_pending.count = ns_pending.count + 1 %}
+            {% endfor %}
+{% endcall %}
+
+<!-- Awaiting L2 Section: Stations whose L1 is Done but L2 not filled yet -->
+{% call request_section(
+    variant='pending',
+    title='Awaiting L2 registration (L1 done)',
+    count=awaiting_l2|length, count_id='awaiting-l2-count',
+    table_id='awaiting-l2-table', body_id='awaiting-l2-tbody',
+    columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Station ID'},
+        {'label': 'Request no'},
+        {'label': 'Model'},
+        {'label': 'District'},
+        {'label': 'L1 done at'},
+        {'label': 'Action', 'align': 'center'}
+    ],
+    empty_message='No stations with L1 done are awaiting L2 registration.',
+    show_empty=(awaiting_l2|length == 0)) %}
+            {% for s in awaiting_l2 %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ s.station_id }}</strong></td>
+                <td>{{ s.request_no }}</td>
+                <td>{{ s.model }}</td>
+                <td>{{ s.district_name or '—' }}</td>
+                <td>{{ s.l1_done_at }}</td>
+                <td style="text-align: center;">
+                    <button type="button" class="btn-primary"
+                        style="padding:6px 14px; font-size:13px; font-weight:600; height:auto;"
+                        onclick="startL2ForStation('{{ s.station_id }}')">
+                        Register L2
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+{% endcall %}
+
+<!-- History Section -->
+{% set approved_controls %}
+<select id="approved-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="approved">Approved</option>
+    <option value="reverted">Reverted</option>
+    <option value="rejected">Rejected</option>
+</select>
+<button class="rs-export" onclick="exportFilteredL2('credentials')">Export to CSV</button>
+{% endset %}
+{% call request_section(
+    variant='done',
+    title='L2 registration log history',
+    count='–', count_id='approved-count',
+    controls=approved_controls,
+    min_width=1050,
+    columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'Operator name'},
+        {'label': 'Operator ID'},
+        {'label': 'New station ID'},
+        {'label': 'Client version'},
+        {'label': 'Client type'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='approved-requests-table', body_id='approved-table-body',
+    empty_id='approved-empty-msg',
+    empty_message='No approved request history records found matching current filter scope.') %}
+            {% set ns_approved = namespace(count=1) %}
+            {% for r in requests if (r.status|upper) in ['APPROVED', 'REVERTED', 'REJECTED'] %}
+            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
+                data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
+                data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
+                data-new-station-id="{{ r.new_station_id }}" data-new-machine-id="{{ r.new_machine_id }}"
+                data-ea-code="{{ r.ea_code }}" data-reg-code="{{ r.reg_code }}"
+                data-old-station-id="{{ r.old_station_id or '' }}" data-old-machine-id="{{ r.old_machine_id or '' }}"
+                data-reason-for-l2-registration="{{ r.reason_for_l2_registration or '' }}"
+                data-tech-center-remarks="{{ r.tech_center_remarks or '' }}" data-unique-id="{{ r.unique_id }}"
+                data-block="{{ r.block }}" data-address-of-govt-premises="{{ r.address_of_govt_premises }}"
+                data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+                data-district="{{ r.district_name or 'Raipur' }}"
+                data-remarks='{{ r.remarks_history | tojson | safe }}'>
+
+                <td>{{ ns_approved.count }}</td>
+                <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
+                <td>{{ r.operator_name }}</td>
+                <td>{{ r.operator_id }}</td>
+                <td><strong>{{ r.new_station_id }}</strong></td>
+                <td>{{ r.client_version }}</td>
+                <td>{{ r.client_type }}</td>
+                <td>
+                    <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                        {{ r.status | replace('_', ' ') | title }}
+                    </span>
+                </td>
+                <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
+
+                <td>{{ r.updated_at if r.updated_at else (r.completed_at if r.completed_at else (r.reviewed_at if
+                    r.reviewed_at else '—')) }}</td>
+
+                <td style="text-align: center;">
+                    <button class="btn-details" onclick="openL2DetailsModal(this.closest('tr'))">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Details
+                    </button>
+                </td>
+            </tr>
+            {% set ns_approved.count = ns_approved.count + 1 %}
+            {% endfor %}
+{% endcall %}
+
+<script>
+
+    // Date Period Prefixes helper
+    function getDatePrefixes() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = (now.getMonth() + 1).toString().padStart(2, '0');
+        const d = now.getDate().toString().padStart(2, '0');
+        return {
+            today: `${y}-${m}-${d}`,
+            month: `${y}-${m}`,
+            year: `${y}`
+        };
+    }
+
+    // Modern dynamic search and filter engine
+    function filterAllTables() {
+        const searchQuery = document.getElementById('dc-search-input').value.toLowerCase().trim();
+        const dateFilter = document.getElementById('dc-date-filter').value;
+        const p = getDatePrefixes();
+        const now = new Date();
+
+        // Save current filter criteria to sessionStorage dynamically
+        sessionStorage.setItem('dc_l2_search', document.getElementById('dc-search-input').value);
+        sessionStorage.setItem('dc_l2_date', dateFilter);
+        sessionStorage.setItem('dc_l2_pending_status', document.getElementById('pending-status-filter').value);
+        sessionStorage.setItem('dc_l2_approved_status', document.getElementById('approved-status-filter').value);
+
+        const configs = [
+            { tbodyId: 'pending-table-body', emptyMsgId: 'pending-empty-msg', tableId: 'pending-requests-table', countId: 'pending-count' },
+            { tbodyId: 'approved-table-body', emptyMsgId: 'approved-empty-msg', tableId: 'approved-requests-table', countId: 'approved-count' }
+        ];
+
+        configs.forEach(cfg => {
+            const sfId = cfg.tbodyId === 'pending-table-body' ? 'pending-status-filter' : 'approved-status-filter';
+            const statusFilter = document.getElementById(sfId).value;
+            const rows = document.querySelectorAll(`#${cfg.tbodyId} tr`);
+            let visibleRowsCount = 0;
+
+            rows.forEach(row => {
+                const name = (row.getAttribute('data-operator-name') || '').toLowerCase();
+                const opId = (row.getAttribute('data-operator-id') || '').toLowerCase();
+                const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+                const stationId = (row.getAttribute('data-new-station-id') || '').toLowerCase();
+                const machineId = (row.getAttribute('data-new-machine-id') || '').toLowerCase();
+                const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+                const createdDate = row.getAttribute('data-created') || '';
+                const clientVersion = (row.getAttribute('data-client-version') || '').toLowerCase();
+                const clientType = (row.getAttribute('data-client-type') || '').toLowerCase();
+
+                const matchQuery = !searchQuery || name.includes(searchQuery) || opId.includes(searchQuery) || reqNo.includes(searchQuery) || stationId.includes(searchQuery) || machineId.includes(searchQuery) || clientVersion.includes(searchQuery) || clientType.includes(searchQuery);
+
+                let matchStatus = true;
+                if (statusFilter !== 'all') {
+                    matchStatus = rowStatus === statusFilter;
+                }
+
+                let matchDate = true;
+                if (dateFilter === 'today') {
+                    matchDate = createdDate.startsWith(p.today);
+                } else if (dateFilter === 'week') {
+                    if (!createdDate) {
+                        matchDate = false;
+                    } else {
+                        const rowDate = new Date(createdDate.replace(' ', 'T'));
+                        const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        matchDate = rowDate >= last7Days;
+                    }
+                } else if (dateFilter === 'month') {
+                    if (!createdDate) {
+                        matchDate = false;
+                    } else {
+                        const rowDate = new Date(createdDate.replace(' ', 'T'));
+                        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        matchDate = rowDate >= thirtyDaysAgo;
+                    }
+                }
+
+                if (matchQuery && matchStatus && matchDate) {
+                    row.style.display = '';
+                    visibleRowsCount++;
+                    if (row.cells[0]) row.cells[0].innerText = visibleRowsCount;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const tableElement = document.getElementById(cfg.tableId);
+            const emptyMessageElement = document.getElementById(cfg.emptyMsgId);
+            const countElement = document.getElementById(cfg.countId);
+
+            if (visibleRowsCount === 0) {
+                if (emptyMessageElement) emptyMessageElement.style.display = 'block';
+            } else {
+                if (emptyMessageElement) emptyMessageElement.style.display = 'none';
+            }
+            if (countElement) countElement.textContent = visibleRowsCount;
+        });
+    }
+
+    function clearAllFilters() {
+        document.getElementById('dc-search-input').value = '';
+        document.getElementById('pending-status-filter').value = 'all';
+        document.getElementById('approved-status-filter').value = 'all';
+        document.getElementById('dc-date-filter').value = 'month';
+        filterAllTables();
+    }
+
+    // Initialize Filter State Engine on View Mount
+    window.addEventListener('load', () => {
+        const isActionReload = sessionStorage.getItem('dc_action_reloading') === 'true';
+        sessionStorage.removeItem('dc_action_reloading');
+
+        if (!isActionReload) {
+            sessionStorage.removeItem('dc_l2_search');
+            sessionStorage.removeItem('dc_l2_date');
+            sessionStorage.removeItem('dc_l2_pending_status');
+            sessionStorage.removeItem('dc_l2_approved_status');
+        }
+
+        if (sessionStorage.getItem('dc_l2_search') !== null) {
+            document.getElementById('dc-search-input').value = sessionStorage.getItem('dc_l2_search');
+            document.getElementById('dc-date-filter').value = sessionStorage.getItem('dc_l2_date');
+            document.getElementById('pending-status-filter').value = sessionStorage.getItem('dc_l2_pending_status');
+            document.getElementById('approved-status-filter').value = sessionStorage.getItem('dc_l2_approved_status');
+        } else {
+            document.getElementById('dc-search-input').value = '';
+            document.getElementById('dc-date-filter').value = 'month';
+            document.getElementById('pending-status-filter').value = 'all';
+            document.getElementById('approved-status-filter').value = 'all';
+        }
+
+        filterAllTables();
+    });
+
+    // Popup Chat & Reapply Core Engine Logic 
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function getStatusBadgeHtml(status) {
+        const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+        let badgeClass = 'badge-pending';
+        let label = 'Pending';
+
+        if (s.includes('approve')) {
+            badgeClass = 'badge-approved'; label = 'Approved';
+        } else if (s.includes('revert')) {
+            badgeClass = 'badge-reverted'; label = 'Reverted';
+        } else if (s === 'forwarded' || s.includes('uidai') || s === 'sent_to_uidai' || s === 'sent to uidai') {
+            badgeClass = 'badge-forwarded'; label = 'Sent to UIDAI';
+        } else if (s.includes('reappl')) {
+            badgeClass = 'badge-reapplied'; label = 'Reapplied';
+        } else if (s.includes('reject')) {
+            badgeClass = 'badge-reverted'; label = 'Rejected';
+        } else if (s === 'pending' || s === 'Pending') {
+            // 🌟 Catches 'pending' and forces the "Pending" layout badge
+            badgeClass = 'badge-pending';
+            label = 'Pending';
+        }
+        return `<span class="badge ${badgeClass}">${label}</span>`;
+    }
+
+    function buildRemarksHtml(remarks) {
+        if (!remarks || remarks.length === 0) {
+            return `<div style="margin-top: 15px; font-style: italic; color: #94a3b8; font-size: 13px; text-align: center;">No remarks history available.</div>`;
+        }
+        let html = `<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">
+            <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div>
+            <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">`;
+        remarks.forEach(item => {
+            const isChips = item.author_role === 'CHIPS_ADMIN' || item.author_role === 'chips';
+            const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
+            const senderClass = isChips ? 'chips' : 'dc';
+
+            const statusAfter = item.status_after || '';
+            let statusBadgeHtmlInline = '';
+            let markerClass = 'marker-pending';
+            if (statusAfter) {
+                statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
+                const sLower = statusAfter.toLowerCase();
+                if (sLower.includes('approve')) markerClass = 'marker-approved';
+                else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+            }
+
+            const stepLabel = 'L2 Registration';
+            const username = item.sender_username || '';
+            const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate' && sender !== 'CHiPS Admin' && sender !== 'CHIPS Admin';
+
+            let cleanRemark = (item.remark || '').trim();
+            let stripped = cleanRemark;
+            if (stripped.trim() !== '') {
+                cleanRemark = stripped;
+            }
+
+            html += `
+                <div class="timeline-item ${senderClass}">
+                    <div class="timeline-marker ${markerClass}"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-section-row">
+                            <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
+                        </div>
+                        <div class="timeline-by-row">
+                            <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
+                            <span class="timeline-time">${item.created_at}</span>
+                        </div>
+                        <div class="timeline-body">${escapeHtml(cleanRemark)}</div>
+                    </div>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+        return html;
+    }
+
+    window.showL2Details = function (d, activeView) {
+        const isRevertable = ((d.status || '').toLowerCase().replace(/ /g, '_') === 'reverted' || (d.status || '').toLowerCase().replace(/ /g, '_') === 'rejected');
+        const isRejected = ((d.status || '').toLowerCase().replace(/ /g, '_') === 'rejected');
+        const alertTitle = isRejected ? 'Action Required — Request Rejected' : 'Action Required — Request Reverted';
+        const reasonHeader = isRejected ? 'REJECT REASON / REMARKS' : 'REVERT REASON / REMARKS';
+
+        const statusBadge = getStatusBadgeHtml(d.status);
+
+        let latestRevertReason = "No reason note provided.";
+        if (isRevertable) {
+            try {
+                let remarks = [];
+                try { remarks = JSON.parse(d.remarksStr); } catch (e) { }
+                const revertLog = remarks.slice().reverse().find(r => (r.status_after || '').toLowerCase().includes('revert') || (r.status_after || '').toLowerCase().includes('reject'));
+                if (revertLog && revertLog.remark) {
+                    latestRevertReason = revertLog.remark.trim();
+                }
+            } catch (e) {
+                console.error("Error finding revert reason:", e);
+            }
+        }
+
+        const infoHtml = `
+            <div style="max-height: 450px; overflow-y: auto; padding-right: 8px; font-family:'Inter',sans-serif; text-align:left;">
+                <div style="position: sticky; top: -1.6em; background: #fff; z-index: 10; margin: -1.6em -1.6em 0; padding: 1.6em 1.6em 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; ">
+                    <span style="font-size: 14px; color: #666; font-weight: 600;">Request: ${d.requestNo}</span>
+                    <span>${statusBadge}</span>
+                </div>
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                    Submitted At: <strong>${d.created || '—'}</strong>
+                </div>
+
+                <!-- Client & Machine Specifications Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Client &amp; Machine Specifications</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Client Version &amp; Type</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.clientVersion)} (${escapeHtml(d.clientType)})</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">New Station ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.newStationId)}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">New Machine ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.newMachineId)}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">EA Code</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.eaCode)}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Registrar Code</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.regCode)}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Old Station ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.oldStationId || '—')}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Old Machine ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.oldMachineId || '—')}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Operator & Location Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Operator &amp; Location</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Operator Name</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.opName)} (ID: ${escapeHtml(d.opId)})</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Unique ID</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.uniqueId)}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">District &amp; Block</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.district)} (Block: ${escapeHtml(d.block)})</div>
+                        </div>
+                        <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Govt Premises Address</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.address)}</div>
+                        </div>
+                    </div>
+                </div>
+
+                ${d.reasonL2 || d.techRemarks ? `
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Registration Reason &amp; Tech Remarks</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        ${d.reasonL2 ? `
+                        <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Reason for L2 Registration</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.reasonL2)}</div>
+                        </div>` : ''}
+                        ${d.techRemarks ? `
+                        <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Tech Center Remarks</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.techRemarks)}</div>
+                        </div>` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- View Remarks Button -->
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
+                </div>
+            </div>`;
+
+        const reapplyFormHtml = `
+            <div style="max-height: 480px; overflow-y: auto; padding-right: 8px; font-family:'Inter',sans-serif; text-align:left;">
+                <div style="position: sticky; top: -1.6em; background: #fff; z-index: 10; margin: -1.6em -1.6em 0; padding: 1.6em 1.6em 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; ">
+                    <span style="font-size: 14px; color: #666; font-weight: 600;">Request: ${d.requestNo}</span>
+                    <span>${statusBadge}</span>
+                </div>
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                    Submitted At: <strong>${d.created || '—'}</strong>
+                </div>
+
+                <!-- Action Required Notification Box -->
+                <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;">
+                    <div style="font-size: 14px; font-weight: 700; color: #c2410c; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                        <span>⚠️</span> ${alertTitle}
+                    </div>
+                    <div style="font-size: 13px; color: #9a3412; font-weight: 500;">
+                        Review CHiPS Admin's remarks below, update details and click "Resubmit".
+                    </div>
+                </div>
+
+                <!-- Revert Reason / Remark Box -->
+                <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                        <span>💬</span> ${reasonHeader}
+                    </div>
+                    <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
+                        ${escapeHtml(latestRevertReason)}
+                    </div>
+                </div>
+                
+                <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">1. Client &amp; Machine Specifications</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Client Software Version *</div>
+                            <input id="reapply-client_version" type="text" value="${escapeHtml(d.clientVersion)}"
+                                style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Client Type *</div>
+                            <select id="reapply-client_type" style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                                <option value="ECMP" ${d.clientType === 'ECMP' ? 'selected' : ''}>ECMP (In house)</option>
+                                <option value="UCL" ${d.clientType === 'UCL' ? 'selected' : ''}>UCL</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">New Station ID *</div>
+                            <input id="reapply-new_station_id" type="text" value="${escapeHtml(d.newStationId)}"
+                                style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">New Machine ID *</div>
+                            <input id="reapply-new_machine_id" type="text" value="${escapeHtml(d.newMachineId)}"
+                                style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">EA Code *</div>
+                            <input id="reapply-ea_code" type="text" value="${escapeHtml(d.eaCode)}"
+                                style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Registrar Code *</div>
+                            <input id="reapply-reg_code" type="text" value="986" readonly style="background:#f1f5f9; cursor:not-allowed; width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">2. Replacement &amp; Remarks</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Old Station ID</div>
+                            <input id="reapply-old_station_id" type="text" value="${escapeHtml(d.oldStationId)}"
+                                style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Old Machine ID</div>
+                            <input id="reapply-old_machine_id" type="text" value="${escapeHtml(d.oldMachineId)}"
+                                style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Reason for L2 Registration</div>
+                            <textarea id="reapply-reason_for_l2_registration" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;resize:vertical;min-height:60px;outline:none;box-sizing:border-box;">${escapeHtml(d.reasonL2)}</textarea>
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Tech Center Remarks</div>
+                            <textarea id="reapply-tech_center_remarks" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;resize:vertical;min-height:60px;outline:none;box-sizing:border-box;">${escapeHtml(d.techRemarks)}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">3. Operator &amp; Location</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Operator Name *</div>
+                            <input id="reapply-operator_name" type="text" value="${escapeHtml(d.opName)}"
+                                style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Operator ID *</div>
+                            <input id="reapply-operator_id" type="text" value="${escapeHtml(d.opId)}"
+                                style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Unique ID (Aadhaar Ref)</div>
+                            <input id="reapply-unique_id" type="text" value="${escapeHtml(d.uniqueId)}"  style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Block *</div>
+                            <input id="reapply-block" type="text" value="${escapeHtml(d.block)}"
+                                style="width:100%;height:38px;padding:0 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Address of Govt Premises *</div>
+                            <textarea id="reapply-address_of_govt_premises" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;resize:vertical;min-height:60px;outline:none;box-sizing:border-box;">${escapeHtml(d.address)}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #dc2626; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #fee2e2; padding-bottom: 6px;">4. Reapply Correction Notes</div>
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Correction Notes * <span style="text-transform:none;font-size:10px;font-weight:400;color:#94a3b8;">(Mandatory)</span></div>
+                        <textarea id="reapply-remark" style="width:100%;padding:10px;border:1.5px solid #fca5a5;border-radius:8px;font-size:13px;font-family:Inter,sans-serif;resize:vertical;min-height:75px;outline:none;box-sizing:border-box;"
+                            placeholder="Explain what changes you made to address the revert/rejection reason..."></textarea>
+                    </div>
+                </div>
+                
+                <!-- View Remarks Button for Reapply Modal -->
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Audit History Log</button>
+                </div>
+            </div>`;
+
+        if (activeView === 'details') {
+            Swal.fire({
+                title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">L2 Request Details</span>`,
+                html: isRevertable ? reapplyFormHtml : infoHtml,
+                showCancelButton: isRevertable,
+                confirmButtonText: isRevertable ? 'Resubmit to CHiPS' : 'Close',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    cancelButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false,
+                didOpen: () => {
+                    const btnRemarks = document.getElementById('btn-show-remarks');
+                    if (btnRemarks) {
+                        btnRemarks.onclick = () => {
+                            window.showL2Details(d, 'remarks');
+                        };
+                    }
+                    if (isRevertable) {
+                        const clientTypeSelect = document.getElementById('reapply-client_type');
+                        const eaCodeInput = document.getElementById('reapply-ea_code');
+                        if (clientTypeSelect && eaCodeInput) {
+                            clientTypeSelect.addEventListener('change', function () {
+                                if (this.value === 'ECMP') {
+                                    eaCodeInput.value = '2084';
+                                } else if (this.value === 'UCL') {
+                                    eaCodeInput.value = '4082';
+                                } else {
+                                    eaCodeInput.value = '';
+                                }
+                            });
+                        }
+                    }
+                },
+                preConfirm: () => {
+                    if (!isRevertable) return true;
+
+                    const fields = [
+                        'client_version', 'client_type', 'new_station_id', 'new_machine_id',
+                        'ea_code', 'reg_code', 'old_station_id', 'old_machine_id',
+                        'reason_for_l2_registration', 'tech_center_remarks', 'operator_name',
+                        'operator_id', 'unique_id', 'block', 'address_of_govt_premises'
+                    ];
+
+                    const data = {};
+                    for (const f of fields) {
+                        const el = document.getElementById(`reapply-${f}`);
+                        if (el) {
+                            data[f] = el.value.trim();
+                        }
+                    }
+
+                    const reapplyRemark = document.getElementById('reapply-remark').value.trim();
+                    if (!reapplyRemark) {
+                        Swal.showValidationMessage('Correction notes are mandatory.');
+                        return false;
+                    }
+                    data['reapply_remark'] = reapplyRemark;
+
+                    // Validation of mandatory fields
+                    const mandatory = ['client_version', 'client_type', 'new_station_id', 'new_machine_id', 'ea_code', 'reg_code', 'operator_name', 'operator_id', 'block', 'address_of_govt_premises'];
+                    for (const m of mandatory) {
+                        if (!data[m]) {
+                            Swal.showValidationMessage(`Please fill in all required fields.`);
+                            return false;
+                        }
+                    }
+
+                    const formData = new FormData();
+                    Object.entries(data).forEach(([key, val]) => {
+                        formData.append(key, val);
+                    });
+
+                    return fetch(`/auth/dc/l2-registration/${d.id}/reapply`, {
+                        method: 'POST',
+                        body: formData
+                    }).then(res => {
+                        if (!res.ok) throw new Error('Failed to submit updates.');
+                        return res.json();
+                    }).catch(err => {
+                        Swal.showValidationMessage(`Submission error: ${err.message}`);
+                    });
+                }
+            }).then((result) => {
+                if (result.isConfirmed && isRevertable) {
+                    Swal.fire({
+                        title: 'Reapplied Successfully!',
+                        text: 'Your modifications have been submitted back to CHiPS.',
+                        icon: 'success',
+                        customClass: {
+                            confirmButton: 'swal-btn-close'
+                        },
+                        showConfirmButton: true,
+                        timer: 3000,
+                        timerProgressBar: true
+                    }).then(() => {
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                        window.location.reload();
+                    });
+                }
+            });
+        }
+        else if (activeView === 'remarks') {
+            let remarks = [];
+            try { remarks = JSON.parse(d.remarksStr); } catch (e) { }
+            const remarksHtml = buildRemarksHtml(remarks);
+
+            const timelineHtmlContent = `
+            <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
+                    <span style="font-size: 14px; color: #666; font-weight: 600;">Request ID: <strong>${d.requestNo}</strong></span>
+                    <span>${statusBadge}</span>
+                </div>
+                ${remarksHtml || '<div style="margin-top: 15px; font-style: italic; color: #888; text-align: center; font-size: 13px;">No remarks history/actions logged yet.</div>'}
+            </div>`;
+
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+                html: timelineHtmlContent,
+                showCancelButton: false, // NO Cancel button
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                showDenyButton: true,
+                denyButtonText: 'Back',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false
+            }).then((result) => {
+                if (result.isDenied) {
+                    window.showL2Details(d, 'details');
+                }
+            });
+        }
+    };
+
+    function openL2DetailsModal(row) {
+        const d = {
+            id: row.getAttribute('data-id'),
+            requestNo: row.getAttribute('data-request-no'),
+            opName: row.getAttribute('data-operator-name'),
+            opId: row.getAttribute('data-operator-id'),
+            clientVersion: row.getAttribute('data-client-version'),
+            clientType: row.getAttribute('data-client-type'),
+            newStationId: row.getAttribute('data-new-station-id'),
+            newMachineId: row.getAttribute('data-new-machine-id'),
+            eaCode: row.getAttribute('data-ea-code'),
+            regCode: row.getAttribute('data-reg-code'),
+            oldStationId: row.getAttribute('data-old-station-id'),
+            oldMachineId: row.getAttribute('data-old-machine-id'),
+            reasonL2: row.getAttribute('data-reason-for-l2-registration'),
+            techRemarks: row.getAttribute('data-tech-center-remarks'),
+            uniqueId: row.getAttribute('data-unique-id'),
+            block: row.getAttribute('data-block'),
+            address: row.getAttribute('data-address-of-govt-premises'),
+            status: row.getAttribute('data-status'),
+            created: row.getAttribute('data-created'),
+            district: row.getAttribute('data-district') || '',
+            remarksStr: row.getAttribute('data-remarks') || '[]'
+        };
+        window.showL2Details(d, 'details');
+    }
+
+    function exportFilteredL2(section) {
+        let tableId, route;
+
+        if (section === 'pending') {
+            tableId = 'pending-requests-table';
+            route = '/auth/dc/l2-registration/export-excel/pending';
+        } else if (section === 'credentials') {
+            tableId = 'approved-requests-table';
+            route = '/auth/dc/l2-registration/export-excel/credentials';
+        }
+
+        const table = document.getElementById(tableId);
+        if (!table) return;
+
+        const ids = [];
+        table.querySelectorAll('tbody tr[data-id]').forEach(row => {
+            if (row.style.display !== 'none') {
+                const id = row.getAttribute('data-id');
+                if (id) ids.push(id);
+            }
+        });
+
+        if (ids.length === 0) {
+            Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#3085d6' });
+            return;
+        }
+
+        window.location.href = `${route}?ids=${ids.join(',')}`;
+    }
+
+    function exportTableToExcel(tableID, filename = 'export.csv') {
+        exportFilteredL2(tableID === 'pending-requests-table' ? 'pending' : 'credentials');
+    }
+
+    // Confirm, then open the L2 form pre-filled for a station whose L1 is Done
+    // (from the "Awaiting L2 Registration (L1 Done)" section).
+    function startL2ForStation(stationId) {
+        Swal.fire({
+            title: 'Proceed with L2 Registration?',
+            html: `You are about to begin the L2 registration for Station ID <strong>${stationId}</strong>. Do you want to continue?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#378ADD',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Yes, Continue',
+            cancelButtonText: 'Cancel',
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            // Clear any stale draft so the pre-filled Station ID is authoritative.
+            sessionStorage.removeItem('l2_request_draft');
+            window.location.href = `/auth/dc/l2-registration/new?station_id=${encodeURIComponent(stationId)}`;
+        });
+    }
+
+</script>
+{% endblock %}
