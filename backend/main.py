@@ -19,7 +19,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import traceback
+from fastapi.responses import JSONResponse
+from fastapi import Request
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    with open("c:\\chips-portal\\error.log", "a") as f:
+        f.write(f"Exception on {request.url}:\n")
+        f.write(traceback.format_exc())
+        f.write("\n")
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 # Register routers (Friend's / Shared)
 from backend.routers.auth import router as auth_router
@@ -33,7 +43,11 @@ from backend.routers.l1_registration import router as l1_registration_router
 from backend.routers.reactivation import router as reactivation_router
 from backend.routers.l2_registration import router as l2_registration_router
 from backend.routers.operator_activation import router as operator_activation_router
+from backend.models.station_id import StationIDRequest, StationIDRemark
+from backend.models.operator_onboarding import OperatorOnboarding
 from backend.routers.station_id import router as station_id_router
+from backend.routers.operator_mapping import router as operator_mapping_router
+from backend.routers.operator_onboarding import router as operator_onboarding_router
 from backend.routers.notifications import router as notifications_router
 from backend.routers.dashboard import router as dashboard_router
 
@@ -50,6 +64,8 @@ app.include_router(reactivation_router, prefix="/reactivation")
 app.include_router(l2_registration_router, prefix="/l2-registration")
 app.include_router(operator_activation_router, prefix="/operator-activation")
 app.include_router(station_id_router, prefix="/station-id")
+app.include_router(operator_mapping_router, prefix="/operator-mapping")
+app.include_router(operator_onboarding_router, prefix="/operator-onboarding")
 app.include_router(dashboard_router, prefix="/dashboard")
 
 
@@ -72,6 +88,8 @@ def run_migrations():
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE candidate_table ADD COLUMN IF NOT EXISTS exam_unique_code VARCHAR(100);"))
                 conn.execute(text("ALTER TABLE candidate_login_table ADD COLUMN IF NOT EXISTS has_changed_password BOOLEAN DEFAULT FALSE;"))
+                conn.execute(text("DROP TABLE IF EXISTS operator_kit_mappings;"))
+
             print("Success: Checked and added new columns if missing!")
         except Exception as e:
             with open("migration_error.log", "w") as f:

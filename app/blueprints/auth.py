@@ -28,6 +28,7 @@ def login():
                 session["district_id"] = data["district_id"]
                 session["district_name"] = data.get("district_name", "")
                 session["user_id"] = data.get("user_id")
+                session["has_changed_password"] = data.get("has_changed_password", 1)
                 
                 # Redirect based on user role
                 if data["role"] == "Admin":
@@ -36,7 +37,6 @@ def login():
                     return redirect(url_for("dashboard.dc_dashboard"))
                 elif data["role"] == "Candidate":
                     session["r_id"] = data.get("r_id")
-                    session["has_changed_password"] = data.get("has_changed_password", True)
                     return redirect(url_for("candidate.instructions"))
                 else:
                     flash("Role not supported in this interface.", "danger")
@@ -96,6 +96,11 @@ def verify_reset_otp():
     except requests.exceptions.RequestException:
         return {"success": False, "detail": "Error connecting to backend API server."}, 500
 
+
+@auth_bp.route("/api/session-has-changed-password", methods=["POST"])
+def session_has_changed_password():
+    session["has_changed_password"] = 1
+    return {"success": True}
 
 # =========================================================================
 # 🌟 CENTRALIZED SECURE DATA EXPORT TUNNEL ROUTE

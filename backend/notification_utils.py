@@ -8,6 +8,7 @@ from backend.models.station_id import StationIDRequest
 from backend.models.operator_activation import OperatorActivationRequest
 from backend.models.reactivation import OperatorReactivationRequest
 from backend.models import LMS, LMSRemark, NSEITRequest, NSEITRemark, Candidate
+from backend.models.base import to_code
 
 FORWARDED_STATUSES = ("Forwarded", "Forwarded Again")
 
@@ -237,9 +238,10 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
         # original submission, is what makes the request "new" for a CHiPS
         # admin. Use the most recent forward-remark's timestamp instead of
         # created_at, and only count requests currently awaiting CHiPS action.
+        forwarded_status_ids = [to_code(s) for s in FORWARDED_STATUSES]
         lms_forward_sub = (
             db.query(LMSRemark.lms_id.label("lms_id"), func.max(LMSRemark.time).label("forwarded_at"))
-            .filter(LMSRemark.status_after.in_(FORWARDED_STATUSES))
+            .filter(LMSRemark.status_after_id.in_(forwarded_status_ids))
             .group_by(LMSRemark.lms_id)
             .subquery()
         )
@@ -248,15 +250,16 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
             .select_from(LMS)
             .join(lms_forward_sub, LMS.id == lms_forward_sub.c.lms_id)
             .join(Candidate, LMS.r_id == Candidate.r_id)
-            .filter(LMS.status.in_(FORWARDED_STATUSES), lms_forward_sub.c.forwarded_at > baseline_at)
+            .filter(LMS.status_id.in_(forwarded_status_ids), lms_forward_sub.c.forwarded_at > baseline_at)
         )
         lms_dates = [make_naive(row[0]) for row in lms_query.all()]
         credentials_exams_dates += lms_dates
         type_counts["lms"] = len(lms_dates)
 
+        forwarded_status_ids = [to_code(s) for s in FORWARDED_STATUSES]
         nseit_forward_sub = (
             db.query(NSEITRemark.nseit_id.label("nseit_id"), func.max(NSEITRemark.time).label("forwarded_at"))
-            .filter(NSEITRemark.status_after.in_(FORWARDED_STATUSES))
+            .filter(NSEITRemark.status_after_id.in_(forwarded_status_ids))
             .group_by(NSEITRemark.nseit_id)
             .subquery()
         )
@@ -265,7 +268,7 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
             .select_from(NSEITRequest)
             .join(nseit_forward_sub, NSEITRequest.id == nseit_forward_sub.c.nseit_id)
             .join(Candidate, NSEITRequest.r_id == Candidate.r_id)
-            .filter(NSEITRequest.status.in_(FORWARDED_STATUSES), nseit_forward_sub.c.forwarded_at > baseline_at)
+            .filter(NSEITRequest.status_id.in_(forwarded_status_ids), nseit_forward_sub.c.forwarded_at > baseline_at)
         )
         nseit_dates = [make_naive(row[0]) for row in nseit_query.all()]
         credentials_exams_dates += nseit_dates

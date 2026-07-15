@@ -27,6 +27,8 @@ from backend.models.otp_verification import OtpVerification
 from backend.models.aadhaar_district_resources import AadhaarDistrictResource
 from backend.models.admin_login_logs import AdminLoginLog
 
+from backend.models.operator import Operator
+
 __all__ = [
     "Base",
     "get_ist_time",
@@ -58,4 +60,5 @@ __all__ = [
     "OtpVerification",
     "AadhaarDistrictResource",
     "AdminLoginLog",
+    "Operator",
 ]

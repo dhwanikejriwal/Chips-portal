@@ -59,6 +59,27 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
                 total_seconds += (t_end - t_start).total_seconds()
             return total_seconds / (len(requests) * 3600)
 
+        from backend.models.user_login import UserLogin
+        from backend.models.master_user_role import MasterUserRole
+        from backend.models.user_profile import UserProfile
+        from sqlalchemy.orm import joinedload
+        
+        # Pre-fetch all DC users and their profiles to avoid N+1 queries
+        dc_users = db.query(UserLogin).join(MasterUserRole).filter(
+            MasterUserRole.role == "DC",
+            UserLogin.district_id.isnot(None),
+            UserLogin.is_active == 1
+        ).options(joinedload(UserLogin.profile)).all()
+        
+        dc_lookup = {}
+        for user in dc_users:
+            profile = user.profile
+            dc_lookup[user.district_id] = {
+                "name": profile.full_name if profile and profile.full_name else "Not Assigned",
+                "email": profile.email if profile and profile.email else user.username,
+                "phone": profile.phone if profile and profile.phone else "N/A"
+            }
+
         result = []
         for dist in districts:
             dist_code = dist.district_code
@@ -120,9 +141,9 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
             result.append({
                 "district_code": dist_code,
                 "district_name": dist.district_name,
-                "dc_name": dist.dc_name if hasattr(dist, "dc_name") else "Unknown",
-                "dc_email": dist.dc_email if hasattr(dist, "dc_email") else "",
-                "dc_phone": dist.dc_phone if hasattr(dist, "dc_phone") else "",
+                "dc_name": dc_lookup.get(dist_code, {}).get("name", "Not Assigned"),
+                "dc_email": dc_lookup.get(dist_code, {}).get("email", "N/A"),
+                "dc_phone": dc_lookup.get(dist_code, {}).get("phone", "N/A"),
                 "cand_holding_hours": cand_holding_hours,
                 "lms_holding_hours": lms_holding_hours,
                 "nseit_holding_hours": nseit_holding_hours,

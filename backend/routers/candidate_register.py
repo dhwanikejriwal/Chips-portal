@@ -58,6 +58,26 @@ class CandidateRegisterRequest(BaseModel):
 def get_districts(all_districts: bool = False, db: Session = Depends(get_db)):
     districts = db.query(District).order_by(District.district_name).all()
     if all_districts:
+        from backend.models.user_login import UserLogin
+        from backend.models.master_user_role import MasterUserRole
+        from sqlalchemy.orm import joinedload
+        
+        # Pre-fetch all DC users and their profiles to avoid N+1 queries
+        dc_users = db.query(UserLogin).join(MasterUserRole).filter(
+            MasterUserRole.role == "DC",
+            UserLogin.district_id.isnot(None),
+            UserLogin.is_active == 1
+        ).options(joinedload(UserLogin.profile)).all()
+        
+        dc_lookup = {}
+        for user in dc_users:
+            profile = user.profile
+            dc_lookup[user.district_id] = {
+                "name": profile.full_name if profile and profile.full_name else "Not Assigned",
+                "email": profile.email if profile and profile.email else user.username,
+                "phone": profile.phone if profile and profile.phone else "N/A"
+            }
+
         res = []
         for d in districts:
             res_info = None
@@ -66,15 +86,25 @@ def get_districts(all_districts: bool = False, db: Session = Depends(get_db)):
                     "edm_name": d.aadhaar_resources.edm_name,
                     "edm_contact": d.aadhaar_resources.edm_contact,
                     "edm_email": d.aadhaar_resources.edm_email,
-                    "dc_name": d.aadhaar_resources.dc_name,
-                    "dc_contact": d.aadhaar_resources.dc_contact,
-                    "dc_email": d.aadhaar_resources.dc_email,
+                    "dc_name": dc_lookup.get(d.district_code, {}).get("name", d.aadhaar_resources.dc_name if d.aadhaar_resources else "No coordinator assigned"),
+                    "dc_contact": dc_lookup.get(d.district_code, {}).get("phone", d.aadhaar_resources.dc_contact if d.aadhaar_resources else ""),
+                    "dc_email": dc_lookup.get(d.district_code, {}).get("email", d.aadhaar_resources.dc_email if d.aadhaar_resources else ""),
                     "mto_name": d.aadhaar_resources.mto_name,
                     "mto_contact": d.aadhaar_resources.mto_contact,
                     "mto_email": d.aadhaar_resources.mto_email,
                     "adc_name": d.aadhaar_resources.adc_name,
                     "adc_contact": d.aadhaar_resources.adc_contact,
                     "adc_email": d.aadhaar_resources.adc_email,
+                }
+            elif d.district_code in dc_lookup:
+                # If aadhaar_resources doesn't exist but we have a DC in UserLogin, create a partial res_info
+                res_info = {
+                    "edm_name": "", "edm_contact": "", "edm_email": "",
+                    "dc_name": dc_lookup[d.district_code].get("name", "Not Assigned"),
+                    "dc_contact": dc_lookup[d.district_code].get("phone", ""),
+                    "dc_email": dc_lookup[d.district_code].get("email", ""),
+                    "mto_name": "", "mto_contact": "", "mto_email": "",
+                    "adc_name": "", "adc_contact": "", "adc_email": ""
                 }
             res.append({
                 "district_code": d.district_code,
@@ -242,7 +272,7 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
     short_name = district_obj.district_short_name or "CAN"
     dist_code = district_obj.district_code or ""
     mobile_suffix = payload.mobile[-5:] if payload.mobile else "12345"
-    request_code = f"{short_name}-{mobile_suffix}{dist_code}A{global_count + 1:04d}"
+    request_code = f"{short_name}-{mobile_suffix}{dist_code}C{global_count + 1:04d}"
 
     try:
         dob_parsed = datetime.strptime(payload.dob, "%Y-%m-%d").date()

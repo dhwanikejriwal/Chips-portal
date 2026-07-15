@@ -174,6 +174,26 @@
                         </div>
                     </div>
 
+                    <div style="margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; position: relative;" id="reactivation_search_panel">
+                        <h2 class="container-sub-title" style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; margin-bottom: 10px;">
+                            Search Suspended Operator
+                        </h2>
+                        <div style="display: flex; gap: 10px; align-items: center; position: relative;">
+                            <select id="operator_search_input" class="form-control-input" 
+                                style="flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #cbd5e1;"
+                                onchange="selectSuspendedOperator(this.value)">
+                                <option value="">-- Select Suspended Operator --</option>
+                            </select>
+
+                            <div id="search_spinner" style="display: none;">
+                                <svg class="animate-spin" style="width:20px;height:20px;color:#3b82f6;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            </div>
+                        </div>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
+                            Selecting an operator will automatically fill their details below.
+                        </div>
+                    </div>
+
                     <div class="form-card-container"
                         style="box-shadow: none; border-bottom: 1px dashed #e2e8f0; padding-bottom: 30px; margin-bottom: 30px; border-radius: 0;">
                         <h2 class="container-sub-title"
@@ -543,10 +563,10 @@
             <label style="font-size: 12px; font-weight: 600; color: #475569;">Time Period</label>
             <select id="filter-date-period" class="filter-input" onchange="applyHistoryPanelFiltersPipeline()"
                 style="height: 38px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 30px 0 12px; font-size: 13px; outline: none; appearance: none; background: white url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2364748b%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpolyline points=%226 9 12 15 18 9%22%3E%3C/polyline%3E%3C/svg%3E') no-repeat right 10px center; min-width: 120px;">
-                <option value="all">All Time</option>
+                <option value="all" selected>All Time</option>
                 <option value="today">Today</option>
                 <option value="week">Week</option>
-                <option value="month" selected>Month</option>
+                <option value="month">Month</option>
             </select>
         </div>
         <div class="filter-group-button" style="flex: 0 0 auto; margin-top: 20px;">
@@ -832,6 +852,67 @@
         status: String(req.status || 'PENDING').toUpperCase().replace(" ", "_"),
         revert_reason: String(req.reject_reason || req.revert_reason || 'None')
     })) : [];
+
+    // Dropdown and Autofill Logic
+    window.suspendedOperatorsMap = {};
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        const spinner = document.getElementById('search_spinner');
+        const select = document.getElementById('operator_search_input');
+        if (!select) return;
+
+        if (spinner) spinner.style.display = 'block';
+        try {
+            const res = await fetch(`/auth/dc/operator-reactivation/search`);
+            if (res.ok) {
+                const candidates = await res.json();
+                candidates.forEach(c => {
+                    window.suspendedOperatorsMap[c.id] = c;
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = `${c.name} - ${c.mobile} (${c.email || 'No Email'})`;
+                    select.appendChild(opt);
+                });
+            }
+        } catch (e) {
+            console.error("Failed to load suspended operators", e);
+        } finally {
+            if (spinner) spinner.style.display = 'none';
+        }
+    });
+
+    function selectSuspendedOperator(id) {
+        if (!id || !window.suspendedOperatorsMap[id]) return;
+        selectCandidate(window.suspendedOperatorsMap[id]);
+    }
+
+    function selectCandidate(c) {
+        if (document.getElementById('op_name')) document.getElementById('op_name').value = c.name || '';
+        if (document.getElementById('op_mobile')) document.getElementById('op_mobile').value = c.mobile || '';
+        if (document.getElementById('op_email')) document.getElementById('op_email').value = c.email || '';
+        if (document.getElementById('op_aadhaar')) document.getElementById('op_aadhaar').value = c.aadhaar_last4 || '';
+        if (document.getElementById('op_role')) {
+            const roleSel = document.getElementById('op_role');
+            for(let i=0; i<roleSel.options.length; i++) {
+                if(roleSel.options[i].value.toLowerCase() === (c.role || '').toLowerCase()) {
+                    roleSel.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        if (document.getElementById('op_cert')) document.getElementById('op_cert').value = c.nseit_id || '';
+        if (document.getElementById('user_code')) document.getElementById('user_code').value = c.user_code || '';
+        if (document.getElementById('op_reg')) document.getElementById('op_reg').value = c.registrar_code || '';
+        if (document.getElementById('op_ea')) {
+            const eaSel = document.getElementById('op_ea');
+            for(let i=0; i<eaSel.options.length; i++) {
+                if(eaSel.options[i].value === c.ea_code) {
+                    eaSel.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+    }
 </script>
 <script src="{{ url_for('static', filename='js/dc_reactivation.js') }}?v={{ range(1, 1000000000) | random }}"></script>
 {% endblock %}

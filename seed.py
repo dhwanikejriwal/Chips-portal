@@ -95,27 +95,72 @@ def seed_database():
         # Raipur LGD code is '387' (RYP / RPR in CSV)
         # Bilaspur LGD code is '375' (BLP in CSV)
         users_data = [
-            # State-level CHIPS Admin (no district_id)
-            {
-                "username": "chips_admin",
-                "password": hash_password("admin123"),
-                "district_id": None,
-                "roleid": 1
-            },
-            # Raipur DC
-            {
-                "username": "dc_raipur",
-                "password": hash_password("dc123"),
-                "district_id": "387",
-                "roleid": 2
-            },
-            # Raipur EDM
-            {
-                "username": "edm_raipur",
-                "password": hash_password("edm123"),
-                "district_id": "387",
-                "roleid": 3
-            }
+            {"username": "chips_admin", "password": hash_password("AdminPassword@456"), "district_id": None, "roleid": 1},
+            {"username": "indrajeetsen03@gmail.com", "password": hash_password("edmbalod123"), "district_id": "646", "roleid": 3},
+            {"username": "kheeleshgangber@gmail.com", "password": hash_password("dcbalod123"), "district_id": "646", "roleid": 2},
+            {"username": "edm-balodabazar.cg@gov.in", "password": hash_password("edmbalod123"), "district_id": "646", "roleid": 3},
+            {"username": "lokeshdewangan6666@gmail.com", "password": hash_password("dcbalod123"), "district_id": "646", "roleid": 2},
+            {"username": "deva.checking@gmail.com", "password": hash_password("edmbalrampurramanujganj123"), "district_id": "649", "roleid": 3},
+            {"username": "tkumar749@gmail.com", "password": hash_password("dcbalrampurramanujganj123"), "district_id": "649", "roleid": 2},
+            {"username": "bastar.degs@gmail.com", "password": hash_password("edmbastar123"), "district_id": "374", "roleid": 3},
+            {"username": "s.ramkar281988@gmail.com", "password": hash_password("dcbastar123"), "district_id": "374", "roleid": 2},
+            {"username": "mkverma9009@gmail.com", "password": hash_password("edmbemetara123"), "district_id": "650", "roleid": 3},
+            {"username": "mukuldhurandhar.md@gmail.com", "password": hash_password("dcbemetara123"), "district_id": "650", "roleid": 2},
+            {"username": "edmbijapur@gmail.com", "password": hash_password("edmbijapur123"), "district_id": "636", "roleid": 3},
+            {"username": "santoshmorla21@gmail.com", "password": hash_password("dcbijapur123"), "district_id": "636", "roleid": 2},
+            {"username": "kitu1702@gmail.com", "password": hash_password("edmbilaspur123"), "district_id": "375", "roleid": 3},
+            {"username": "romilsahu02@gmail.com", "password": hash_password("dcbilaspur123"), "district_id": "375", "roleid": 2},
+            {"username": "chipsdantewada@gmail.com", "password": hash_password("edmdakshinbastardantewada123"), "district_id": "376", "roleid": 3},
+            {"username": "nraycruse65@gmail.com", "password": hash_password("dcdakshinbastardantewada123"), "district_id": "376", "roleid": 2},
+            {"username": "edm.dhamtari2017@gmail.com", "password": hash_password("edmdhamtari123"), "district_id": "377", "roleid": 3},
+            {"username": "dewanganhorilal08@gmail.com", "password": hash_password("dcdhamtari123"), "district_id": "377", "roleid": 2},
+            {"username": "shrutiagrawal.be@gmail.com", "password": hash_password("edmdurg123"), "district_id": "378", "roleid": 3},
+            {"username": "richavivek2415@gmail.com", "password": hash_password("dcdurg123"), "district_id": "378", "roleid": 2},
+            {"username": "edm.gariyaband@gmail.com", "password": hash_password("edmgariyaband123"), "district_id": "645", "roleid": 3},
+            {"username": "dc.gariaband@gmail.com", "password": hash_password("dcgariyaband123"), "district_id": "645", "roleid": 2},
+            {"username": "ghanshyams175@gmail.com", "password": hash_password("edmgaurelapendramarwahi123"), "district_id": "734", "roleid": 3},
+            {"username": "geet1292@gmail.com", "password": hash_password("dcgaurelapendramarwahi123"), "district_id": "734", "roleid": 2},
+            {"username": "sskumar898555@gmail.com", "password": hash_password("edmjanjgirchampa123"), "district_id": "379", "roleid": 3},
+            {"username": "dharam.pal102@gmail.com", "password": hash_password("dcjanjgirchampa123"), "district_id": "379", "roleid": 2},
+            {"username": "neelankarbasu05@gmail.com", "password": hash_password("edmjashpur123"), "district_id": "380", "roleid": 3},
+            {"username": "SVIVEK448@GMAIL.COM", "password": hash_password("dcjashpur123"), "district_id": "380", "roleid": 2},
+            {"username": "edmkabirdham@gmail.com", "password": hash_password("edmkabeerdham123"), "district_id": "382", "roleid": 3},
+            {"username": "lakhansahu200@gmail.com", "password": hash_password("dckabeerdham123"), "district_id": "382", "roleid": 2},
+            {"username": "myghanshu@gmail.com", "password": hash_password("edmuttarbastarkanker123"), "district_id": "381", "roleid": 3},
+            {"username": "paras.chandak7@gmail.com", "password": hash_password("dcuttarbastarkanker123"), "district_id": "381", "roleid": 2},
+            {"username": "chipskondagaon@gmail.com", "password": hash_password("edmkondagaon123"), "district_id": "643", "roleid": 3},
+            {"username": "Somshubham500@Gmail.Com", "password": hash_password("dckondagaon123"), "district_id": "643", "roleid": 2},
+            {"username": "mtmith88@gmail.com", "password": hash_password("edmkhairagarhchhuikhadangandai123"), "district_id": "759", "roleid": 3},
+            {"username": "pankajsolanki201@gmail.com", "password": hash_password("dckhairagarhchhuikhadangandai123"), "district_id": "759", "roleid": 2},
+            {"username": "chips.korba@gmail.com", "password": hash_password("edmkorba123"), "district_id": "383", "roleid": 3},
+            {"username": "rakesh_ap87@yahoo.in", "password": hash_password("edmkorea123"), "district_id": "384", "roleid": 3},
+            {"username": "shantanu.roy04@gmail.com", "password": hash_password("dckorea123"), "district_id": "384", "roleid": 2},
+            {"username": "bhupendra.ambilkar@yahoo.com", "password": hash_password("edmmahasamund123"), "district_id": "385", "roleid": 3},
+            {"username": "mulchandnishad94@gmail.com", "password": hash_password("dcmahasamund123"), "district_id": "385", "roleid": 2},
+            {"username": "degsgpm@gmail.com", "password": hash_password("edmmanendragarhchirmiribharatpur(mcb)123"), "district_id": "760", "roleid": 3},
+            {"username": "pradhan.ganesh08@gmail.com", "password": hash_password("dcmanendragarhchirmiribharatpur(mcb)123"), "district_id": "760", "roleid": 2},
+            {"username": "degsmmac@gmail.com", "password": hash_password("edmmohlamanpurambagarhchouki123"), "district_id": "761", "roleid": 3},
+            {"username": "skumare102@gmail.com", "password": hash_password("dcmohlamanpurambagarhchouki123"), "district_id": "761", "roleid": 2},
+            {"username": "2012sonam@gmail.com", "password": hash_password("edmmungeli123"), "district_id": "647", "roleid": 3},
+            {"username": "ajaynishad818@gmail.com", "password": hash_password("dcmungeli123"), "district_id": "647", "roleid": 2},
+            {"username": "kamrankhan.edm@gmail.com", "password": hash_password("edmnarayanpur123"), "district_id": "637", "roleid": 3},
+            {"username": "cst.472@gmail.com", "password": hash_password("dcnarayanpur123"), "district_id": "637", "roleid": 2},
+            {"username": "edm.raigarh@gmail.com", "password": hash_password("edmraigarh123"), "district_id": "386", "roleid": 3},
+            {"username": "raveemca2008@gmail.com", "password": hash_password("dcraigarh123"), "district_id": "386", "roleid": 2},
+            {"username": "sharma.kirti28@gmail.com", "password": hash_password("edmraipur123"), "district_id": "387", "roleid": 3},
+            {"username": "shyamal0783@gmail.com", "password": hash_password("dcraipur123"), "district_id": "387", "roleid": 2},
+            {"username": "saurabhmishra2985@gmail.com", "password": hash_password("edmrajnandgaon123"), "district_id": "388", "roleid": 3},
+            {"username": "rajputankit.tc:s@gmail.com", "password": hash_password("dcrajnandgaon123"), "district_id": "388", "roleid": 2},
+            {"username": "edmsarangarhbilaigarh@gmail.com", "password": hash_password("edmsarangarhbilaigarh123"), "district_id": "763", "roleid": 3},
+            {"username": "gs47722@gmail.com", "password": hash_password("dcsarangarhbilaigarh123"), "district_id": "763", "roleid": 2},
+            {"username": "dushyantsoni.soni@gmail.com", "password": hash_password("edmsakti123"), "district_id": "762", "roleid": 3},
+            {"username": "saif4222@gmail.com", "password": hash_password("dcsakti123"), "district_id": "762", "roleid": 2},
+            {"username": "shd4686@gmail.com", "password": hash_password("edmsukma123"), "district_id": "642", "roleid": 3},
+            {"username": "varun.vs653@gmail.com", "password": hash_password("dcsukma123"), "district_id": "642", "roleid": 2},
+            {"username": "edm.surajpur@gmail.com", "password": hash_password("edmsurajpur123"), "district_id": "648", "roleid": 3},
+            {"username": "vikas65.vk@gmail.com", "password": hash_password("dcsurajpur123"), "district_id": "648", "roleid": 2},
+            {"username": "vaibhav.masters1@gmail.com", "password": hash_password("edmsurguja123"), "district_id": "389", "roleid": 3},
+            {"username": "vtiwari8510@gmail.com", "password": hash_password("dcsurguja123"), "district_id": "389", "roleid": 2}
         ]
 
         for u in users_data:
@@ -132,11 +177,10 @@ def seed_database():
                     district_id=u["district_id"],
                     roleid=u["roleid"]
                 ))
-        # Delete any user logins that are not in our seed list (e.g. dc_bilaspur)
-        seeded_usernames = [u["username"] for u in users_data]
-        db.query(UserLogin).filter(~UserLogin.username.in_(seeded_usernames)).delete(synchronize_session=False)
+        
+            
         db.commit()
-        print("Default users (Admin, DCs, EDMs) verified/seeded (and stale users deleted).")
+        print("Default users (Admin, DCs, EDMs) verified/seeded. Login credentials verified and updated.")
 
         print("\nDatabase seeding completed successfully! Ready to test.")
         

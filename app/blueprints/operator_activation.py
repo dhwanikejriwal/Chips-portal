@@ -32,6 +32,65 @@ def backend_url():
 # ─────────────────────────────────────────────
 
 
+@operator_activation_bp.route("/dc/operator-activation/search", methods=["GET"])
+def search_eligible_candidates():
+    jwt_token = session.get("access_token")
+    if isinstance(jwt_token, dict):
+        jwt_token = jwt_token.get("token", "") or jwt_token.get("access_token", "")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    headers = {"Authorization": f"Bearer {str(jwt_token).strip()}"}
+    query = request.args.get("q", "")
+
+    try:
+        response = requests.get(
+            f"{backend_url()}/search-eligible-candidates",
+            params={"q": query},
+            headers=headers
+        )
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            return jsonify({"status": "error", "message": "Search failed"}), response.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({"status": "error", "message": "Backend offline"}), 500
+
+
+@operator_activation_bp.route("/dc/operator-activation/autofill-nseit", methods=["POST"])
+def autofill_from_certificate():
+    jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    
+    file_obj = request.files.get("nseit_certificate")
+    if not file_obj or not file_obj.filename:
+        return jsonify({"status": "error", "message": "No file uploaded"}), 400
+
+    files = {"nseit_certificate": (file_obj.filename, file_obj.read(), file_obj.content_type)}
+    data = {}
+    operator_name = request.form.get("operator_name")
+    if operator_name:
+        data["operator_name"] = operator_name
+
+    try:
+        response = requests.post(
+            f"{backend_url()}/autofill-from-certificate",
+            files=files,
+            data=data,
+            headers=headers
+        )
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            err_detail = response.json().get("message", "Autofill failed") if response.content else "Autofill failed"
+            return jsonify({"status": "error", "message": err_detail}), response.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({"status": "error", "message": "Backend offline"}), 500
+
+
 @operator_activation_bp.route("/dc/operator-activation", methods=["GET"])
 def dc_submit_form():
     return redirect(url_for("operator_activation.dc_requests_list"))
@@ -86,7 +145,10 @@ def dc_submit():
         if response.status_code == 200:
             return jsonify({"status": "success", "redirect_url": url_for("operator_activation.dc_requests_list")}), 200
         else:
-            detail = response.json().get("detail", "Submission failed.")
+            try:
+                detail = response.json().get("detail", "Submission failed.")
+            except Exception:
+                detail = f"Server Error: {response.status_code} - {response.text[:200]}"
             if isinstance(detail, dict) and "field_errors" in detail:
                 return jsonify({"status": "error", "field_errors": detail["field_errors"]}), 400
             else:
