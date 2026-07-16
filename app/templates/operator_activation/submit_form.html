@@ -32,6 +32,84 @@
 </div>
 {% endif %}
 
+<script>
+    async function validateOCR(inputEl, docType) {
+        if (!inputEl.files || !inputEl.files[0]) return;
+        
+        const file = inputEl.files[0];
+        const nameInput = document.getElementById('name_as_per_aadhaar');
+        
+        if (!nameInput || !nameInput.value.trim()) {
+            Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out "Name as per Aadhaar" before uploading documents for validation.' });
+            inputEl.value = '';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('doc_type', docType);
+        formData.append('name_as_per_aadhaar', nameInput.value.trim());
+
+        if (docType === 'aadhaar_photo') {
+            const aadhaarInput = document.getElementById('operator_aadhaar');
+            if (!aadhaarInput || !aadhaarInput.value.trim()) {
+                Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out your Aadhaar Number before uploading your Aadhaar Card.' });
+                inputEl.value = '';
+                return;
+            }
+            formData.append('operator_aadhaar', aadhaarInput.value.trim());
+        } else if (docType === 'pan_card') {
+            const panInput = document.getElementById('operator_pan');
+            if (!panInput || !panInput.value.trim()) {
+                Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out your PAN Number before uploading your PAN Card.' });
+                inputEl.value = '';
+                return;
+            }
+            formData.append('operator_pan', panInput.value.trim());
+        } else if (docType === 'nseit_certificate') {
+            const nseitInput = document.getElementById('nseit_certificate_number');
+            if (!nseitInput || !nseitInput.value.trim()) {
+                Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out your NSEIT Certificate Number before uploading it.' });
+                inputEl.value = '';
+                return;
+            }
+            formData.append('nseit_id', nseitInput.value.trim());
+        }
+
+        // Show loading indicator
+        const container = inputEl.closest('.oa-doc-card');
+        let statusEl = container.querySelector('.ocr-status');
+        if (!statusEl) {
+            statusEl = document.createElement('div');
+            statusEl.className = 'ocr-status';
+            statusEl.style.fontSize = '12px';
+            statusEl.style.marginTop = '6px';
+            statusEl.style.fontWeight = '500';
+            container.appendChild(statusEl);
+        }
+        statusEl.innerHTML = '<span style="color:#2563eb;">Validating OCR...</span>';
+        
+        try {
+            const response = await fetch('/auth/dc/operator-activation/validate_ocr', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                statusEl.innerHTML = '<span style="color:#059669;">✓ Document Verified!</span>';
+            } else {
+                statusEl.innerHTML = `<span style="color:#dc2626;">✗ ${data.error || 'Validation failed.'}</span>`;
+                inputEl.value = ''; // clear input so user cannot submit invalid file
+            }
+        } catch (err) {
+            console.error('OCR API Error:', err);
+            statusEl.innerHTML = '<span style="color:#dc2626;">✗ OCR service unavailable.</span>';
+            inputEl.value = '';
+        }
+    }
+</script>
+
 {% if error %}
 <div class="oa-error-banner">{{ error }}</div>
 {% endif %}
@@ -304,7 +382,7 @@
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">Consent Form <span class="required-star">*</span></label>
                         <input type="file" name="hard_copy_form" accept=".pdf,image/*" {{ 'required' if not request_data
-                            }} class="oa-file-input">
+                            }} class="oa-file-input" onchange="validateOCR(this, 'consent_form')">
                         <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if request_data and request_data.documents %}
                         {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'hard_copy_form') | list
@@ -318,7 +396,7 @@
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">Aadhaar Card <span class="required-star">*</span></label>
                         <input type="file" name="aadhaar_photo" accept=".pdf,image/*" {{ 'required' if not request_data
-                            }} class="oa-file-input">
+                            }} class="oa-file-input" onchange="validateOCR(this, 'aadhaar_photo')">
                         <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if request_data and request_data.documents %}
                         {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'aadhaar_photo') | list
@@ -332,7 +410,7 @@
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">PAN Card <span class="required-star">*</span></label>
                         <input type="file" name="pan_card" accept=".pdf,image/*" {{ 'required' if not request_data }}
-                            class="oa-file-input">
+                            class="oa-file-input" onchange="validateOCR(this, 'pan_card')">
                         <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if request_data and request_data.documents %}
                         {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'pan_card') | list |
@@ -346,7 +424,7 @@
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">Passbook <span class="required-star">*</span></label>
                         <input type="file" name="passbook" accept=".pdf,image/*" {{ 'required' if not request_data }}
-                            class="oa-file-input">
+                            class="oa-file-input" onchange="validateOCR(this, 'passbook')">
                         <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if request_data and request_data.documents %}
                         {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'passbook') | list |
@@ -360,7 +438,7 @@
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">NSEIT Certificate <span class="required-star">*</span></label>
                         <input type="file" name="nseit_certificate" accept=".pdf,image/*" {{ 'required' if not
-                            request_data }} class="oa-file-input">
+                            request_data }} class="oa-file-input" onchange="validateOCR(this, 'nseit_certificate')">
                         <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if request_data and request_data.documents %}
                         {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'nseit_certificate') |
@@ -539,31 +617,11 @@
 
             Swal.fire({
                 title: 'Processing Submission...',
-                html: '<div id="swal-progress-text" style="margin-bottom:10px; font-weight:500; color:#1e293b;">Uploading documents...</div><span style="font-size: 0.85em; color: #64748b;">This takes 15-20 seconds. Please do not refresh.</span>',
+                html: '<div id="swal-progress-text" style="margin-bottom:10px; font-weight:500; color:#1e293b;">Submitting request...</div>',
                 allowOutsideClick: false,
                 showConfirmButton: false,
                 didOpen: () => {
                     Swal.showLoading();
-                    const steps = [
-                        { text: "Verifying Aadhaar Card OCR...", time: 2000 },
-                        { text: "Validating PAN Card details...", time: 4500 },
-                        { text: "Checking Bank Passbook authenticity...", time: 7500 },
-                        { text: "Scanning NSEIT Certificate...", time: 10500 },
-                        { text: "Processing Consent Form...", time: 13000 },
-                        { text: "Finalizing Submission...", time: 15500 }
-                    ];
-                    window._submitTimers = [];
-                    steps.forEach(step => {
-                        window._submitTimers.push(setTimeout(() => {
-                            const pText = document.getElementById('swal-progress-text');
-                            if (pText && Swal.isVisible()) pText.innerHTML = step.text;
-                        }, step.time));
-                    });
-                },
-                willClose: () => {
-                    if (window._submitTimers) {
-                        window._submitTimers.forEach(t => clearTimeout(t));
-                    }
                 }
             });
 
@@ -1130,9 +1188,6 @@
                     }
                     existingMsg.innerHTML = `✓ Auto-attached from autofill: ${file.name}`;
                 }
-                
-                // Dispatch change event to trigger any listeners like file size validation
-                mainNseitInput.dispatchEvent(new Event('change', { bubbles: true }));
             } catch(e) {
                 console.warn("Could not copy file to main input automatically.", e);
             }
@@ -1212,6 +1267,11 @@
                             });
                         }
                     }
+                    
+                    // Now that form fields are populated, trigger the OCR validation on the auto-attached file
+                    if (mainNseitInput) {
+                        mainNseitInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 } else {
                     Swal.fire({
                         icon: 'error',
@@ -1236,6 +1296,109 @@
         } finally {
             // Reset file input so same file can be uploaded again if needed
             event.target.value = '';
+        }
+    }
+    async function validateOCR(inputEl, docType) {
+        if (!inputEl.files || !inputEl.files[0]) return;
+        
+        const file = inputEl.files[0];
+        const nameInput = document.getElementById('name_as_per_aadhaar');
+        
+        if (!nameInput || !nameInput.value.trim()) {
+            Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out "Name as per Aadhaar" before uploading documents for validation.' });
+            inputEl.value = '';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('doc_type', docType);
+        formData.append('name_as_per_aadhaar', nameInput.value.trim());
+
+        if (docType === 'aadhaar_photo') {
+            const aadhaarInput = document.getElementById('operator_aadhaar');
+            if (!aadhaarInput || !aadhaarInput.value.trim()) {
+                Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out your Aadhaar Number before uploading your Aadhaar Card.' });
+                inputEl.value = '';
+                return;
+            }
+            formData.append('operator_aadhaar', aadhaarInput.value.trim());
+        } else if (docType === 'pan_card') {
+            const panInput = document.getElementById('operator_pan');
+            if (!panInput || !panInput.value.trim()) {
+                Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out your PAN Number before uploading your PAN Card.' });
+                inputEl.value = '';
+                return;
+            }
+            formData.append('operator_pan', panInput.value.trim());
+        } else if (docType === 'nseit_certificate') {
+            const nseitInput = document.getElementById('nseit_certificate_number');
+            if (!nseitInput || !nseitInput.value.trim()) {
+                Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out your NSEIT Certificate Number before uploading it.' });
+                inputEl.value = '';
+                return;
+            }
+            formData.append('nseit_id', nseitInput.value.trim());
+        }
+
+        // Show loading indicator
+        const container = inputEl.closest('.oa-doc-card');
+        let statusEl = container.querySelector('.ocr-status');
+        if (!statusEl) {
+            statusEl = document.createElement('div');
+            statusEl.className = 'ocr-status';
+            statusEl.style.fontSize = '12px';
+            statusEl.style.marginTop = '6px';
+            statusEl.style.fontWeight = '500';
+            container.appendChild(statusEl);
+        }
+        statusEl.innerHTML = '<span style="color:#2563eb;">Validating OCR...</span>';
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
+            
+            const response = await fetch('http://localhost:8000/operator-activation/validate_ocr', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer {{ session.access_token }}'
+                },
+                body: formData,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                if (data.warning) {
+                    statusEl.innerHTML = `<span style="color:#ca8a04;">⚠ ${data.warning}</span>`;
+                } else {
+                    statusEl.innerHTML = '<span style="color:#059669;">✓ Document Verified!</span>';
+                }
+            } else {
+                let errorMsg = 'Validation failed.';
+                if (data.error) {
+                    errorMsg = data.error;
+                } else if (data.detail) {
+                    if (Array.isArray(data.detail)) {
+                        errorMsg = data.detail.map(e => e.msg).join(', ');
+                    } else {
+                        errorMsg = data.detail;
+                    }
+                }
+                statusEl.innerHTML = `<span style="color:#dc2626;">✗ ${errorMsg}</span>`;
+                inputEl.value = ''; // clear input so user cannot submit invalid file
+            }
+        } catch (err) {
+            console.error('OCR API Error:', err);
+            if (err.name === 'AbortError') {
+                statusEl.innerHTML = '<span style="color:#ca8a04;">⚠ Validation timed out. You may still submit.</span>';
+                // Note: we do NOT clear inputEl.value here so they can still submit
+            } else {
+                statusEl.innerHTML = '<span style="color:#dc2626;">✗ OCR service unavailable.</span>';
+                inputEl.value = '';
+            }
         }
     }
 </script>

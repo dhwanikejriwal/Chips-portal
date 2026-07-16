@@ -1212,3 +1212,59 @@ def serve_document(request_id: int, doc_type: str, db: Session = Depends(get_db)
         filename=doc.original_filename,
         headers={"Content-Disposition": f"inline; filename=\"{doc.original_filename}\""},
     )
+
+# ─────────────────────────────────────────────
+# REAL-TIME OCR VALIDATION ENDPOINT
+# ─────────────────────────────────────────────
+@router.post("/validate_ocr")
+async def validate_ocr(
+    doc_type: str = Form(...),
+    file: UploadFile = File(...),
+    name_as_per_aadhaar: str = Form(...),
+    operator_aadhaar: str = Form(None),
+    operator_pan: str = Form(None),
+    nseit_id: str = Form(None),
+):
+    """
+    Validates the OCR of a document asynchronously based on the provided metadata.
+    """
+    try:
+        file_bytes = await file.read()
+        extracted_text = extract_text_from_bytes(file_bytes, file.content_type)
+        err = None
+        
+        with open("ocr_debug.txt", "a", encoding="utf-8") as f:
+            f.write(f"\n--- [DEBUG] Extracted Text from {file.filename} ({file.content_type}) ---\nLength: {len(extracted_text)}\nText:\n{extracted_text}\n-----------------------------------\n")
+            
+        if not extracted_text.strip():
+            return {"success": True, "warning": "Unreadable document format. Skipping real-time OCR validation."}
+        
+        if doc_type == "aadhaar_photo":
+            if not operator_aadhaar:
+                err = "Aadhaar number is required for validation."
+            else:
+                err = validate_aadhaar(extracted_text, name_as_per_aadhaar, operator_aadhaar)
+        elif doc_type == "pan_card":
+            if not operator_pan:
+                err = "PAN number is required for validation."
+            else:
+                err = validate_pan(extracted_text, name_as_per_aadhaar, operator_pan)
+        elif doc_type == "passbook":
+            err = validate_passbook(extracted_text, name_as_per_aadhaar)
+        elif doc_type == "consent_form":
+            err = validate_consent_form(extracted_text, name_as_per_aadhaar)
+        elif doc_type == "nseit_certificate":
+            if not nseit_id:
+                err = "NSEIT Certificate number is required for validation."
+            else:
+                err = validate_nseit_certificate(extracted_text, name_as_per_aadhaar, nseit_id)
+        else:
+            return {"success": False, "error": f"Unknown document type for validation: {doc_type}"}
+            
+        if err:
+            return {"success": False, "error": err}
+            
+        return {"success": True}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}

@@ -50,6 +50,7 @@ from backend.routers.operator_mapping import router as operator_mapping_router
 from backend.routers.operator_onboarding import router as operator_onboarding_router
 from backend.routers.notifications import router as notifications_router
 from backend.routers.dashboard import router as dashboard_router
+from backend.routers.report import router as report_router
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
@@ -67,6 +68,7 @@ app.include_router(station_id_router, prefix="/station-id")
 app.include_router(operator_mapping_router, prefix="/operator-mapping")
 app.include_router(operator_onboarding_router, prefix="/operator-onboarding")
 app.include_router(dashboard_router, prefix="/dashboard")
+app.include_router(report_router, prefix="/api/reports")
 
 
 
