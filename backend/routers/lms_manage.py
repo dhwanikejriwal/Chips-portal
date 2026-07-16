@@ -12,7 +12,7 @@ from backend.routers.auth import get_current_user
 router = APIRouter(prefix="/lms_manage", tags=["lms_manage"], dependencies=[Depends(get_current_user)])
 
 class LMSActionRequest(BaseModel):
-    remark: str 
+    remark: str | None = None
     by_user_id: int
     force_without_email: bool = False
 
@@ -54,6 +54,50 @@ def get_lms_requests(district_code: str | None = None, db: Session = Depends(get
                 "status_after": r.status_after
             })
         
+        # Check if LMS certificate was uploaded post-approval
+        lms_uploaded_post_approval = False
+        nseit_uploaded_post_approval = False
+        
+        approval_time = None
+        for r in remarks:
+            if r.status_after_id == StatusEnum.APPROVED.value:
+                approval_time = r.time
+                break
+                
+        if approval_time:
+            from datetime import timezone, timedelta
+            approval_utc = approval_time - timedelta(hours=5, minutes=30)
+            approval_timestamp = approval_utc.replace(tzinfo=timezone.utc).timestamp()
+            
+            import os
+            uploads_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "candidate")
+            
+            if c.lms_certificate_upload:
+                cleaned_path = c.lms_certificate_upload.lstrip("/")
+                if cleaned_path.startswith("candidate_uploads/"):
+                    parts = cleaned_path.split("/", 1)
+                    if len(parts) > 1:
+                        cleaned_path = parts[1]
+                full_path = os.path.abspath(os.path.join(uploads_dir, cleaned_path))
+                if os.path.exists(full_path):
+                    file_timestamp = os.path.getmtime(full_path)
+                    # Allow 5 seconds safety window
+                    if file_timestamp > (approval_timestamp + 5.0):
+                        lms_uploaded_post_approval = True
+                        
+            if c.nseit_certificate_upload:
+                cleaned_path = c.nseit_certificate_upload.lstrip("/")
+                if cleaned_path.startswith("candidate_uploads/"):
+                    parts = cleaned_path.split("/", 1)
+                    if len(parts) > 1:
+                        cleaned_path = parts[1]
+                full_path = os.path.abspath(os.path.join(uploads_dir, cleaned_path))
+                if os.path.exists(full_path):
+                    file_timestamp = os.path.getmtime(full_path)
+                    # Allow 5 seconds safety window
+                    if file_timestamp > (approval_timestamp + 5.0):
+                        nseit_uploaded_post_approval = True
+
         result.append({
             "lms_id": l.id,
             "r_id": c.id,
@@ -72,10 +116,14 @@ def get_lms_requests(district_code: str | None = None, db: Session = Depends(get
             "photo_upload": c.photo_upload or "",
             "marksheet_upload": c.marksheet_upload,
             "tenth_marksheet_upload": c.tenth_marksheet_upload or "",
+            "lms_certificate_upload": c.lms_certificate_upload or "",
+            "nseit_certificate_upload": c.nseit_certificate_upload or "",
             "nseit_id": c.nseit_id or "",
             "lms_status": l.status,
             "lms_credential_id": c.lms_id or "",
             "remarks_history": remarks_history,
+            "lms_uploaded_post_approval": lms_uploaded_post_approval,
+            "nseit_uploaded_post_approval": nseit_uploaded_post_approval,
             "created_at": l.created_at.strftime("%Y-%m-%d %H:%M:%S") if l.created_at else "",
             "updated_at": l.updated_at.strftime("%Y-%m-%d %H:%M:%S") if l.updated_at else (l.created_at.strftime("%Y-%m-%d %H:%M:%S") if l.created_at else "")
         })
@@ -84,9 +132,7 @@ def get_lms_requests(district_code: str | None = None, db: Session = Depends(get
 @router.post("/forward/{r_id}")
 def forward_lms_request(r_id: int, payload: LMSActionRequest, db: Session = Depends(get_db)):
     
-    clean_remark = payload.remark.strip()
-    if not clean_remark:
-        raise HTTPException(status_code=400, detail="Forward remarks are mandatory.")
+    clean_remark = payload.remark.strip() if payload.remark else ""
     lms = db.query(LMS).filter(LMS.request_id == r_id).first()
     if not lms:
         raise HTTPException(status_code=404, detail="LMS Request not found")
@@ -119,7 +165,7 @@ def forward_lms_request(r_id: int, payload: LMSActionRequest, db: Session = Depe
     chips_user = db.query(UserLogin).join(MasterUserRole).filter(MasterUserRole.role == "Admin").first()
     new_remark = LMSRemark(
         request_id=lms.id,
-        remark=clean_remark or "LMS request verified and forwarded to CHiPS by District Coordinator.",
+        remark=clean_remark or "LMS request verified and forwarded.",
         sender_id=payload.by_user_id,
         receiver_id=chips_user.id if chips_user else None,
         is_public=1,

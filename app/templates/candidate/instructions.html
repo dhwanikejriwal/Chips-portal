@@ -94,41 +94,14 @@
                     {% else %}
                     Start Request
                     {% endif %}
-                </a>
-
-                <!-- 🌟 LMS DYNAMIC SKIPPED CONDITION WRAPPER -->
+                </a>                <!-- 🌟 LMS DYNAMIC SKIPPED CONDITION WRAPPER -->
                 {% if (status_data.lms_status|upper) not in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN',
                 'APPROVED', 'REVERTED', 'REVERTED_BY_CHIPS', 'SKIPPED'] %}
-
-                {% if status_data.lms_id %}
-                <!-- Directly skip since they already have lms_id -->
-                <button type="button" onclick="confirmSkipLMS()" class="btn-card"
+                
+                <button type="button" onclick="showSkipModal('lms')" class="btn-card"
                     style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">
                     I already have LMS ID
                 </button>
-                <form id="skip-lms-direct-form" method="POST" action="{{ url_for('candidate.skip_lms') }}"
-                    style="display: none;">
-                    <input type="hidden" name="lms_id" value="{{ status_data.lms_id }}">
-                </form>
-                {% else %}
-                <!-- Regular skip with form input -->
-                <button type="button" onclick="toggleSkipForm('lms-skip-container')" class="btn-card"
-                    style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">
-                    I already have LMS ID
-                </button>
-                <div id="lms-skip-container"
-                    style="display: none; margin-top: 10px; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e0; border-radius: 8px; text-align: left;">
-                    <form method="POST" action="{{ url_for('candidate.skip_lms') }}">
-                        <label class="form-label"
-                            style="font-size: 12px; margin-bottom: 4px; display: block; font-weight: 500;">Enter
-                            Existing LMS ID:</label>
-                        <input type="text" name="lms_id" class="form-input" required value="" placeholder="e.g. LMS123456"
-                            style="padding: 6px 10px; font-size: 13px; margin-bottom: 8px; width: 100%; box-sizing: border-box;">
-                        <button type="submit" class="btn-card" style="width: 100%; font-size: 13px; padding: 8px;">Submit &
-                            Skip</button>
-                    </form>
-                </div>
-                {% endif %}
 
                 {% endif %}
             </div>
@@ -189,36 +162,10 @@
                 {% if (status_data.nseit_status|upper) not in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN',
                 'APPROVED', 'REVERTED', 'REVERTED_BY_CHIPS', 'SKIPPED'] %}
                 
-                {% if status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00') %}
-                <!-- Directly skip since they already have nseit_id -->
-                <button type="button" onclick="confirmSkipNSEIT()" class="btn-card"
+                <button type="button" onclick="showSkipModal('nseit')" class="btn-card"
                     style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">
                     I already have NSEIT ID
                 </button>
-                <form id="skip-nseit-direct-form" method="POST" action="{{ url_for('candidate.skip_nseit') }}"
-                    style="display: none;">
-                    <input type="hidden" name="nseit_id" value="{{ status_data.nseit_id }}">
-                </form>
-                {% else %}
-                <!-- Regular skip with form input -->
-                <button type="button" onclick="toggleSkipForm('nseit-skip-container')" class="btn-card"
-                    style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">
-                    I already have NSEIT ID
-                </button>
-                <div id="nseit-skip-container"
-                    style="display: none; margin-top: 10px; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e0; border-radius: 8px; text-align: left;">
-                    <form method="POST" action="{{ url_for('candidate.skip_nseit') }}">
-                        <label class="form-label"
-                            style="font-size: 12px; margin-bottom: 4px; display: block; font-weight: 500;">Enter
-                            Existing NSEIT ID:</label>
-                        <input type="text" name="nseit_id" class="form-input" required
-                            value="" placeholder="e.g. NSEIT123456"
-                            style="padding: 6px 10px; font-size: 13px; margin-bottom: 8px; width: 100%; box-sizing: border-box;">
-                        <button type="submit" class="btn-card" style="width: 100%; font-size: 13px; padding: 8px;">Submit &
-                            Skip</button>
-                    </form>
-                </div>
-                {% endif %}
                 
                 {% endif %}
                 {% else %}
@@ -254,51 +201,177 @@
 </div>
 
 <script>
-    function toggleSkipForm(id) {
-        var container = document.getElementById(id);
-        var card = container.closest('.action-card');
-        if (container.style.display === 'none') {
-            container.style.display = 'block';
-            if (card) {
-                card.style.height = 'auto';
-            }
-        } else {
-            container.style.display = 'none';
+    function showSkipModal(type) {
+        const existingId = type === 'lms' ? "{{ status_data.lms_id or '' }}" : "{{ status_data.nseit_id or '' }}";
+        const titleText = type === 'lms' ? 'LMS' : 'NSEIT';
+        const actionUrl = type === 'lms' ? "{{ url_for('candidate.skip_lms') }}" : "{{ url_for('candidate.skip_nseit') }}";
+        
+        if (existingId) {
+            Swal.fire({
+                title: 'Skip Request Confirmation',
+                html: `<div style="font-family: 'Inter', sans-serif; font-size: 15px; color: #4b5563; line-height: 1.6; text-align: center;">Are you sure you want to skip this request? <br>You already filled your registered <strong>${titleText} ID: ${existingId}</strong>.</div>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Skip Request',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#6b7280'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = actionUrl;
+                    
+                    const idInput = document.createElement('input');
+                    idInput.type = 'hidden';
+                    idInput.name = type === 'lms' ? 'lms_id' : 'nseit_id';
+                    idInput.value = existingId;
+                    form.appendChild(idInput);
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
+            return;
         }
-    }
 
-    function confirmSkipLMS() {
         Swal.fire({
-            title: 'Skip LMS Certificate Request',
-            text: 'Are you sure you want to skip the LMS certificate request?',
-            icon: 'question',
+            title: `Upload Existing ${titleText} Certificate`,
+            html: `
+                <form id="swal-skip-form" method="POST" action="${actionUrl}" enctype="multipart/form-data" style="text-align: left; font-family: 'Inter', sans-serif; padding: 5px;">
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-weight: 600; color: #475569; display: block; margin-bottom: 6px; font-size: 13px;">Upload Certificate *</label>
+                        <div style="position: relative;">
+                            <input type="file" id="swal_certificate" name="${type}_certificate" accept=".pdf,.png,.jpg,.jpeg" style="display: none;" onchange="handleSwalFileChange(this, '${type}')">
+                            <button type="button" style="width: 100%; padding: 10px; border: 2px dashed #6366f1; background: #f5f3ff; color: #4f46e5; font-weight: 600; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="document.getElementById('swal_certificate').click()">
+                                📁 <span id="swal_cert_label">Choose Certificate File</span>
+                            </button>
+                        </div>
+                        <div id="swal_cert_error" style="color: #ef4444; font-size: 12px; margin-top: 6px; display: none; font-weight: 500;"></div>
+                        <div id="swal_ocr_status" style="color: #6366f1; font-size: 12px; margin-top: 6px; display: none; font-weight: 600;">
+                            ⚡ Reading certificate and extracting ID...
+                        </div>
+                        <div id="swal_file_name_display" style="color: #10b981; font-size: 13px; font-weight: 600; display: none; margin-top: 6px;"></div>
+                        <a id="swal_view_cert_link" href="#" target="_blank" style="margin-top: 6px; font-size: 13px; padding: 6px 12px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-weight: 600; display: none; align-items: center; gap: 6px; transition: all 0.2s ease; text-decoration: none; width: fit-content;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                            <i class="ti ti-eye" style="font-size: 15px;"></i>
+                            <span>View Certificate</span>
+                        </a>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="font-weight: 600; color: #475569; display: block; margin-bottom: 6px; font-size: 13px;">Extracted ID *</label>
+                        <input type="text" id="swal_id_field" name="${type}_id" style="margin: 0; width: 100%; box-sizing: border-box; background: #ffffff; font-weight: 700; color: #1e293b; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; font-size: 15px;" placeholder="Extracted ID will appear here..." required>
+                        <span style="font-size: 11px; color: #64748b; margin-top: 6px; display: block; line-height: 1.4;">Please verify that the auto-filled ID is correct. Use "View Certificate" to check.</span>
+                    </div>
+                </form>
+            `,
             showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes',
-            cancelButtonText: 'No'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                document.getElementById('skip-lms-direct-form').submit();
+            confirmButtonText: 'Submit & Skip',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#10b981',
+            cancelButtonColor: '#6b7280',
+            allowOutsideClick: false,
+            preConfirm: () => {
+                const idField = document.getElementById('swal_id_field');
+                if (!idField || !idField.value.trim()) {
+                    Swal.showValidationMessage('Please upload a valid certificate to extract your ID.');
+                    return false;
+                }
+                document.getElementById('swal-skip-form').submit();
+            },
+            didOpen: () => {
+                const confirmBtn = Swal.getConfirmButton();
+                if (confirmBtn) {
+                    confirmBtn.disabled = true;
+                    confirmBtn.style.opacity = '0.5';
+                    confirmBtn.style.cursor = 'not-allowed';
+                }
             }
         });
     }
 
-    function confirmSkipNSEIT() {
-        Swal.fire({
-            title: 'Skip NSEIT Certificate Request',
-            text: 'Are you sure you want to skip the NSEIT certificate request?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes',
-            cancelButtonText: 'No'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                document.getElementById('skip-nseit-direct-form').submit();
+    function handleSwalFileChange(input, type) {
+        const file = input.files[0];
+        const label = document.getElementById('swal_cert_label');
+        const errorDiv = document.getElementById('swal_cert_error');
+        const ocrStatus = document.getElementById('swal_ocr_status');
+        const idField = document.getElementById('swal_id_field');
+        const confirmBtn = Swal.getConfirmButton();
+        
+        errorDiv.style.display = 'none';
+        idField.value = '';
+        const display = document.getElementById('swal_file_name_display');
+        if (display) {
+            display.style.display = 'none';
+        }
+        const viewLink = document.getElementById('swal_view_cert_link');
+        if (viewLink) {
+            viewLink.href = '#';
+            viewLink.style.display = 'none';
+        }
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.style.opacity = '0.5';
+            confirmBtn.style.cursor = 'not-allowed';
+        }
+
+        if (file) {
+            if (file.size > 1 * 1024 * 1024) {
+                errorDiv.textContent = 'Certificate file size must be under 1 MB.';
+                errorDiv.style.display = 'block';
+                input.value = '';
+                label.textContent = 'Choose Certificate File';
+                return;
             }
-        });
+            
+            label.textContent = file.name;
+            ocrStatus.style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', type);
+            formData.append('name', "{{ status_data.name }}");
+
+            fetch('{{ url_for("candidate_register.ocr_extract_id") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                ocrStatus.style.display = 'none';
+                if (data.success && data.id) {
+                    idField.value = data.id;
+                    idField.style.backgroundColor = '#e0f2fe';
+                    setTimeout(() => { idField.style.backgroundColor = '#ffffff'; }, 1500);
+                    if (display) {
+                        display.textContent = `✓ ${file.name}`;
+                        display.style.display = 'block';
+                    }
+                    if (viewLink) {
+                        viewLink.href = URL.createObjectURL(file);
+                        viewLink.style.display = 'inline-flex';
+                    }
+                    if (confirmBtn) {
+                        confirmBtn.disabled = false;
+                        confirmBtn.style.opacity = '1';
+                        confirmBtn.style.cursor = 'pointer';
+                    }
+                } else {
+                    errorDiv.textContent = data.error || 'Failed to extract valid ID from document.';
+                    errorDiv.style.display = 'block';
+                    input.value = '';
+                    label.textContent = 'Choose Certificate File';
+                }
+            })
+            .catch(err => {
+                ocrStatus.style.display = 'none';
+                errorDiv.textContent = 'Error connecting to OCR server.';
+                errorDiv.style.display = 'block';
+                input.value = '';
+                label.textContent = 'Choose Certificate File';
+            });
+        } else {
+            label.textContent = 'Choose Certificate File';
+        }
     }
 
     function confirmStartRequest(event, type, url) {

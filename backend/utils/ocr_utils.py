@@ -92,6 +92,50 @@ def validate_pan(extracted_text: str, operator_name: str) -> str | None:
             return f"Validation Error: Operator name '{operator_name}' does not match the name found in the uploaded PAN document (Match score: {score}%)."
     return None
 
+def get_year_in_words(year: int) -> list[str]:
+    ones = ["", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE"]
+    teens = ["TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN", "EIGHTEEN", "NINETEEN"]
+    tens = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"]
+    
+    if 1900 <= year < 2000:
+        rem = year - 1900
+        suffix = teens[rem - 10] if 10 <= rem < 20 else f"{tens[rem // 10]} {ones[rem % 10]}".strip()
+        suffix_alt = suffix.replace(" ", "-")
+        return [
+            f"NINETEEN {suffix}", f"NINETEEN {suffix_alt}",
+            f"NINETEEN HUNDRED {suffix}", f"NINETEEN HUNDRED {suffix_alt}",
+            f"ONE THOUSAND NINE HUNDRED {suffix}", f"ONE THOUSAND NINE HUNDRED {suffix_alt}"
+        ]
+    elif 2000 <= year < 2030:
+        rem = year - 2000
+        suffix = teens[rem - 10] if 10 <= rem < 20 else f"{tens[rem // 10]} {ones[rem % 10]}".strip()
+        suffix_alt = suffix.replace(" ", "-")
+        return [
+            f"TWO THOUSAND {suffix}".strip(), f"TWO THOUSAND {suffix_alt}".strip(),
+            f"TWO THOUSAND AND {suffix}".strip(), f"TWO THOUSAND AND {suffix_alt}".strip()
+        ]
+    return []
+
+def get_month_in_words(month: int) -> list[str]:
+    months = ["", "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"]
+    return [months[month]]
+
+def get_day_in_words(day: int) -> list[str]:
+    DAYS_IN_WORDS = {
+        1: ["FIRST", "ONE"], 2: ["SECOND", "TWO"], 3: ["THIRD", "THREE"], 4: ["FOURTH", "FOUR"],
+        5: ["FIFTH", "FIVE"], 6: ["SIXTH", "SIX"], 7: ["SEVENTH", "SEVEN"], 8: ["EIGHTH", "EIGHT"],
+        9: ["NINTH", "NINE"], 10: ["TENTH", "TEN"], 11: ["ELEVENTH", "ELEVEN"], 12: ["TWELFTH", "TWELVE"],
+        13: ["THIRTEENTH", "THIRTEEN"], 14: ["FOURTEENTH", "FOURTEEN"], 15: ["FIFTEENTH", "FIFTEEN"],
+        16: ["SIXTEENTH", "SIXTEEN"], 17: ["SEVENTEENTH", "SEVENTEEN"], 18: ["EIGHTEENTH", "EIGHTEEN"],
+        19: ["NINETEENTH", "NINETEEN"], 20: ["TWENTIETH", "TWENTY"], 21: ["TWENTY FIRST", "TWENTY-FIRST", "TWENTY ONE"],
+        22: ["TWENTY SECOND", "TWENTY-SECOND", "TWENTY TWO"], 23: ["TWENTY THIRD", "TWENTY-THIRD", "TWENTY THREE"],
+        24: ["TWENTY FOURTH", "TWENTY-FOURTH", "TWENTY FOUR"], 25: ["TWENTY FIFTH", "TWENTY-FIFTH", "TWENTY FIVE"],
+        26: ["TWENTY SIXTH", "TWENTY-SIXTH", "TWENTY SIX"], 27: ["TWENTY SEVENTH", "TWENTY-SEVENTH", "TWENTY SEVEN"],
+        28: ["TWENTY EIGHTH", "TWENTY-EIGHTH", "TWENTY EIGHT"], 29: ["TWENTY NINTH", "TWENTY-NINTH", "TWENTY NINE"],
+        30: ["THIRTIETH", "THIRTY"], 31: ["THIRTY FIRST", "THIRTY-FIRST", "THIRTY ONE"]
+    }
+    return DAYS_IN_WORDS.get(day, [])
+
 def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: str, qualification: str = "High School (10th)") -> None:
     """Validates if the text looks like a marksheet, and matches name and DOB."""
     print("===== OCR EXTRACTED TEXT =====")
@@ -109,39 +153,66 @@ def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: 
         raise ValueError("Validation Error: The uploaded document appears to be a PAN Card, not a Marksheet.")
 
     # Rule 1: Document Classification
+    text_upper = extracted_text.upper()
     if qualification == "High School (10th)":
-        keywords = ["BOARD", "EXAMINATION", "SECONDARY", "CERTIFICATE", "MARKS", "SCHOOL", "अंक", "प्रमाण", "परीक्षा", "10TH", "HIGH SCHOOL"]
-        matches = sum(1 for kw in keywords if kw in extracted_text)
+        keywords = ["SECONDARY", "SCHOOL", "10TH", "MATRIC", "HIGH SCHOOL", "अंक", "प्रमाण", "परीक्षा"]
+        matches = sum(1 for kw in keywords if kw in text_upper)
         if matches < 1:
             raise ValueError("Validation Error: The uploaded document does not appear to be a valid High School (10th) Marksheet.")
         
         # Ensure it's not a 12th certificate
-        negative_kws = ["SENIOR SECONDARY EXAM", "HIGHER SECONDARY", "12TH", "INTERMEDIATE EXAM", "XII", "PRE-UNIVERSITY", "SENIOR SCHOOL CERTIFICATE"]
-        if any(kw in extracted_text for kw in negative_kws):
+        negative_kws = ["SENIOR SECONDARY", "HIGHER SECONDARY", "12TH", "INTERMEDIATE", "XII", "PRE-UNIVERSITY", "SENIOR SCHOOL"]
+        if any(kw in text_upper for kw in negative_kws):
             raise ValueError("Validation Error: Document appears to be a 12th standard marksheet, but 10th was expected.")
+            
+        # Ensure it's not a college/degree/diploma
+        college_kws = ["DEGREE", "UNIVERSITY", "BACHELOR", "MASTER", "DIPLOMA", "POLYTECHNIC", "ITI", "SEMESTER"]
+        if any(kw in text_upper for kw in college_kws):
+            raise ValueError("Validation Error: Document appears to be a college degree or diploma, but a 10th marksheet was expected.")
 
     elif qualification == "Higher Secondary (12th)":
-        keywords = ["HIGHER SECONDARY", "SENIOR SECONDARY", "12TH", "INTERMEDIATE", "BOARD", "EXAMINATION", "SENIOR SCHOOL", "XII"]
-        matches = sum(1 for kw in keywords if kw in extracted_text)
+        # Must contain 12th indicator
+        keywords = ["HIGHER SECONDARY", "SENIOR SECONDARY", "12TH", "INTERMEDIATE", "XII", "PRE-UNIVERSITY", "SENIOR SCHOOL"]
+        matches = sum(1 for kw in keywords if kw in text_upper)
         if matches < 1:
             raise ValueError("Validation Error: The uploaded document does not appear to be a valid 12th Standard Marksheet.")
-        
-        # Ensure it's not a 10th certificate
-        # If it says "SECONDARY SCHOOL EXAMINATION" or "HIGH SCHOOL EXAMINATION" but NOT "SENIOR"
-        if ("SECONDARY SCHOOL EXAM" in extracted_text or "HIGH SCHOOL EXAM" in extracted_text or "10TH" in extracted_text) and not any(kw in extracted_text for kw in ["SENIOR", "HIGHER", "12TH", "INTERMEDIATE", "XII", "PRE-UNIVERSITY"]):
-            raise ValueError("Validation Error: Document appears to be a 10th standard marksheet, but 12th was expected.")
+            
+        # Ensure it's not a college/degree/diploma
+        college_kws = ["DEGREE", "UNIVERSITY", "BACHELOR", "MASTER", "DIPLOMA", "POLYTECHNIC", "ITI", "SEMESTER"]
+        if any(kw in text_upper for kw in college_kws):
+            raise ValueError("Validation Error: Document appears to be a college degree or diploma, but a 12th marksheet was expected.")
 
     elif qualification == "Diploma / ITI":
-        keywords = ["DIPLOMA", "POLYTECHNIC", "ITI", "COUNCIL", "BOARD", "CERTIFICATE", "EXAMINATION", "INSTITUTE"]
-        matches = sum(1 for kw in keywords if kw in extracted_text)
+        keywords = ["DIPLOMA", "POLYTECHNIC", "ITI", "INDUSTRIAL TRAINING", "TECHNICAL EDUCATION"]
+        matches = sum(1 for kw in keywords if kw in text_upper)
         if matches < 1:
             raise ValueError("Validation Error: The uploaded document does not appear to be a valid Diploma/ITI certificate.")
             
+        # Ensure it's not a degree
+        degree_kws = ["DEGREE", "UNIVERSITY", "BACHELOR", "MASTER"]
+        if any(kw in text_upper for kw in degree_kws):
+            raise ValueError("Validation Error: Document appears to be a university degree, but a Diploma/ITI was expected.")
+            
+        # Ensure it's not a simple school marksheet
+        if any(kw in text_upper for kw in ["SECONDARY SCHOOL", "HIGH SCHOOL", "HIGHER SECONDARY", "INTERMEDIATE"]) and not any(kw in text_upper for kw in ["DIPLOMA", "POLYTECHNIC", "ITI"]):
+            raise ValueError("Validation Error: Document appears to be a standard school marksheet, but a Diploma/ITI was expected.")
+
     elif qualification in ["Graduation (Bachelor's Degree)", "Post Graduation (Master's Degree)"]:
-        keywords = ["DEGREE", "UNIVERSITY", "BACHELOR", "MASTER", "SEMESTER", "PROVISIONAL", "EXAMINATION", "COLLEGE"]
-        matches = sum(1 for kw in keywords if kw in extracted_text)
+        # Check graduation keywords
+        grad_keywords = ["DEGREE", "UNIVERSITY", "BACHELOR", "MASTER", "PROVISIONAL", "CONVOCATION", "SEMESTER", "COLLEGE", "GRADUATE", "B.A", "B.SC", "B.COM", "B.TECH", "B.E", "BCA", "BBA", "M.A", "M.SC", "M.COM", "M.TECH", "M.E", "MCA", "MBA"]
+        matches = sum(1 for kw in grad_keywords if kw in text_upper)
         if matches < 1:
             raise ValueError(f"Validation Error: The uploaded document does not appear to be a valid {qualification} certificate.")
+            
+        # Ensure it's not a simple school marksheet (10th/12th)
+        if any(kw in text_upper for kw in ["SECONDARY SCHOOL EXAM", "HIGH SCHOOL EXAM", "HIGHER SECONDARY EXAM", "INTERMEDIATE EXAM"]) and not any(kw in text_upper for kw in ["DEGREE", "UNIVERSITY", "BACHELOR", "MASTER", "SEMESTER"]):
+            raise ValueError(f"Validation Error: Document appears to be a school marksheet, but a {qualification} was expected.")
+            
+        # If specific to master's, check for master's keywords
+        if qualification == "Post Graduation (Master's Degree)":
+            post_grad_keywords = ["MASTER", "POST GRADUATE", "M.A", "M.SC", "M.COM", "M.TECH", "M.E", "MCA", "MBA"]
+            if not any(kw in text_upper for kw in post_grad_keywords):
+                raise ValueError("Validation Error: Document appears to be a Bachelor's degree, but a Post Graduation (Master's) was expected.")
     else:
         # Fallback for "Other / Higher"
         pass
@@ -160,37 +231,116 @@ def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: 
         except ValueError:
             errors['dob'] = "Invalid DOB format submitted."
         else:
-            # Common DOB formats: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
+            # Month mapping for textual dates
+            month_map = {
+                "JAN": "01", "FEB": "02", "MAR": "03", "APR": "04", "MAY": "05", "JUN": "06",
+                "JUL": "07", "AUG": "08", "SEP": "09", "OCT": "10", "NOV": "11", "DEC": "12"
+            }
+            
+            # Common DOB formats: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, YYYY-MM-DD
+            # Textual formats: DD-Month-YYYY, DD Month YYYY (e.g., 15-Jan-1995, 15 January 1995)
+            # Tolerates optional spaces and commas around separators due to OCR noise
             date_patterns = [
-                r'\b(\d{2})[-/.](\d{2})[-/.](\d{4})\b',
-                r'\b(\d{4})[-/.](\d{2})[-/.](\d{2})\b'
+                r'(?<!\d)(\d{1,2})\s*[-/.,]\s*(\d{1,2})\s*[-/.,]\s*(\d{4})(?!\d)',
+                r'(?<!\d)(\d{4})\s*[-/.,]\s*(\d{1,2})\s*[-/.,]\s*(\d{1,2})(?!\d)',
+                r'(?<!\d)(\d{1,2})\s*[-/.,\s]\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s*[-/.,\s]\s*(\d{4})(?!\d)'
             ]
             
             found_match = False
             extracted_dates = []
-            for pattern in date_patterns:
-                matches = re.findall(pattern, extracted_text)
+            
+            # Log matching details for diagnostics
+            debug_logs = []
+            debug_logs.append(f"Candidate DOB: {candidate_dob}")
+            debug_logs.append(f"Parsed DOB: {parsed_dob}")
+            debug_logs.append(f"Text upper sample: {text_upper[:300]}...")
+            
+            # 1. Check numeric patterns
+            for i, pattern in enumerate(date_patterns[:2]):
+                matches = re.findall(pattern, text_upper)
+                debug_logs.append(f"Pattern {i} ({pattern}): Matches: {matches}")
                 for match in matches:
-                    if len(match[0]) == 4: # YYYY-MM-DD
-                        dt_str = f"{match[0]}-{match[1]}-{match[2]}"
+                    if i == 1: # YYYY-MM-DD pattern
+                        year = match[0]
+                        month = match[1].zfill(2)
+                        day = match[2].zfill(2)
+                        dt_str = f"{year}-{month}-{day}"
                         fmt = "%Y-%m-%d"
-                    else: # DD-MM-YYYY
-                        dt_str = f"{match[0]}-{match[1]}-{match[2]}"
+                    else: # DD-MM-YYYY pattern
+                        day = match[0].zfill(2)
+                        month = match[1].zfill(2)
+                        year = match[2]
+                        dt_str = f"{day}-{month}-{year}"
                         fmt = "%d-%m-%Y"
-                    
                     try:
                         found_date = datetime.strptime(dt_str, fmt)
                         extracted_dates.append(found_date)
+                        debug_logs.append(f"Parsed date {dt_str} -> {found_date} (Compare with {parsed_dob})")
                         if found_date == parsed_dob:
                             found_match = True
+                            debug_logs.append("Match Found!")
                             break
-                    except ValueError:
+                    except ValueError as ex:
+                        debug_logs.append(f"Parse error for {dt_str}: {ex}")
                         continue
                 if found_match:
                     break
+            
+            # 2. Check textual month patterns
+            if not found_match:
+                matches = re.findall(date_patterns[2], text_upper)
+                debug_logs.append(f"Pattern 2 ({date_patterns[2]}): Matches: {matches}")
+                for match in matches:
+                    m_name = match[1].upper()[:3]
+                    if m_name in month_map:
+                        day = match[0].zfill(2)
+                        month_num = month_map[m_name]
+                        year = match[2]
+                        dt_str = f"{day}-{month_num}-{year}"
+                        try:
+                            found_date = datetime.strptime(dt_str, "%d-%m-%Y")
+                            extracted_dates.append(found_date)
+                            debug_logs.append(f"Parsed textual date {dt_str} -> {found_date} (Compare with {parsed_dob})")
+                            if found_date == parsed_dob:
+                                found_match = True
+                                debug_logs.append("Match Found!")
+                                break
+                        except ValueError as ex:
+                            debug_logs.append(f"Parse error for textual {dt_str}: {ex}")
+                            continue
+                            
+            # Fallback 1: Textual Date of Birth verification in words
+            if not found_match:
+                c_year_words = get_year_in_words(parsed_dob.year)
+                c_month_words = get_month_in_words(parsed_dob.month)
+                c_day_words = get_day_in_words(parsed_dob.day)
+                
+                has_month = any(m_word in text_upper for m_word in c_month_words)
+                has_year = any(y_word in text_upper for y_word in c_year_words)
+                has_day = any(d_word in text_upper for d_word in c_day_words)
+                
+                debug_logs.append(f"Textual fallback: Month matched={has_month}, Year matched={has_year}, Day matched={has_day}")
+                if has_month and has_year and has_day:
+                    found_match = True
+                    debug_logs.append("Match Found via textual words fallback!")
                     
-            if extracted_dates and not found_match:
-                errors['dob'] = f"DOB '{candidate_dob}' does not match the date(s) found on the Marksheet."
+            # Check if any month name exists in the text (to see if a date is present in the document)
+            all_months = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+                          "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+            has_any_month_in_text = any(m in text_upper for m in all_months)
+            
+            debug_logs.append(f"Extracted dates list: {extracted_dates}")
+            debug_logs.append(f"Has any month name in text: {has_any_month_in_text}")
+            debug_logs.append(f"Final found_match status: {found_match}")
+            
+            with open("debug_ocr_matching.txt", "w", encoding="utf-8") as df:
+                df.write("\n".join(debug_logs) + "\n")
+                            
+            if not found_match:
+                if not extracted_dates and not has_any_month_in_text:
+                    errors['dob'] = "Could not find any Date of Birth in the uploaded High School (10th) marksheet. Please ensure it is a valid marksheet containing your DOB."
+                else:
+                    errors['dob'] = f"DOB '{candidate_dob}' does not match the date found on the Marksheet."
 
     if errors:
         import json

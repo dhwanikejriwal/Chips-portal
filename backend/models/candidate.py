@@ -29,10 +29,6 @@ class Candidate(Base):
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     pincode: Mapped[str | None] = mapped_column(String(10), nullable=True)
     is_existing_operator: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    photo_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    marksheet_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    tenth_marksheet_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    
     status_id: Mapped[int] = mapped_column(Integer, ForeignKey("master_status.id"), default=1)
 
     @hybrid_property
@@ -52,6 +48,67 @@ class Candidate(Base):
     lms_requests: Mapped[list["LMS"]] = relationship("LMS", back_populates="candidate")
     nseit_requests: Mapped[list["NSEITRequest"]] = relationship("NSEITRequest", back_populates="candidate")
     dc_remarks: Mapped[list["DCRemark"]] = relationship("DCRemark", back_populates="candidate")
+    document_record: Mapped["CandidateDocument | None"] = relationship("CandidateDocument", back_populates="candidate", cascade="all, delete-orphan", lazy="joined")
+
+    def _get_or_create_doc_record(self) -> "CandidateDocument":
+        if self.document_record is None:
+            self.document_record = CandidateDocument()
+        return self.document_record
+
+    @property
+    def photo_upload(self) -> str | None:
+        return self.document_record.photo_upload if self.document_record else None
+
+    @photo_upload.setter
+    def photo_upload(self, value: str | None):
+        self._get_or_create_doc_record().photo_upload = value
+
+    @property
+    def marksheet_upload(self) -> str | None:
+        return self.document_record.marksheet_upload if self.document_record else None
+
+    @marksheet_upload.setter
+    def marksheet_upload(self, value: str | None):
+        self._get_or_create_doc_record().marksheet_upload = value
+
+    @property
+    def tenth_marksheet_upload(self) -> str | None:
+        return self.document_record.tenth_marksheet_upload if self.document_record else None
+
+    @tenth_marksheet_upload.setter
+    def tenth_marksheet_upload(self, value: str | None):
+        self._get_or_create_doc_record().tenth_marksheet_upload = value
+
+    @property
+    def lms_certificate_upload(self) -> str | None:
+        return self.document_record.lms_certificate_upload if self.document_record else None
+
+    @lms_certificate_upload.setter
+    def lms_certificate_upload(self, value: str | None):
+        self._get_or_create_doc_record().lms_certificate_upload = value
+
+    @property
+    def nseit_certificate_upload(self) -> str | None:
+        return self.document_record.nseit_certificate_upload if self.document_record else None
+
+    @nseit_certificate_upload.setter
+    def nseit_certificate_upload(self, value: str | None):
+        self._get_or_create_doc_record().nseit_certificate_upload = value
+
+
+class CandidateDocument(Base):
+    __tablename__ = "candidate_document_table"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    request_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidate_table.id", ondelete="CASCADE"), unique=True, nullable=False)
+    photo_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    marksheet_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    tenth_marksheet_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    lms_certificate_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    nseit_certificate_upload: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Relationships
+    candidate: Mapped["Candidate"] = relationship("Candidate", back_populates="document_record")
 
 
 class CandidateLogin(Base):

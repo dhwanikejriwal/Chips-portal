@@ -76,16 +76,24 @@ The project uses a decoupled microservice-like architecture:
 4.  **Configure Environment Variables**:
     Create a `.env` file in the root directory (based on `.env.example`) and configure your database and email SMTP:
     ```env
-    FLASK_APP=app:create_app
-    FLASK_ENV=development
-    SECRET_KEY=dev-secret-key-replace-in-production
     DATABASE_URL=postgresql+psycopg2://<username>:<password>@localhost:5432/<dbname>
     BACKEND_API_URL=http://localhost:8000/api
+
+    # Security settings (for FastAPI JWT and Flask Session)
+
+    SECRET_KEY=dev-secret-key-replace-in-production
+    JWT_ALGORITHM=HS256
+    ACCESS_TOKEN_EXPIRE_MINUTES=360
+
+    # SMTP settings for fastapi-mail
     MAIL_USERNAME=your_email@gmail.com
     MAIL_PASSWORD=your_app_password
     MAIL_FROM=your_email@gmail.com
     MAIL_PORT=587
     MAIL_SERVER=smtp.gmail.com
+    MAIL_FROM_NAME="CHiPS Admin Portal"
+    ENABLE_LANGUAGE_TOGGLE=True
+
     ```
 
 5.  **Initialize & Seed the Database**:

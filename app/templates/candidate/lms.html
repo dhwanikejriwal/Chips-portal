@@ -55,7 +55,8 @@
                             Sent:</strong> An email has been sent to your registered email address (<strong>{{
                             status_data.email }}</strong>) containing your LMS login credentials and website link.
                         Please log in using those credentials to complete the mandatory 16-hour video training and
-                        obtain your certificate. Please also check your Spam or Junk folder if you have not received it.</p>
+                        obtain your certificate. Please also check your Spam or Junk folder if you have not received it.
+                    </p>
                 </div>
                 {% else %}
                 <div
@@ -71,47 +72,85 @@
                         style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                         <span class="form-label" style="font-weight: 600; color: #4a5568; margin-bottom: 0;">Your LMS
                             ID</span>
-                        {% if not status_data.lms_id %}
+                        {% if not status_data.lms_id or (status_data.lms_status|upper) == 'APPROVED' %}
                         <button type="button" onclick="toggleEditLmsForm()" class="btn btn-xs btn-outline"
                             style="background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                            Add LMS ID
+                            {% if status_data.lms_id %}Add New LMS ID{% else %}Add LMS ID{% endif %}
                         </button>
                         {% endif %}
                     </div>
-
-                    {% if status_data.lms_id %}
+ 
+                    {% if status_data.lms_id and ((status_data.lms_status|upper) != 'APPROVED' or status_data.lms_uploaded_post_approval) %}
                     <div id="lms-id-display-block"
                         style="background: white; padding: 14px 18px; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 700; font-size: 18px; color: #1e293b; display: inline-block; min-width: 200px;">
                         {{ status_data.lms_id }}
+                        {% if (status_data.lms_status|upper) != 'NOT INITIATED' and status_data.had_lms_at_registration %}
+                            {% if status_data.lms_uploaded_post_approval %}
+                                <span class="badge" style="font-size: 12px; margin-left: 8px; vertical-align: middle; background: #e0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-block;">New</span>
+                            {% else %}
+                                <span class="badge" style="font-size: 12px; margin-left: 8px; vertical-align: middle; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-block;">Old</span>
+                            {% endif %}
+                        {% endif %}
                     </div>
                     {% else %}
                     <div id="lms-id-display-block" style="color: #64748b; font-style: italic;">
                         No LMS ID registered yet.
                     </div>
-
-                    <div id="lms-id-edit-block" style="display: none; margin-top: 12px;">
-                        <form method="POST" action="{{ url_for('candidate.update_lms_id') }}"
-                            style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+                    {% endif %}
+ 
+                    <div id="lms-id-edit-block" style="display: none; margin-top: 12px; width: 100%;">
+                        <form id="lms-form" method="POST" action="{{ url_for('candidate.update_lms_id') }}"
+                            enctype="multipart/form-data" onsubmit="return validateLmsForm(event)"
+                            style="display: flex; flex-direction: column; gap: 12px; align-items: flex-start; width: 100%; max-width: 500px;">
                             <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
-                                <input type="text" name="lms_id" class="form-input" value=""
-                                    placeholder="Enter LMS ID..." required
-                                    style="margin: 0; padding: 8px 12px; max-width: 250px;">
+                                <input type="text" id="lms_id" name="lms_id" class="form-input" required value=""
+                                    placeholder="LMS ID..." style="margin: 0; padding: 8px 12px; flex: 1.2;">
+                                <div style="flex: 0.8; position: relative;">
+                                    <input type="file" id="lms_certificate" name="lms_certificate"
+                                        accept=".pdf,.png,.jpg,.jpeg" style="display: none;"
+                                        onchange="handleFileChange(this, 'lms_cert_label')">
+                                    <button type="button" class="btn"
+                                        style="width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 8px 12px; border: 1px dashed #4f46e5; background-color: #f5f3ff; color: #4f46e5; font-weight: 600; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease; font-size: 13px; cursor: pointer;"
+                                        onclick="document.getElementById('lms_certificate').click()">
+                                        <i class="ti ti-upload" style="font-size: 16px;"></i>
+                                        <span id="lms_cert_label">Upload Certificate</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%;">
+                                <div id="lms_file_name_display" style="color: #10b981; font-size: 13px; font-weight: 600; display: none; margin-top: 2px;"></div>
+                                <a id="lms_view_cert_link" href="#" target="_blank" style="margin-top: 4px; font-size: 13px; padding: 6px 12px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-weight: 600; display: none; align-items: center; gap: 6px; transition: all 0.2s ease; text-decoration: none; width: fit-content;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                                    <i class="ti ti-eye" style="font-size: 15px;"></i>
+                                    <span>View Certificate</span>
+                                </a>
+                            </div>
+                            <div id="lms_certificate_error"
+                                style="color: #e53e3e; font-size: 13px; font-weight: 500; display: none;">
+                            </div>
+                            <div id="lms_ocr_status"
+                                style="display: none; font-size: 13px; color: #4f46e5; font-weight: 600;">
+                                ⚡ Reading certificate and extracting LMS ID...
+                            </div>
+                            <div style="display: flex; gap: 10px; width: 100%;">
                                 <button type="submit" class="btn btn-sm"
                                     style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Save</button>
                                 <button type="button" onclick="toggleEditLmsForm()" class="btn btn-sm"
                                     style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Cancel</button>
                             </div>
-                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #b45309; font-weight: 500; display: flex; align-items: center; gap: 4px;">
-                                <i class="ti ti-alert-triangle" style="font-size: 16px;"></i> Please fill the LMS ID carefully, as you will not be able to change it later.
+                            <p
+                                style="margin: 4px 0 0 0; font-size: 13px; color: #b45309; font-weight: 500; display: flex; align-items: center; gap: 4px;">
+                                <i class="ti ti-alert-triangle" style="font-size: 16px;"></i> Please upload your
+                                certificate and verify the
+                                LMS ID carefully, as you will not be able to change it later.
                             </p>
                         </form>
                     </div>
-                    {% endif %}
                 </div>
                 <p style="font-size: 15px;">You can now proceed to the next step: <a
                         href="{% if status_data.nseit_id and status_data.nseit_id != 'None' and (status_data.nseit_status|upper) == 'NOT INITIATED' %}javascript:void(0);{% else %}{{ url_for('candidate.candidate_nseit') }}{% endif %}"
-                        {% if status_data.nseit_id and status_data.nseit_id != 'None' and (status_data.nseit_status|upper) == 'NOT INITIATED' %}onclick="confirmNseitRedirect(event)"{% endif %}
-                        style="color: #4f46e5; font-weight: 600; text-decoration: underline;">NSEIT Certificate
+                        {% if status_data.nseit_id and status_data.nseit_id !='None' and
+                        (status_data.nseit_status|upper)=='NOT INITIATED' %}onclick="confirmNseitRedirect(event)" {%
+                        endif %} style="color: #4f46e5; font-weight: 600; text-decoration: underline;">NSEIT Certificate
                         verification</a>.</p>
                 {% elif (status_data.lms_status|upper) in ['PENDING', 'REAPPLIED'] %}
                 <div
@@ -173,23 +212,24 @@
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="mobile" class="form-label">Mobile Number *</label>
                             <input type="tel" id="mobile" name="mobile" class="form-input"
-                                value="{{ status_data.mobile }}" pattern="[0-9]{10}"
-                                readonly style="background-color: #f1f5f9; cursor: not-allowed;" required>
+                                value="{{ status_data.mobile }}" pattern="[0-9]{10}" readonly
+                                style="background-color: #f1f5f9; cursor: not-allowed;" required>
                         </div>
 
                         <!-- Email Address -->
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="email" class="form-label">Email Address *</label>
                             <input type="email" id="email" name="email" class="form-input"
-                                value="{{ status_data.email }}"
-                                readonly style="background-color: #f1f5f9; cursor: not-allowed;" required>
+                                value="{{ status_data.email }}" readonly
+                                style="background-color: #f1f5f9; cursor: not-allowed;" required>
                         </div>
 
                         <!-- Operational District -->
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="district" class="form-label">Operational District *</label>
                             <select id="district" name="district" class="form-input"
-                                style="pointer-events: none; background-color: #f1f5f9; cursor: not-allowed;" tabindex="-1" required>
+                                style="pointer-events: none; background-color: #f1f5f9; cursor: not-allowed;"
+                                tabindex="-1" required>
                                 {% for d in districts %}
                                 <option value="{{ d.district_code }}" {% if d.district_code==status_data.district
                                     %}selected{% endif %}>
@@ -200,7 +240,13 @@
                         </div>
                     </div>
 
-                    {% if (status_data.lms_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
+                    {% if status_data.lms_id and status_data.lms_id != 'None' and (status_data.lms_status|upper) not in ['PENDING', 'REAPPLIED', 'FORWARDED', 'FORWARDED_AGAIN', 'APPROVED'] %}
+                    <div class="form-group">
+                        <label for="remark" class="form-label">Reason for requesting LMS Training again *</label>
+                        <textarea id="remark" name="remark" class="form-textarea" required
+                            placeholder="Please explain why you need to request the training/certificate again..."></textarea>
+                    </div>
+                    {% elif (status_data.lms_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
                     <div class="form-group">
                         <label for="remark" class="form-label">Submission Remarks / Notes *</label>
                         <textarea id="remark" name="remark" class="form-textarea" required
@@ -294,6 +340,22 @@
         } else {
             edit.style.display = 'none';
             if (display) display.style.display = 'inline-block';
+
+            // Clear filled inputs and files on cancel
+            const lmsInput = document.getElementById('lms_id');
+            if (lmsInput) lmsInput.value = '';
+
+            const fileInput = document.getElementById('lms_certificate');
+            if (fileInput) fileInput.value = '';
+
+            const labelSpan = document.getElementById('lms_cert_label');
+            if (labelSpan) labelSpan.textContent = 'Upload Certificate';
+
+            const errorDiv = document.getElementById('lms_certificate_error');
+            if (errorDiv) errorDiv.style.display = 'none';
+
+            const statusDiv = document.getElementById('lms_ocr_status');
+            if (statusDiv) statusDiv.style.display = 'none';
         }
     }
 
@@ -317,6 +379,95 @@
                 window.location.href = "{{ url_for('candidate.candidate_nseit') }}";
             }
         });
+    }
+
+    function handleFileChange(input, labelId) {
+        const file = input.files[0];
+        const display = document.getElementById('lms_file_name_display');
+        if (display) {
+            display.style.display = 'none';
+        }
+        const viewLink = document.getElementById('lms_view_cert_link');
+        if (viewLink) {
+            viewLink.href = '#';
+            viewLink.style.display = 'none';
+        }
+        const idInput = document.getElementById('lms_id');
+        if (idInput) {
+            idInput.value = '';
+        }
+        if (file) {
+            performOCR(file, 'lms', 'lms_id', 'lms_ocr_status');
+        }
+    }
+
+    function performOCR(file, type, targetInputId, statusId) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+        formData.append('name', "{{ status_data.name }}");
+
+        const statusDiv = document.getElementById(statusId);
+        if (statusDiv) statusDiv.style.display = 'block';
+
+        const errorDivId = type === 'lms' ? 'lms_certificate_error' : 'nseit_certificate_error';
+        const errorDiv = document.getElementById(errorDivId);
+        if (errorDiv) errorDiv.style.display = 'none';
+
+        fetch('{{ url_for("candidate_register.ocr_extract_id") }}', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (statusDiv) statusDiv.style.display = 'none';
+                if (data.success && data.id) {
+                    const input = document.getElementById(targetInputId);
+                    input.value = data.id;
+                    input.style.backgroundColor = '#e0f2fe';
+                    input.style.transition = 'background-color 0.5s ease';
+                    setTimeout(() => {
+                        input.style.backgroundColor = '';
+                    }, 1500);
+                    const display = document.getElementById('lms_file_name_display');
+                    if (display) {
+                        display.textContent = `✓ ${file.name}`;
+                        display.style.display = 'block';
+                    }
+                    const viewLink = document.getElementById('lms_view_cert_link');
+                    if (viewLink) {
+                        viewLink.href = URL.createObjectURL(file);
+                        viewLink.style.display = 'inline-flex';
+                    }
+                } else {
+                    if (errorDiv) {
+                        errorDiv.textContent = data.error || "OCR extraction failed.";
+                        errorDiv.style.display = 'block';
+                    }
+                    const fileInput = document.getElementById(type === 'lms' ? 'lms_certificate' : 'nseit_certificate');
+                    if (fileInput) fileInput.value = '';
+                }
+            })
+            .catch(err => {
+                if (statusDiv) statusDiv.style.display = 'none';
+                if (errorDiv) {
+                    errorDiv.textContent = "Error connecting to OCR server.";
+                    errorDiv.style.display = 'block';
+                }
+            });
+    }
+    function validateLmsForm(event) {
+        const fileInput = document.getElementById('lms_certificate');
+        const errorDiv = document.getElementById('lms_certificate_error');
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            event.preventDefault();
+            if (errorDiv) {
+                errorDiv.textContent = "Please upload your LMS Certificate as well before saving.";
+                errorDiv.style.display = 'block';
+            }
+            return false;
+        }
+        return true;
     }
 </script>
 {% endblock %}

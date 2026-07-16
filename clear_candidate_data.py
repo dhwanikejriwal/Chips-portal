@@ -4,7 +4,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from backend.database import SessionLocal
 from backend.models import (
     Candidate, CandidateLogin, LMS, LMSRemark,
-    NSEITRequest, NSEITRemark, HoldCandidate, OtpVerification, DCRemark
+    NSEITRequest, NSEITRemark, HoldCandidate, OtpVerification, DCRemark,
+    CandidateDocument
 )
 
 def clear_data():
@@ -34,7 +35,8 @@ def clear_data():
         db.query(OtpVerification).delete()
         print("Cleared OtpVerification tables.")
         
-        # 5. Delete CandidateLogin and Candidate
+        # 5. Delete CandidateDocument, CandidateLogin and Candidate
+        db.query(CandidateDocument).delete()
         db.query(CandidateLogin).delete()
         db.query(Candidate).delete()
         print("Cleared Candidate tables.")

@@ -12,7 +12,7 @@ from backend.routers.auth import get_current_user
 router = APIRouter(prefix="/nseit_manage", tags=["nseit_manage"], dependencies=[Depends(get_current_user)])
 
 class NSEITActionRequest(BaseModel):
-    remark: str 
+    remark: str | None = None
     by_user_id: int
 
 @router.get("/candidates")
@@ -53,6 +53,50 @@ def get_nseit_requests(district_code: str | None = None, db: Session = Depends(g
                 "status_after": r.status_after
             })
         
+        # Check if NSEIT certificate was uploaded post-approval
+        nseit_uploaded_post_approval = False
+        lms_uploaded_post_approval = False
+        
+        approval_time = None
+        for r in remarks:
+            if r.status_after_id == StatusEnum.APPROVED.value:
+                approval_time = r.time
+                break
+                
+        if approval_time:
+            from datetime import timezone, timedelta
+            approval_utc = approval_time - timedelta(hours=5, minutes=30)
+            approval_timestamp = approval_utc.replace(tzinfo=timezone.utc).timestamp()
+            
+            import os
+            uploads_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "candidate")
+            
+            if c.nseit_certificate_upload:
+                cleaned_path = c.nseit_certificate_upload.lstrip("/")
+                if cleaned_path.startswith("candidate_uploads/"):
+                    parts = cleaned_path.split("/", 1)
+                    if len(parts) > 1:
+                        cleaned_path = parts[1]
+                full_path = os.path.abspath(os.path.join(uploads_dir, cleaned_path))
+                if os.path.exists(full_path):
+                    file_timestamp = os.path.getmtime(full_path)
+                    # Allow 5 seconds safety window
+                    if file_timestamp > (approval_timestamp + 5.0):
+                        nseit_uploaded_post_approval = True
+                        
+            if c.lms_certificate_upload:
+                cleaned_path = c.lms_certificate_upload.lstrip("/")
+                if cleaned_path.startswith("candidate_uploads/"):
+                    parts = cleaned_path.split("/", 1)
+                    if len(parts) > 1:
+                        cleaned_path = parts[1]
+                full_path = os.path.abspath(os.path.join(uploads_dir, cleaned_path))
+                if os.path.exists(full_path):
+                    file_timestamp = os.path.getmtime(full_path)
+                    # Allow 5 seconds safety window
+                    if file_timestamp > (approval_timestamp + 5.0):
+                        lms_uploaded_post_approval = True
+
         result.append({
             "nseit_request_id": n.id,
             "r_id": c.id,
@@ -71,11 +115,15 @@ def get_nseit_requests(district_code: str | None = None, db: Session = Depends(g
             "photo_upload": c.photo_upload or "",
             "marksheet_upload": c.marksheet_upload,
             "tenth_marksheet_upload": c.tenth_marksheet_upload or "",
+            "lms_certificate_upload": c.lms_certificate_upload or "",
+            "nseit_certificate_upload": c.nseit_certificate_upload or "",
             "lms_id": c.lms_id or "",
             "exam_unique_code": c.exam_unique_code or "",
             "nseit_status": n.status,
             "nseit_certificate_id": c.nseit_id or "",
             "remarks_history": remarks_history,
+            "nseit_uploaded_post_approval": nseit_uploaded_post_approval,
+            "lms_uploaded_post_approval": lms_uploaded_post_approval,
             "created_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else "",
             "updated_at": n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else (n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else "")
         })
@@ -84,9 +132,7 @@ def get_nseit_requests(district_code: str | None = None, db: Session = Depends(g
 @router.post("/forward/{r_id}")
 def forward_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = Depends(get_db)):
     
-    clean_remark = payload.remark.strip()
-    if not clean_remark:
-        raise HTTPException(status_code=400, detail="Forward remarks are mandatory.")
+    clean_remark = payload.remark.strip() if payload.remark else ""
     
     nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == r_id).first()
     if not nseit:
@@ -120,7 +166,7 @@ def forward_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
     chips_user = db.query(UserLogin).join(MasterUserRole).filter(MasterUserRole.role == "Admin").first()
     new_remark = NSEITRemark(
         request_id=nseit.id,
-        remark=clean_remark or "NSEIT request verified and forwarded to CHiPS by District Coordinator.",
+        remark=clean_remark or "NSEIT request verified and forwarded.",
         sender_id=payload.by_user_id,
         receiver_id=chips_user.id if chips_user else None,
         is_public=1,

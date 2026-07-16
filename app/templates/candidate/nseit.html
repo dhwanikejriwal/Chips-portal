@@ -73,42 +73,76 @@
                         style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                         <span class="form-label" style="font-weight: 600; color: #4a5568; margin-bottom: 0;">Your NSEIT
                             Certificate ID</span>
-                        {% if not (status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00')) %}
+                        {% if not (status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00')) or (status_data.nseit_status|upper) == 'APPROVED' %}
                         <button type="button" onclick="toggleEditNseitForm()" class="btn btn-xs btn-outline"
                             style="background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                            Add NSEIT ID
+                            {% if status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00') %}Add New NSEIT ID{% else %}Add NSEIT ID{% endif %}
                         </button>
                         {% endif %}
                     </div>
 
-                    {% if status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00') %}
+                    {% if status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00') and ((status_data.nseit_status|upper) != 'APPROVED' or status_data.nseit_uploaded_post_approval) %}
                     <div id="nseit-id-display-block"
                         style="background: white; padding: 14px 18px; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 700; font-size: 18px; color: #1e293b; display: inline-block; min-width: 200px;">
                         {{ status_data.nseit_id }}
+                        {% if (status_data.nseit_status|upper) != 'NOT INITIATED' and status_data.had_nseit_at_registration %}
+                            {% if status_data.nseit_uploaded_post_approval %}
+                                <span class="badge" style="font-size: 12px; margin-left: 8px; vertical-align: middle; background: #e0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-block;">New</span>
+                            {% else %}
+                                <span class="badge" style="font-size: 12px; margin-left: 8px; vertical-align: middle; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-block;">Old</span>
+                            {% endif %}
+                        {% endif %}
                     </div>
                     {% else %}
                     <div id="nseit-id-display-block" style="color: #64748b; font-style: italic;">
                         No NSEIT ID registered yet.
                     </div>
+                    {% endif %}
 
-                    <div id="nseit-id-edit-block" style="display: none; margin-top: 12px;">
-                        <form method="POST" action="{{ url_for('candidate.update_nseit_id') }}"
-                            style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+                    <div id="nseit-id-edit-block" style="display: none; margin-top: 12px; width: 100%;">
+                        <form id="nseit-form" method="POST" action="{{ url_for('candidate.update_nseit_id') }}"
+                            enctype="multipart/form-data" onsubmit="return validateNseitForm(event)"
+                            style="display: flex; flex-direction: column; gap: 12px; align-items: flex-start; width: 100%; max-width: 500px;">
                             <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
-                                <input type="text" name="nseit_id" class="form-input" value=""
-                                    placeholder="Enter NSEIT ID..." required
-                                    style="margin: 0; padding: 8px 12px; max-width: 250px;">
+                                <input type="text" id="nseit_id" name="nseit_id" class="form-input" required value=""
+                                    placeholder="Enter NSEIT ID..."
+                                    style="margin: 0; padding: 8px 12px; flex: 1.2;">
+                                <div style="flex: 0.8; position: relative;">
+                                    <input type="file" id="nseit_certificate" name="nseit_certificate" accept=".pdf,.png,.jpg,.jpeg"
+                                        style="display: none;" onchange="handleFileChange(this, 'nseit_cert_label')">
+                                    <button type="button" class="btn"
+                                        style="width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 8px 12px; border: 1px dashed #4f46e5; background-color: #f5f3ff; color: #4f46e5; font-weight: 600; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease; font-size: 13px; cursor: pointer;"
+                                        onclick="document.getElementById('nseit_certificate').click()">
+                                        <i class="ti ti-upload" style="font-size: 16px;"></i>
+                                        <span id="nseit_cert_label">Upload Certificate</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%;">
+                                <div id="nseit_file_name_display" style="color: #10b981; font-size: 13px; font-weight: 600; display: none; margin-top: 2px;"></div>
+                                <a id="nseit_view_cert_link" href="#" target="_blank" style="margin-top: 4px; font-size: 13px; padding: 6px 12px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-weight: 600; display: none; align-items: center; gap: 6px; transition: all 0.2s ease; text-decoration: none; width: fit-content;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                                    <i class="ti ti-eye" style="font-size: 15px;"></i>
+                                    <span>View Certificate</span>
+                                </a>
+                            </div>
+                            <div id="nseit_certificate_error"
+                                style="color: #e53e3e; font-size: 13px; font-weight: 500; display: none;">
+                            </div>
+                            <div id="nseit_ocr_status"
+                                style="display: none; font-size: 13px; color: #4f46e5; font-weight: 600;">
+                                ⚡ Reading certificate and extracting NSEIT ID...
+                            </div>
+                            <div style="display: flex; gap: 10px; width: 100%;">
                                 <button type="submit" class="btn btn-sm"
                                     style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Save</button>
                                 <button type="button" onclick="toggleEditNseitForm()" class="btn btn-sm"
                                     style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Cancel</button>
                             </div>
                             <p style="margin: 4px 0 0 0; font-size: 13px; color: #b45309; font-weight: 500; display: flex; align-items: center; gap: 4px;">
-                                <i class="ti ti-alert-triangle" style="font-size: 16px;"></i> Please fill the NSEIT ID carefully, as you will not be able to change it later.
+                                <i class="ti ti-alert-triangle" style="font-size: 16px;"></i> Please fill the NSEIT ID and upload your certificate carefully, as you will not be able to change it later.
                             </p>
                         </form>
                     </div>
-                    {% endif %}
                 </div>
                 <p style="font-size: 15px; color: #4a5568;">Once your certificate registration is fully saved, the
                     subsequent operator activation pathways will become accessible.</p>
@@ -140,7 +174,7 @@
 
 
 
-                <form method="POST" action="{{ url_for('candidate.candidate_nseit') }}">
+                <form method="POST" action="{{ url_for('candidate.candidate_nseit') }}" enctype="multipart/form-data" onsubmit="return validateNseitRequestForm(event)">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                         <!-- Full Name -->
                         <div class="form-group" style="margin-bottom: 0;">
@@ -161,14 +195,50 @@
                         <!-- LMS ID -->
                         <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
                             <label for="lms_id" class="form-label">LMS ID *</label>
-                             <input type="text" id="lms_id" name="lms_id" class="form-input"
-                                 value="{% if status_data.lms_id and status_data.lms_id != 'None' %}{{ status_data.lms_id }}{% endif %}" placeholder="Enter your LMS ID..."
-                                 {% if status_data.lms_id and status_data.lms_id != 'None' %}readonly style="background-color: #f1f5f9; cursor: not-allowed;"{% endif %} required>
-                            <span style="font-size: 11px; color: #718096; margin-top: 4px; display: block;"></span>
+                            {% if status_data.lms_id and status_data.lms_id != 'None' %}
+                            <input type="text" id="lms_id" name="lms_id" class="form-input"
+                                value="{{ status_data.lms_id }}" readonly style="background-color: #f1f5f9; cursor: not-allowed;" required>
+                            {% else %}
+                            <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
+                                <input type="text" id="lms_id" name="lms_id" class="form-input" required value=""
+                                    placeholder="Enter your LMS ID..." style="margin: 0; padding: 8px 12px; flex: 1.2;">
+                                <div style="flex: 0.8; position: relative;">
+                                    <input type="file" id="lms_certificate" name="lms_certificate"
+                                        accept=".pdf,.png,.jpg,.jpeg" style="display: none;"
+                                        onchange="handleLmsFileChange(this, 'lms_cert_label')">
+                                    <button type="button" class="btn"
+                                        style="width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 8px 12px; border: 1px dashed #4f46e5; background-color: #f5f3ff; color: #4f46e5; font-weight: 600; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease; font-size: 13px; cursor: pointer;"
+                                        onclick="document.getElementById('lms_certificate').click()">
+                                        <i class="ti ti-upload" style="font-size: 16px;"></i>
+                                        <span id="lms_cert_label">Upload LMS Certificate</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%;">
+                                <div id="lms_file_name_display" style="color: #10b981; font-size: 13px; font-weight: 600; display: none; margin-top: 2px;"></div>
+                                <a id="lms_view_cert_link" href="#" target="_blank" style="margin-top: 4px; font-size: 13px; padding: 6px 12px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-weight: 600; display: none; align-items: center; gap: 6px; transition: all 0.2s ease; text-decoration: none; width: fit-content;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                                    <i class="ti ti-eye" style="font-size: 15px;"></i>
+                                    <span>View LMS Certificate</span>
+                                </a>
+                            </div>
+                            <div id="lms_certificate_error"
+                                style="color: #e53e3e; font-size: 13px; font-weight: 500; margin-top: 6px; display: none;">
+                            </div>
+                            <div id="lms_ocr_status"
+                                style="display: none; font-size: 13px; color: #4f46e5; margin-top: 6px; font-weight: 600;">
+                                ⚡ Reading certificate and extracting LMS ID...
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
 
-                    {% if (status_data.nseit_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
+                    {% if status_data.nseit_id and status_data.nseit_id != 'None' and (status_data.nseit_status|upper) not in ['PENDING', 'REAPPLIED', 'FORWARDED', 'FORWARDED_AGAIN', 'APPROVED'] %}
+                    <div class="form-group">
+                        <label for="remark" class="form-label">Reason for requesting NSEIT Certificate Verification again *</label>
+                        <textarea id="remark" name="remark" class="form-textarea" required
+                            placeholder="Please explain why you need to request verification again..."></textarea>
+                    </div>
+                    {% elif (status_data.nseit_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
                     <div class="form-group">
                         <label for="remark" class="form-label">Submission Remarks / Notes *</label>
                         <textarea id="remark" name="remark" class="form-textarea" required
@@ -262,7 +332,148 @@
         } else {
             edit.style.display = 'none';
             if (display) display.style.display = 'inline-block';
+            
+            // Clear filled inputs and files on cancel
+            const nseitInput = document.getElementById('nseit_id');
+            if (nseitInput) nseitInput.value = '';
+            
+            const fileInput = document.getElementById('nseit_certificate');
+            if (fileInput) fileInput.value = '';
+            
+            const labelSpan = document.getElementById('nseit_cert_label');
+            if (labelSpan) labelSpan.textContent = 'Upload Certificate';
+            
+            const errorDiv = document.getElementById('nseit_certificate_error');
+            if (errorDiv) errorDiv.style.display = 'none';
+            
+            const statusDiv = document.getElementById('nseit_ocr_status');
+            if (statusDiv) statusDiv.style.display = 'none';
         }
+    }
+
+    function handleFileChange(input, labelId) {
+        const file = input.files[0];
+        const display = document.getElementById('nseit_file_name_display');
+        if (display) {
+            display.style.display = 'none';
+        }
+        const viewLink = document.getElementById('nseit_view_cert_link');
+        if (viewLink) {
+            viewLink.href = '#';
+            viewLink.style.display = 'none';
+        }
+        const idInput = document.getElementById('nseit_id');
+        if (idInput) {
+            idInput.value = '';
+        }
+        if (file) {
+            performOCR(file, 'nseit', 'nseit_id', 'nseit_ocr_status');
+        }
+    }
+
+    function performOCR(file, type, targetInputId, statusId) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+        formData.append('name', "{{ status_data.name }}");
+
+        const statusDiv = document.getElementById(statusId);
+        if (statusDiv) statusDiv.style.display = 'block';
+        
+        const errorDivId = type === 'lms' ? 'lms_certificate_error' : 'nseit_certificate_error';
+        const errorDiv = document.getElementById(errorDivId);
+        if (errorDiv) errorDiv.style.display = 'none';
+
+        fetch('{{ url_for("candidate_register.ocr_extract_id") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (statusDiv) statusDiv.style.display = 'none';
+            if (data.success && data.id) {
+                const input = document.getElementById(targetInputId);
+                input.value = data.id;
+                input.style.backgroundColor = '#e0f2fe';
+                input.style.transition = 'background-color 0.5s ease';
+                setTimeout(() => {
+                    input.style.backgroundColor = '';
+                }, 1500);
+                const display = document.getElementById(type === 'lms' ? 'lms_file_name_display' : 'nseit_file_name_display');
+                if (display) {
+                    display.textContent = `✓ ${file.name}`;
+                    display.style.display = 'block';
+                }
+                const viewLink = document.getElementById(type === 'lms' ? 'lms_view_cert_link' : 'nseit_view_cert_link');
+                if (viewLink) {
+                    viewLink.href = URL.createObjectURL(file);
+                    viewLink.style.display = 'inline-flex';
+                }
+            } else {
+                if (errorDiv) {
+                    errorDiv.textContent = data.error || "OCR extraction failed.";
+                    errorDiv.style.display = 'block';
+                }
+                const fileInput = document.getElementById(type === 'lms' ? 'lms_certificate' : 'nseit_certificate');
+                if (fileInput) fileInput.value = '';
+            }
+        })
+        .catch(err => {
+            if (statusDiv) statusDiv.style.display = 'none';
+            if (errorDiv) {
+                errorDiv.textContent = "Error connecting to OCR server.";
+                errorDiv.style.display = 'block';
+            }
+        });
+    }
+    function validateNseitForm(event) {
+        const fileInput = document.getElementById('nseit_certificate');
+        const errorDiv = document.getElementById('nseit_certificate_error');
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            event.preventDefault();
+            if (errorDiv) {
+                errorDiv.textContent = "Please upload your NSEIT Certificate as well before saving.";
+                errorDiv.style.display = 'block';
+            }
+            return false;
+        }
+        return true;
+    }
+
+    function handleLmsFileChange(input, labelId) {
+        const file = input.files[0];
+        const display = document.getElementById('lms_file_name_display');
+        if (display) {
+            display.style.display = 'none';
+        }
+        const viewLink = document.getElementById('lms_view_cert_link');
+        if (viewLink) {
+            viewLink.href = '#';
+            viewLink.style.display = 'none';
+        }
+        const idInput = document.getElementById('lms_id');
+        if (idInput) {
+            idInput.value = '';
+        }
+        if (file) {
+            performOCR(file, 'lms', 'lms_id', 'lms_ocr_status');
+        }
+    }
+
+    function validateNseitRequestForm(event) {
+        const fileInput = document.getElementById('lms_certificate');
+        if (fileInput) {
+            const errorDiv = document.getElementById('lms_certificate_error');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                event.preventDefault();
+                if (errorDiv) {
+                    errorDiv.textContent = "Please upload your LMS Certificate as well before submitting.";
+                    errorDiv.style.display = 'block';
+                }
+                return false;
+            }
+        }
+        return true;
     }
 </script>
 {% endblock %}

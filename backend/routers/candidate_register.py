@@ -29,6 +29,8 @@ class CandidateRegisterRequest(BaseModel):
     photo_upload: str | None = None
     marksheet_upload: str | None = None  
     tenth_marksheet_upload: str | None = None
+    lms_certificate_upload: str | None = None
+    nseit_certificate_upload: str | None = None
 
     @field_validator('pincode')
     @classmethod
@@ -161,7 +163,7 @@ async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail={"field_errors": field_errors})
 
     otp = "".join(secrets.choice("0123456789") for _ in range(6))
-    expires = datetime.now() + timedelta(minutes=1)
+    expires = datetime.now() + timedelta(minutes=3)
 
     existing_record = db.query(OtpVerification).filter(OtpVerification.email == payload.email).first()
     if existing_record:
@@ -257,7 +259,7 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
     short_name = district_obj.district_short_name or "CAN"
     dist_code = district_obj.district_code or ""
     mobile_suffix = payload.mobile[-5:] if payload.mobile else "12345"
-    request_code = f"{short_name}-{mobile_suffix}{dist_code}A{global_count + 1:04d}"
+    request_code = f"{short_name}-{mobile_suffix}{dist_code}C{global_count + 1:04d}"
 
     try:
         dob_parsed = datetime.strptime(payload.dob, "%Y-%m-%d").date()
@@ -280,7 +282,9 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
         is_existing_operator=(1 if payload.is_existing_operator.lower() == "true" else 0),
         photo_upload=payload.photo_upload,
         marksheet_upload=payload.marksheet_upload,       
-        tenth_marksheet_upload=payload.tenth_marksheet_upload, 
+        tenth_marksheet_upload=payload.tenth_marksheet_upload,
+        lms_certificate_upload=payload.lms_certificate_upload,
+        nseit_certificate_upload=payload.nseit_certificate_upload,
         status="Pending"
     )
     db.add(new_candidate)

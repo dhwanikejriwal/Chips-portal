@@ -21,6 +21,7 @@ def dc_nseit():
     backend_url = f"{current_app.config['BACKEND_API_URL']}/nseit_manage/candidates"
     pending_requests = []
     processed_requests = []
+    sent_to_chips_requests = []
     try:
         response = requests.get(backend_url, params={"district_code": session.get("district_id")}, headers=_headers())
         if response.status_code == 401:
@@ -194,8 +195,8 @@ def approve_nseit(r_id):
     if not by_user_id:
         return {"detail": "Admin user session expired. Please log in again."}, 400
 
-    if not remark or not remark.strip():
-        return {"detail": "Approval remarks are mandatory."}, 400
+    if not remark:
+        remark = ""
             
     backend_url = f"{current_app.config['BACKEND_API_URL']}/nseit_manage/approve/{r_id}"
     try:

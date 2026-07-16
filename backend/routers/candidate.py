@@ -56,6 +56,70 @@ def get_candidate_status(r_id: int, db: Session = Depends(get_db)):
                 "status_after": r.status_after
             })
 
+    # Check if LMS certificate was uploaded post-approval
+    lms_uploaded_post_approval = False
+    approval_time_lms = None
+    if lms:
+        for r in lms.remarks:
+            if r.status_after_id == StatusEnum.APPROVED.value:
+                approval_time_lms = r.time
+                break
+    if approval_time_lms:
+        from datetime import timezone, timedelta
+        approval_utc = approval_time_lms - timedelta(hours=5, minutes=30)
+        approval_timestamp = approval_utc.replace(tzinfo=timezone.utc).timestamp()
+        import os
+        uploads_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "candidate")
+        if candidate.lms_certificate_upload:
+            cleaned_path = candidate.lms_certificate_upload.lstrip("/")
+            if cleaned_path.startswith("candidate_uploads/"):
+                parts = cleaned_path.split("/", 1)
+                if len(parts) > 1:
+                    cleaned_path = parts[1]
+            full_path = os.path.abspath(os.path.join(uploads_dir, cleaned_path))
+            if os.path.exists(full_path):
+                file_timestamp = os.path.getmtime(full_path)
+                if file_timestamp > (approval_timestamp + 5.0):
+                    lms_uploaded_post_approval = True
+
+    # Check if NSEIT certificate was uploaded post-approval
+    nseit_uploaded_post_approval = False
+    approval_time_nseit = None
+    if nseit:
+        for r in nseit.remarks:
+            if r.status_after_id == StatusEnum.APPROVED.value:
+                approval_time_nseit = r.time
+                break
+    if approval_time_nseit:
+        from datetime import timezone, timedelta
+        approval_utc = approval_time_nseit - timedelta(hours=5, minutes=30)
+        approval_timestamp = approval_utc.replace(tzinfo=timezone.utc).timestamp()
+        import os
+        uploads_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "candidate")
+        if candidate.nseit_certificate_upload:
+            cleaned_path = candidate.nseit_certificate_upload.lstrip("/")
+            if cleaned_path.startswith("candidate_uploads/"):
+                parts = cleaned_path.split("/", 1)
+                if len(parts) > 1:
+                    cleaned_path = parts[1]
+            full_path = os.path.abspath(os.path.join(uploads_dir, cleaned_path))
+            if os.path.exists(full_path):
+                file_timestamp = os.path.getmtime(full_path)
+                if file_timestamp > (approval_timestamp + 5.0):
+                    nseit_uploaded_post_approval = True
+
+    had_lms_at_registration = False
+    if lms:
+        had_lms_at_registration = any("CANDIDATE ALREADY HAS EXISTING ID" in r["remark"] for r in lms_remarks)
+        if not had_lms_at_registration and candidate.lms_id and not lms_uploaded_post_approval:
+            had_lms_at_registration = True
+
+    had_nseit_at_registration = False
+    if nseit:
+        had_nseit_at_registration = any("CANDIDATE ALREADY HAS EXISTING ID" in r["remark"] for r in nseit_remarks)
+        if not had_nseit_at_registration and candidate.nseit_id and not candidate.nseit_id.startswith('NSEIT00') and not nseit_uploaded_post_approval:
+            had_nseit_at_registration = True
+
     return {
         "id": candidate.id,
         "name": candidate.name,
@@ -72,6 +136,8 @@ def get_candidate_status(r_id: int, db: Session = Depends(get_db)):
         "photo_upload": candidate.photo_upload or "",
         "tenth_marksheet_upload": candidate.tenth_marksheet_upload or "",
         "marksheet_upload": candidate.marksheet_upload or "",
+        "lms_certificate_upload": candidate.lms_certificate_upload or "",
+        "nseit_certificate_upload": candidate.nseit_certificate_upload or "",
         "status": candidate.status,
         "lms_status": lms_status,
         "nseit_status": nseit_status,
@@ -79,7 +145,11 @@ def get_candidate_status(r_id: int, db: Session = Depends(get_db)):
         "nseit_id": candidate.nseit_id,
         "exam_unique_code": candidate.exam_unique_code,
         "lms_remarks": lms_remarks,
-        "nseit_remarks": nseit_remarks
+        "nseit_remarks": nseit_remarks,
+        "lms_uploaded_post_approval": lms_uploaded_post_approval,
+        "nseit_uploaded_post_approval": nseit_uploaded_post_approval,
+        "had_lms_at_registration": had_lms_at_registration,
+        "had_nseit_at_registration": had_nseit_at_registration
     }
 
 @router.post("/submit-lms/{r_id}")
@@ -137,10 +207,14 @@ def submit_lms_request(r_id: int, remark: str | None = None, login_id: int | Non
 @router.post("/submit-nseit/{r_id}")
 def submit_nseit_request(r_id: int, remark: str | None = None, login_id: int | None = None,
                          name: str | None = None, exam_unique_code: str | None = None, lms_id: str | None = None,
+                         lms_certificate_upload: str | None = None,
                          db: Session = Depends(get_db)):
     candidate = db.query(Candidate).filter(Candidate.id == r_id).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
+
+    if lms_id and not candidate.lms_certificate_upload and not lms_certificate_upload:
+        raise HTTPException(status_code=400, detail="LMS Certificate is required.")
 
     # Update candidate fields if provided
     if name:
@@ -149,6 +223,8 @@ def submit_nseit_request(r_id: int, remark: str | None = None, login_id: int | N
         candidate.exam_unique_code = exam_unique_code
     if lms_id:
         candidate.lms_id = lms_id
+    if lms_certificate_upload:
+        candidate.lms_certificate_upload = lms_certificate_upload
 
     nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == r_id).first()
     if nseit:
@@ -183,12 +259,14 @@ def submit_nseit_request(r_id: int, remark: str | None = None, login_id: int | N
     return {"success": True, "detail": "NSEIT request submitted successfully."}
 
 @router.post("/skip-lms/{r_id}")
-def skip_lms_request(r_id: int, lms_id: str, login_id: int | None = None, db: Session = Depends(get_db)):
+def skip_lms_request(r_id: int, lms_id: str, lms_certificate_upload: str | None = None, login_id: int | None = None, db: Session = Depends(get_db)):
     candidate = db.query(Candidate).filter(Candidate.id == r_id).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
         
     candidate.lms_id = lms_id
+    if lms_certificate_upload:
+        candidate.lms_certificate_upload = lms_certificate_upload
     
     lms = db.query(LMS).filter(LMS.request_id == r_id).first()
     if lms:
@@ -218,12 +296,14 @@ def skip_lms_request(r_id: int, lms_id: str, login_id: int | None = None, db: Se
     return {"success": True, "detail": "LMS request skipped and ID recorded."}
 
 @router.post("/skip-nseit/{r_id}")
-def skip_nseit_request(r_id: int, nseit_id: str, login_id: int | None = None, db: Session = Depends(get_db)):
+def skip_nseit_request(r_id: int, nseit_id: str, nseit_certificate_upload: str | None = None, login_id: int | None = None, db: Session = Depends(get_db)):
     candidate = db.query(Candidate).filter(Candidate.id == r_id).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
         
     candidate.nseit_id = nseit_id
+    if nseit_certificate_upload:
+        candidate.nseit_certificate_upload = nseit_certificate_upload
     
     nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == r_id).first()
     if nseit:
@@ -254,25 +334,61 @@ def skip_nseit_request(r_id: int, nseit_id: str, login_id: int | None = None, db
 
 
 @router.post("/update-lms-id/{r_id}")
-def update_lms_id(r_id: int, lms_id: str, login_id: int | None = None, db: Session = Depends(get_db)):
+def update_lms_id(r_id: int, lms_id: str, lms_certificate_upload: str | None = None, login_id: int | None = None, db: Session = Depends(get_db)):
+    if not lms_certificate_upload:
+        raise HTTPException(status_code=400, detail="LMS Certificate is required.")
+        
     candidate = db.query(Candidate).filter(Candidate.id == r_id).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
+    had_existing = bool(candidate.lms_id)
+
     candidate.lms_id = lms_id
+    candidate.lms_certificate_upload = lms_certificate_upload
     
+    if had_existing:
+        lms = db.query(LMS).filter(LMS.request_id == r_id).first()
+        if lms:
+            new_remark = LMSRemark(
+                request_id=lms.id,
+                remark=f"Candidate updated ID from existing ID to new ID: {lms_id}",
+                sender_id=login_id,
+                is_public=1,
+                status_after_id=lms.status_id
+            )
+            db.add(new_remark)
+            
     db.commit()
     return {"success": True, "detail": "LMS ID updated successfully."}
 
 
 @router.post("/update-nseit-id/{r_id}")
-def update_nseit_id(r_id: int, nseit_id: str, login_id: int | None = None, db: Session = Depends(get_db)):
+def update_nseit_id(r_id: int, nseit_id: str, nseit_certificate_upload: str | None = None, login_id: int | None = None, db: Session = Depends(get_db)):
+    if not nseit_certificate_upload:
+        raise HTTPException(status_code=400, detail="NSEIT Certificate is required.")
+        
     candidate = db.query(Candidate).filter(Candidate.id == r_id).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
         
+    had_existing = bool(candidate.nseit_id and not candidate.nseit_id.startswith('NSEIT00'))
+
     candidate.nseit_id = nseit_id
+    candidate.nseit_certificate_upload = nseit_certificate_upload
     
+    if had_existing:
+        nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == r_id).first()
+        if nseit:
+            new_remark = NSEITRemark(
+                request_id=nseit.id,
+                remark=f"CANDIDATE ALREADY HAS EXISTING ID: Candidate updated ID from registration ID to new ID: {nseit_id}",
+                sender_id=login_id,
+                is_public=1,
+                status_after_id=nseit.status_id
+            )
+            db.add(new_remark)
+            
     db.commit()
     return {"success": True, "detail": "NSEIT ID updated successfully."}
 

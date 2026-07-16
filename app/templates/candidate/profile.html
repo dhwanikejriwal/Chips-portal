@@ -103,6 +103,7 @@
         font-weight: 600;
         letter-spacing: 0.02em;
     }
+
     /* 🌟 SMOOTH ENTRY ANIMATIONS & ANTI-SHAKE FILTERS */
     @keyframes modernModalEaseIn {
         0% {
@@ -139,7 +140,7 @@
 <div class="candidate-container">
     <div style="margin-bottom: 20px;">
         <a href="{{ url_for('candidate.instructions') }}" class="btn-back">
-            <i class="ti ti-arrow-left"></i> Go to Overview
+            <i class="ti ti-arrow-left"></i><b>Go to Overview</b>
         </a>
     </div>
 
@@ -149,199 +150,235 @@
     </div>
 
     {% if not session.get('has_changed_password', True) %}
-    <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 20px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <div
+        style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 20px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
-                <h3 style="margin: 0 0 4px 0; color: #b45309; font-size: 16px; font-weight: 600;">Security Alert: Change Your Password</h3>
-                <p style="margin: 0; color: #92400e; font-size: 14px;">You are currently using the default system-generated password. Please change it immediately for security.</p>
+                <h3 style="margin: 0 0 4px 0; color: #b45309; font-size: 16px; font-weight: 600;">Security Alert: Change
+                    Your Password</h3>
+                <p style="margin: 0; color: #92400e; font-size: 14px;">You are currently using the default
+                    system-generated password. Please change it immediately for security.</p>
             </div>
-            <a href="{{ url_for('candidate.change_password') }}" class="btn-primary" style="background: #f59e0b; padding: 8px 16px; text-decoration: none; font-size: 14px;">Change Password Now</a>
+            <a href="{{ url_for('candidate.change_password') }}" class="btn-primary"
+                style="background: #f59e0b; padding: 8px 16px; text-decoration: none; font-size: 14px;">Change Password
+                Now</a>
         </div>
     </div>
     {% endif %}
 
-    <div class="detail-layout">
-        <div class="main-panel">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h2 class="panel-title">Personal & Registration Details</h2>
+    <div class="detail-layout" style="display: block !important;">
+        <div class="main-panel" style="width: 100% !important; max-width: 100% !important; box-sizing: border-box;">
+            <div class="panel-header"
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; padding-bottom: 12px; margin-bottom: 20px;">
+                <h2 class="panel-title" style="margin: 0;">Personal & Registration Details</h2>
                 {% if session.get('has_changed_password', True) %}
-                <a href="{{ url_for('candidate.change_password') }}" class="btn-secondary" style="font-size: 12px; padding: 6px 12px; text-decoration: none;">Change Password</a>
+                <a href="{{ url_for('candidate.change_password') }}" class="btn-secondary"
+                    style="font-size: 12px; padding: 6px 12px; text-decoration: none;">Change Password</a>
                 {% endif %}
             </div>
 
-            <div class="profile-avatar-container">
-                {% if status_data.photo_upload %}
-                <div class="profile-avatar-wrapper"
-                    style="background-image: url('{{ status_data.photo_upload }}') !important;"
-                    onclick="viewDocumentInModal('{{ status_data.photo_upload }}', 'Profile Photo')">
-                </div>
-                <span class="zoom-hint">🔍 Click image to expand view</span>
-                {% else %}
-                <div class="profile-avatar-placeholder">👤</div>
-                {% endif %}
-            </div>
-
-            <div class="profile-grid">
-                <div class="profile-info-row">
-                    <span class="profile-label">Full Name</span>
-                    <span class="profile-value" style="font-weight: 600;">{{ status_data.name }}</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-label">Email Address</span>
-                    <span class="profile-value">{{ status_data.email }}</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-label">Mobile Number</span>
-                    <span class="profile-value">{{ status_data.mobile }}</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-label">Date of Birth (DOB)</span>
-                    <span class="profile-value">{{ status_data.dob }}</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-label">Aadhaar Number</span>
-                    <span class="profile-value">XXXX-XXXX-{{ status_data.aadhaar[-4:] if status_data.aadhaar else '0000'
-                        }}</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-label">Is Existing Aadhaar Operator?</span>
-                    <span class="profile-value">
-                        {% if status_data.is_existing_operator %}
-                        <span style="color: #047857; font-weight: 600;">Yes</span>
-                        {% else %}
-                        <span style="color: #718096;">No</span>
-                        {% endif %}
-                    </span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-label">Full Address</span>
-                    <span class="profile-value" style="max-width: 60%; text-align: right; word-wrap: break-word;">{{
-                        status_data.address or 'N/A' }}</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-label">Pincode</span>
-                    <span class="profile-value">{{ status_data.pincode or 'N/A' }}</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-label">Registered District</span>
-                    <span class="profile-value">{{ status_data.district_name }}</span>
-                </div>
-                <div class="profile-info-row">
-                    <span class="profile-label">Education Qualification</span>
-                    <span class="profile-value">{{ status_data.qualification }}</span>
-                </div>
-
-                <div class="profile-info-row" style="align-items: center;">
-                    <span class="profile-label">10th Standard Marksheet</span>
-                    <span class="profile-value">
-                        {% if status_data.tenth_marksheet_upload %}
-                        <button type="button" class="btn-card"
-                            style="font-size: 12px; padding: 6px 12px; background: #4b5563; border:none; cursor:pointer;"
-                            onclick="viewDocumentInModal('{{ status_data.tenth_marksheet_upload }}', '10th Standard Marksheet')">
-                            View Document
-                        </button>
-                        {% else %}
-                        <span style="color: #a0aec0; font-style: italic;">No file uploaded</span>
-                        {% endif %}
-                    </span>
-                </div>
-
-                {% if status_data.marksheet_upload %}
-                <div class="profile-info-row" style="align-items: center;">
-                    <span class="profile-label">Highest Qualification Marksheet</span>
-                    <span class="profile-value">
-                        <button type="button" class="btn-card"
-                            style="font-size: 12px; padding: 6px 12px; background: #047857; border:none; cursor:pointer;"
-                            onclick="viewDocumentInModal('{{ status_data.marksheet_upload }}', 'Highest Qualification Marksheet')">
-                            View Document
-                        </button>
-                    </span>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="side-panel">
-            <div class="panel-header">
-                <h2 class="panel-title">Training & Certificates</h2>
-            </div>
-
-            <div class="profile-grid">
-                <div
-                    style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="font-weight: 600; font-size: 14px; color: #2d3748;">LMS Certificate</span>
-                        {% if (status_data.lms_status|upper) == 'APPROVED' %}
-                        <span class="status-badge approved">Approved</span>
-                        {% elif (status_data.lms_status|upper) == 'PENDING' %}
-                        <span class="status-badge pending">Pending</span>
-                        {% elif (status_data.lms_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
-                        <span class="status-badge reverted"
-                            style="background-color: #fee2e2; color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Reverted</span>
-                        {% elif (status_data.lms_status|upper) in ['FORWARDED', 'FORWARDED_AGAIN'] %}
-                        <span class="status-badge forwarded"
-                            style="background-color: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Forwarded</span>
-                        {% elif (status_data.lms_status|upper) == 'REAPPLIED' %}
-                        <span class="status-badge reapplied"
-                            style="background-color: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Reapplied</span>
-                        {% elif (status_data.lms_status|upper) == 'SKIPPED' %}
-                        <span class="status-badge skipped"
-                            style="background-color: #f3f4f6; color: #4b5563; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Skipped</span>
-                        {% else %}
-                        <span class="status-badge not-initiated">Not Initiated</span>
-                        {% endif %}
+            <div style="display: flex; gap: 30px; align-items: center; flex-wrap: wrap;">
+                <div class="profile-avatar-container"
+                    style="flex: 0 0 200px; border-bottom: none !important; margin-bottom: 0 !important; padding: 10px 0 !important; width: auto !important;">
+                    {% if status_data.photo_upload %}
+                    <div class="profile-avatar-wrapper"
+                        style="background-image: url('{{ status_data.photo_upload }}') !important; width: 150px !important; height: 150px !important;"
+                        onclick="viewDocumentInModal('{{ status_data.photo_upload }}', 'Profile Photo')">
                     </div>
-                    <div style="font-size: 13px; color: #4a5568;">
-                        <strong>LMS Credential ID:</strong> {{ status_data.lms_id or 'None' }}
-                    </div>
-                </div>
-
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px;">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="font-weight: 600; font-size: 14px; color: #2d3748;">NSEIT Certificate</span>
-                        {% if (status_data.nseit_status|upper) == 'APPROVED' %}
-                        <span class="status-badge approved">Approved</span>
-                        {% elif (status_data.nseit_status|upper) == 'PENDING' %}
-                        <span class="status-badge pending">Pending</span>
-                        {% elif (status_data.nseit_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
-                        <span class="status-badge reverted"
-                            style="background-color: #fee2e2; color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Reverted</span>
-                        {% elif (status_data.nseit_status|upper) in ['FORWARDED', 'FORWARDED_AGAIN'] %}
-                        <span class="status-badge forwarded"
-                            style="background-color: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Forwarded</span>
-                        {% elif (status_data.nseit_status|upper) == 'REAPPLIED' %}
-                        <span class="status-badge reapplied"
-                            style="background-color: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Reapplied</span>
-                        {% elif (status_data.nseit_status|upper) == 'SKIPPED' %}
-                        <span class="status-badge skipped"
-                            style="background-color: #f3f4f6; color: #4b5563; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Skipped</span>
-                        {% else %}
-                        <span class="status-badge not-initiated">Not Initiated</span>
-                        {% endif %}
-                    </div>
-                    {% if status_data.nseit_id %}
-                    <div style="font-size: 13px; color: #4a5568;">
-                        <strong>NSEIT Register ID:</strong> {{ status_data.nseit_id }}
-                    </div>
+                    <span class="zoom-hint">🔍 Click image to expand</span>
                     {% else %}
-                    <div style="font-size: 12px; color: #718096; font-style: italic;">
-                        No ID assigned yet
+                    <div class="profile-avatar-placeholder" style="width: 150px !important; height: 150px !important;">
+                        👤</div>
+                    {% endif %}
+                </div>
+
+                <div class="profile-grid"
+                    style="flex: 1; min-width: 280px; display: grid !important; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important; gap: 12px 30px !important; margin-top: 0 !important;">
+                    <div class="profile-info-row">
+                        <span class="profile-label">Full Name</span>
+                        <span class="profile-value" style="font-weight: 600;">{{ status_data.name }}</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-label">Email Address</span>
+                        <span class="profile-value">{{ status_data.email }}</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-label">Mobile Number</span>
+                        <span class="profile-value">{{ status_data.mobile }}</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-label">Date of Birth (DOB)</span>
+                        <span class="profile-value">{{ status_data.dob }}</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-label">Aadhaar Number</span>
+                        <span class="profile-value">XXXX-XXXX-{{ status_data.aadhaar[-4:] if status_data.aadhaar else
+                            '0000' }}</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-label">Is Existing Operator?</span>
+                        <span class="profile-value">
+                            {% if status_data.is_existing_operator %}
+                            <span style="color: #047857; font-weight: 600;">Yes</span>
+                            {% else %}
+                            <span style="color: #718096;">No</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-label">Registered District</span>
+                        <span class="profile-value">{{ status_data.district_name }}</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-label">Education Qualification</span>
+                        <span class="profile-value">{{ status_data.qualification }}</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-label">Pincode</span>
+                        <span class="profile-value">{{ status_data.pincode or 'N/A' }}</span>
+                    </div>
+                    <div class="profile-info-row">
+                        <span class="profile-label">Full Address</span>
+                        <span class="profile-value" style="max-width: 70%; text-align: right; word-wrap: break-word;">{{
+                            status_data.address or 'N/A' }}</span>
+                    </div>
+                    <div class="profile-info-row" style="align-items: center;">
+                        <span class="profile-label">10th Standard Marksheet</span>
+                        <span class="profile-value">
+                            {% if status_data.tenth_marksheet_upload %}
+                            <button type="button" class="btn-card"
+                                style="font-size: 12px; padding: 6px 14px; background: #4b5563; border:none; cursor:pointer; font-weight: 600; border-radius: 4px;"
+                                onclick="viewDocumentInModal('{{ status_data.tenth_marksheet_upload }}', '10th Standard Marksheet')">
+                                View Document
+                            </button>
+                            {% else %}
+                            <span style="color: #a0aec0; font-style: italic;">No file uploaded</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if status_data.marksheet_upload %}
+                    <div class="profile-info-row" style="align-items: center;">
+                        <span class="profile-label">Highest Qualification Marksheet</span>
+                        <span class="profile-value">
+                            <button type="button" class="btn-card"
+                                style="font-size: 12px; padding: 6px 14px; background: #4b5563; border:none; cursor:pointer; font-weight: 600; border-radius: 4px;"
+                                onclick="viewDocumentInModal('{{ status_data.marksheet_upload }}', 'Highest Qualification Marksheet')">
+                                View Document
+                            </button>
+                        </span>
                     </div>
                     {% endif %}
                 </div>
             </div>
 
-            <div style="margin-top: 30px; text-align: center;">
-                <a href="{{ url_for('candidate.instructions') }}" class="btn-card"
-                    style="width: 100%; box-sizing: border-box; display: block;">
-                    Go to Overview
-                </a>
+            <!-- Training & Certificates Section inside the single container -->
+            <div style="margin-top: 35px; border-top: 1px solid #edf2f7; padding-top: 25px;">
+                <h3 style="font-size: 18px; font-weight: 600; color: #2d3748; margin: 0 0 20px 0;">Training &
+                    Certificates</h3>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                    <!-- LMS Cert Card -->
+                    <div
+                        style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; min-height: 110px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; width: 100%;">
+                            <span style="font-weight: 600; font-size: 14px; color: #2d3748;">LMS Certificate</span>
+                            {% if (status_data.lms_status|upper) == 'APPROVED' %}
+                            <span class="status-badge approved">Approved</span>
+                            {% elif (status_data.lms_status|upper) == 'PENDING' %}
+                            <span class="status-badge pending">Pending</span>
+                            {% elif (status_data.lms_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
+                            <span class="status-badge reverted"
+                                style="background-color: #fee2e2; color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Reverted</span>
+                            {% elif (status_data.lms_status|upper) in ['FORWARDED', 'FORWARDED_AGAIN'] %}
+                            <span class="status-badge forwarded"
+                                style="background-color: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Forwarded</span>
+                            {% elif (status_data.lms_status|upper) == 'REAPPLIED' %}
+                            <span class="status-badge reapplied"
+                                style="background-color: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Reapplied</span>
+                            {% elif (status_data.lms_status|upper) == 'SKIPPED' %}
+                            <span class="status-badge skipped"
+                                style="background-color: #f3f4f6; color: #4b5563; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Skipped</span>
+                            {% else %}
+                            <span class="status-badge not-initiated">Not Initiated</span>
+                            {% endif %}
+                        </div>
+                        <div
+                            style="font-size: 13px; color: #4a5568; display: flex; justify-content: space-between; align-items: center; margin-top: auto; width: 100%;">
+                            <div>
+                                <strong>LMS Credential ID:</strong> {{ status_data.lms_id or 'None' }}
+                                {% if status_data.lms_id and (status_data.lms_status|upper) != 'NOT INITIATED' and status_data.had_lms_at_registration %}
+                                    {% if status_data.lms_uploaded_post_approval %}
+                                        <span class="badge" style="font-size: 10px; margin-left: 6px; vertical-align: middle; background: #e0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 2px 6px; border-radius: 4px; font-weight: 600; display: inline-block;">New</span>
+                                    {% else %}
+                                        <span class="badge" style="font-size: 10px; margin-left: 6px; vertical-align: middle; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 4px; font-weight: 600; display: inline-block;">Old</span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            {% if status_data.lms_certificate_upload %}
+                            <button type="button" class="btn-card"
+                                style="font-size: 12px; padding: 6px 14px; background: #047857; border:none; cursor:pointer; color: #fff; border-radius: 4px; font-weight: 600;"
+                                onclick="viewDocumentInModal('{{ status_data.lms_certificate_upload }}', 'LMS Certificate')">
+                                View Certificate
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- NSEIT Cert Card -->
+                    <div
+                        style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; min-height: 110px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; width: 100%;">
+                            <span style="font-weight: 600; font-size: 14px; color: #2d3748;">NSEIT Certificate</span>
+                            {% if (status_data.nseit_status|upper) == 'APPROVED' %}
+                            <span class="status-badge approved">Approved</span>
+                            {% elif (status_data.nseit_status|upper) == 'PENDING' %}
+                            <span class="status-badge pending">Pending</span>
+                            {% elif (status_data.nseit_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
+                            <span class="status-badge reverted"
+                                style="background-color: #fee2e2; color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Reverted</span>
+                            {% elif (status_data.nseit_status|upper) in ['FORWARDED', 'FORWARDED_AGAIN'] %}
+                            <span class="status-badge forwarded"
+                                style="background-color: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Forwarded</span>
+                            {% elif (status_data.nseit_status|upper) == 'REAPPLIED' %}
+                            <span class="status-badge reapplied"
+                                style="background-color: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Reapplied</span>
+                            {% elif (status_data.nseit_status|upper) == 'SKIPPED' %}
+                            <span class="status-badge skipped"
+                                style="background-color: #f3f4f6; color: #4b5563; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">Skipped</span>
+                            {% else %}
+                            <span class="status-badge not-initiated">Not Initiated</span>
+                            {% endif %}
+                        </div>
+                        <div
+                            style="font-size: 13px; color: #4a5568; display: flex; justify-content: space-between; align-items: center; margin-top: auto; width: 100%;">
+                            <div>
+                                <strong>NSEIT Register ID:</strong> {{ status_data.nseit_id or 'None' }}
+                                {% if status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00') and (status_data.nseit_status|upper) != 'NOT INITIATED' and status_data.had_nseit_at_registration %}
+                                    {% if status_data.nseit_uploaded_post_approval %}
+                                        <span class="badge" style="font-size: 10px; margin-left: 6px; vertical-align: middle; background: #e0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 2px 6px; border-radius: 4px; font-weight: 600; display: inline-block;">New</span>
+                                    {% else %}
+                                        <span class="badge" style="font-size: 10px; margin-left: 6px; vertical-align: middle; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 4px; font-weight: 600; display: inline-block;">Old</span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            {% if status_data.nseit_certificate_upload %}
+                            <button type="button" class="btn-card"
+                                style="font-size: 12px; padding: 6px 14px; background: #047857; border:none; cursor:pointer; color: #fff; border-radius: 4px; font-weight: 600;"
+                                onclick="viewDocumentInModal('{{ status_data.nseit_certificate_upload }}', 'NSEIT Certificate')">
+                                View Certificate
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
             </div>
+
         </div>
     </div>
 </div>
+
 
 <script>
     function viewDocumentInModal(fileUrl, documentTitle) {
@@ -449,7 +486,7 @@
 
         if (isPdf) {
             const iframe = document.createElement('iframe');
-            iframe.src = fileUrl;
+            iframe.src = fileUrl + '#toolbar=0&navpanes=0';
             iframe.style.width = '100%';
             iframe.style.height = '100%';
             iframe.style.border = 'none';

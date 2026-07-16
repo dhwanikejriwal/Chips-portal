@@ -6,7 +6,7 @@ from backend.models.master_status import MasterStatus
 from backend.models.district import District
 from backend.models.user_login import UserLogin, UserLogin as User
 from backend.models.user_profile import UserProfile
-from backend.models.candidate import Candidate, CandidateLogin
+from backend.models.candidate import Candidate, CandidateLogin, CandidateDocument
 from backend.models.dc_remark import DCRemark
 from backend.models.hold_candidate import HoldCandidate
 from backend.models.nseit import NSEITRequest, NSEITRemark
@@ -38,6 +38,7 @@ __all__ = [
     "UserLogin",
     "Candidate",
     "CandidateLogin",
+    "CandidateDocument",
     "DCRemark",
     "LMS",
     "LMSRemark",
