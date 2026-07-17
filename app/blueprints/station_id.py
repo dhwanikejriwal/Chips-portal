@@ -168,6 +168,26 @@ def chips_detail_json(request_id):
     )
 
 
+@station_id_bp.route("/chips/station-id/<int:request_id>/recommend-station-ids", methods=["GET"])
+def chips_recommend_station_ids(request_id):
+    """Proxy the next-available Station ID suggestion for the allot modal."""
+    if not session.get("access_token"):
+        return jsonify({"available": False, "error": "Session expired."}), 401
+    try:
+        resp = http.get(
+            f"{BACKEND}/{request_id}/recommend-station-ids",
+            headers=_headers(),
+            timeout=10,
+        )
+        return Response(
+            resp.content,
+            status=resp.status_code,
+            content_type=resp.headers.get("Content-Type", "application/json"),
+        )
+    except Exception as network_err:
+        return jsonify({"available": False, "error": str(network_err)}), 500
+
+
 @station_id_bp.route("/chips/station-id/<int:request_id>/approve", methods=["POST"])
 def chips_approve(request_id):
     if not session.get("access_token"):
@@ -181,6 +201,9 @@ def chips_approve(request_id):
         "reviewed_by": str(session.get("user_id")),
         "station_id_value": str(request.form.get("station_id_value", "")).strip(),
     }
+    slot = str(request.form.get("slot", "")).strip()
+    if slot:
+        form_payload["slot"] = slot
     if raw_remarks:
         form_payload["chips_remarks"] = raw_remarks
 

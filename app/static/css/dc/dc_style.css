@@ -145,42 +145,57 @@ body, input, select, textarea, button {
     margin-top: 2px;
 }
 
-/* ── Filter bar ── */
+/* ── Filter bar — compact single row: each label sits INLINE to the left of
+   its control instead of stacked above it, so the whole card is one control
+   height tall instead of label+gap+control tall. Full-width like before. ── */
 .filter-bar {
     background: #fff;
     border: 1px solid var(--dc-border);
-    border-radius: 12px;
-    padding: 14px 18px;
+    border-radius: 10px;
+    padding: 8px 12px;
     display: flex;
-    gap: 12px;
-    align-items: flex-end;
+    gap: 14px;
+    align-items: center;
     flex-wrap: wrap;
-    margin-bottom: 24px;
+    /* Tight 3px gap below the filter bar (sits between the tab bar and the
+       active section on tabbed request pages). */
+    margin-bottom: 3px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .filter-group {
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
     flex: 1;
-    min-width: 160px;
+    min-width: 190px;
 }
 .filter-group-search {
     flex: 2.5;
+    min-width: 240px;
 }
 .filter-group label {
-    font-size: 13.5px;
+    font-size: 12px;
     font-weight: 600;
     color: #4a5568;
     text-transform: none;
     letter-spacing: normal;
+    white-space: nowrap;
+    margin: 0;
+}
+/* Control fills the remaining width after its inline label. */
+.filter-group .filter-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
 }
 .filter-input, .table-input {
-    height: 38px;
-    padding: 0 12px;
+    /* Slim control. */
+    height: 30px;
+    padding: 0 10px;
     border: 1.5px solid var(--dc-border);
-    border-radius: 8px;
-    font-size: 13px;
+    border-radius: 7px;
+    font-size: 12.5px;
     color: #334155;
     outline: none;
     background: #fff;
@@ -190,6 +205,67 @@ body, input, select, textarea, button {
 .filter-input:focus, .table-input:focus {
     border-color: var(--dc-primary);
 }
+
+/* On small screens go back to label-above-input, stacked full-width. */
+@media (max-width: 768px) {
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filter-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+        min-width: 0;
+        width: 100%;
+    }
+    .filter-group label { white-space: normal; }
+    .filter-group-button,
+    .btn-clear-filters { width: 100%; }
+}
+
+/* ── Request-section tabs ──────────────────────────────────────────────────
+   One tab per queue (Pending / Sent to UIDAI / Log history …). The shared
+   filter bar sits just below the tab strip and filters whichever section is
+   active. All colours are theme tokens so light + dark both work. The generic
+   click handler lives in base.html. ── */
+.req-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--dc-border);
+    /* Tight 3px gap below the tab bar. */
+    margin-bottom: 3px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.req-tabs::-webkit-scrollbar { display: none; }
+.req-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    color: var(--dc-text-secondary);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s ease;
+}
+.req-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
+.req-tab:hover { color: var(--dc-text-primary); }
+.req-tab.active {
+    color: var(--dc-primary);
+    border-bottom-color: var(--dc-primary);
+    font-weight: 700;
+}
+/* Only the active tab's panel (its section table) is shown. */
+.req-tabpanel { display: none; }
+.req-tabpanel.active { display: block; }
 
 /* ── Section heading ── */
 .section-heading {
@@ -930,19 +1006,20 @@ body, input, select, textarea, button {
 }
 
 .btn-clear-filters {
-    height: 38px;
-    padding: 0 16px;
+    /* Match the slim filter-input height. */
+    height: 30px;
+    padding: 0 14px;
     background-color: #f1f5f9;
     color: #475569;
     font-weight: 600;
-    border-radius: 8px;
+    border-radius: 7px;
     border: 1px solid #cbd5e1;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
-    font-size: 13px;
+    font-size: 12.5px;
     box-sizing: border-box;
 }
 .btn-clear-filters:hover {

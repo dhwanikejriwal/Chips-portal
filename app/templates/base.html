@@ -133,6 +133,29 @@
         {% endblock %}
     </div>
 
+    <!-- Generic request-section tab switcher. Any page that renders a
+         `.req-tabs` strip (tabs carry data-tab) plus `.req-tabpanel` panels
+         (each carries data-panel) gets click-to-switch behaviour for free.
+         Harmless on pages without tabs (delegated, only fires on a .req-tab). -->
+    <script>
+        (function () {
+            document.addEventListener('click', function (e) {
+                var tab = e.target.closest('.req-tab');
+                if (!tab) return;
+                var name = tab.getAttribute('data-tab');
+                var strip = tab.closest('.req-tabs');
+                if (strip) {
+                    strip.querySelectorAll('.req-tab').forEach(function (t) {
+                        t.classList.toggle('active', t === tab);
+                    });
+                }
+                document.querySelectorAll('.req-tabpanel').forEach(function (p) {
+                    p.classList.toggle('active', p.getAttribute('data-panel') === name);
+                });
+            });
+        })();
+    </script>
+
     <!-- Sidebar state + toggle/pin/tooltip/auto-collapse behaviour now lives in
          partials/sidebar.html (co-located with the sidebar markup + styles, and
          only loaded when authenticated). It persists { collapsed, pinned } under

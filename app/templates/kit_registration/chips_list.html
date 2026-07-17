@@ -32,35 +32,6 @@
     }
     .pending-days.high { color: #b91c1c; }
 
-    .btn-l1 {
-        border: none;
-        background: #2563eb;
-        color: #fff;
-        padding: 6px 12px;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-    .btn-l1:hover { background: #1d4ed8; }
-    .btn-l2 {
-        border: none;
-        background: #16a34a;
-        color: #fff;
-        padding: 6px 12px;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-    .btn-l2:hover { background: #15803d; }
-    .kit-complete {
-        color: #15803d;
-        font-weight: 700;
-        font-size: 12px;
-    }
 </style>
 {% endblock %}
 
@@ -101,8 +72,7 @@
         {'label': 'L1 pending days', 'align': 'right'},
         {'label': 'L2 status'},
         {'label': 'L2 done date'},
-        {'label': 'L2 pending days', 'align': 'right'},
-        {'label': 'Actions', 'align': 'center'}
+        {'label': 'L2 pending days', 'align': 'right'}
     ],
     table_id='kit-table', body_id='kit-tbody',
     empty_message='No kit registrations yet. Rows appear here automatically once Station IDs are allotted.',
@@ -138,60 +108,7 @@
                     <span class="pending-days {{ 'high' if r.l2_pending_days > 7 else '' }}">{{ r.l2_pending_days }}</span>
                     {% else %}—{% endif %}
                 </td>
-                <td style="text-align: center;">
-                    <div class="action-group" style="justify-content: center; gap: 6px;">
-                        {% if r.l1_actionable %}
-                        <button class="btn-l1" onclick="markDone({{ r.id }}, 'l1')">Mark L1 Done</button>
-                        {% elif r.l2_actionable %}
-                        <button class="btn-l2" onclick="markDone({{ r.id }}, 'l2')">Mark L2 Done</button>
-                        {% elif r.l2_status == 'Approved' or r.l2_status == 'Done' %}
-                        <span class="kit-complete">✓ Completed</span>
-                        {% else %}
-                        —
-                        {% endif %}
-                    </div>
-                </td>
             </tr>
             {% endfor %}
 {% endcall %}
-
-<script>
-    async function markDone(kitId, level) {
-        const isL1 = level === 'l1';
-        const confirmText = isL1
-            ? 'Mark L1 as Done? This will automatically start L2 as Pending.'
-            : 'Mark L2 as Done? This completes the kit registration.';
-
-        const result = await Swal.fire({
-            title: isL1 ? 'Complete L1?' : 'Complete L2?',
-            text: confirmText,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: isL1 ? '#2563eb' : '#16a34a',
-            cancelButtonColor: '#94a3b8',
-            confirmButtonText: 'Yes, mark Done',
-        });
-        if (!result.isConfirmed) return;
-
-        try {
-            const resp = await fetch(`/auth/chips/kit-registration/${kitId}/${level}-done`, { method: 'POST' });
-            const data = await resp.json();
-            if (resp.ok && data.success) {
-                await Swal.fire({
-                    title: 'Updated',
-                    text: data.message || 'Status updated successfully.',
-                    icon: 'success',
-                    confirmButtonColor: '#378ADD',
-                    timer: 2000,
-                    timerProgressBar: true,
-                });
-                window.location.reload();
-            } else {
-                Swal.fire({ icon: 'error', title: 'Failed', text: data.detail || data.error || 'Could not update status.', confirmButtonColor: '#4f46e5' });
-            }
-        } catch (err) {
-            Swal.fire({ icon: 'error', title: 'Network Error', text: 'Please check your connection and try again.', confirmButtonColor: '#4f46e5' });
-        }
-    }
-</script>
 {% endblock %}

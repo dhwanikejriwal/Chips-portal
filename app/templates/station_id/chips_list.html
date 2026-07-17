@@ -65,6 +65,51 @@
         border-radius: 5px;
         margin-left: 5px;
     }
+
+    /* ── Section tab bar (Pending / Log history) — mirrors the dashboard
+       tab strip. All colours are theme tokens so light + dark both work. ── */
+    .sid-tabs {
+        display: flex;
+        gap: 4px;
+        border-bottom: 1px solid var(--dc-border);
+        /* Tight 3px gap below the tab bar. */
+        margin-bottom: 3px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .sid-tabs::-webkit-scrollbar { display: none; }
+    .sid-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 10px 16px;
+        border: none;
+        background: transparent;
+        color: var(--dc-text-secondary);
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        transition: color 0.15s ease;
+    }
+    .sid-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .sid-tab:hover { color: var(--dc-text-primary); }
+    .sid-tab.active {
+        color: var(--dc-primary);
+        border-bottom-color: var(--dc-primary);
+        font-weight: 700;
+    }
+
+    /* Only the active tab's panel (filter bar + its table) is shown. */
+    .sid-tab-panel { display: none; }
+    .sid-tab-panel.active { display: block; }
+
+    /* Tight 3px gap below the filter bar (page-scoped so other sections keep
+       their default spacing). */
+    .sid-tab-panel .filter-bar { margin-bottom: 3px; }
 </style>
 {% endblock %}
 
@@ -115,34 +160,52 @@
 </div>
 
 
-<!-- ═══════════════ SECTION 1: PENDING ═══════════════ -->
+{# District list shared by both tab filter bars. #}
+{% set sid_districts = [
+    'Balod', 'Baloda Bazar-Bhatapara', 'Balrampur-Ramanujganj', 'Bastar', 'Bemetara',
+    'Bijapur', 'Bilaspur', 'Dantewada', 'Dhamtari', 'Durg', 'Gariaband',
+    'Gaurela-Pendra-Marwahi', 'Janjgir-Champa', 'Jashpur', 'Kabirdham', 'Kanker',
+    'Khairagarh-Chhuikhadan-Gandai', 'Kondagaon', 'Korba', 'Koriya', 'Mahasamund',
+    'Manendragarh-Chirmiri-Bharatpur', 'Mohla-Manpur-Ambagarh Chowki', 'Mungeli',
+    'Narayanpur', 'Raigarh', 'Raipur', 'Rajnandgaon', 'Sakti', 'Sarangarh-Bilaigarh',
+    'Sukma', 'Surajpur', 'Surguja'
+] %}
+
+<!-- ═══════════════ SECTION TABS ═══════════════ -->
+<div class="sid-tabs" role="tablist">
+    <button type="button" class="sid-tab active" data-sid-tab="pending" onclick="switchSidTab('pending')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="8" y="2" width="8" height="4" rx="1" /><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" /><path d="M12 11v6" /><path d="M9 14h6" />
+        </svg>
+        <span data-i18n="section.pending">Pending Station ID requests</span>
+    </button>
+    <button type="button" class="sid-tab" data-sid-tab="log" onclick="switchSidTab('log')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l3 3" />
+        </svg>
+        <span data-i18n="section.logHistory">Station ID log history</span>
+    </button>
+</div>
+
+<!-- ═══════════════ TAB PANEL 1: PENDING ═══════════════ -->
+<div class="sid-tab-panel active" id="sid-panel-pending">
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
         <label data-i18n="filter.searchRequest">Search Request</label>
-        <input type="text" id="admin-search-input" placeholder="Search by code, district, or model..." data-i18n-placeholder="filter.searchPlaceholder" class="filter-input" oninput="filterAdminQueues()">
+        <input type="text" id="pending-search" placeholder="Search by code, district, or model..." data-i18n-placeholder="filter.searchPlaceholder" class="filter-input" oninput="filterPending()">
     </div>
     <div class="filter-group">
         <label data-i18n="filter.district">District</label>
-        <select id="admin-district-filter" class="filter-input" onchange="filterAdminQueues()">
+        <select id="pending-district" class="filter-input" onchange="filterPending()">
             <option value="all" data-i18n="filter.allDistricts">All Districts</option>
-            {% for d in [
-            'Balod', 'Baloda Bazar-Bhatapara', 'Balrampur-Ramanujganj', 'Bastar', 'Bemetara',
-            'Bijapur', 'Bilaspur', 'Dantewada', 'Dhamtari', 'Durg', 'Gariaband',
-            'Gaurela-Pendra-Marwahi', 'Janjgir-Champa', 'Jashpur', 'Kabirdham', 'Kanker',
-            'Khairagarh-Chhuikhadan-Gandai', 'Kondagaon', 'Korba', 'Koriya', 'Mahasamund',
-            'Manendragarh-Chirmiri-Bharatpur', 'Mohla-Manpur-Ambagarh Chowki', 'Mungeli',
-            'Narayanpur', 'Raigarh', 'Raipur', 'Rajnandgaon', 'Sakti', 'Sarangarh-Bilaigarh',
-            'Sukma', 'Surajpur', 'Surguja'
-            ] %}
-            {# Place names are transliterated (never translated); the attribute
-               keeps the English source so switching back to EN restores it. #}
+            {% for d in sid_districts %}
             <option value="{{ d | lower | trim }}" data-i18n-district="{{ d }}">{{ d }}</option>
             {% endfor %}
         </select>
     </div>
     <div class="filter-group">
         <label data-i18n="filter.timePeriod">Time Period</label>
-        <select id="admin-date-filter" class="filter-input" onchange="filterAdminQueues()">
+        <select id="pending-date" class="filter-input" onchange="filterPending()">
             <option value="all" data-i18n="filter.allTime">All Time</option>
             <option value="today" data-i18n="filter.today">Today</option>
             <option value="week" data-i18n="filter.week">Week</option>
@@ -150,7 +213,7 @@
         </select>
     </div>
     <div class="filter-group-button" style="flex: 0 0 auto;">
-        <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+        <button type="button" class="btn-clear-filters" onclick="clearFilters('pending')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -161,7 +224,7 @@
 </div>
 
 {% set pending_controls %}
-<select id="admin-pending-status-filter" class="rs-filter" onchange="filterAdminQueues()">
+<select id="admin-pending-status-filter" class="rs-filter" onchange="filterPending()">
     <option value="all" data-i18n="ui.allStatuses">All statuses</option>
     <option value="pending" data-i18n="status.pending">Pending</option>
     <option value="reapplied" data-i18n="status.reapplied">Reapplied</option>
@@ -243,10 +306,46 @@
             {% set ns.count = ns.count + 1 %}
             {% endfor %}
 {% endcall %}
+</div><!-- /sid-panel-pending -->
 
-<!-- ═══════════════ SECTION 2: LOG HISTORY ═══════════════ -->
+<!-- ═══════════════ TAB PANEL 2: LOG HISTORY ═══════════════ -->
+<div class="sid-tab-panel" id="sid-panel-log">
+<div class="filter-bar">
+    <div class="filter-group filter-group-search">
+        <label data-i18n="filter.searchRequest">Search Request</label>
+        <input type="text" id="log-search" placeholder="Search by code, district, or model..." data-i18n-placeholder="filter.searchPlaceholder" class="filter-input" oninput="filterLog()">
+    </div>
+    <div class="filter-group">
+        <label data-i18n="filter.district">District</label>
+        <select id="log-district" class="filter-input" onchange="filterLog()">
+            <option value="all" data-i18n="filter.allDistricts">All Districts</option>
+            {% for d in sid_districts %}
+            <option value="{{ d | lower | trim }}" data-i18n-district="{{ d }}">{{ d }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label data-i18n="filter.timePeriod">Time Period</label>
+        <select id="log-date" class="filter-input" onchange="filterLog()">
+            <option value="all" data-i18n="filter.allTime">All Time</option>
+            <option value="today" data-i18n="filter.today">Today</option>
+            <option value="week" data-i18n="filter.week">Week</option>
+            <option value="month" selected data-i18n="filter.month">Month</option>
+        </select>
+    </div>
+    <div class="filter-group-button" style="flex: 0 0 auto;">
+        <button type="button" class="btn-clear-filters" onclick="clearFilters('log')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            <span data-i18n="filter.clear">Clear Filters</span>
+        </button>
+    </div>
+</div>
+
 {% set log_controls %}
-<select id="admin-history-status-filter" class="rs-filter" onchange="filterAdminQueues()">
+<select id="admin-history-status-filter" class="rs-filter" onchange="filterLog()">
     <option value="all" data-i18n="ui.allStatuses">All statuses</option>
     <option value="allotted" data-i18n="status.allotted">Allotted</option>
     <option value="reverted" data-i18n="status.reverted">Reverted</option>
@@ -329,6 +428,7 @@
             {% set ns2.count = ns2.count + 1 %}
             {% endfor %}
 {% endcall %}
+</div><!-- /sid-panel-log -->
 
 <script>
     const currentReviewerId = "{{ session.get('user_id') or '' }}";
@@ -425,47 +525,75 @@
 
         if (!isActionReload) {
             // Reset filters to defaults
-            sessionStorage.removeItem('chips_sid_search');
-            sessionStorage.removeItem('chips_sid_district');
-            sessionStorage.removeItem('chips_sid_date');
+            ['pending', 'log'].forEach(w => {
+                sessionStorage.removeItem('chips_sid_' + w + '_search');
+                sessionStorage.removeItem('chips_sid_' + w + '_district');
+                sessionStorage.removeItem('chips_sid_' + w + '_date');
+            });
             sessionStorage.removeItem('chips_pending_status');
             sessionStorage.removeItem('chips_log_status');
         }
-        // Restore the actual Station ID filter controls used by this page.
-        document.getElementById('admin-search-input').value = sessionStorage.getItem('chips_sid_search') || '';
-        document.getElementById('admin-district-filter').value = sessionStorage.getItem('chips_sid_district') || 'all';
-        document.getElementById('admin-date-filter').value = sessionStorage.getItem('chips_sid_date') || 'month';
+        // Restore each tab's own filter controls + the active tab.
+        document.getElementById('pending-search').value = sessionStorage.getItem('chips_sid_pending_search') || '';
+        document.getElementById('pending-district').value = sessionStorage.getItem('chips_sid_pending_district') || 'all';
+        document.getElementById('pending-date').value = sessionStorage.getItem('chips_sid_pending_date') || 'month';
         document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('chips_pending_status') || 'all';
+        document.getElementById('log-search').value = sessionStorage.getItem('chips_sid_log_search') || '';
+        document.getElementById('log-district').value = sessionStorage.getItem('chips_sid_log_district') || 'all';
+        document.getElementById('log-date').value = sessionStorage.getItem('chips_sid_log_date') || 'month';
         document.getElementById('admin-history-status-filter').value = sessionStorage.getItem('chips_log_status') || 'all';
+        switchSidTab(sessionStorage.getItem('chips_sid_active_tab') || 'pending');
 
-    function clearAllFilters() {
-        document.getElementById('admin-search-input').value = '';
-        document.getElementById('admin-district-filter').value = 'all';
-        document.getElementById('admin-pending-status-filter').value = 'all';
-        document.getElementById('admin-history-status-filter').value = 'all';
-        document.getElementById('admin-date-filter').value = 'month';
-        sessionStorage.removeItem('chips_sid_search');
-        filterAdminQueues();
+    // Show one section at a time; remember the choice across reloads.
+    function switchSidTab(which) {
+        if (which !== 'pending' && which !== 'log') which = 'pending';
+        document.querySelectorAll('.sid-tab').forEach(t =>
+            t.classList.toggle('active', t.getAttribute('data-sid-tab') === which));
+        document.querySelectorAll('.sid-tab-panel').forEach(p => p.classList.remove('active'));
+        const panel = document.getElementById('sid-panel-' + which);
+        if (panel) panel.classList.add('active');
+        sessionStorage.setItem('chips_sid_active_tab', which);
     }
 
-    // 🌟 FIXED: Created function matching layout calls and applied last 7 and 30 rolling day thresholds safely
-    function filterAdminQueues() {
-        const q = (document.getElementById('admin-search-input').value || '').toLowerCase().trim();
-        const df = document.getElementById('admin-date-filter').value;
-        const selectedDistrict = document.getElementById('admin-district-filter').value;
+    function clearFilters(which) {
+        if (which === 'log') {
+            document.getElementById('log-search').value = '';
+            document.getElementById('log-district').value = 'all';
+            document.getElementById('log-date').value = 'month';
+            document.getElementById('admin-history-status-filter').value = 'all';
+            filterLog();
+        } else {
+            document.getElementById('pending-search').value = '';
+            document.getElementById('pending-district').value = 'all';
+            document.getElementById('pending-date').value = 'month';
+            document.getElementById('admin-pending-status-filter').value = 'all';
+            filterPending();
+        }
+    }
+
+    // Rolling 7 / 30-day + today thresholds, shared by both tables.
+    function sidDateMatch(created, df, now) {
+        if (!created || df === 'all') return true;
+        const rowDate = new Date(created.replace(' ', 'T'));
+        if (df === 'today') return rowDate.toDateString() === now.toDateString();
+        const threshold = new Date();
+        threshold.setDate(now.getDate() - (df === 'week' ? 7 : 30));
+        return rowDate >= threshold;
+    }
+
+    function filterPending() {
+        const q = (document.getElementById('pending-search').value || '').toLowerCase().trim();
+        const df = document.getElementById('pending-date').value;
+        const selectedDistrict = document.getElementById('pending-district').value;
+        const sf = document.getElementById('admin-pending-status-filter').value.toLowerCase().trim();
         const now = new Date();
 
-        const pending_sf = document.getElementById('admin-pending-status-filter').value.toLowerCase().trim();
-        const log_sf = document.getElementById('admin-history-status-filter').value.toLowerCase().trim();
+        sessionStorage.setItem('chips_sid_pending_search', document.getElementById('pending-search').value);
+        sessionStorage.setItem('chips_sid_pending_district', selectedDistrict);
+        sessionStorage.setItem('chips_sid_pending_date', df);
+        sessionStorage.setItem('chips_pending_status', sf);
 
-        sessionStorage.setItem('chips_sid_search', document.getElementById('admin-search-input').value);
-        sessionStorage.setItem('chips_sid_district', selectedDistrict);
-        sessionStorage.setItem('chips_sid_date', df);
-        sessionStorage.setItem('chips_pending_status', pending_sf);
-        sessionStorage.setItem('chips_log_status', log_sf);
-
-        // Process Pending Table
-        let pendingVisible = 0;
+        let visible = 0;
         document.querySelectorAll('#pending-tbody tr[data-id]').forEach(row => {
             const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
             const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
@@ -475,37 +603,31 @@
             const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
 
             const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
-            const matchStatus = (pending_sf === 'all') || (status === pending_sf);
+            const matchStatus = (sf === 'all') || (status === sf);
             const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
-
-            let matchDate = true;
-            if (created && df !== 'all') {
-                const rowDate = new Date(created.replace(' ', 'T'));
-                if (df === 'today') {
-                    matchDate = rowDate.toDateString() === now.toDateString();
-                } else if (df === 'week') {
-                    const threshold = new Date();
-                    threshold.setDate(now.getDate() - 7);
-                    matchDate = rowDate >= threshold;
-                } else if (df === 'month') {
-                    const threshold = new Date();
-                    threshold.setDate(now.getDate() - 30);
-                    matchDate = rowDate >= threshold;
-                }
-            }
+            const matchDate = sidDateMatch(created, df, now);
 
             const show = matchQ && matchStatus && matchDistrict && matchDate;
             row.style.display = show ? '' : 'none';
-            if (show) {
-                pendingVisible++;
-                if (row.cells[0]) row.cells[0].innerText = pendingVisible;
-            }
+            if (show) { visible++; if (row.cells[0]) row.cells[0].innerText = visible; }
         });
-        if (document.getElementById('pending-count')) document.getElementById('pending-count').textContent = pendingVisible;
-        if (document.getElementById('pending-empty-msg')) document.getElementById('pending-empty-msg').style.display = (pendingVisible === 0) ? 'block' : 'none';
+        if (document.getElementById('pending-count')) document.getElementById('pending-count').textContent = visible;
+        if (document.getElementById('pending-empty-msg')) document.getElementById('pending-empty-msg').style.display = (visible === 0) ? 'block' : 'none';
+    }
 
-        // Process History Table
-        let logVisible = 0;
+    function filterLog() {
+        const q = (document.getElementById('log-search').value || '').toLowerCase().trim();
+        const df = document.getElementById('log-date').value;
+        const selectedDistrict = document.getElementById('log-district').value;
+        const sf = document.getElementById('admin-history-status-filter').value.toLowerCase().trim();
+        const now = new Date();
+
+        sessionStorage.setItem('chips_sid_log_search', document.getElementById('log-search').value);
+        sessionStorage.setItem('chips_sid_log_district', selectedDistrict);
+        sessionStorage.setItem('chips_sid_log_date', df);
+        sessionStorage.setItem('chips_log_status', sf);
+
+        let visible = 0;
         document.querySelectorAll('#log-tbody tr[data-id]').forEach(row => {
             const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
             const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
@@ -515,44 +637,24 @@
             const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
 
             const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
-            
             let matchStatus = false;
-            if (log_sf === 'all') {
-                matchStatus = true;
-            } else if (log_sf === 'reverted by chips') {
-                matchStatus = ((status || '').toLowerCase().replace(/ /g, '_') === 'reverted');
-            } else {
-                matchStatus = (status === log_sf);
-            }
-
+            if (sf === 'all') matchStatus = true;
+            else if (sf === 'reverted by chips') matchStatus = ((status || '').toLowerCase().replace(/ /g, '_') === 'reverted');
+            else matchStatus = (status === sf);
             const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
-
-            let matchDate = true;
-            if (created && df !== 'all') {
-                const rowDate = new Date(created.replace(' ', 'T'));
-                if (df === 'today') {
-                    matchDate = rowDate.toDateString() === now.toDateString();
-                } else if (df === 'week') {
-                    const threshold = new Date();
-                    threshold.setDate(now.getDate() - 7);
-                    matchDate = rowDate >= threshold;
-                } else if (df === 'month') {
-                    const threshold = new Date();
-                    threshold.setDate(now.getDate() - 30);
-                    matchDate = rowDate >= threshold;
-                }
-            }
+            const matchDate = sidDateMatch(created, df, now);
 
             const show = matchQ && matchStatus && matchDistrict && matchDate;
             row.style.display = show ? '' : 'none';
-            if (show) {
-                logVisible++;
-                if (row.cells[0]) row.cells[0].innerText = logVisible;
-            }
+            if (show) { visible++; if (row.cells[0]) row.cells[0].innerText = visible; }
         });
-        if (document.getElementById('log-count')) document.getElementById('log-count').textContent = logVisible;
-        if (document.getElementById('log-empty-msg')) document.getElementById('log-empty-msg').style.display = (logVisible === 0) ? 'block' : 'none';
+        if (document.getElementById('log-count')) document.getElementById('log-count').textContent = visible;
+        if (document.getElementById('log-empty-msg')) document.getElementById('log-empty-msg').style.display = (visible === 0) ? 'block' : 'none';
     }
+
+    // Kept for existing callers (init + window export).
+    function filterAdminQueues() { filterPending(); filterLog(); }
+    function clearAllFilters() { clearFilters('pending'); clearFilters('log'); }
 
     function submitDynamicForm(action, fields) {
         const form = document.createElement('form');
@@ -570,6 +672,47 @@
     // 🌟 REPLACE THESE TWO MODALS IN YOUR STATION ID SCRIPTS BLOCK
     // =========================================================================
 
+    // ── Station ID recommendation (next available from station_id_master) ─────
+    let __stationReco = [];
+
+    function flashInput(input) {
+        if (!input) return;
+        input.style.transition = 'background .15s, border-color .15s';
+        input.style.borderColor = '#4f46e5';
+        input.style.background = '#eef2ff';
+        setTimeout(() => { input.style.background = '#fff'; input.style.borderColor = '#e2e8f0'; }, 450);
+    }
+
+    function applyStationRecommendation() {
+        __stationReco.forEach((id, i) => {
+            const input = document.getElementById('swal-station-id-' + i);
+            if (input) { input.value = id; flashInput(input); }
+        });
+    }
+
+    function renderStationRecommendation(data) {
+        const box = document.getElementById('swal-reco');
+        if (!box) return;
+        if (!data || !data.available) {
+            box.innerHTML = `<div style="font-size:12px;color:#94a3b8;margin-bottom:14px;">${t('modal.recoUnavailable')}</div>`;
+            return;
+        }
+        __stationReco = data.recommended_strings || [];
+        box.innerHTML = `<div style="font-size:12.5px;color:#4f46e5;line-height:1.5;margin-bottom:14px;">
+            ${t('modal.recoDesc', { last: data.last_allotted, count: data.count })}
+        </div>`;
+        // Fill the Station ID inputs directly — no manual "Auto-fill" step.
+        applyStationRecommendation();
+    }
+
+    function fetchStationRecommendation(requestId) {
+        __stationReco = [];
+        fetch(`/auth/chips/station-id/${requestId}/recommend-station-ids`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => renderStationRecommendation(data))
+            .catch(() => renderStationRecommendation(null));
+    }
+
     // 1. Station ID Approve Modal (Fixed Asynchronous PATCH Stream)
     window.showApproveModal = function (requestId, requestNo, model, kits) {
         const numKits = parseInt(kits) || 1;
@@ -583,6 +726,7 @@
                     </div>
                     <input id="swal-station-id-0" class="swal-station-id-input" type="text"
                         inputmode="numeric" pattern="[0-9]*" maxlength="5"
+                        autocomplete="off" autocorrect="off" spellcheck="false"
                         style="width:100%;height:44px;padding:0 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:16px;font-weight:700;letter-spacing:4px;font-family:monospace;outline:none;box-sizing:border-box;"
                         placeholder="e.g. 42420" autofocus
                         oninput="this.value = this.value.replace(/[^0-9]/g, '')">
@@ -599,6 +743,7 @@
                         <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;">${t('modal.kitStationIdRow', { n: i + 1 })}</div>
                         <input id="swal-station-id-${i}" class="swal-station-id-input" type="text"
                             inputmode="numeric" pattern="[0-9]*" maxlength="5"
+                            autocomplete="off" autocorrect="off" spellcheck="false"
                             style="width:100%;height:38px;padding:0 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:15px;font-weight:700;font-family:monospace;outline:none;box-sizing:border-box;"
                             placeholder="e.g. 42421" ${i === 0 ? 'autofocus' : ''}
                             oninput="this.value = this.value.replace(/[^0-9]/g, '')">
@@ -617,7 +762,19 @@
                         <div><div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">${t('modal.modelKits')}</div>
                             <div style="font-weight:600;color:#0f172a;margin-top:2px;">${model} · ${kits} ${t('modal.kits')}</div></div>
                     </div>
+                    <div id="swal-reco" style="margin-bottom:16px;"></div>
                     ${stationInputsHtml}
+                    <div style="margin-bottom:16px;">
+                        <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                            ${t('col.slotType')} <span style="color:#ef4444;">*</span>
+                        </div>
+                        <select id="swal-slot-select"
+                            style="width:100%;height:38px;padding:0 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;background:#fff;">
+                            <option value="" disabled selected>Select Slot Type</option>
+                            <option value="937 slot">937 Kits Slot</option>
+                            <option value="300 slot">300 Kits Slot</option>
+                        </select>
+                    </div>
                     <div>
                         <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
                             ${t('modal.adminRemarks')} <span style="font-size:10px;text-transform:none;font-weight:400;color:#94a3b8;">${t('modal.optional')}</span>
@@ -635,6 +792,7 @@
             width: '520px',
             focusConfirm: false,
             showLoaderOnConfirm: true,
+            didOpen: () => fetchStationRecommendation(requestId),
             preConfirm: () => {
                 const inputs = document.querySelectorAll('.swal-station-id-input');
                 const values = [];
@@ -670,6 +828,12 @@
                     return false;
                 }
 
+                const slotValue = document.getElementById('swal-slot-select').value;
+                if (!slotValue) {
+                    Swal.showValidationMessage(t('modal.vSlotRequired'));
+                    return false;
+                }
+
                 const stationIdValue = values.join(', ');
                 // Use `let` so the default fallback remark can be assigned when left blank
                 let chipsRemarks = document.getElementById('swal-chips-remarks').value.trim();
@@ -681,6 +845,7 @@
 
                 const params = new URLSearchParams();
                 params.append('station_id_value', stationIdValue);
+                params.append('slot', slotValue);
                 params.append('chips_remarks', chipsRemarks);
 
                 return fetch(`/auth/chips/station-id/${requestId}/approve`, {
@@ -978,6 +1143,10 @@
 
     window.clearAllFilters = clearAllFilters;
     window.filterAdminQueues = filterAdminQueues;
+    window.filterPending = filterPending;
+    window.filterLog = filterLog;
+    window.clearFilters = clearFilters;
+    window.switchSidTab = switchSidTab;
     window.exportTableToExcel = exportTableToExcel;
     window.showAllStationIds = showAllStationIds;
 

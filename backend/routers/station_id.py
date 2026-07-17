@@ -10,6 +10,12 @@ from backend.models.base import StatusEnum
 
 from backend.models.district import District
 from backend.models.user_login import UserLogin
+from backend.models.station_id_master import StationIDMaster
+from backend.services.station_id_allocation import (
+    allocate_station_ids,
+    advance_counter_past,
+    MissingStationMasterError,
+)
 import json
 from backend.utils.exporter import generate_csv_export
 from typing import Optional
@@ -236,11 +242,55 @@ def get_station_request_individual_detail(request_id: int, db: Session = Depends
     }
 
 
+@router.get("/{request_id}/recommend-station-ids")
+def recommend_station_ids(request_id: int, db: Session = Depends(get_db)):
+    """Suggest the next available Station IDs for a request's district.
+
+    Reads the district's ``station_id_master.start_station_id`` counter WITHOUT
+    consuming it, so the CHIPS Admin can see (and one-click auto-fill) the IDs
+    that would be allotted. The IDs are only reserved when the request is
+    actually approved.
+    """
+    r = db.query(StationIDRequest).filter(StationIDRequest.id == request_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Requested Station ID record not found.")
+
+    count = r.number_of_kits if r.number_of_kits and r.number_of_kits > 0 else 1
+
+    master = None
+    if r.district_id:
+        master = (
+            db.query(StationIDMaster)
+            .filter(StationIDMaster.district_code == str(r.district_id))
+            .first()
+        )
+    if not master:
+        return {
+            "available": False,
+            "district_code": r.district_id,
+            "count": count,
+        }
+
+    start = int(master.start_station_id)
+    recommended = [start + i for i in range(count)]
+    return {
+        "available": True,
+        "district_code": master.district_code,
+        "district_name": master.district_name,
+        "count": count,
+        "start_station_id": start,
+        "last_allotted": start - 1,
+        "recommended_ids": recommended,
+        "recommended_strings": [str(x) for x in recommended],
+    }
+
+
 @router.patch("/{request_id}/approve")
 def approve_station_request(
     request_id: int,
     reviewed_by: int = Form(...),
-    station_id_value: str = Form(...),
+    station_id_value: Optional[str] = Form(None),
+    slot: Optional[str] = Form(None),
     chips_remarks: Optional[str] = Form(None), # Keeps parameters null-safe
     db: Session = Depends(get_db)
 ):
@@ -248,14 +298,27 @@ def approve_station_request(
     if not r:
         raise HTTPException(status_code=404, detail="Requested Station ID record data entry not found.")
 
-    # Parse out comma-separated station entries
-    sids = [sid.strip() for sid in station_id_value.split(",") if sid.strip()]
-    if not sids:
-        raise HTTPException(status_code=400, detail="Station ID assignment string cannot be evaluated empty.")
+    manual_value = (station_id_value or "").strip()
+    if manual_value:
+        # Manual override: CHIPS Admin supplied the exact Station ID(s).
+        sids = [sid.strip() for sid in manual_value.split(",") if sid.strip()]
+        if not sids:
+            raise HTTPException(status_code=400, detail="Station ID assignment string cannot be evaluated empty.")
 
-    for sid in sids:
-        if not sid.isdigit() or len(sid) != 5:
-            raise HTTPException(status_code=400, detail=f"Invalid Station ID format: '{sid}'. Entry must be exactly 5 numeric digits long.")
+        for sid in sids:
+            if not sid.isdigit() or len(sid) != 5:
+                raise HTTPException(status_code=400, detail=f"Invalid Station ID format: '{sid}'. Entry must be exactly 5 numeric digits long.")
+    else:
+        # Auto-allocate sequential IDs from the district's master counter using
+        # the same atomic read-assign-increment rule as the backfill.
+        if not r.district_id:
+            raise HTTPException(status_code=400, detail="Request has no district; cannot auto-allocate a Station ID.")
+        count = r.number_of_kits if r.number_of_kits and r.number_of_kits > 0 else 1
+        try:
+            allocated = allocate_station_ids(db, r.district_id, count=count)
+        except MissingStationMasterError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        sids = [str(sid) for sid in allocated]
 
     # 🌟 FIXED: Dynamically matches and saves your backup note message if left completely blank
     final_remark_string = "Station ID credentials successfully assigned."
@@ -268,6 +331,8 @@ def approve_station_request(
     # additional Station ID becomes a sibling row sharing the same request_no.
     r.status_id = StatusEnum.ALLOTTED.value
     r.station_id_inserted = sids[0]
+    if slot and slot.strip():
+        r.slot = slot.strip()
     r.number_of_kits = 1
     r.reviewed_by = reviewed_by
     r.reviewed_at = reviewed_at
@@ -314,6 +379,12 @@ def approve_station_request(
         district=(r.district.district_name if r.district else None),
         request_no=r.request_no,
     )
+
+    # Keep the district counter a truthful high-water mark: advance it past the
+    # IDs just allotted (whether auto-allocated or manually entered) so future
+    # allocations and recommendations never collide with a used ID.
+    if r.district_id:
+        advance_counter_past(db, r.district_id, sids)
 
     db.commit()
 

@@ -173,14 +173,14 @@
 
     /* Tabs row inside the card */
     .dash-header-tabs-row {
-        padding: 0 20px;
+        padding: 0 16px;
         background: #F8FAFC;
         border-radius: 12px;
     }
 
     .tabs-container {
         display: flex;
-        gap: 20px;
+        gap: 16px;
         margin-bottom: 0;
         width: 100%;
         border: none;
@@ -198,18 +198,18 @@
     }
 
     .tab-btn {
-        padding: 12px 2px;
+        padding: 7px 2px;
         border: none;
         background: transparent;
         color: #64748B;
-        font-size: 13.5px;
+        font-size: 13px;
         font-weight: 600;
         cursor: pointer;
         font-family: 'Outfit', sans-serif;
         transition: all 0.2s ease;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         position: relative;
         border-bottom: 2px solid transparent;
         border-radius: 0;
@@ -218,7 +218,7 @@
     }
 
     .tab-btn i {
-        font-size: 14px;
+        font-size: 13px;
         opacity: 0.8;
     }
 
@@ -1415,6 +1415,9 @@
         /* CHiPS admin only, light mode only — the DC portal keeps the shared
            token color, and dark mode keeps flipping via --surface-card. */
         html[data-theme="light"] #pending-alerts-bar.pab { background: #F8F6FF; }
+
+        /* Shrink the gaps around the bar to 3px (header above, tabs row below). */
+        #pending-alerts-bar.pab { margin-top: 3px; margin-bottom: 3px; }
     </style>
 
     <nav id="pending-alerts-bar" class="pab" aria-label="Pending alerts" style="display: none;">
@@ -1534,6 +1537,9 @@
                 </button>
                 <button class="tab-btn" data-tab="kit-registration">
                     <i class="fa-solid fa-laptop-medical"></i> Kit request
+                </button>
+                <button class="tab-btn" data-tab="kit-status" data-nav-url="/auth/chips/kit-registration">
+                    <i class="fa-solid fa-clipboard-check"></i> Kit status
                 </button>
             </div>
         </div>
@@ -2809,7 +2815,7 @@
 
                     <!-- Floating legend pill (bottom-left) -->
                     <div class="cgm2-legend">
-                        <div class="cgm2-legend-title" id="cgm2-leg-title">Number of Requests</div>
+                        <div class="cgm2-legend-title" id="cgm2-leg-title">Pending Requests</div>
                         <div class="cgm2-legend-grad"></div>
                         <div class="cgm2-legend-labels">
                             <span id="cgm2-leg-low">0</span>
@@ -2883,8 +2889,8 @@
             operator_total: ['#cde6f7', '#a8d0ef', '#7db8e8', '#5199d4', '#2e6fba', '#1a4a8a', '#0d2f68', '#0B2559'],
             /* Teal-blue variant for kits */
             kit_total: ['#d0eef8', '#a4d8f0', '#6ebfe5', '#3ea1d4', '#1a7ab8', '#0f5b94', '#093f6e', '#062c52'],
-            /* Amber-orange for pending (unchanged intent, kept warm) */
-            total_pending: ['#FFF7ED', '#FEEFC7', '#FED7AA', '#FDBA74', '#FB923C', '#F97316', '#EA580C', '#B91C1C']
+            /* Blue monochromatic for pending — matches the map's default look */
+            total_pending: ['#cde6f7', '#a8d0ef', '#7db8e8', '#5199d4', '#2e6fba', '#1a4a8a', '#0d2f68', '#0B2559']
         };
 
         window.isWithinTimeframe = function (daysAgo, timeframe) {
@@ -3109,7 +3115,7 @@
             kit_total: { label: 'Kits Request', fmt: function (v) { return '' + Math.round(v); }, invert: false },
             total_pending: { label: 'Total Pending Requests', fmt: function (v) { return '' + Math.round(v); }, invert: true },
         };
-        var curMetric = 'operator_total';
+        var curMetric = 'total_pending';
         var DDATA = null, GEO2 = null, locked2 = null, paths2, cScale2;
         var adjMap = {};
         var fmt2 = function (n) { return typeof n === 'number' ? n.toLocaleString('en-IN') : n; };
@@ -4491,6 +4497,11 @@
 
         document.querySelectorAll(".tab-btn").forEach(btn => {
             btn.addEventListener("click", () => {
+                // Some tabs are entry points to standalone pages (e.g. Kit
+                // status) rather than in-page panels — navigate to them.
+                const navUrl = btn.getAttribute("data-nav-url");
+                if (navUrl) { window.location.href = navUrl; return; }
+
                 document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
                 document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
                 btn.classList.add("active");

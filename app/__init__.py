@@ -6,7 +6,10 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-
+    # Serve static assets (CSS/JS) with revalidation instead of long-lived
+    # browser caching, so edits to stylesheets/scripts show up on reload
+    # without a hard refresh or per-file ?v= cache-buster.
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
     # Register blueprints (Friend's / Shared)
     from app.blueprints.auth import auth_bp
