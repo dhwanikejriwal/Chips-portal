@@ -286,8 +286,10 @@ def export_nseit_excel(ids: str = None, table_id: str = None, db: Session = Depe
 
         export_data.append({
             "s_no": idx + 1,
+
             "request_code": c.request_code,
             "district_name": district_name,
+
             "name": c.name,
             "mobile": c.mobile,
             "email": c.email,

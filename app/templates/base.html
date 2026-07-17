@@ -30,21 +30,37 @@
             box-shadow: inset 3px 0 0 0 #f59e0b;
             animation: row-highlight-fade 2.5s ease-out 1;
         }
+
         @keyframes row-highlight-fade {
-            0% { background: rgba(245, 158, 11, 0.22) !important; }
-            100% { background: rgba(245, 158, 11, 0.08) !important; }
+            0% {
+                background: rgba(245, 158, 11, 0.22) !important;
+            }
+
+            100% {
+                background: rgba(245, 158, 11, 0.08) !important;
+            }
         }
+
         .row-status-match {
             position: relative;
             background: rgba(37, 99, 235, 0.08) !important;
             box-shadow: inset 3px 0 0 0 #2563eb;
             animation: row-status-fade 2.5s ease-out 1;
         }
+
         @keyframes row-status-fade {
-            0% { background: rgba(37, 99, 235, 0.20) !important; }
-            100% { background: rgba(37, 99, 235, 0.08) !important; }
+            0% {
+                background: rgba(37, 99, 235, 0.20) !important;
+            }
+
+            100% {
+                background: rgba(37, 99, 235, 0.08) !important;
+            }
         }
-        .row-status-dim { opacity: 0.45; }
+
+        .row-status-dim {
+            opacity: 0.45;
+        }
     </style>
     <!-- Tab Session Enforcer -->
     {% if session.get('access_token') %}
@@ -133,6 +149,7 @@
             transition: all 0.5s ease-out;
             transform-origin: top;
         }
+
         .flash-container .alert::after,
         .flash-container .alert-flash::after {
             content: '';
@@ -143,10 +160,17 @@
             background: rgba(0, 0, 0, 0.2);
             animation: collapseTimer 3s linear forwards;
         }
+
         @keyframes collapseTimer {
-            0% { width: 100%; }
-            100% { width: 0%; }
+            0% {
+                width: 100%;
+            }
+
+            100% {
+                width: 0%;
+            }
         }
+
         .flash-container .alert.fade-out,
         .flash-container .alert-flash.fade-out {
             opacity: 0;
@@ -159,12 +183,12 @@
     </style>
     <script>
         // Auto-dismiss flash messages with collapse animation after 3 seconds
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             var alerts = document.querySelectorAll('.flash-container .alert, .flash-container .alert-flash');
-            alerts.forEach(function(alert) {
-                setTimeout(function() {
+            alerts.forEach(function (alert) {
+                setTimeout(function () {
                     alert.classList.add('fade-out');
-                    setTimeout(function() {
+                    setTimeout(function () {
                         alert.remove();
                     }, 500); // Wait for the transition to finish
                 }, 3000);
@@ -261,6 +285,7 @@
         body {
             top: 0 !important;
         }
+
         #google_translate_element,
         .skiptranslate,
         .goog-te-banner-frame,
@@ -287,347 +312,526 @@
             z-index: -9999 !important;
         }
     </style>
+    <script id="hindi-translations-data" type="application/json">
+        {{ HINDI_TRANSLATIONS | safe }}
+    </script>
     <script>
         (function () {
-            const HINDI_TRANSLATIONS = {{ HINDI_TRANSLATIONS | safe }};
+            const HINDI_TRANSLATIONS_MAP = JSON.parse(document.getElementById('hindi-translations-data').textContent || '{}');
             let currentLang = sessionStorage.getItem('portal_lang');
-            
-            if (!currentLang) {
-                currentLang = 'en';
-                sessionStorage.setItem('portal_lang', 'en');
+
+        if (!currentLang) {
+            currentLang = 'en';
+            sessionStorage.setItem('portal_lang', 'en');
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname;
+        }
+
+        const updateToggleButtons = () => {
+            const labels = document.querySelectorAll('.lang-toggle-label');
+            labels.forEach(lbl => {
+                lbl.textContent = currentLang === 'en' ? 'हिंदी' : 'English';
+            });
+        };
+
+        const excludeDatabaseTables = (root = document) => {
+            root.querySelectorAll('td').forEach(el => {
+                const isActionButton = el.querySelector('button, a.btn, input[type="button"], input[type="submit"]');
+                const isStatusBadge = el.querySelector('[class*="badge"], [class*="status"]');
+
+                if (isStatusBadge || (!isActionButton)) {
+                    el.classList.add('notranslate');
+                    el.setAttribute('translate', 'no');
+                    el.querySelectorAll('*').forEach(child => {
+                        child.classList.add('notranslate');
+                        child.setAttribute('translate', 'no');
+                    });
+                } else {
+                    el.classList.remove('notranslate');
+                    el.removeAttribute('translate');
+                    el.querySelectorAll('*').forEach(child => {
+                        if (!child.classList.contains('lang-toggle-btn') && !child.classList.contains('lang-toggle-label')) {
+                            child.classList.remove('notranslate');
+                            child.removeAttribute('translate');
+                        }
+                    });
+                }
+            });
+        };
+
+        const applyHybridCorrections = (element) => {
+            if (currentLang !== 'hi') return;
+
+            const dict = HINDI_TRANSLATIONS_MAP;
+            const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
+
+            const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+                acceptNode: function (node) {
+                    const parent = node.parentNode;
+                    if (parent && parent.nodeType === Node.ELEMENT_NODE) {
+                        if (parent.tagName === 'SCRIPT' ||
+                            parent.tagName === 'STYLE' ||
+                            parent.classList.contains('notranslate') ||
+                            parent.getAttribute('translate') === 'no' ||
+                            (typeof parent.closest === 'function' && parent.closest('.notranslate'))
+                        ) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                    return NodeFilter.FILTER_REJECT;
+                }
+            });
+
+            const textNodes = [];
+            let node;
+            while (node = walker.nextNode()) {
+                textNodes.push(node);
+            }
+
+            textNodes.forEach(textNode => {
+                const text = textNode.nodeValue;
+                const parent = textNode.parentNode;
+                if (!parent) return;
+
+                const normalizedText = text.replace(/\s+/g, ' ').trim();
+
+                let matchedKey = null;
+                for (const key of sortedKeys) {
+                    if (normalizedText.toLowerCase() === key.toLowerCase()) {
+                        matchedKey = key;
+                        break;
+                    }
+                }
+
+                if (matchedKey) {
+                    textNode.nodeValue = dict[matchedKey];
+                    parent.classList.add('notranslate');
+                    parent.setAttribute('translate', 'no');
+                } else {
+                    let escapedText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    let replaced = escapedText;
+                    let hasChanged = false;
+
+                    for (const key of sortedKeys) {
+                        const escapedKey = key.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\s+/g, '\\s+');
+                        const regex = new RegExp('\\b' + escapedKey + '\\b', 'gi');
+                        if (regex.test(replaced)) {
+                            replaced = replaced.replace(regex, `<span class="notranslate" translate="no">${dict[key]}</span>`);
+                            hasChanged = true;
+                        }
+                    }
+
+                    if (hasChanged) {
+                        const tempSpan = document.createElement('span');
+                        tempSpan.innerHTML = replaced;
+                        while (tempSpan.firstChild) {
+                            parent.insertBefore(tempSpan.firstChild, textNode);
+                        }
+                        parent.removeChild(textNode);
+                    }
+                }
+            });
+
+            const inputs = element.querySelectorAll('input[placeholder], textarea[placeholder]');
+            inputs.forEach(input => {
+                if (input.closest('.notranslate')) return;
+                let ph = input.getAttribute('placeholder');
+                let phChanged = false;
+                for (const key of sortedKeys) {
+                    const regex = new RegExp('\\b' + key + '\\b', 'gi');
+                    if (ph && regex.test(ph)) {
+                        ph = ph.replace(regex, dict[key]);
+                        phChanged = true;
+                    }
+                }
+                if (phChanged) {
+                    input.setAttribute('placeholder', ph);
+                    input.classList.add('notranslate');
+                    input.setAttribute('translate', 'no');
+                }
+            });
+
+            const buttons = element.querySelectorAll('input[type="submit"], input[type="button"]');
+            buttons.forEach(btn => {
+                let val = btn.value;
+                let valChanged = false;
+                for (const key of sortedKeys) {
+                    const regex = new RegExp('\\b' + key + '\\b', 'gi');
+                    if (val && regex.test(val)) {
+                        val = val.replace(regex, dict[key]);
+                        valChanged = true;
+                    }
+                }
+                if (valChanged) {
+                    btn.value = val;
+                    btn.classList.add('notranslate');
+                    btn.setAttribute('translate', 'no');
+                }
+            });
+
+            const selects = element.querySelectorAll('select');
+            selects.forEach(sel => {
+                sel.classList.add('notranslate');
+                sel.setAttribute('translate', 'no');
+
+                const options = sel.querySelectorAll('option');
+                options.forEach(opt => {
+                    opt.classList.add('notranslate');
+                    opt.setAttribute('translate', 'no');
+                });
+            });
+        };
+
+        window.togglePortalLanguage = function () {
+            const newLang = currentLang === 'en' ? 'hi' : 'en';
+            sessionStorage.setItem('portal_lang', newLang);
+            if (newLang === 'hi') {
+                document.cookie = "googtrans=/en/hi; path=/;";
+                document.cookie = "googtrans=/en/hi; path=/; domain=." + window.location.hostname;
+            } else {
                 document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                 document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname;
             }
+            window.location.reload();
+        };
 
-            const updateToggleButtons = () => {
-                const labels = document.querySelectorAll('.lang-toggle-label');
-                labels.forEach(lbl => {
-                    lbl.textContent = currentLang === 'en' ? 'हिंदी' : 'English';
-                });
+        if (currentLang === 'hi') {
+            // Run corrections and table exclusions immediately before Google Translate loads
+            excludeDatabaseTables(document.body);
+            applyHybridCorrections(document.body);
+
+            document.cookie = "googtrans=/en/hi; path=/;";
+
+            window.googleTranslateElementInit = function () {
+                new google.translate.TranslateElement({
+                    pageLanguage: 'en',
+                    includedLanguages: 'hi',
+                    autoDisplay: false
+                }, 'google_translate_element');
             };
 
-            const excludeDatabaseTables = (root = document) => {
-                root.querySelectorAll('td').forEach(el => {
-                    const isActionButton = el.querySelector('button, a.btn, input[type="button"], input[type="submit"]');
-                    const isStatusBadge = el.querySelector('[class*="badge"], [class*="status"]');
-                    
-                    if (isStatusBadge || (!isActionButton)) {
+            const gtScript = document.createElement('script');
+            gtScript.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+            document.body.appendChild(gtScript);
+        }
+
+        // --- Hindi Transliteration for Remarks/Reason fields ---
+        const setupTransliteration = () => {
+            const isRemarksField = (el) => {
+                if (!el) return false;
+                const id = (el.id || '').toLowerCase();
+                const name = (el.name || '').toLowerCase();
+                const ph = (el.placeholder || '').toLowerCase();
+                return id.includes('remark') || name.includes('remark') || ph.includes('remark') ||
+                    id.includes('reason') || name.includes('reason') || ph.includes('reason') ||
+                    id.includes('टिप्पणी') || ph.includes('टिप्पणी');
+            };
+
+            const fetchTransliteration = async (text) => {
+                try {
+                    const url = `https://inputtools.google.com/request?text=${encodeURIComponent(text)}&itc=hi-t-i0-und&num=1&cp=0-0&cs=1&ie=utf-8&oe=utf-8`;
+                    const res = await fetch(url);
+                    if (!res.ok) return null;
+                    const data = await res.json();
+                    if (data && data[0] === 'SUCCESS' && data[1] && data[1][0] && data[1][0][1]) {
+                        return data[1][0][1][0];
+                    }
+                } catch (e) {
+                    console.error('Transliteration failed:', e);
+                }
+                return null;
+            };
+
+            const handleInputKey = async (e) => {
+                const el = e.target;
+                if (!el || !el.dataset.transliterationEnabled) return;
+
+                if (e.keyCode === 32 || e.keyCode === 13) {
+                    const val = el.value;
+                    const start = el.selectionStart;
+
+                    const textBeforeCursor = val.substring(0, start);
+                    const match = textBeforeCursor.match(/(\S+)$/);
+                    if (!match) return;
+
+                    const lastWord = match[1];
+                    if (/[\u0900-\u097F]/.test(lastWord)) return;
+
+                    e.preventDefault();
+
+                    const translated = await fetchTransliteration(lastWord);
+                    if (translated) {
+                        const newTextBeforeCursor = textBeforeCursor.substring(0, textBeforeCursor.length - lastWord.length) + translated;
+                        const textAfterCursor = val.substring(start);
+                        el.value = newTextBeforeCursor + textAfterCursor;
+                        el.selectionStart = el.selectionEnd = newTextBeforeCursor.length;
+                    }
+
+                    const currentStart = el.selectionStart;
+                    const currentVal = el.value;
+                    const suffix = e.keyCode === 32 ? ' ' : '\n';
+                    el.value = currentVal.substring(0, currentStart) + suffix + currentVal.substring(currentStart);
+                    el.selectionStart = el.selectionEnd = currentStart + 1;
+
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            };
+
+            const injectToggleSwitch = (el) => {
+                if (el.dataset.transliterationSetup) return;
+                el.dataset.transliterationSetup = 'true';
+
+                const container = document.createElement('div');
+                container.className = 'transliteration-toggle-container notranslate';
+                container.setAttribute('translate', 'no');
+                container.style.cssText = 'display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 12px; font-weight: 500; color: #4b5563; user-select: none;';
+
+                const chk = document.createElement('input');
+                chk.type = 'checkbox';
+                chk.className = 'transliteration-chk';
+                chk.style.cssText = 'cursor: pointer; width: 14px; height: 14px; margin: 0;';
+
+                const lbl = document.createElement('label');
+                lbl.textContent = 'Type in Hindi / हिंदी में लिखें';
+                lbl.style.cssText = 'cursor: pointer; margin: 0;';
+
+                container.appendChild(chk);
+                container.appendChild(lbl);
+
+                el.parentNode.insertBefore(container, el.nextSibling);
+
+                chk.addEventListener('change', () => {
+                    if (chk.checked) {
+                        el.dataset.transliterationEnabled = 'true';
                         el.classList.add('notranslate');
                         el.setAttribute('translate', 'no');
-                        el.querySelectorAll('*').forEach(child => {
-                            child.classList.add('notranslate');
-                            child.setAttribute('translate', 'no');
-                        });
                     } else {
-                        el.classList.remove('notranslate');
-                        el.removeAttribute('translate');
-                        el.querySelectorAll('*').forEach(child => {
-                            if (!child.classList.contains('lang-toggle-btn') && !child.classList.contains('lang-toggle-label')) {
-                                child.classList.remove('notranslate');
-                                child.removeAttribute('translate');
-                            }
-                        });
+                        delete el.dataset.transliterationEnabled;
                     }
                 });
+
+                el.addEventListener('keydown', handleInputKey);
             };
 
-            const applyHybridCorrections = (element) => {
-                if (currentLang !== 'hi') return;
-                
-                const dict = HINDI_TRANSLATIONS;
-                const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
-
-                const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
-                    acceptNode: function(node) {
-                        const parent = node.parentNode;
-                        if (parent && parent.nodeType === Node.ELEMENT_NODE) {
-                            if (parent.tagName === 'SCRIPT' || 
-                                parent.tagName === 'STYLE' || 
-                                parent.classList.contains('notranslate') || 
-                                parent.getAttribute('translate') === 'no' ||
-                                (typeof parent.closest === 'function' && parent.closest('.notranslate'))
-                            ) {
-                                return NodeFilter.FILTER_REJECT;
-                            }
-                            return NodeFilter.FILTER_ACCEPT;
-                        }
-                        return NodeFilter.FILTER_REJECT;
+            document.addEventListener('focusin', (e) => {
+                if (e.target && (e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && e.target.type === 'text'))) {
+                    if (isRemarksField(e.target)) {
+                        injectToggleSwitch(e.target);
                     }
-                });
-
-                const textNodes = [];
-                let node;
-                while (node = walker.nextNode()) {
-                    textNodes.push(node);
                 }
+            });
+        };
 
-                textNodes.forEach(textNode => {
-                    const text = textNode.nodeValue;
-                    const parent = textNode.parentNode;
-                    if (!parent) return;
-
-                    const normalizedText = text.replace(/\s+/g, ' ').trim();
-                    
-                    let matchedKey = null;
-                    for (const key of sortedKeys) {
-                        if (normalizedText.toLowerCase() === key.toLowerCase()) {
-                            matchedKey = key;
-                            break;
-                        }
-                    }
-
-                    if (matchedKey) {
-                        textNode.nodeValue = dict[matchedKey];
-                        parent.classList.add('notranslate');
-                        parent.setAttribute('translate', 'no');
-                    } else {
-                        let escapedText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                        let replaced = escapedText;
-                        let hasChanged = false;
-
-                        for (const key of sortedKeys) {
-                            const escapedKey = key.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\s+/g, '\\s+');
-                            const regex = new RegExp('\\b' + escapedKey + '\\b', 'gi');
-                            if (regex.test(replaced)) {
-                                replaced = replaced.replace(regex, `<span class="notranslate" translate="no">${dict[key]}</span>`);
-                                hasChanged = true;
-                            }
-                        }
-
-                        if (hasChanged) {
-                            const tempSpan = document.createElement('span');
-                            tempSpan.innerHTML = replaced;
-                            while (tempSpan.firstChild) {
-                                parent.insertBefore(tempSpan.firstChild, textNode);
-                            }
-                            parent.removeChild(textNode);
-                        }
-                    }
-                });
-
-                const inputs = element.querySelectorAll('input[placeholder], textarea[placeholder]');
-                inputs.forEach(input => {
-                    if (input.closest('.notranslate')) return;
-                    let ph = input.getAttribute('placeholder');
-                    let phChanged = false;
-                    for (const key of sortedKeys) {
-                        const regex = new RegExp('\\b' + key + '\\b', 'gi');
-                        if (ph && regex.test(ph)) {
-                            ph = ph.replace(regex, dict[key]);
-                            phChanged = true;
-                        }
-                    }
-                    if (phChanged) {
-                        input.setAttribute('placeholder', ph);
-                        input.classList.add('notranslate');
-                        input.setAttribute('translate', 'no');
-                    }
-                });
-
-                const buttons = element.querySelectorAll('input[type="submit"], input[type="button"]');
-                buttons.forEach(btn => {
-                    let val = btn.value;
-                    let valChanged = false;
-                    for (const key of sortedKeys) {
-                        const regex = new RegExp('\\b' + key + '\\b', 'gi');
-                        if (val && regex.test(val)) {
-                            val = val.replace(regex, dict[key]);
-                            valChanged = true;
-                        }
-                    }
-                    if (valChanged) {
-                        btn.value = val;
-                        btn.classList.add('notranslate');
-                        btn.setAttribute('translate', 'no');
-                    }
-                });
-
-                const selects = element.querySelectorAll('select');
-                selects.forEach(sel => {
-                    sel.classList.add('notranslate');
-                    sel.setAttribute('translate', 'no');
-                    
-                    const options = sel.querySelectorAll('option');
-                    options.forEach(opt => {
-                        opt.classList.add('notranslate');
-                        opt.setAttribute('translate', 'no');
-                    });
-                });
-            };
-
-            window.togglePortalLanguage = function () {
-                const newLang = currentLang === 'en' ? 'hi' : 'en';
-                sessionStorage.setItem('portal_lang', newLang);
-                if (newLang === 'hi') {
-                    document.cookie = "googtrans=/en/hi; path=/;";
-                    document.cookie = "googtrans=/en/hi; path=/; domain=." + window.location.hostname;
-                } else {
-                    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname;
-                }
-                window.location.reload();
-            };
+        const runSetup = () => {
+            updateToggleButtons();
+            excludeDatabaseTables();
+            setupTransliteration();
 
             if (currentLang === 'hi') {
-                // Run corrections and table exclusions immediately before Google Translate loads
-                excludeDatabaseTables(document.body);
                 applyHybridCorrections(document.body);
-
-                document.cookie = "googtrans=/en/hi; path=/;";
-                
-                window.googleTranslateElementInit = function () {
-                    new google.translate.TranslateElement({
-                        pageLanguage: 'en',
-                        includedLanguages: 'hi',
-                        autoDisplay: false
-                    }, 'google_translate_element');
-                };
-
-                const gtScript = document.createElement('script');
-                gtScript.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
-                document.body.appendChild(gtScript);
             }
 
-            // --- Hindi Transliteration for Remarks/Reason fields ---
-            const setupTransliteration = () => {
-                const isRemarksField = (el) => {
-                    if (!el) return false;
-                    const id = (el.id || '').toLowerCase();
-                    const name = (el.name || '').toLowerCase();
-                    const ph = (el.placeholder || '').toLowerCase();
-                    return id.includes('remark') || name.includes('remark') || ph.includes('remark') ||
-                           id.includes('reason') || name.includes('reason') || ph.includes('reason') ||
-                           id.includes('टिप्पणी') || ph.includes('टिप्पणी');
-                };
+            const tableObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            excludeDatabaseTables(node);
 
-                const fetchTransliteration = async (text) => {
-                    try {
-                        const url = `https://inputtools.google.com/request?text=${encodeURIComponent(text)}&itc=hi-t-i0-und&num=1&cp=0-0&cs=1&ie=utf-8&oe=utf-8`;
-                        const res = await fetch(url);
-                        if (!res.ok) return null;
-                        const data = await res.json();
-                        if (data && data[0] === 'SUCCESS' && data[1] && data[1][0] && data[1][0][1]) {
-                            return data[1][0][1][0];
-                        }
-                    } catch (e) {
-                        console.error('Transliteration failed:', e);
-                    }
-                    return null;
-                };
-
-                const handleInputKey = async (e) => {
-                    const el = e.target;
-                    if (!el || !el.dataset.transliterationEnabled) return;
-                    
-                    if (e.keyCode === 32 || e.keyCode === 13) {
-                        const val = el.value;
-                        const start = el.selectionStart;
-                        
-                        const textBeforeCursor = val.substring(0, start);
-                        const match = textBeforeCursor.match(/(\S+)$/);
-                        if (!match) return;
-                        
-                        const lastWord = match[1];
-                        if (/[\u0900-\u097F]/.test(lastWord)) return;
-                        
-                        e.preventDefault();
-                        
-                        const translated = await fetchTransliteration(lastWord);
-                        if (translated) {
-                            const newTextBeforeCursor = textBeforeCursor.substring(0, textBeforeCursor.length - lastWord.length) + translated;
-                            const textAfterCursor = val.substring(start);
-                            el.value = newTextBeforeCursor + textAfterCursor;
-                            el.selectionStart = el.selectionEnd = newTextBeforeCursor.length;
-                        }
-                        
-                        const currentStart = el.selectionStart;
-                        const currentVal = el.value;
-                        const suffix = e.keyCode === 32 ? ' ' : '\n';
-                        el.value = currentVal.substring(0, currentStart) + suffix + currentVal.substring(currentStart);
-                        el.selectionStart = el.selectionEnd = currentStart + 1;
-                        
-                        el.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                };
-
-                const injectToggleSwitch = (el) => {
-                    if (el.dataset.transliterationSetup) return;
-                    el.dataset.transliterationSetup = 'true';
-                    
-                    const container = document.createElement('div');
-                    container.className = 'transliteration-toggle-container notranslate';
-                    container.setAttribute('translate', 'no');
-                    container.style.cssText = 'display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 12px; font-weight: 500; color: #4b5563; user-select: none;';
-                    
-                    const chk = document.createElement('input');
-                    chk.type = 'checkbox';
-                    chk.className = 'transliteration-chk';
-                    chk.style.cssText = 'cursor: pointer; width: 14px; height: 14px; margin: 0;';
-                    
-                    const lbl = document.createElement('label');
-                    lbl.textContent = 'Type in Hindi / हिंदी में लिखें';
-                    lbl.style.cssText = 'cursor: pointer; margin: 0;';
-                    
-                    container.appendChild(chk);
-                    container.appendChild(lbl);
-                    
-                    el.parentNode.insertBefore(container, el.nextSibling);
-                    
-                    chk.addEventListener('change', () => {
-                        if (chk.checked) {
-                            el.dataset.transliterationEnabled = 'true';
-                            el.classList.add('notranslate');
-                            el.setAttribute('translate', 'no');
-                        } else {
-                            delete el.dataset.transliterationEnabled;
-                        }
-                    });
-                    
-                    el.addEventListener('keydown', handleInputKey);
-                };
-
-                document.addEventListener('focusin', (e) => {
-                    if (e.target && (e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && e.target.type === 'text'))) {
-                        if (isRemarksField(e.target)) {
-                            injectToggleSwitch(e.target);
-                        }
-                    }
-                });
-            };
-
-            const runSetup = () => {
-                updateToggleButtons();
-                excludeDatabaseTables();
-                setupTransliteration();
-                
-                if (currentLang === 'hi') {
-                    applyHybridCorrections(document.body);
-                }
-                
-                const tableObserver = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        mutation.addedNodes.forEach((node) => {
-                            if (node.nodeType === Node.ELEMENT_NODE) {
-                                excludeDatabaseTables(node);
-                                
-                                if (currentLang === 'hi') {
-                                    applyHybridCorrections(node);
-                                }
+                            if (currentLang === 'hi') {
+                                applyHybridCorrections(node);
                             }
-                        });
+                        }
                     });
                 });
-                tableObserver.observe(document.body, { childList: true, subtree: true });
-            };
+            });
+            tableObserver.observe(document.body, { childList: true, subtree: true });
+        };
 
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', runSetup);
-            } else {
-                runSetup();
-            }
-        })();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runSetup);
+        } else {
+            runSetup();
+        }
+        }) ();
     </script>
     {% endif %}
+    <!-- Mandatory Password Change Modal for DC/EDM/Admin -->
+    {% if session.get('access_token') and not session.get('has_changed_password', 1) and session.get('role') in ['DC',
+    'EDM', 'Admin'] %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            Swal.fire({
+                title: 'Action Required: Change Default Password',
+                html: `
+                <p style="font-size: 14px; color: #5A5F7A; text-align: left; margin-bottom: 20px;">
+                    For security reasons, you must change your default password before accessing the system.
+                </p>
+                <div style="text-align: left; margin-bottom: 15px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px;">Current Password</label>
+                    <input type="password" id="swal-current-password" class="swal2-input" placeholder="Current Password" style="margin: 0; width: 100%; max-width: 100%; height: 44px; font-size: 15px;">
+                </div>
+                <div style="text-align: left; margin-bottom: 15px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px;">New Password</label>
+                    <input type="password" id="swal-new-password" class="swal2-input" placeholder="New Password" style="margin: 0; width: 100%; max-width: 100%; height: 44px; font-size: 15px;">
+                    <div style="margin-top: 8px;">
+                        <div style="height: 4px; background: #E0E4F0; border-radius: 2px; overflow: hidden;">
+                            <div id="swal-strength-bar" style="height: 100%; width: 0%; transition: all 0.3s ease; background-color: #EF4444;"></div>
+                        </div>
+                        <div id="swal-strength-text" style="font-size: 12px; margin-top: 4px; color: #5A5F7A;">Password strength</div>
+                    </div>
+                </div>
+                <div style="text-align: left; margin-bottom: 5px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px;">Confirm New Password</label>
+                    <input type="password" id="swal-confirm-password" class="swal2-input" placeholder="Confirm New Password" style="margin: 0; width: 100%; max-width: 100%; height: 44px; font-size: 15px;">
+                </div>
+            `,
+                icon: 'warning',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showCancelButton: false,
+                confirmButtonText: 'Change Password',
+                confirmButtonColor: '#6C4FE8',
+                didOpen: () => {
+                    const newPassInput = document.getElementById('swal-new-password');
+                    const strengthBar = document.getElementById('swal-strength-bar');
+                    const strengthText = document.getElementById('swal-strength-text');
+
+                    newPassInput.addEventListener('input', (e) => {
+                        const pass = e.target.value;
+                        let strength = 0;
+                        if (pass.length >= 8) strength += 1;
+                        if (/[a-z]/.test(pass)) strength += 1;
+                        if (/[A-Z]/.test(pass)) strength += 1;
+                        if (/\d/.test(pass)) strength += 1;
+                        if (/[!@#$%^&*(),.?":{}|<>]/.test(pass)) strength += 1;
+
+                        let color = '#E0E4F0';
+                        let text = 'Password strength';
+                        let width = '0%';
+
+                        if (pass.length === 0) {
+                            width = '0%';
+                            color = '#E0E4F0';
+                            text = 'Password strength';
+                        } else if (strength <= 2) {
+                            color = '#EF4444'; // Red
+                            text = 'Weak (Needs more variety)';
+                            width = '33%';
+                        } else if (strength <= 4) {
+                            color = '#F59E0B'; // Yellow
+                            text = 'Medium (Getting better)';
+                            width = '66%';
+                        } else {
+                            color = '#10B981'; // Green
+                            text = 'Strong (Good to go!)';
+                            width = '100%';
+                        }
+
+                        strengthBar.style.width = width;
+                        strengthBar.style.backgroundColor = color;
+                        strengthText.innerText = text;
+                        strengthText.style.color = color === '#E0E4F0' ? '#5A5F7A' : color;
+                    });
+                },
+                preConfirm: () => {
+                    const current = document.getElementById('swal-current-password').value;
+                    const newPass = document.getElementById('swal-new-password').value;
+                    const confirmPass = document.getElementById('swal-confirm-password').value;
+
+                    if (!current || !newPass || !confirmPass) {
+                        Swal.showValidationMessage('All fields are required');
+                        return false;
+                    }
+                    if (current === newPass) {
+                        Swal.showValidationMessage('New password cannot be the same as the current password');
+                        return false;
+                    }
+                    if (newPass !== confirmPass) {
+                        Swal.showValidationMessage('New passwords do not match');
+                        return false;
+                    }
+                    if (newPass.length < 8) {
+                        Swal.showValidationMessage('Password must be at least 8 characters long');
+                        return false;
+                    }
+                    if (!/[a-z]/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one lowercase letter');
+                        return false;
+                    }
+                    if (!/[A-Z]/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one uppercase letter');
+                        return false;
+                    }
+                    if (!/\d/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one number');
+                        return false;
+                    }
+                    if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one special character');
+                        return false;
+                    }
+
+                    return {
+                        current_password: current,
+                        new_password: newPass
+                    };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const data = result.value;
+                    Swal.fire({
+                        title: 'Updating...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    fetch('{{ config.BACKEND_API_URL }}/auth/change-password', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer {{ session.access_token }}'
+                        },
+                        body: JSON.stringify(data)
+                    })
+                        .then(res => res.json())
+                        .then(apiRes => {
+                            if (apiRes.success) {
+                                fetch('{{ url_for("auth.session_has_changed_password") }}', { method: 'POST' })
+                                    .then(() => {
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: 'Success',
+                                            text: 'Password has been updated!',
+                                            confirmButtonColor: '#6C4FE8'
+                                        }).then(() => {
+                                            window.location.reload();
+                                        });
+                                    });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: apiRes.detail || 'Failed to update password',
+                                    confirmButtonText: 'Try Again',
+                                    confirmButtonColor: '#6C4FE8'
+                                }).then(() => {
+                                    window.location.reload();
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            Swal.fire('Error', 'Failed to connect to server', 'error');
+                        });
+                }
+            });
+        });
+    </script>
+    {% endif %}
+
+    {% block extra_js %}{% endblock %}
 </body>
 
 </html>

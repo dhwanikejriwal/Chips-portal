@@ -59,6 +59,41 @@
         <!-- STEP 1: OPERATOR DETAILS PANEL -->
         <div class="oa-form-step active" id="step-1-panel">
 
+            {% if not reapply_id %}
+            <div
+                style="margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; position: relative;">
+                <h2 class="container-sub-title"
+                    style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; margin-bottom: 10px;">
+                    Search Eligible Operator
+                </h2>
+                <div style="display: flex; gap: 10px; align-items: center; position: relative;">
+                    <input type="text" id="operator_search_input" class="form-control-input"
+                        placeholder="Search by Name, Mobile, or Email..."
+                        style="flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #cbd5e1;"
+                        oninput="debounceSearch(this.value)">
+
+                    <div id="search_spinner" style="display: none;">
+                        <svg class="animate-spin" style="width:20px;height:20px;color:#3b82f6;"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                            </circle>
+                            <path class="opacity-75" fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                            </path>
+                        </svg>
+                    </div>
+                </div>
+                <!-- Dropdown for Search Results -->
+                <div id="search_results_dropdown"
+                    style="display: none; position: absolute; top: 100%; left: 15px; right: 15px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); max-height: 200px; overflow-y: auto; z-index: 50; margin-top: 4px;">
+                    <!-- Results populated by JS -->
+                </div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
+                    Selecting an operator will automatically fill their details below.
+                </div>
+            </div>
+            {% endif %}
+
 
             <div style="margin-bottom: 30px;">
                 <h2 class="container-sub-title"
@@ -126,9 +161,26 @@
             </div>
 
             <div style="margin-bottom: 30px;">
-                <h2 class="container-sub-title"
-                    style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
-                    2. OPERATOR'S WORK & CERTIFICATION DETAILS</h2>
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
+                    <h2 class="container-sub-title"
+                        style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; margin: 0;">
+                        2. OPERATOR'S WORK & CERTIFICATION DETAILS
+                    </h2>
+                    <button type="button" class="oa-btn"
+                        onclick="document.getElementById('nseit_autofill_file').click()"
+                        style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; font-weight: 600; height: 32px; box-sizing: border-box; background-color: #3b82f6; color: white; border: none; border-radius: 6px; padding: 0 12px; cursor: pointer; white-space: nowrap;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        NSEIT certificate
+                    </button>
+                    <input type="file" id="nseit_autofill_file" accept=".pdf,image/*" style="display: none;"
+                        onchange="handleNseitUpload(event)">
+                </div>
 
                 <div class="form-grid-4x">
                     <div class="input-group">
@@ -259,8 +311,11 @@
                     UPLOAD DOCUMENTS
                 </h2>
                 {% if reapply_id %}
-                <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; text-align: left;">
-                    <span style="font-size: 13px; color: #1e40af;"><strong style="font-weight: 700;">Note:</strong> Only upload files if you want to replace/update the existing ones; otherwise, previously submitted documents will be kept as-is.</span>
+                <div
+                    style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; text-align: left;">
+                    <span style="font-size: 13px; color: #1e40af;"><strong style="font-weight: 700;">Note:</strong> Only
+                        upload files if you want to replace/update the existing ones; otherwise, previously submitted
+                        documents will be kept as-is.</span>
                 </div>
                 {% endif %}
                 <div class="oa-docs-grid">
@@ -501,12 +556,32 @@
             e.preventDefault();
 
             Swal.fire({
-                title: 'Submitting Request...',
-                html: 'Uploading documents and validating with AI, please wait...',
+                title: 'Processing Submission...',
+                html: '<div id="swal-progress-text" style="margin-bottom:10px; font-weight:500; color:#1e293b;">Uploading documents...</div><span style="font-size: 0.85em; color: #64748b;">This takes 15-20 seconds. Please do not refresh.</span>',
                 allowOutsideClick: false,
                 showConfirmButton: false,
                 didOpen: () => {
                     Swal.showLoading();
+                    const steps = [
+                        { text: "Verifying Aadhaar Card OCR...", time: 2000 },
+                        { text: "Validating PAN Card details...", time: 4500 },
+                        { text: "Checking Bank Passbook authenticity...", time: 7500 },
+                        { text: "Scanning NSEIT Certificate...", time: 10500 },
+                        { text: "Processing Consent Form...", time: 13000 },
+                        { text: "Finalizing Submission...", time: 15500 }
+                    ];
+                    window._submitTimers = [];
+                    steps.forEach(step => {
+                        window._submitTimers.push(setTimeout(() => {
+                            const pText = document.getElementById('swal-progress-text');
+                            if (pText && Swal.isVisible()) pText.innerHTML = step.text;
+                        }, step.time));
+                    });
+                },
+                willClose: () => {
+                    if (window._submitTimers) {
+                        window._submitTimers.forEach(t => clearTimeout(t));
+                    }
                 }
             });
 
@@ -572,15 +647,7 @@
                             firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }
 
-                        // Ensure we are on the step that has the error
-                        const firstErrorInput = document.querySelector('.oa-field-error').previousElementSibling;
-                        const errorStep = firstErrorInput ? firstErrorInput.closest('.oa-form-step') : null;
-                        if (errorStep) {
-                            const stepIndex = parseInt(errorStep.id.replace('step-', '').replace('-panel', ''));
-                            if (!isNaN(stepIndex)) {
-                                goToStep(stepIndex);
-                            }
-                        }
+                        // Step logic removed since this is a single page form
 
                     } else {
                         // Show general error in banner
@@ -601,10 +668,11 @@
                     }
                 }
             } catch (err) {
+                console.error("Form submission error:", err);
                 Swal.fire({
                     icon: 'error',
-                    title: 'Network Error',
-                    text: 'Failed to connect to the server. Please try again.'
+                    title: 'Submission Error',
+                    text: 'An error occurred during submission. Please check the console for details.'
                 });
             }
         });
@@ -843,7 +911,7 @@
     const DRAFT_KEY = 'oa_activation_draft';
     const isReapplyMode = "{{ 'true' if reapply_id else 'false' }}" === "true";
 
-    window.saveDraft = function() {
+    window.saveDraft = function () {
         if (isReapplyMode) return;
         const form = document.getElementById('oa-activation-form');
         if (!form) return;
@@ -856,7 +924,7 @@
         sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     };
 
-    window.loadDraft = function() {
+    window.loadDraft = function () {
         if (isReapplyMode) return;
         const draftStr = sessionStorage.getItem(DRAFT_KEY);
         if (!draftStr) return;
@@ -875,7 +943,7 @@
         }
     };
 
-    window.clearDraftAndForm = function() {
+    window.clearDraftAndForm = function () {
         sessionStorage.removeItem(DRAFT_KEY);
         if (typeof window.clearFormFields === 'function') {
             window.clearFormFields();
@@ -893,7 +961,7 @@
 
         // Add file size validation matching reactivation
         document.querySelectorAll('.oa-file-input').forEach(input => {
-            input.addEventListener('change', function() {
+            input.addEventListener('change', function () {
                 // Remove any existing error message
                 const parent = this.closest('.oa-doc-card');
                 if (parent) {
@@ -910,7 +978,7 @@
                     if (file.size > maxBytes) {
                         // Clear input to enforce strictness
                         this.value = '';
-                        
+
                         // Add red warning message below the field
                         errEl = document.createElement('div');
                         errEl.className = 'error-msg-file';
@@ -943,11 +1011,249 @@
             }
             return;
         }
-        
+
         // Otherwise try to load the draft
         if (!isReapplyMode) {
             window.loadDraft();
         }
     });
 
+    // Debounce Timer
+    let searchTimeout = null;
+
+    function debounceSearch(query) {
+        clearTimeout(searchTimeout);
+        const spinner = document.getElementById('search_spinner');
+        const dropdown = document.getElementById('search_results_dropdown');
+
+        if (!query || query.length < 3) {
+            dropdown.style.display = 'none';
+            if (spinner) spinner.style.display = 'none';
+            return;
+        }
+
+        if (spinner) spinner.style.display = 'block';
+
+        searchTimeout = setTimeout(() => {
+            fetchCandidates(query);
+        }, 500);
+    }
+
+    async function fetchCandidates(query) {
+        const spinner = document.getElementById('search_spinner');
+        const dropdown = document.getElementById('search_results_dropdown');
+
+        try {
+            const res = await fetch(`/auth/dc/operator-activation/search?q=${encodeURIComponent(query)}`);
+            if (res.ok) {
+                const candidates = await res.json();
+                dropdown.innerHTML = '';
+
+                if (candidates.length === 0) {
+                    dropdown.innerHTML = '<div style="padding: 10px; color: #64748b; font-size: 13px;">No eligible operators found.</div>';
+                } else {
+                    candidates.forEach(c => {
+                        const div = document.createElement('div');
+                        div.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 13px; display: flex; flex-direction: column; gap: 2px;';
+                        div.onmouseover = () => div.style.backgroundColor = '#f8fafc';
+                        div.onmouseout = () => div.style.backgroundColor = 'transparent';
+                        div.onclick = () => selectCandidate(c);
+
+                        div.innerHTML = `
+                            <strong style="color: #0f172a;">${c.name}</strong>
+                            <span style="color: #475569;">${c.mobile} | ${c.email}</span>
+                        `;
+                        dropdown.appendChild(div);
+                    });
+                }
+                dropdown.style.display = 'block';
+            }
+        } catch (e) {
+            console.error("Search failed", e);
+        } finally {
+            if (spinner) spinner.style.display = 'none';
+        }
+    }
+
+    function selectCandidate(c) {
+        // Auto-fill fields
+        if (document.getElementById('name_as_per_aadhaar')) {
+            document.getElementById('name_as_per_aadhaar').value = c.name;
+        }
+        if (document.getElementById('operator_mobile')) {
+            document.getElementById('operator_mobile').value = c.mobile;
+        }
+        if (document.getElementById('primary_email')) {
+            document.getElementById('primary_email').value = c.email;
+        }
+        if (document.getElementById('operator_aadhaar') && c.aadhaar_last4) {
+            document.getElementById('operator_aadhaar').value = c.aadhaar_last4;
+        }
+        if (document.getElementById('pincode') && c.pincode) {
+            document.getElementById('pincode').value = c.pincode;
+        }
+        if (document.getElementById('nseit_certificate_number') && c.nseit_id) {
+            document.getElementById('nseit_certificate_number').value = c.nseit_id;
+        }
+        if (document.getElementById('nseit_certification_date') && c.issue_date) {
+            document.getElementById('nseit_certification_date').value = c.issue_date;
+            if (typeof autoFillExpiryDate === 'function') autoFillExpiryDate();
+        }
+
+        // Trigger user code autofill logic
+        if (typeof autoFillUserCode === 'function') autoFillUserCode();
+
+        // Close dropdown & clear input
+        const dropdown = document.getElementById('search_results_dropdown');
+        if (dropdown) dropdown.style.display = 'none';
+        const searchInput = document.getElementById('operator_search_input');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+    }
+
+    // Hide dropdown on outside click
+    document.addEventListener('click', (e) => {
+        const dropdown = document.getElementById('search_results_dropdown');
+        const input = document.getElementById('operator_search_input');
+        if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    async function handleNseitUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Automatically copy this file to the main form's document grid
+        // so the user doesn't have to upload it twice!
+        const mainNseitInput = document.querySelector('input[name="nseit_certificate"]');
+        if (mainNseitInput) {
+            try {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                mainNseitInput.files = dt.files;
+
+                // Add visual feedback
+                const parent = mainNseitInput.closest('.oa-doc-card');
+                if (parent) {
+                    let existingMsg = parent.querySelector('.auto-upload-msg');
+                    if (!existingMsg) {
+                        existingMsg = document.createElement('div');
+                        existingMsg.className = 'auto-upload-msg';
+                        existingMsg.style.fontSize = '11px';
+                        existingMsg.style.color = '#059669';
+                        existingMsg.style.marginTop = '4px';
+                        parent.appendChild(existingMsg);
+                    }
+                    existingMsg.innerHTML = `✓ Auto-attached from autofill: ${file.name}`;
+                }
+
+                // Dispatch change event to trigger any listeners like file size validation
+                mainNseitInput.dispatchEvent(new Event('change', { bubbles: true }));
+            } catch (e) {
+                console.warn("Could not copy file to main input automatically.", e);
+            }
+        }
+
+        // Show spinner/alert
+        Swal.fire({
+            title: 'Reading Certificate...',
+            html: 'Extracting details using AI, please wait...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const formData = new FormData();
+        formData.append('nseit_certificate', file);
+
+        // Add operator name if it's already filled to cross-verify
+        const operatorNameInput = document.getElementById('name_as_per_aadhaar');
+        if (operatorNameInput && operatorNameInput.value.trim()) {
+            formData.append('operator_name', operatorNameInput.value.trim());
+        }
+
+        try {
+            const response = await fetch('/auth/dc/operator-activation/autofill-nseit', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    if (data.match_type === 'database') {
+                        // Found a matching candidate in DB! Fill everything.
+                        selectCandidate(data.candidate);
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Match Found!',
+                            text: 'Candidate details have been completely auto-filled.',
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
+                    } else if (data.match_type === 'parsed_only') {
+                        // Fill what we found
+                        let filled = false;
+                        if (data.parsed_data.name && document.getElementById('name_as_per_aadhaar')) {
+                            document.getElementById('name_as_per_aadhaar').value = data.parsed_data.name;
+                            filled = true;
+                        }
+                        if (data.parsed_data.cert_no && document.getElementById('nseit_certificate_number')) {
+                            document.getElementById('nseit_certificate_number').value = data.parsed_data.cert_no;
+                            filled = true;
+                        }
+                        if (data.parsed_data.issue_date && document.getElementById('nseit_certification_date')) {
+                            document.getElementById('nseit_certification_date').value = data.parsed_data.issue_date;
+                            if (typeof autoFillExpiryDate === 'function') autoFillExpiryDate();
+                            filled = true;
+                        }
+
+                        if (typeof autoFillUserCode === 'function') autoFillUserCode();
+
+                        if (filled) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Auto-filled successfully!',
+                                showConfirmButton: false,
+                                timer: 1500
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'No Details Found',
+                                text: 'We could not extract useful text from this document. Please enter manually.',
+                            });
+                        }
+                    }
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Extraction Failed',
+                        text: data.message || 'Could not parse the certificate.'
+                    });
+                }
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Upload Failed',
+                    text: 'An error occurred on the server.'
+                });
+            }
+        } catch (e) {
+            console.error("Upload error", e);
+            Swal.fire({
+                icon: 'error',
+                title: 'Network Error',
+                text: 'Could not connect to the server.'
+            });
+        } finally {
+            // Reset file input so same file can be uploaded again if needed
+            event.target.value = '';
+        }
+    }
 </script>

@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+
+{% block title %}Onboarding Details — CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    .onboarding-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        padding: 24px;
+        margin-bottom: 24px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .onboarding-card h3 {
+        margin: 0 0 24px 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #475569;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 12px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 8px;
+    }
+
+    .form-group select, .form-group input[type="text"] {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #1e293b;
+        background-color: white;
+    }
+    
+    .form-group select:focus, .form-group input[type="text"]:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .row-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
+    }
+
+    .btn-submit {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        padding: 10px 32px;
+        border-radius: 20px;
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        display: block;
+        margin: 24px auto 0 auto;
+    }
+
+    .btn-submit:hover {
+        background-color: #2563eb;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="chips-header-banner" style="padding-bottom: 0; background: transparent;">
+    <h1 style="color: #1e293b; font-size: 16px; text-transform: uppercase; margin: 0 0 20px 0;">ONBOARDING AND OTHER DETAILS ENTRY</h1>
+</div>
+
+<div class="onboarding-card">
+    <h3>Onboarding and Other Details Entry After L2 Done</h3>
+    <form id="onboarding-form">
+        
+        <div class="form-group" style="max-width: 500px;">
+            <label>Station ID <span style="color: #dc2626;">*</span></label>
+            <select id="station_id" required>
+                <option value="" disabled selected>--- Select Station Id ---</option>
+            </select>
+        </div>
+
+        <div class="row-3">
+            <div class="form-group">
+                <label>Operator Onboarding Status <span style="color: #dc2626;">*</span></label>
+                <select id="onboarding_status" required>
+                    <option value="" disabled selected>Choose...</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Pending">Pending</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>ASK Kit Working Status <span style="color: #dc2626;">*</span></label>
+                <select id="ask_kit_status" required>
+                    <option value="" disabled selected>Choose...</option>
+                    <option value="Working">Working</option>
+                    <option value="Not Working">Not Working</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Permitted For 18+ Enrollment <span style="color: #dc2626;">*</span></label>
+                <select id="permitted_18_plus" required>
+                    <option value="" disabled selected>Choose...</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Remark</label>
+            <input type="text" id="remark" placeholder="Enter a Remark">
+        </div>
+
+        <button type="submit" class="btn-submit" id="btn-submit">Submit</button>
+
+    </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        loadOptions();
+
+        document.getElementById('onboarding-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            
+            const stationId = document.getElementById('station_id').value;
+            const onboardingStatus = document.getElementById('onboarding_status').value;
+            const askKitStatus = document.getElementById('ask_kit_status').value;
+            const permitted18 = document.getElementById('permitted_18_plus').value;
+            const remark = document.getElementById('remark').value;
+
+            if (!stationId || !onboardingStatus || !askKitStatus || !permitted18) {
+                Swal.fire({ icon: 'warning', title: 'Missing Fields', text: 'Please fill in all required fields.' });
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            btn.innerText = 'Submitting...';
+
+            try {
+                const response = await fetch('/auth/dc/operator-onboarding', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        station_id: stationId, 
+                        onboarding_status: onboardingStatus,
+                        ask_kit_working_status: askKitStatus,
+                        permitted_18_plus: permitted18,
+                        remark: remark
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Submitted Successfully',
+                        text: 'The operator onboarding details have been saved.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    
+                    document.getElementById('onboarding-form').reset();
+                    loadOptions(); // Refresh the list of pending station IDs
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'Could not save details.' });
+                }
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Network Error', text: 'Could not connect to server.' });
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Submit';
+            }
+        });
+    });
+
+    async function loadOptions() {
+        try {
+            const res = await fetch('/auth/dc/operator-onboarding/options');
+            if (!res.ok) return;
+            const data = await res.json();
+
+            const stationSelect = document.getElementById('station_id');
+            stationSelect.innerHTML = '<option value="" disabled selected>--- Select Station Id ---</option>';
+            data.station_ids.forEach(sid => {
+                const opt = document.createElement('option');
+                opt.value = sid;
+                opt.textContent = sid;
+                stationSelect.appendChild(opt);
+            });
+
+        } catch (e) {
+            console.error("Failed to load options", e);
+        }
+    }
+</script>
+{% endblock %}

@@ -446,3 +446,27 @@ def proxy_reject_all_batch(request_code):
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@reactivation_bp.route("/dc/operator-reactivation/search", methods=["GET"])
+def search_suspended_operators():
+    if not session.get("username"):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        q = request.args.get("q", "")
+        raw_token = session.get("access_token", "")
+        if isinstance(raw_token, dict):
+            raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+            
+        headers = {}
+        if raw_token:
+            headers["Authorization"] = f"Bearer {str(raw_token).strip()}"
+        
+        backend_url = f"{FASTAPI_URL}/search-suspended-operators"
+        response = requests.get(f"{backend_url}?q={q}", headers=headers, timeout=5)
+        
+        if response.status_code == 200:
+            return jsonify(response.json())
+        else:
+            return jsonify({"status": "error", "message": "Search failed"}), response.status_code
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500

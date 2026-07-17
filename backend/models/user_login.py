@@ -21,6 +21,7 @@ class UserLogin(Base):
     district_id: Mapped[str | None] = mapped_column(String(20), ForeignKey("district_table.district_code"), nullable=True)
     roleid: Mapped[int] = mapped_column(Integer, ForeignKey("master_user_role.id"), nullable=False)
     is_active: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    has_changed_password: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Relationships
     role: Mapped["MasterUserRole"] = relationship("MasterUserRole", back_populates="users")

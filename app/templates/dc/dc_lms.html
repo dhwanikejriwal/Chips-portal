@@ -14,7 +14,8 @@
 {% set forwarded_count = sent_to_chips_requests | length %}
 {% set approved_count = processed_requests | selectattr('lms_status', 'equalto', 'APPROVED') | list | length %}
 {% set reverted_count = processed_requests | selectattr('lms_status', 'equalto', 'REVERTED') | list | length %}
-{% set reverted_by_chips_count = processed_requests | selectattr('lms_status', 'equalto', 'REVERTED_BY_CHIPS') | list | length %}
+{% set reverted_by_chips_count = processed_requests | selectattr('lms_status', 'equalto', 'REVERTED_BY_CHIPS') | list |
+length %}
 
 <!-- LMS Control Panel Banner -->
 <div class="chips-header-banner">
@@ -39,7 +40,8 @@
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ forwarded_count }}</div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ forwarded_count }}
+            </div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Forwarded</div>
         </div>
         <div class="chips-metric-card">
@@ -51,12 +53,15 @@
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ reverted_by_chips_count }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted by CHiPS</div>
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ reverted_by_chips_count
+                }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted by CHiPS
+            </div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
+            </div>
         </div>
     </div>
 </div>
@@ -73,7 +78,7 @@
     <div class="filter-group">
         <label>Time Period</label>
         <select id="admin-date-filter" class="filter-input" onchange="filterAdminQueues()">
-            <option value="all">All Time</option>
+            <option value="all" selected>All Time</option>
             <option value="today">Today</option>
             <option value="week">Week</option>
             <option value="month" selected>Month</option>
@@ -164,7 +169,8 @@
                 </td>
                 <td style="text-align: center;">
                     <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
-                        <button type="button" class="btn btn-sm" style="background-color: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; font-weight: 600;"
+                        <button type="button" class="btn btn-sm"
+                            style="background-color: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; font-weight: 600;"
                             onclick="openForwardModal('{{ req.r_id }}', '{{ req.name }}')">Forward</button>
                         <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
                             onclick="openRevertModal('{{ req.r_id }}', '{{ req.name }}')">Revert</button>
@@ -371,7 +377,7 @@
 <script>
     function clearAllFilters() {
         document.getElementById('admin-search-input').value = '';
-        document.getElementById('admin-date-filter').value = 'month';
+        document.getElementById('admin-date-filter').value = 'all';
         const pendingFilter = document.getElementById('admin-pending-status-filter');
         if (pendingFilter) pendingFilter.value = 'all';
         const chipsFilter = document.getElementById('admin-chips-status-filter');
@@ -911,9 +917,9 @@
                 const candidateLogs = remarks.filter(r => (r.sender_role || '').toLowerCase() === 'candidate');
                 const firstCandidateLog = candidateLogs.find(r => {
                     const rem = (r.remark || '').trim();
-                    return rem !== '' && 
-                           !rem.toLowerCase().includes('lms request submitted') && 
-                           !rem.toLowerCase().includes('nseit request submitted');
+                    return rem !== '' &&
+                        !rem.toLowerCase().includes('lms request submitted') &&
+                        !rem.toLowerCase().includes('nseit request submitted');
                 });
                 if (firstCandidateLog) {
                     candidateReRequestReason = firstCandidateLog.remark.replace(/^CANDIDATE ALREADY HAS EXISTING ID:\s*/i, '').trim();

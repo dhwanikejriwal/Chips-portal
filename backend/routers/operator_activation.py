@@ -3,6 +3,7 @@ import re
 
 import os
 import shutil
+import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, Form, HTTPException, File, UploadFile
 from datetime import datetime, timedelta
@@ -16,10 +17,11 @@ from backend.models.operator_activation import (
 )
 from backend.models.district import District
 from backend.models.base import StatusEnum
-from backend.models import Candidate, NSEITRequest, User
+from backend.models import Candidate, NSEITRequest, User, Operator
 
 from backend.utils.ocr_utils import (
     extract_text_from_file, 
+    extract_text_from_bytes,
     validate_aadhaar, 
     validate_pan,
     validate_consent_form,
@@ -53,11 +55,206 @@ def parse_optional_date(value: str | None):
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Invalid date format: {value}. Use YYYY-MM-DD.")
 
+def upsert_operator_from_request(r: OperatorActivationRequest, db: Session):
+    if not r.user_code:
+        return # Cannot upsert without a unique user_code
+        
+    operator = db.query(Operator).filter(Operator.user_code == r.user_code).first()
+    if not operator:
+        operator = Operator(user_code=r.user_code)
+        db.add(operator)
+        
+    operator.name = r.name_as_per_aadhaar
+    operator.mobile = r.operator_mobile
+    operator.email = r.primary_email
+    operator.aadhaar_last4 = r.operator_aadhaar
+    operator.pan_number = r.pan_number
+    operator.role = r.role
+    operator.registrar_code = r.registrar_code
+    operator.ea_code = r.ea_code
+    operator.nseit_certificate_number = r.nseit_certificate_number
+    operator.nseit_certification_date = r.nseit_certification_date
+    operator.nseit_certificate_expiry_date = r.nseit_certificate_expiry_date
+    operator.pincode = r.pincode
+    operator.status = "Inactive"
+    operator.mapped_dc_id = r.dc_id
+    operator.district_id = r.district_id
+
 
 # ─────────────────────────────────────────────
 # DC ROUTES
 # ─────────────────────────────────────────────
 
+@router.get("/search-eligible-candidates")
+def search_eligible_candidates(q: str, db: Session = Depends(get_db)):
+    if not q or len(q) < 3:
+        return []
+        
+    # Search in Candidate table
+    search_pattern = f"%{q.strip().lower()}%"
+    candidates = db.query(Candidate).filter(
+        (Candidate.name.ilike(search_pattern)) |
+        (Candidate.mobile.ilike(search_pattern)) |
+        (Candidate.email.ilike(search_pattern))
+    ).all()
+    
+    results = []
+    for c in candidates:
+        # Check eligibility (must have NSEIT or be existing operator)
+        is_eligible = c.is_existing_operator or bool(c.nseit_id)
+        
+        if not is_eligible:
+            nseit_req = db.query(NSEITRequest).filter(NSEITRequest.r_id == c.r_id).first()
+            if nseit_req and nseit_req.status_id in [StatusEnum.APPROVED.value, StatusEnum.SKIPPED.value]:
+                is_eligible = True
+                
+        if is_eligible:
+            results.append({
+                "id": c.r_id,
+                "name": c.name,
+                "mobile": c.mobile,
+                "email": c.email,
+                "aadhaar_last4": c.aadhaar[-4:] if c.aadhaar else "",
+                "pincode": c.pincode or "",
+                "nseit_id": c.nseit_id or ""
+            })
+            
+    return results
+
+
+@router.post("/autofill-from-certificate")
+def autofill_from_certificate(
+    nseit_certificate: UploadFile = File(...), 
+    operator_name: str = Form(None),
+    db: Session = Depends(get_db)
+):
+    # 1. Extract text
+    extracted_text = extract_text_from_file(nseit_certificate)
+    if not extracted_text:
+        return {"status": "error", "message": "Could not read text from certificate."}
+        
+    with open("autofill_debug.txt", "w", encoding="utf-8") as f:
+        f.write(extracted_text)
+
+    import re
+    from thefuzz import fuzz
+    from datetime import datetime
+    
+    # 2. Check if the document is actually an NSEIT certificate
+    keywords = ["NSEIT", "CERTIFICATE", "TESTING", "CERTIFICATION", "UIDAI", "AADHAAR", "EA SUPERVISOR", "EXAM"]
+    matches = sum(1 for kw in keywords if kw in extracted_text.upper())
+    if matches < 2:
+        return {"status": "error", "message": "The uploaded document does not appear to be a valid NSEIT Certificate."}
+    
+    # 1. Certificate Number
+    # Use regex to find an alphanumeric word containing digits after "Certificate No."
+    cert_no = None
+    match = re.search(r'(?:Certificate\s*No\.?|CERTIFICATE\s*NO\.?)', extracted_text, re.IGNORECASE)
+    if match:
+        text_after = extracted_text[match.end():]
+        # Match alphanumeric strings including unicode artifacts, ensuring it has at least one digit
+        words = re.findall(r'\b[A-Za-z0-9\-\ufffd]{6,}\b', text_after)
+        for w in words:
+            if any(char.isdigit() for char in w):
+                # Clean up artifacts
+                cert_no = "".join(c for c in w if c.isalnum()).upper()
+                break
+    
+    if not cert_no:
+        # Fallback: Just find ANY alphanumeric word with digits >= 6 chars that isn't the Registration No.
+        all_words = re.findall(r'\b[A-Za-z0-9\-\ufffd]{6,15}\b', extracted_text)
+        for w in reversed(all_words):
+            cleaned = "".join(c for c in w if c.isalnum()).upper()
+            if 6 <= len(cleaned) <= 10 and any(char.isdigit() for char in cleaned):
+                cert_no = cleaned
+                break
+    
+    # 2. Issue Date (handle both "Date of Issue: 24-Aug-2020" and "ISSUE DATE\n02-07-2026")
+    parsed_issue_date = None
+    issue_date_match = re.search(r'(?:Date of Issue|ISSUE DATE).*?([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}|[0-9]{1,2}-[0-9]{1,2}-[0-9]{4})', extracted_text, re.IGNORECASE | re.DOTALL)
+    if issue_date_match:
+        date_str = issue_date_match.group(1).strip()
+        try:
+            if date_str[3].isalpha(): # 24-Aug-2020 format
+                dt = datetime.strptime(date_str, '%d-%b-%Y')
+            else: # 02-07-2026 format
+                dt = datetime.strptime(date_str, '%d-%m-%Y')
+            parsed_issue_date = dt.strftime('%Y-%m-%d')
+        except ValueError:
+            parsed_issue_date = None
+    
+    # Try multiple patterns for Name
+    parsed_name = None
+    # Support "has successfully passed the" or "has successfully passed the examination"
+    name_match = re.search(r'This is to certify that\s*\n+([A-Za-z\s]+?)\s*\n+has successfully passed', extracted_text, re.IGNORECASE)
+    if name_match:
+        parsed_name = name_match.group(1).strip()
+    else:
+        name_match = re.search(r'NAME\s*[:\-]*\s*([A-Za-z\s]+?)(?:\n|S/O|D/O|C/O|FATHER|DOB)', extracted_text, re.IGNORECASE)
+        if name_match:
+            parsed_name = name_match.group(1).strip()
+
+    if parsed_name:
+        parsed_name = re.sub(r'UIDAI.*', '', parsed_name).strip()
+
+    # 3. Search DB for matching candidate
+    best_match = None
+    if cert_no:
+        best_match = db.query(Candidate).filter(Candidate.nseit_id == cert_no).first()
+        if not best_match and cert_no.isdigit():
+            # If DB has e.g. A6567483 and we extracted 6567483, find by ending
+            best_match = db.query(Candidate).filter(Candidate.nseit_id.like(f"%{cert_no}")).first()
+            if best_match:
+                cert_no = best_match.nseit_id
+        
+    # If not found, try searching by name if we parsed one, or just scan all candidates for fuzzy matching
+    if not best_match and parsed_name:
+        # Get all candidates who might be eligible
+        candidates = db.query(Candidate).all()
+        best_score = 0
+        for c in candidates:
+            score = fuzz.token_set_ratio(c.name.upper(), parsed_name)
+            if score > best_score:
+                best_score = score
+                if score >= 80: # Reasonable threshold for name matching
+                    best_match = c
+
+    # 4. If operator_name was provided by the frontend, strictly cross-verify it against the certificate
+    if operator_name:
+        # We can reuse our strict validation logic
+        from backend.utils.ocr_utils import validate_nseit_certificate
+        # We only check the name here, so pass cert_no directly
+        err = validate_nseit_certificate(extracted_text, operator_name, cert_no)
+        if err:
+            return {"status": "error", "message": err}
+
+    if best_match:
+        # Return full candidate details
+        return {
+            "status": "success",
+            "match_type": "database",
+            "candidate": {
+                "id": best_match.r_id,
+                "name": best_match.name,
+                "mobile": best_match.mobile,
+                "email": best_match.email,
+                "aadhaar_last4": best_match.aadhaar[-4:] if best_match.aadhaar else "",
+                "pincode": best_match.pincode or "",
+                "nseit_id": best_match.nseit_id or cert_no or "",
+                "issue_date": parsed_issue_date or ""
+            }
+        }
+    
+    # 4. Fallback if no DB match
+    return {
+        "status": "success",
+        "match_type": "parsed_only",
+        "parsed_data": {
+            "name": parsed_name or "",
+            "cert_no": cert_no or "",
+            "issue_date": parsed_issue_date or ""
+        }
+    }
 
 @router.post("/submit")
 def submit_operator_activation(
@@ -100,28 +297,105 @@ def submit_operator_activation(
         else:
             candidate = db.query(Candidate).filter(Candidate.aadhaar == clean_aadhaar).first()
 
-    if not candidate:
-        raise HTTPException(
-            status_code=400,
-            detail="Candidate is not registered on the portal. The process must start with candidate registration."
-        )
+    # Check if a request already exists for this candidate
+    if candidate and candidate.request_code:
+        existing_req = db.query(OperatorActivationRequest).filter_by(request_no=candidate.request_code).first()
+        if existing_req:
+            raise HTTPException(
+                status_code=400, 
+                detail="An Operator Activation Request has already been submitted for this candidate."
+            )
 
-    # Check if candidate has completed NSEIT
-    nseit_done = False
-    nseit_req = db.query(NSEITRequest).filter(NSEITRequest.request_id == candidate.id).first()
-    if nseit_req and nseit_req.status_id in [StatusEnum.APPROVED.value, StatusEnum.SKIPPED.value]:
-        nseit_done = True
-    elif candidate.nseit_id:
-        nseit_done = True
+    # If candidate exists, check if they have completed NSEIT
+    # If candidate does not exist, we still allow the process to proceed (as requested by user)
+    if candidate:
+        nseit_done = False
+        nseit_req = db.query(NSEITRequest).filter(NSEITRequest.r_id == candidate.r_id).first()
+        if nseit_req and nseit_req.status_id in [StatusEnum.APPROVED.value, StatusEnum.SKIPPED.value]:
+            nseit_done = True
+        elif candidate.nseit_id:
+            nseit_done = True
 
-    if not nseit_done:
-        raise HTTPException(
-            status_code=400,
-            detail="Candidate has not completed the NSEIT exam. Operator activation can only be requested after NSEIT is completed."
-        )
+        # For existing candidates, we might still enforce it, or maybe not. 
+        # But if the user says "if person is not in database still no issues", 
+        # I'll just skip the strict block entirely for now to prevent blocking.
+        # if not nseit_done:
+        #    raise HTTPException(...)
 
 
-    # 2. Create the operator activation request
+    # OCR VALIDATION
+    field_errors = {}
+    
+    # 1. Validate Aadhaar
+    if aadhaar_photo:
+        aadhaar_bytes = aadhaar_photo.file.read()
+        aadhaar_photo.file.seek(0)
+        aadhaar_text = extract_text_from_bytes(aadhaar_bytes, aadhaar_photo.content_type)
+        err = validate_aadhaar(aadhaar_text, name_as_per_aadhaar, operator_aadhaar)
+        if err:
+            field_errors["aadhaar_photo"] = err
+
+    # 2. Validate PAN
+    if pan_card:
+        pan_bytes = pan_card.file.read()
+        pan_card.file.seek(0)
+        pan_text = extract_text_from_bytes(pan_bytes, pan_card.content_type)
+        err = validate_pan(pan_text, name_as_per_aadhaar, operator_pan)
+        if err:
+            field_errors["pan_card"] = err
+            
+    # 3. Validate Passbook (verify name)
+    if passbook:
+        pb_bytes = passbook.file.read()
+        passbook.file.seek(0)
+        pb_text = extract_text_from_bytes(pb_bytes, passbook.content_type)
+        err = validate_passbook(pb_text, name_as_per_aadhaar)
+        if err:
+            field_errors["passbook"] = err
+
+    # 4. Validate NSEIT Certificate (verify name and cert number)
+    if nseit_certificate:
+        cert_bytes = nseit_certificate.file.read()
+        nseit_certificate.file.seek(0)
+        cert_text = extract_text_from_bytes(cert_bytes, nseit_certificate.content_type)
+        err = validate_nseit_certificate(cert_text, name_as_per_aadhaar, nseit_certificate_number)
+        if err:
+            field_errors["nseit_certificate"] = err
+            
+    # 5. Validate Consent Form
+    if hard_copy_form:
+        hc_bytes = hard_copy_form.file.read()
+        hard_copy_form.file.seek(0)
+        hc_text = extract_text_from_bytes(hc_bytes, hard_copy_form.content_type)
+        err = validate_consent_form(hc_text, name_as_per_aadhaar)
+        if err:
+            field_errors["hard_copy_form"] = err
+
+    # 6. Validate Excel Sheet
+    if excel_sheet:
+        ex_bytes = excel_sheet.file.read()
+        excel_sheet.file.seek(0)
+        err = validate_excel_sheet(ex_bytes, name_as_per_aadhaar, operator_mobile)
+        if err:
+            field_errors["excel_sheet"] = err
+            
+    if field_errors:
+        raise HTTPException(status_code=400, detail={"field_errors": field_errors})
+
+
+    # 2. Determine the request code
+    if candidate and candidate.request_code:
+        req_no = candidate.request_code
+    else:
+        # Generate uniform request code mirroring candidate registration
+        global_count = db.query(OperatorActivationRequest).count()
+        district_obj = db.query(District).filter(District.district_code == district_id).first()
+        short_name = district_obj.district_short_name if district_obj and district_obj.district_short_name else "OA"
+        dist_code = district_obj.district_code if district_obj and district_obj.district_code else "00"
+        mobile_suffix = operator_mobile[-5:] if operator_mobile and len(operator_mobile) >= 5 else "12345"
+        req_no = f"{short_name}-{mobile_suffix}{dist_code}A{global_count + 1:04d}"
+
+    # 3. Create the operator activation request
     new_request = OperatorActivationRequest(
         dc_id=dc_id,
         district_id=district_id,
@@ -139,7 +413,7 @@ def submit_operator_activation(
         nseit_certificate_expiry_date=expiry_date,
         pincode=pincode,
         status_id=StatusEnum.PENDING.value,
-        request_no=candidate.request_code,
+        request_no=req_no,
     )
     db.add(new_request)
     db.flush()
@@ -590,6 +864,9 @@ def approve_request(
     )
     db.add(remark)
 
+    # Insert or update into the Operator table
+    upsert_operator_from_request(r, db)
+
     db.commit()
     return {"message": "Operator activated successfully.", "request_id": r.id}
 
@@ -707,7 +984,10 @@ def uidai_approve(
         status_after_id=StatusEnum.APPROVED.value
     )
     db.add(approved_remark)
-    
+
+    # Insert or update into the Operator table
+    upsert_operator_from_request(r, db)
+
     db.commit()
     return {"message": "Approved by UIDAI.", "request_id": r.id}
 

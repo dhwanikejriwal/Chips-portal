@@ -260,6 +260,7 @@
             height: 28px !important;
             font-size: 12px !important;
         }
+
         .user-name {
             max-width: 90px;
         }
@@ -712,12 +713,13 @@
         </button>
         {% endif %}
         <img src="{{ url_for('static', filename='css/images/gov_logo.jpg') }}" alt="Government Logo">
-        <img src="{{ url_for('static', filename='css/images/chips_logo.jpg') }}" alt="CHiPS Logo" style="margin-left: -4px;">
+        <img src="{{ url_for('static', filename='css/images/chips_logo.jpg') }}" alt="CHiPS Logo"
+            style="margin-left: -4px;">
         <h1 style="color: #1a202c; user-select: none; cursor: default;">Aadhaar Operator Request Portal</h1>
     </div>
 
     {% if session.get('access_token') %}
-    <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; position: relative; flex-shrink: 0;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; position: relative;">
         {% if session.get('role') != 'Candidate' %}
         <!-- Notification Bell Container -->
         <div class="notification-container" style="position: relative;">
@@ -844,7 +846,8 @@
         {% endif %}
 
         {% if ENABLE_LANGUAGE_TOGGLE %}
-        <button type="button" class="lang-toggle-btn" onclick="togglePortalLanguage()" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; color: #475569; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; outline: none; margin-right: 4px; user-select: none;">
+        <button type="button" class="lang-toggle-btn" onclick="togglePortalLanguage()"
+            style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; color: #475569; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; outline: none; margin-right: 4px; user-select: none;">
             <i class="ti ti-language" style="font-size: 16px; color: #4f46e5;"></i>
             <span class="lang-toggle-label">हिंदी</span>
         </button>
@@ -883,7 +886,8 @@
     {% else %}
     <div class="header-actions" style="display: flex; align-items: center; gap: 8px;">
         {% if ENABLE_LANGUAGE_TOGGLE %}
-        <button type="button" class="lang-toggle-btn" onclick="togglePortalLanguage()" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; outline: none; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); user-select: none;">
+        <button type="button" class="lang-toggle-btn" onclick="togglePortalLanguage()"
+            style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; outline: none; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); user-select: none;">
             <i class="ti ti-language" style="font-size: 16px; color: #4f46e5;"></i>
             <span class="lang-toggle-label">हिंदी</span>
         </button>
@@ -899,220 +903,220 @@
     </div>
     {% endif %}
 </header>
-    {% if session.get('access_token') and session.get('role') != 'Candidate' %}
-    <script>
-        (function () {
-            const BACKEND_API_URL = "{{ config['BACKEND_API_URL'] }}";
-            const ACCESS_TOKEN = "{{ session.get('access_token') }}";
-            const USER_ROLE = "{{ session.get('role') }}";
-            const isChips = USER_ROLE === 'Admin';
-            
-            const dropdown = document.getElementById('notification-dropdown');
-            const bellBtn = document.getElementById('notification-bell-btn');
-            const closeBtn = document.getElementById('notification-close-btn');
-            const badge = document.getElementById('notification-badge');
-            
-            const groupRegistrationCount = document.getElementById('notification-group-registration-count');
-            const groupCredentialsCount = document.getElementById('notification-group-credentials-count');
-            const groupRegistrationBreakdown = document.getElementById('notification-group-registration-breakdown');
-            const groupCredentialsBreakdown = document.getElementById('notification-group-credentials-breakdown');
-            
-            const emptyState = document.getElementById('notification-empty-state');
-            const typeList = document.getElementById('notification-type-list');
-            const viewAllBtn = document.getElementById('notification-view-all');
-            const viewAllLabel = document.getElementById('notification-view-all-label');
-            const viewAllChevron = document.getElementById('notification-view-all-chevron');
+{% if session.get('access_token') and session.get('role') != 'Candidate' %}
+<script>
+    (function () {
+        const BACKEND_API_URL = "{{ config['BACKEND_API_URL'] }}";
+        const ACCESS_TOKEN = "{{ session.get('access_token') }}";
+        const USER_ROLE = "{{ session.get('role') }}";
+        const isChips = USER_ROLE === 'Admin';
 
-            let lastSummary = null;
-            let isTypeListExpanded = false;
+        const dropdown = document.getElementById('notification-dropdown');
+        const bellBtn = document.getElementById('notification-bell-btn');
+        const closeBtn = document.getElementById('notification-close-btn');
+        const badge = document.getElementById('notification-badge');
 
-            const TYPE_URLS = {
-                'L1': '/chips/l1-requests',
-                'L2': '/chips/l2-requests',
-                'station_id': '/chips/station-id-requests',
-                'operator_activation': '/chips/activation-requests',
-                'operator_reactivation': '/chips/reactivation-requests',
-                'LMS': '/chips/lms-requests',
-                'NSEIT': '/chips/nseit-requests'
-            };
+        const groupRegistrationCount = document.getElementById('notification-group-registration-count');
+        const groupCredentialsCount = document.getElementById('notification-group-credentials-count');
+        const groupRegistrationBreakdown = document.getElementById('notification-group-registration-breakdown');
+        const groupCredentialsBreakdown = document.getElementById('notification-group-credentials-breakdown');
 
-            if (USER_ROLE === 'dc' || USER_ROLE === 'edm') {
-                TYPE_URLS['L1'] = '/dc/l1-requests';
-                TYPE_URLS['L2'] = '/dc/l2-requests';
-                TYPE_URLS['station_id'] = '/dc/station-id-requests';
-                TYPE_URLS['operator_activation'] = '/dc/activation-requests';
-                TYPE_URLS['operator_reactivation'] = '/dc/reactivation-requests';
-                TYPE_URLS['LMS'] = '/candidate-requests';
-                TYPE_URLS['NSEIT'] = '/candidate-requests';
+        const emptyState = document.getElementById('notification-empty-state');
+        const typeList = document.getElementById('notification-type-list');
+        const viewAllBtn = document.getElementById('notification-view-all');
+        const viewAllLabel = document.getElementById('notification-view-all-label');
+        const viewAllChevron = document.getElementById('notification-view-all-chevron');
+
+        let lastSummary = null;
+        let isTypeListExpanded = false;
+
+        const TYPE_URLS = {
+            'L1': '/chips/l1-requests',
+            'L2': '/chips/l2-requests',
+            'station_id': '/chips/station-id-requests',
+            'operator_activation': '/chips/activation-requests',
+            'operator_reactivation': '/chips/reactivation-requests',
+            'LMS': '/chips/lms-requests',
+            'NSEIT': '/chips/nseit-requests'
+        };
+
+        if (USER_ROLE === 'dc' || USER_ROLE === 'edm') {
+            TYPE_URLS['L1'] = '/dc/l1-requests';
+            TYPE_URLS['L2'] = '/dc/l2-requests';
+            TYPE_URLS['station_id'] = '/dc/station-id-requests';
+            TYPE_URLS['operator_activation'] = '/dc/activation-requests';
+            TYPE_URLS['operator_reactivation'] = '/dc/reactivation-requests';
+            TYPE_URLS['LMS'] = '/candidate-requests';
+            TYPE_URLS['NSEIT'] = '/candidate-requests';
+        }
+
+        const REVERT_REJECT_TYPES = ['L1', 'L2', 'station_id', 'operator_activation', 'operator_reactivation'];
+
+        function renderTypeList(data) {
+            typeList.innerHTML = '';
+            (data.types || []).forEach(function (t) {
+                const url = TYPE_URLS[t.key];
+                if (!url) return;
+                const row = document.createElement('a');
+                row.className = 'notification-type-row' + (t.count > 0 ? ' has-new' : '');
+                const qs = [];
+                if (data.baseline_at) qs.push(`highlight_since=${encodeURIComponent(data.baseline_at)}`);
+                if (!isChips && REVERT_REJECT_TYPES.indexOf(t.key) !== -1) qs.push('status=reverted_rejected');
+                row.href = url + (qs.length ? `?${qs.join('&')}` : '');
+                // Tag each row so new candidate requests and returned
+                // (reverted/rejected) items are distinguishable at a glance.
+                let tag = '';
+                if ((t.revert_count || 0) > 0) tag = `<span class="notification-type-tag revert">${t.revert_count} revert</span>`;
+                else if ((t.new_count || 0) > 0) tag = `<span class="notification-type-tag new">${t.new_count} new</span>`;
+                row.innerHTML = `<span>${t.label}${tag}</span><span class="notification-type-count">${t.count}</span>`;
+                typeList.appendChild(row);
+            });
+        }
+
+        // Render the "N new · M revert" line under a group card, showing only
+        // the non-zero sides. Hidden entirely when the group is empty.
+        function renderBreakdown(el, group) {
+            if (!el) return;
+            const newCount = group ? (group.new_count || 0) : 0;
+            const revertCount = group ? (group.revert_count || 0) : 0;
+            const parts = [];
+            if (newCount > 0) parts.push(`<span class="nb-new">${newCount} new</span>`);
+            if (revertCount > 0) parts.push(`<span class="nb-revert">${revertCount} revert</span>`);
+            if (parts.length === 0) {
+                el.style.display = 'none';
+                el.innerHTML = '';
+                return;
             }
+            el.innerHTML = parts.join('<span class="nb-sep">·</span>');
+            el.style.display = 'flex';
+        }
 
-            const REVERT_REJECT_TYPES = ['L1', 'L2', 'station_id', 'operator_activation', 'operator_reactivation'];
+        // Session latch for the bell's red indicator (Part 3 — badge persists
+        // for the whole session regardless of UI interaction, and only resets
+        // on the next login). A count can drop mid-session — a DC resolving a
+        // revert, or any item being acted on — so we latch the peak count in
+        // sessionStorage and never let the displayed badge fall below it for
+        // the life of the session.
+        //
+        // The latch is keyed by the session's baseline_at (which changes on
+        // every fresh login) rather than by role, so a logout→login in the
+        // same tab — or a different user of the same role — starts a clean
+        // latch instead of inheriting the previous session's lit badge.
+        const BADGE_LATCH_PREFIX = 'notif-badge-latch-' + (USER_ROLE || 'x') + '-';
 
-            function renderTypeList(data) {
-                typeList.innerHTML = '';
-                (data.types || []).forEach(function(t) {
-                    const url = TYPE_URLS[t.key];
-                    if (!url) return;
-                    const row = document.createElement('a');
-                    row.className = 'notification-type-row' + (t.count > 0 ? ' has-new' : '');
-                    const qs = [];
-                    if (data.baseline_at) qs.push(`highlight_since=${encodeURIComponent(data.baseline_at)}`);
-                    if (!isChips && REVERT_REJECT_TYPES.indexOf(t.key) !== -1) qs.push('status=reverted_rejected');
-                    row.href = url + (qs.length ? `?${qs.join('&')}` : '');
-                    // Tag each row so new candidate requests and returned
-                    // (reverted/rejected) items are distinguishable at a glance.
-                    let tag = '';
-                    if ((t.revert_count || 0) > 0) tag = `<span class="notification-type-tag revert">${t.revert_count} revert</span>`;
-                    else if ((t.new_count || 0) > 0) tag = `<span class="notification-type-tag new">${t.new_count} new</span>`;
-                    row.innerHTML = `<span>${t.label}${tag}</span><span class="notification-type-count">${t.count}</span>`;
-                    typeList.appendChild(row);
-                });
-            }
+        function badgeLatchKey(data) {
+            return BADGE_LATCH_PREFIX + (data.baseline_at || 'na');
+        }
 
-            // Render the "N new · M revert" line under a group card, showing only
-            // the non-zero sides. Hidden entirely when the group is empty.
-            function renderBreakdown(el, group) {
-                if (!el) return;
-                const newCount = group ? (group.new_count || 0) : 0;
-                const revertCount = group ? (group.revert_count || 0) : 0;
-                const parts = [];
-                if (newCount > 0) parts.push(`<span class="nb-new">${newCount} new</span>`);
-                if (revertCount > 0) parts.push(`<span class="nb-revert">${revertCount} revert</span>`);
-                if (parts.length === 0) {
-                    el.style.display = 'none';
-                    el.innerHTML = '';
-                    return;
+        function pruneOldLatches(currentKey) {
+            // Keep only this session's latch so sessionStorage doesn't grow
+            // across repeated logins in the same tab.
+            for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                const k = sessionStorage.key(i);
+                if (k && k.startsWith(BADGE_LATCH_PREFIX) && k !== currentKey) {
+                    sessionStorage.removeItem(k);
                 }
-                el.innerHTML = parts.join('<span class="nb-sep">·</span>');
-                el.style.display = 'flex';
             }
+        }
 
-            // Session latch for the bell's red indicator (Part 3 — badge persists
-            // for the whole session regardless of UI interaction, and only resets
-            // on the next login). A count can drop mid-session — a DC resolving a
-            // revert, or any item being acted on — so we latch the peak count in
-            // sessionStorage and never let the displayed badge fall below it for
-            // the life of the session.
-            //
-            // The latch is keyed by the session's baseline_at (which changes on
-            // every fresh login) rather than by role, so a logout→login in the
-            // same tab — or a different user of the same role — starts a clean
-            // latch instead of inheriting the previous session's lit badge.
-            const BADGE_LATCH_PREFIX = 'notif-badge-latch-' + (USER_ROLE || 'x') + '-';
+        function renderNotifications(data) {
+            lastSummary = data;
 
-            function badgeLatchKey(data) {
-                return BADGE_LATCH_PREFIX + (data.baseline_at || 'na');
+            const latchKey = badgeLatchKey(data);
+            pruneOldLatches(latchKey);
+
+            const liveCount = data.new_request_count || 0;
+            let latchedCount = parseInt(sessionStorage.getItem(latchKey) || '0', 10);
+            if (liveCount > latchedCount) {
+                latchedCount = liveCount;
+                sessionStorage.setItem(latchKey, String(latchedCount));
             }
+            // Peak count seen this session — never drops back to 0 once shown.
+            const shownCount = latchedCount;
 
-            function pruneOldLatches(currentKey) {
-                // Keep only this session's latch so sessionStorage doesn't grow
-                // across repeated logins in the same tab.
-                for (let i = sessionStorage.length - 1; i >= 0; i--) {
-                    const k = sessionStorage.key(i);
-                    if (k && k.startsWith(BADGE_LATCH_PREFIX) && k !== currentKey) {
-                        sessionStorage.removeItem(k);
-                    }
+            badge.textContent = shownCount > 99 ? '99+' : shownCount;
+            badge.classList.toggle('is-visible', shownCount > 0);
+
+            const groups = data.groups || [];
+            const registrationGroup = groups.find(g => g.name === 'Registration and activation');
+            const credentialsGroup = groups.find(g => g.name === 'Credentials and exams');
+            groupRegistrationCount.textContent = registrationGroup ? registrationGroup.count : 0;
+            groupCredentialsCount.textContent = credentialsGroup ? credentialsGroup.count : 0;
+            renderBreakdown(groupRegistrationBreakdown, registrationGroup);
+            renderBreakdown(groupCredentialsBreakdown, credentialsGroup);
+
+            emptyState.style.display = shownCount > 0 ? 'none' : 'flex';
+
+            if (isTypeListExpanded) renderTypeList(data);
+        }
+
+        function loadNotifications() {
+            fetch(`${BACKEND_API_URL}/notifications/summary`, {
+                headers: {
+                    'Authorization': `Bearer ${ACCESS_TOKEN}`
                 }
-            }
-
-            function renderNotifications(data) {
-                lastSummary = data;
-
-                const latchKey = badgeLatchKey(data);
-                pruneOldLatches(latchKey);
-
-                const liveCount = data.new_request_count || 0;
-                let latchedCount = parseInt(sessionStorage.getItem(latchKey) || '0', 10);
-                if (liveCount > latchedCount) {
-                    latchedCount = liveCount;
-                    sessionStorage.setItem(latchKey, String(latchedCount));
-                }
-                // Peak count seen this session — never drops back to 0 once shown.
-                const shownCount = latchedCount;
-
-                badge.textContent = shownCount > 99 ? '99+' : shownCount;
-                badge.classList.toggle('is-visible', shownCount > 0);
-
-                const groups = data.groups || [];
-                const registrationGroup = groups.find(g => g.name === 'Registration and activation');
-                const credentialsGroup = groups.find(g => g.name === 'Credentials and exams');
-                groupRegistrationCount.textContent = registrationGroup ? registrationGroup.count : 0;
-                groupCredentialsCount.textContent = credentialsGroup ? credentialsGroup.count : 0;
-                renderBreakdown(groupRegistrationBreakdown, registrationGroup);
-                renderBreakdown(groupCredentialsBreakdown, credentialsGroup);
-
-                emptyState.style.display = shownCount > 0 ? 'none' : 'flex';
-
-                if (isTypeListExpanded) renderTypeList(data);
-            }
-
-            function loadNotifications() {
-                fetch(`${BACKEND_API_URL}/notifications/summary`, {
-                    headers: {
-                        'Authorization': `Bearer ${ACCESS_TOKEN}`
-                    }
-                })
+            })
                 .then(res => {
                     if (res.status === 200) return res.json();
                     throw new Error('Failed to fetch');
                 })
                 .then(renderNotifications)
                 .catch(err => console.error('Notifications fetch error:', err));
+        }
+
+        loadNotifications();
+
+        // Keep the count live while this page stays open, so new requests and
+        // reverts that arrive during the session appear without a reload
+        // (Part 4). 20s sits in the spec's 15–30s band.
+        setInterval(loadNotifications, 20000);
+
+        // Browsers throttle setInterval heavily in background tabs (often to
+        // once a minute or slower), so a session left open in an unfocused tab
+        // can sit on stale counts far longer than the interval suggests.
+        // Refresh immediately whenever the tab regains focus/visibility so
+        // switching back always shows the latest state without a manual reload.
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) loadNotifications();
+        });
+        window.addEventListener('focus', loadNotifications);
+
+        let isDropdownOpen = false;
+        function setDropdownOpen(open) {
+            isDropdownOpen = open;
+            dropdown.style.display = open ? 'block' : 'none';
+        }
+
+        bellBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setDropdownOpen(!isDropdownOpen);
+            if (isDropdownOpen) {
+                // Refresh so anything that arrived since page load shows up.
+                loadNotifications();
             }
+        });
 
-            loadNotifications();
+        // Expands the panel in place to list every individual request type
+        // with its own new-request count, instead of navigating away.
+        viewAllBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            isTypeListExpanded = !isTypeListExpanded;
+            typeList.classList.toggle('is-expanded', isTypeListExpanded);
+            viewAllChevron.classList.toggle('is-open', isTypeListExpanded);
+            viewAllLabel.textContent = isTypeListExpanded ? 'Hide requests' : 'View all requests';
+            if (isTypeListExpanded && lastSummary) renderTypeList(lastSummary);
+        });
 
-            // Keep the count live while this page stays open, so new requests and
-            // reverts that arrive during the session appear without a reload
-            // (Part 4). 20s sits in the spec's 15–30s band.
-            setInterval(loadNotifications, 20000);
+        closeBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setDropdownOpen(false);
+        });
 
-            // Browsers throttle setInterval heavily in background tabs (often to
-            // once a minute or slower), so a session left open in an unfocused tab
-            // can sit on stale counts far longer than the interval suggests.
-            // Refresh immediately whenever the tab regains focus/visibility so
-            // switching back always shows the latest state without a manual reload.
-            document.addEventListener('visibilitychange', function () {
-                if (!document.hidden) loadNotifications();
-            });
-            window.addEventListener('focus', loadNotifications);
-
-            let isDropdownOpen = false;
-            function setDropdownOpen(open) {
-                isDropdownOpen = open;
-                dropdown.style.display = open ? 'block' : 'none';
-            }
-
-            bellBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                setDropdownOpen(!isDropdownOpen);
-                if (isDropdownOpen) {
-                    // Refresh so anything that arrived since page load shows up.
-                    loadNotifications();
-                }
-            });
-
-            // Expands the panel in place to list every individual request type
-            // with its own new-request count, instead of navigating away.
-            viewAllBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                isTypeListExpanded = !isTypeListExpanded;
-                typeList.classList.toggle('is-expanded', isTypeListExpanded);
-                viewAllChevron.classList.toggle('is-open', isTypeListExpanded);
-                viewAllLabel.textContent = isTypeListExpanded ? 'Hide requests' : 'View all requests';
-                if (isTypeListExpanded && lastSummary) renderTypeList(lastSummary);
-            });
-
-            closeBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
+        document.addEventListener('click', function (e) {
+            if (!dropdown.contains(e.target) && e.target !== bellBtn && !bellBtn.contains(e.target)) {
                 setDropdownOpen(false);
-            });
-
-            document.addEventListener('click', function(e) {
-                if (!dropdown.contains(e.target) && e.target !== bellBtn && !bellBtn.contains(e.target)) {
-                    setDropdownOpen(false);
-                }
-            });
-        })();
-    </script>
-    {% endif %}
+            }
+        });
+    })();
+</script>
+{% endif %}

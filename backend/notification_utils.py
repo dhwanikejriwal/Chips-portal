@@ -8,6 +8,7 @@ from backend.models.station_id import StationIDRequest
 from backend.models.operator_activation import OperatorActivationRequest
 from backend.models.reactivation import OperatorReactivationRequest
 from backend.models import LMS, LMSRemark, NSEITRequest, NSEITRemark, Candidate
+from backend.models.base import to_code
 
 FORWARDED_STATUSES = ("Forwarded", "Forwarded Again")
 

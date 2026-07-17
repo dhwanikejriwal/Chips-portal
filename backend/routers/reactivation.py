@@ -27,6 +27,7 @@ from backend.models.reactivation import (
     ReactivationOperator, 
     ReactivationRemarkHistory
 )
+from backend.models.operator import Operator
 
 router = APIRouter()
 
@@ -934,4 +935,37 @@ async def get_reactivation_file(request_code: str, file_type: str, db: Session =
         media_type=mime_type,
         content_disposition_type="inline"
     )
+
+@router.get("/search-suspended-operators")
+async def search_suspended_operators(q: str = "", db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user_role_str = get_user_role_str(current_user)
+    
+    query = db.query(Operator).filter(Operator.status.ilike("%suspended%"))
+    if user_role_str == "dc":
+        query = query.filter(Operator.district_id == str(current_user.district_id))
+        
+    if q:
+        query = query.filter(
+            (Operator.name.ilike(f"%{q}%")) |
+            (Operator.mobile.ilike(f"%{q}%")) |
+            (Operator.email.ilike(f"%{q}%")) |
+            (Operator.user_code.ilike(f"%{q}%"))
+        )
+        
+    operators = query.all()
+    return [
+        {
+            "id": o.id,
+            "name": o.name,
+            "mobile": o.mobile,
+            "email": o.email,
+            "role": o.role,
+            "nseit_id": o.nseit_certificate_number,
+            "user_code": o.user_code,
+            "registrar_code": o.registrar_code,
+            "ea_code": o.ea_code,
+            "aadhaar_last4": o.aadhaar_last4
+        }
+        for o in operators
+    ]
 

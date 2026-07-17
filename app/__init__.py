@@ -22,6 +22,8 @@ def create_app():
     from app.blueprints.l2_registration import l2_registration_bp
     from app.blueprints.operator_activation import operator_activation_bp
     from app.blueprints.station_id import station_id_bp
+    from app.blueprints.operator_mapping import operator_mapping_bp
+    from app.blueprints.operator_onboarding import operator_onboarding_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/auth")
@@ -36,6 +38,8 @@ def create_app():
     app.register_blueprint(l2_registration_bp, url_prefix="/auth")
     app.register_blueprint(operator_activation_bp, url_prefix="/auth")
     app.register_blueprint(station_id_bp, url_prefix="/auth")
+    app.register_blueprint(operator_mapping_bp, url_prefix="/auth")
+    app.register_blueprint(operator_onboarding_bp, url_prefix="/auth")
 
     @app.route("/")
     def index():

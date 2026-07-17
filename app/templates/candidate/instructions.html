@@ -81,23 +81,24 @@
                 {% endif %}
             </p>
             <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
-                <a href="{{ lms_url }}" class="btn-card" {% if (status_data.lms_status|upper) not in ['APPROVED', 'SKIPPED', 'PENDING'
-                    , 'FORWARDED' , 'REAPPLIED' , 'FORWARDED_AGAIN' , 'REVERTED' , 'REVERTED_BY_CHIPS' ] %} {% if
-                    status_data.lms_id %} onclick="return confirmStartRequest(event, 'LMS', '{{ lms_url }}')" {% endif %} {%
-                    endif %}>
+                <a href="{{ lms_url }}" class="btn-card" {% if (status_data.lms_status|upper) not in
+                    ['APPROVED', 'SKIPPED' , 'PENDING' , 'FORWARDED' , 'REAPPLIED' , 'FORWARDED_AGAIN' , 'REVERTED'
+                    , 'REVERTED_BY_CHIPS' ] %} {% if status_data.lms_id %}
+                    onclick="return confirmStartRequest(event, 'LMS', '{{ lms_url }}')" {% endif %} {% endif %}>
                     {% if (status_data.lms_status|upper) in ['APPROVED', 'SKIPPED'] %}
                     View Details
-                    {% elif (status_data.lms_status|upper) in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN'] %}
+                    {% elif (status_data.lms_status|upper) in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN']
+                    %}
                     Track Request
                     {% elif (status_data.lms_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
                     Resubmit Request
                     {% else %}
                     Start Request
                     {% endif %}
-                </a>                <!-- 🌟 LMS DYNAMIC SKIPPED CONDITION WRAPPER -->
+                </a> <!-- 🌟 LMS DYNAMIC SKIPPED CONDITION WRAPPER -->
                 {% if (status_data.lms_status|upper) not in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN',
                 'APPROVED', 'REVERTED', 'REVERTED_BY_CHIPS', 'SKIPPED'] %}
-                
+
                 <button type="button" onclick="showSkipModal('lms')" class="btn-card"
                     style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">
                     I already have LMS ID
@@ -144,12 +145,13 @@
             <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
                 {% if (status_data.lms_status|upper) == 'APPROVED' or (status_data.lms_status|upper) == 'SKIPPED' %}
                 <a href="{{ nseit_url }}" class="btn-card" {% if (status_data.nseit_status|upper) not in
-                    ['APPROVED', 'SKIPPED', 'PENDING' , 'FORWARDED' , 'REAPPLIED' , 'FORWARDED_AGAIN' , 'REVERTED'
+                    ['APPROVED', 'SKIPPED' , 'PENDING' , 'FORWARDED' , 'REAPPLIED' , 'FORWARDED_AGAIN' , 'REVERTED'
                     , 'REVERTED_BY_CHIPS' ] %} {% if status_data.nseit_id %}
                     onclick="return confirmStartRequest(event, 'NSEIT', '{{ nseit_url }}')" {% endif %} {% endif %}>
                     {% if (status_data.nseit_status|upper) in ['APPROVED', 'SKIPPED'] %}
                     View Details
-                    {% elif (status_data.nseit_status|upper) in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN'] %}
+                    {% elif (status_data.nseit_status|upper) in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN']
+                    %}
                     Track Request
                     {% elif (status_data.nseit_status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
                     Resubmit Request
@@ -161,12 +163,12 @@
                 <!-- 🌟 NSEIT DYNAMIC SKIPPED CONDITION WRAPPER -->
                 {% if (status_data.nseit_status|upper) not in ['PENDING', 'FORWARDED', 'REAPPLIED', 'FORWARDED_AGAIN',
                 'APPROVED', 'REVERTED', 'REVERTED_BY_CHIPS', 'SKIPPED'] %}
-                
+
                 <button type="button" onclick="showSkipModal('nseit')" class="btn-card"
                     style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">
                     I already have NSEIT ID
                 </button>
-                
+
                 {% endif %}
                 {% else %}
                 <button class="btn-card" style="opacity: 0.6; cursor: not-allowed;" disabled
@@ -205,7 +207,7 @@
         const existingId = type === 'lms' ? "{{ status_data.lms_id or '' }}" : "{{ status_data.nseit_id or '' }}";
         const titleText = type === 'lms' ? 'LMS' : 'NSEIT';
         const actionUrl = type === 'lms' ? "{{ url_for('candidate.skip_lms') }}" : "{{ url_for('candidate.skip_nseit') }}";
-        
+
         if (existingId) {
             Swal.fire({
                 title: 'Skip Request Confirmation',
@@ -221,13 +223,13 @@
                     const form = document.createElement('form');
                     form.method = 'POST';
                     form.action = actionUrl;
-                    
+
                     const idInput = document.createElement('input');
                     idInput.type = 'hidden';
                     idInput.name = type === 'lms' ? 'lms_id' : 'nseit_id';
                     idInput.value = existingId;
                     form.appendChild(idInput);
-                    
+
                     document.body.appendChild(form);
                     form.submit();
                 }
@@ -296,7 +298,7 @@
         const ocrStatus = document.getElementById('swal_ocr_status');
         const idField = document.getElementById('swal_id_field');
         const confirmBtn = Swal.getConfirmButton();
-        
+
         errorDiv.style.display = 'none';
         idField.value = '';
         const display = document.getElementById('swal_file_name_display');
@@ -322,7 +324,7 @@
                 label.textContent = 'Choose Certificate File';
                 return;
             }
-            
+
             label.textContent = file.name;
             ocrStatus.style.display = 'block';
 
@@ -335,40 +337,40 @@
                 method: 'POST',
                 body: formData
             })
-            .then(res => res.json())
-            .then(data => {
-                ocrStatus.style.display = 'none';
-                if (data.success && data.id) {
-                    idField.value = data.id;
-                    idField.style.backgroundColor = '#e0f2fe';
-                    setTimeout(() => { idField.style.backgroundColor = '#ffffff'; }, 1500);
-                    if (display) {
-                        display.textContent = `✓ ${file.name}`;
-                        display.style.display = 'block';
+                .then(res => res.json())
+                .then(data => {
+                    ocrStatus.style.display = 'none';
+                    if (data.success && data.id) {
+                        idField.value = data.id;
+                        idField.style.backgroundColor = '#e0f2fe';
+                        setTimeout(() => { idField.style.backgroundColor = '#ffffff'; }, 1500);
+                        if (display) {
+                            display.textContent = `✓ ${file.name}`;
+                            display.style.display = 'block';
+                        }
+                        if (viewLink) {
+                            viewLink.href = URL.createObjectURL(file);
+                            viewLink.style.display = 'inline-flex';
+                        }
+                        if (confirmBtn) {
+                            confirmBtn.disabled = false;
+                            confirmBtn.style.opacity = '1';
+                            confirmBtn.style.cursor = 'pointer';
+                        }
+                    } else {
+                        errorDiv.textContent = data.error || 'Failed to extract valid ID from document.';
+                        errorDiv.style.display = 'block';
+                        input.value = '';
+                        label.textContent = 'Choose Certificate File';
                     }
-                    if (viewLink) {
-                        viewLink.href = URL.createObjectURL(file);
-                        viewLink.style.display = 'inline-flex';
-                    }
-                    if (confirmBtn) {
-                        confirmBtn.disabled = false;
-                        confirmBtn.style.opacity = '1';
-                        confirmBtn.style.cursor = 'pointer';
-                    }
-                } else {
-                    errorDiv.textContent = data.error || 'Failed to extract valid ID from document.';
+                })
+                .catch(err => {
+                    ocrStatus.style.display = 'none';
+                    errorDiv.textContent = 'Error connecting to OCR server.';
                     errorDiv.style.display = 'block';
                     input.value = '';
                     label.textContent = 'Choose Certificate File';
-                }
-            })
-            .catch(err => {
-                ocrStatus.style.display = 'none';
-                errorDiv.textContent = 'Error connecting to OCR server.';
-                errorDiv.style.display = 'block';
-                input.value = '';
-                label.textContent = 'Choose Certificate File';
-            });
+                });
         } else {
             label.textContent = 'Choose Certificate File';
         }
@@ -401,9 +403,9 @@
                 // Only reset height to auto if it doesn't contain an expanded skip container
                 const lmsContainer = card.querySelector('#lms-skip-container');
                 const nseitContainer = card.querySelector('#nseit-skip-container');
-                const isExpanded = (lmsContainer && lmsContainer.style.display === 'block') || 
-                                   (nseitContainer && nseitContainer.style.display === 'block');
-                
+                const isExpanded = (lmsContainer && lmsContainer.style.display === 'block') ||
+                    (nseitContainer && nseitContainer.style.display === 'block');
+
                 if (!isExpanded) {
                     card.style.height = 'auto';
                 }
@@ -416,9 +418,9 @@
             cards.forEach(card => {
                 const lmsContainer = card.querySelector('#lms-skip-container');
                 const nseitContainer = card.querySelector('#nseit-skip-container');
-                const isExpanded = (lmsContainer && lmsContainer.style.display === 'block') || 
-                                   (nseitContainer && nseitContainer.style.display === 'block');
-                
+                const isExpanded = (lmsContainer && lmsContainer.style.display === 'block') ||
+                    (nseitContainer && nseitContainer.style.display === 'block');
+
                 if (!isExpanded) {
                     card.style.height = tallest + 'px';
                 }
