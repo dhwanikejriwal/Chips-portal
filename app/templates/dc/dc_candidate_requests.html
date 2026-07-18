@@ -9,6 +9,7 @@
 
 {% block content %}
 
+{% from 'partials/request_section.html' import request_section %}
 {% set pending_count = pending_requests | length %}
 {% set approved_count = approved_requests | selectattr('status', 'equalto', 'Approved') | list | length %}
 {% set reverted_count = approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length %}
@@ -57,6 +58,29 @@
 </div>
 
 
+<!-- Section tabs -->
+<div class="req-tabs" role="tablist">
+    <button type="button" class="req-tab active" data-tab="pending">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+            <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+            <path d="M12 11v6" />
+            <path d="M9 14h6" />
+        </svg>
+        <span>Pending onboarding requests</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="log">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M3 3v5h5" />
+            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+            <path d="M12 7v5l3 3" />
+        </svg>
+        <span>Credentials log history</span>
+    </button>
+</div>
+
 <!-- Unified Filter Controls -->
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
@@ -69,7 +93,7 @@
     <div class="filter-group">
         <label>Time Period</label>
         <select id="admin-date-filter" class="filter-input" onchange="filterAdminQueues()">
-            <option value="all" selected>All Time</option>
+            <option value="all">All Time</option>
             <option value="today">Today</option>
             <option value="week">Week</option>
             <option value="month" selected>Month</option>
@@ -88,282 +112,176 @@
 </div>
 
 <!-- Pending Queue Table Section -->
-<div class="section-heading">
-    <div class="section-heading-dot" style="background:#f59e0b;"></div>
-    <h3>Pending Onboarding Requests</h3>
-    <span class="section-count" id="pending-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <button type="button" onclick="exportBackend('admin-pending-table')" class="btn btn-sm"
-            style="display: inline-flex; align-items: center; background-color: #007bff; color: white; border: none; cursor: pointer;">
-            Export to CSV
-        </button>
-    </div>
-</div>
-<div class="sid-table-wrapper">
-    <table class="sid-table" id="admin-pending-table">
-        <thead>
-            <tr>
-                <th>S.No</th>
-                <th>Request Code</th>
-                <th>District</th>
-                <th>Candidate Name</th>
-                <th>Mobile No</th>
-                <th>Email ID</th>
-                <th>Qualification</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th style="text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="admin-queue-body">
-            {% for req in pending_requests %}
-            <tr id="request-row-{{ req.r_id }}" data-id="{{ req.r_id }}" data-district="{{ req.district_name }}"
-                data-code="{{ req.request_code }}" data-name="{{ req.name }}" data-phone="{{ req.mobile }}"
-                data-email="{{ req.email }}" data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
-                data-aadhaar="{{ req.aadhaar }}" data-address="{{ req.address or '' }}"
-                data-pincode="{{ req.pincode or '' }}"
-                data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
-                data-photo="{{ req.photo_upload or '' }}" data-lms-id="{{ req.lms_id or '' }}"
-                data-nseit-id="{{ req.nseit_id or '' }}" data-marksheet="{{ req.marksheet_upload or '' }}"
-                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.status }}"
-                data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
-                data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
-                data-login-id="{{ req.generated_login_id or '' }}"
-                data-password="{{ req.generated_password_raw or '' }}"
-                data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}">
-                <td>{{ loop.index }}</td>
-                <td><strong>{{ req.request_code }}</strong></td>
-                <td>{{ req.district_name }}</td>
-                <td>{{ req.name }}</td>
-                <td>{{ req.mobile }}</td>
-                <td>{{ req.email }}</td>
-                <td>{{ req.qualification }}</td>
-                <td>
-                    <span class="badge badge-pending">Pending</span>
-                </td>
-                <td>{{ req.created_at }}</td>
-                <td style="text-align: center;">
-                    <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
-                        <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
-                            onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')">Approve</button>
-                        <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
-                            onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')">Reject</button>
-                        <button type="button" class="btn btn-sm" style="background-color: #6c757d; color: white;"
-                            onclick="openHoldModal('{{ req.r_id }}', '{{ req.name }}')">Hold</button>
-                        <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'), false)">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5">
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                            Details
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div id="pending-empty-msg" class="empty-state" style="display: none;">
-
-        <p>No pending requests</p>
-    </div>
-</div>
-
-<hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
-
-<!-- On Hold Queue Table Section -->
-<div class="section-heading" style="margin-top: 40px;">
-    <div class="section-heading-dot" style="background:#6c757d;"></div>
-    <h3>On Hold Requests</h3>
-    <span class="section-count" id="hold-count-badge">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <button type="button" onclick="exportBackend('admin-hold-table')" class="btn btn-sm"
-            style="display: inline-flex; align-items: center; background-color: #007bff; color: white; border: none; cursor: pointer;">
-            Export to CSV
-        </button>
-    </div>
-</div>
-<div class="sid-table-wrapper">
-    <table class="sid-table" id="admin-hold-table">
-        <thead>
-            <tr>
-                <th>S.No</th>
-                <th>Request Code</th>
-                <th>District</th>
-                <th>Candidate Name</th>
-                <th>Mobile No</th>
-                <th>Email ID</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th>Updated At</th>
-                <th style="text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="admin-hold-body">
-            {% for req in hold_requests %}
-            <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
-                data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
-                data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
-                data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
-                data-pincode="{{ req.pincode or '' }}"
-                data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
-                data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
-                data-marksheet="{{ req.marksheet_upload }}"
-                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.status }}"
-                data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
-                data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
-                data-login-id="{{ req.generated_login_id or '' }}"
-                data-password="{{ req.generated_password_raw or '' }}"
-                data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
-                data-updated="{{ req.updated_at or req.created_at }}">
-                <td>{{ loop.index }}</td>
-                <td><strong>{{ req.request_code }}</strong></td>
-                <td>{{ req.district_name }}</td>
-                <td>{{ req.name }}</td>
-                <td>{{ req.mobile }}</td>
-                <td>{{ req.email }}</td>
-                <td>
-                    <span class="badge" style="background: #f3f4f6; color: #374151;">On Hold</span>
-                </td>
-                <td>{{ req.created_at }}</td>
-                <td>{{ req.updated_at or req.created_at }}</td>
-                <td style="text-align: center;">
-                    <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        Details
-                    </button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div id="hold-empty-msg" class="empty-state" style="display: none;">
-        <p>No candidates currently on hold</p>
-    </div>
-</div>
-
-<hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
+{% set pending_controls %}
+<button type="button" onclick="exportBackend('admin-pending-table')" class="rs-export">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel active" data-panel="pending">
+    {% call request_section(
+    variant='pending',
+    title='Pending onboarding requests',
+    count='–', count_id='pending-count',
+    controls=pending_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'District'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Qualification'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-pending-table', body_id='admin-queue-body',
+    empty_id='pending-empty-msg',
+    empty_message='No pending requests') %}
+    {% for req in pending_requests %}
+    <tr id="request-row-{{ req.r_id }}" data-id="{{ req.r_id }}" data-district="{{ req.district_name }}"
+        data-code="{{ req.request_code }}" data-name="{{ req.name }}" data-phone="{{ req.mobile }}"
+        data-email="{{ req.email }}" data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
+        data-aadhaar="{{ req.aadhaar }}" data-address="{{ req.address or '' }}" data-pincode="{{ req.pincode or '' }}"
+        data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}" data-photo="{{ req.photo_upload or '' }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+        data-marksheet="{{ req.marksheet_upload or '' }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-status="{{ req.status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-login-id="{{ req.generated_login_id or '' }}" data-password="{{ req.generated_password_raw or '' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}">
+        <td>{{ loop.index }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.district_name }}</td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>{{ req.qualification }}</td>
+        <td>
+            <span class="badge badge-pending">Pending</span>
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td style="text-align: center;">
+            <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                    onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')">Approve</button>
+                <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                    onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')">Reject</button>
+                <button type="button" class="btn btn-sm" style="background-color: #6c757d; color: white;"
+                    onclick="openHoldModal('{{ req.r_id }}', '{{ req.name }}')">Hold</button>
+                <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'), false)">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel pending -->
 
 <!-- Log History Table Section -->
-<div class="section-heading">
-    <div class="section-heading-dot" style="background:#16a34a;"></div>
-    <h3>Credentials Log History</h3>
-    <span class="section-count" id="approved-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <select id="admin-history-status-filter" class="filter-input"
-            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
-            <option value="all">All Statuses</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-        </select>
-        <button type="button" onclick="exportBackend('admin-approved-table')" class="btn btn-sm"
-            style="display: inline-flex; align-items: center; background-color: #007bff; color: white; border: none; cursor: pointer;">
-            Export to CSV
-        </button>
-    </div>
-</div>
-<div class="sid-table-wrapper">
-    <table class="sid-table" id="admin-approved-table">
-        <thead>
-            <tr>
-                <th>S.No</th>
-                <th>Request Code</th>
-                <th>District</th>
-                <th>Candidate Name</th>
-                <th>Mobile No</th>
-                <th>Email ID</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th>Updated At</th>
-                <th style="text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="admin-approved-body">
-            {% for req in approved_requests %}
-            <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
-                data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
-                data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
-                data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
-                data-pincode="{{ req.pincode or '' }}"
-                data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
-                data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
-                data-marksheet="{{ req.marksheet_upload }}"
-                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.status }}"
-                data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
-                data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
-                data-login-id="{{ req.generated_login_id or '' }}"
-                data-password="{{ req.generated_password_raw or '' }}"
-                data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
-                data-updated="{{ req.updated_at or req.created_at }}">
-                <td>{{ loop.index }}</td>
-                <td><strong>{{ req.request_code }}</strong></td>
-                <td>{{ req.district_name }}</td>
-                <td>{{ req.name }}</td>
-                <td>{{ req.mobile }}</td>
-                <td>{{ req.email }}</td>
-                <td>
-                    {% set status_upper = req.status | upper %}
-                    {% if status_upper == 'APPROVED' %}
-                    <span class="badge badge-approved">Approved</span>
-                    {% elif status_upper == 'REJECTED' %}
-                    <span class="badge badge-rejected">Rejected</span>
-                    {% else %}
-                    <span class="badge" style="background: #e2e8f0; color: #4a5568;">{{ req.status.replace("_", " ") |
-                        title }}</span>
-                    {% endif %}
+{% set approved_controls %}
+<select id="admin-history-status-filter" class="rs-filter" onchange="filterAdminQueues()">
+    <option value="all">All statuses</option>
+    <option value="approved">Approved</option>
+    <option value="rejected">Rejected</option>
+</select>
+<button type="button" onclick="exportBackend('admin-approved-table')" class="rs-export">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="log">
+    {% call request_section(
+    variant='done',
+    title='Credentials log history',
+    count='–', count_id='approved-count',
+    controls=approved_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'District'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-approved-table', body_id='admin-approved-body',
+    empty_id='approved-empty-msg',
+    empty_message='No log history') %}
+    {% for req in approved_requests %}
+    <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+        data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+        data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
+        data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+        data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+        data-marksheet="{{ req.marksheet_upload }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-status="{{ req.status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-login-id="{{ req.generated_login_id or '' }}" data-password="{{ req.generated_password_raw or '' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+        data-updated="{{ req.updated_at or req.created_at }}">
+        <td>{{ loop.index }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.district_name }}</td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>
+            {% set status_upper = req.status | upper %}
+            {% if status_upper == 'APPROVED' %}
+            <span class="badge badge-approved">Approved</span>
+            {% elif status_upper == 'REJECTED' %}
+            <span class="badge badge-rejected">Rejected</span>
+            {% else %}
+            <span class="badge" style="background: #e2e8f0; color: #4a5568;">{{ req.status.replace("_", " ") |
+                title }}</span>
+            {% endif %}
 
-                    {% set has_email_fail = false %}
-                    {% if req.remarks_history %}
-                    {% for r in req.remarks_history %}
-                    {% if r.remark and '[Email Failed]' in r.remark %}
-                    {% set has_email_fail = true %}
-                    {% endif %}
-                    {% endfor %}
-                    {% endif %}
-
-                    {% if has_email_fail %}
-                    <div style="margin-top: 4px;">
-                        <span class="badge"
-                            style="background: #f59e0b; color: white; font-size: 10px; border-radius: 4px; padding: 2px 6px;"
-                            title="Email delivery failed for this action">Failed to send email</span>
-                    </div>
-                    {% endif %}
-                </td>
-                <td>{{ req.created_at }}</td>
-                <td>{{ req.updated_at or req.created_at }}</td>
-                <td style="text-align: center;">
-                    <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        Details
-                    </button>
-                </td>
-            </tr>
+            {% set has_email_fail = false %}
+            {% if req.remarks_history %}
+            {% for r in req.remarks_history %}
+            {% if r.remark and '[Email Failed]' in r.remark %}
+            {% set has_email_fail = true %}
+            {% endif %}
             {% endfor %}
-        </tbody>
-    </table>
-    <div id="approved-empty-msg" class="empty-state" style="display: none;">
+            {% endif %}
 
-        <p>No log history</p>
-    </div>
-</div>
-
-
-
+            {% if has_email_fail %}
+            <div style="margin-top: 4px;">
+                <span class="badge"
+                    style="background: #f59e0b; color: white; font-size: 10px; border-radius: 4px; padding: 2px 6px;"
+                    title="Email delivery failed for this action">Failed to send email</span>
+            </div>
+            {% endif %}
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td>{{ req.updated_at or req.created_at }}</td>
+        <td style="text-align: center;">
+            <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel log -->
 
 
 <script>
     function clearAllFilters() {
         document.getElementById('admin-search-input').value = '';
-        document.getElementById('admin-date-filter').value = 'all';
+        document.getElementById('admin-date-filter').value = 'month';
         const pendingFilter = document.getElementById('admin-pending-status-filter');
         if (pendingFilter) pendingFilter.value = 'all';
         const historyFilter = document.getElementById('admin-history-status-filter');

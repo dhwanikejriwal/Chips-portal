@@ -11,6 +11,10 @@ from backend.models import LMS, LMSRemark, NSEITRequest, NSEITRemark, Candidate
 from backend.models.base import to_code
 
 FORWARDED_STATUSES = ("Forwarded", "Forwarded Again")
+# `status`/`status_after` are Python-only hybrid properties (name <-> id via
+# to_name/to_code) with no SQL expression, so they cannot be used inside a
+# query filter. Filter on the underlying *_id columns instead.
+FORWARDED_STATUS_IDS = [to_code(s) for s in FORWARDED_STATUSES]
 
 # Statuses that mean CHiPS sent a request back to the DC for re-action.
 REVERTED_REJECTED = {"reverted", "reverted_by_chips", "reverted by chips", "rejected"}

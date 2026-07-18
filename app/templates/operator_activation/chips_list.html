@@ -36,7 +36,7 @@
         align-items: center;
         gap: 4px;
         padding: 6px 12px;
-        background: var(--dc-primary, #007bff);
+        background: var(--dc-primary, #378ADD);
         color: #fff;
         border: none;
         border-radius: 7px;
@@ -47,7 +47,7 @@
     }
 
     .btn-issue:hover {
-        background: var(--dc-primary-hover, #0056b3);
+        background: var(--dc-primary-hover, #2C74BE);
     }
 
     .btn-approve {
@@ -92,6 +92,7 @@
 {% endblock %}
 
 {% block content %}
+{% from 'partials/request_section.html' import request_section %}
 
 <!-- Gradient Admin Banner -->
 <div class="chips-header-banner">
@@ -145,6 +146,37 @@
     </div>
 </div>
 
+<!-- Section tabs -->
+<div class="req-tabs" role="tablist">
+    <button type="button" class="req-tab active" data-tab="pending">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+            <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+            <path d="M12 11v6" />
+            <path d="M9 14h6" />
+        </svg>
+        <span>Pending operator activation queue</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="uidai">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
+        <span>Sent to UIDAI log</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="log">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M3 3v5h5" />
+            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+            <path d="M12 7v5l3 3" />
+        </svg>
+        <span>Credentials log history</span>
+    </button>
+</div>
+
 <!-- ═══════════════════════════════════════════════════════
                  SECTION 1 — PENDING OPERATOR ACTIVATION QUEUE
             ═══════════════════════════════════════════════════════ -->
@@ -196,273 +228,245 @@
 <!-- ============================= -->
 
 
-<div class="sec-header">
-    <div class="sec-dot" style="background:#f59e0b;"></div>
-    <h3 class="sec-title">Pending Operator Activation Queue</h3>
-    <span class="sec-count" id="pending-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <select id="pending-status-filter" class="filter-input"
-            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
-            <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="reapplied">Reapplied</option>
-        </select>
-        <!-- 🌟 FIXED: Clear CSV layout target button -->
-        <button class="btn btn-sm" onclick="exportSection('pending')">Export to CSV</button>
-    </div>
-</div>
-
-<!-- === YOUR LOCAL CODE === -->
-<div class="sid-table-wrapper">
-    <table class="sid-table" id="pending-requests-table">
-        <thead>
-            <tr>
-                <th style="width: 60px;">S.No</th>
-                <th>Request ID</th>
-                <th>District</th>
-                <th>Operator Name</th>
-                <th>Mobile</th>
-                <th>Email ID</th>
-                <th>EA Code</th>
-                <th>User Code</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th>Updated At</th>
-                <th style="width: 280px; text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="pending-table-body">
-            {% set ns = namespace(count=1) %}
-            {% for r in requests if (r.status|upper) == 'PENDING' or (r.status|upper) == 'REAPPLIED' %}
-            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
-                data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
-                data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
-                data-user-code="{{ r.user_code or '' }}"
-                data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}" data-status="{{ r.status }}">
-                <td>{{ ns.count }}</td>
-                <td><strong>{{ r.request_no or '—' }}</strong></td>
-                <td>{{ r.district_name or '—' }}</td>
-                <td>{{ r.operator_name }}</td>
-                <td>{{ r.operator_mobile }}</td>
-                <td>{{ r.primary_email or '—' }}</td>
-                <td>{{ r.ea_code or '—' }}</td>
-                <td>{{ r.user_code or '—' }}</td>
-                <td>
-                    <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
-                        {{ r.status | replace('_', ' ') | title }}
-                    </span>
-                </td>
-                <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
-                <td>
-                    {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and r.reviewed_at and r.reviewed_at != '—'
-                    %}
-                    {{ r.reviewed_at[:16] }}
-                    {% else %}
-                    —
-                    {% endif %}
-                </td>
-                <td>
-                    <div class="action-group" style="justify-content: center;">
-                        <button type="button" class="btn-issue"
-                            onclick="showSendToUidaiModal('{{ r.id }}', '{{ r.request_no }}')">Send to UIDAI</button>
-                        <button type="button" class="btn-revert"
-                            onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">Revert</button>
-                        <button type="button" class="btn-details"
-                            onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5">
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                            Details
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            {% set ns.count = ns.count + 1 %}
-            {% endfor %}
-        </tbody>
-    </table>
-    <div id="pending-empty-msg" class="empty-state" style="display:none;">
-
-        <p>No incoming pending requests match your filter.</p>
-    </div>
-</div>
-<!-- ============================= -->
-
-
+{% set pending_controls %}
+<select id="pending-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="pending">Pending</option>
+    <option value="reapplied">Reapplied</option>
+</select>
+<button class="rs-export" onclick="exportSection('pending')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel active" data-panel="pending">
+    {% call request_section(
+    variant='pending',
+    title='Pending operator activation queue',
+    count='–', count_id='pending-count',
+    controls=pending_controls,
+    min_width=1200,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Operator name'},
+    {'label': 'Mobile'},
+    {'label': 'Email ID'},
+    {'label': 'EA code'},
+    {'label': 'User code'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='pending-requests-table', body_id='pending-table-body',
+    empty_id='pending-empty-msg',
+    empty_message='No incoming pending requests match your filter.') %}
+    {% set ns = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) == 'PENDING' or (r.status|upper) == 'REAPPLIED' %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
+        data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
+        data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
+        data-user-code="{{ r.user_code or '' }}" data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}"
+        data-status="{{ r.status }}">
+        <td>{{ ns.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td>{{ r.district_name or '—' }}</td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_mobile }}</td>
+        <td>{{ r.primary_email or '—' }}</td>
+        <td>{{ r.ea_code or '—' }}</td>
+        <td>{{ r.user_code or '—' }}</td>
+        <td>
+            <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                {{ r.status | replace('_', ' ') | title }}
+            </span>
+        </td>
+        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+        <td>
+            {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and r.reviewed_at and r.reviewed_at != '—'
+            %}
+            {{ r.reviewed_at[:16] }}
+            {% else %}
+            —
+            {% endif %}
+        </td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-issue"
+                    onclick="showSendToUidaiModal('{{ r.id }}', '{{ r.request_no }}')">Send to UIDAI</button>
+                <button type="button" class="btn-revert"
+                    onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">Revert</button>
+                <button type="button" class="btn-details"
+                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns.count = ns.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel pending -->
 
 <!-- ═══════════════════════════════════════════════════════
                  SECTION 2 — SENT TO UIDAI QUEUE
             ═══════════════════════════════════════════════════════ -->
-
-<div class="sec-header">
-    <div class="sec-dot" style="background:#3b82f6;"></div>
-    <h3 class="sec-title">Sent to UIDAI Log</h3>
-    <span class="sec-count" id="uidai-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <select id="uidai-status-filter" class="filter-input"
-            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
-            <option value="all">All Statuses</option>
-            <option value="sent_to_uidai">Sent to UIDAI</option>
-        </select>
-        <!-- 🌟 FIXED: Clear CSV layout target button -->
-        <button class="btn btn-sm" onclick="exportSection('uidai')">Export to CSV</button>
-    </div>
-</div>
-
-
-<div class="sid-table-wrapper">
-    <table class="sid-table" id="uidai-requests-table">
-        <thead>
-            <tr>
-                <th style="width: 60px;">S.No</th>
-                <th>Request ID</th>
-                <th>District</th>
-                <th>Operator Name</th>
-                <th>Mobile</th>
-                <th>Email ID</th>
-                <th>EA Code</th>
-                <th>User Code</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th>Updated At</th>
-                <th style="width: 300px; text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="uidai-table-body">
-            {% set ns3 = namespace(count=1) %}
-            {% for r in requests if (r.status|upper) == 'SENT_TO_UIDAI' %}
-            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
-                data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
-                data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
-                data-user-code="{{ r.user_code or '' }}"
-                data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}" data-status="{{ r.status }}">
-                <td>{{ ns3.count }}</td>
-                <td><strong>{{ r.request_no or '—' }}</strong></td>
-                <td>{{ r.district_name or '—' }}</td>
-                <td>{{ r.operator_name }}</td>
-                <td>{{ r.operator_mobile }}</td>
-                <td>{{ r.primary_email or '—' }}</td>
-                <td>{{ r.ea_code or '—' }}</td>
-                <td>{{ r.user_code or '—' }}</td>
-                <td>
-                    <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
-                        {{ r.status | replace('_', ' ') | title }}
-                    </span>
-                </td>
-                <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
-                <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% else %}—{% endif %}</td>
-                <td>
-                    <div class="action-group" style="justify-content: center;">
-                        <button type="button" class="btn-approve"
-                            onclick="showUidaiApproveModal('{{ r.id }}', '{{ r.request_no }}')">UIDAI Approved</button>
-                        <button type="button" class="btn-revert"
-                            onclick="showUidaiRejectModal('{{ r.id }}', '{{ r.request_no }}')">UIDAI Rejected</button>
-                        <button type="button" class="btn-details"
-                            onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5">
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                            Details
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            {% set ns3.count = ns3.count + 1 %}
-            {% endfor %}
-        </tbody>
-    </table>
-    <div id="uidai-empty-msg" class="empty-state" style="display:none;">
-        <p>No sent to uidai requests match your filter.</p>
-    </div>
-</div>
-
-
+{% set uidai_controls %}
+<select id="uidai-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="sent_to_uidai">Sent to UIDAI</option>
+</select>
+<button class="rs-export" onclick="exportSection('uidai')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="uidai">
+    {% call request_section(
+    variant='progress',
+    title='Sent to UIDAI log',
+    count='–', count_id='uidai-count',
+    controls=uidai_controls,
+    min_width=1200,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Operator name'},
+    {'label': 'Mobile'},
+    {'label': 'Email ID'},
+    {'label': 'EA code'},
+    {'label': 'User code'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='uidai-requests-table', body_id='uidai-table-body',
+    empty_id='uidai-empty-msg',
+    empty_message='No sent to UIDAI requests match your filter.') %}
+    {% set ns3 = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) == 'SENT_TO_UIDAI' %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
+        data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
+        data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
+        data-user-code="{{ r.user_code or '' }}" data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}"
+        data-status="{{ r.status }}">
+        <td>{{ ns3.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td>{{ r.district_name or '—' }}</td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_mobile }}</td>
+        <td>{{ r.primary_email or '—' }}</td>
+        <td>{{ r.ea_code or '—' }}</td>
+        <td>{{ r.user_code or '—' }}</td>
+        <td>
+            <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                {{ r.status | replace('_', ' ') | title }}
+            </span>
+        </td>
+        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+        <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% else %}—{% endif %}</td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-approve"
+                    onclick="showUidaiApproveModal('{{ r.id }}', '{{ r.request_no }}')">UIDAI Approved</button>
+                <button type="button" class="btn-revert"
+                    onclick="showUidaiRejectModal('{{ r.id }}', '{{ r.request_no }}')">UIDAI Rejected</button>
+                <button type="button" class="btn-details"
+                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns3.count = ns3.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel uidai -->
 
 <!-- ═══════════════════════════════════════════════════════
                  SECTION 3 — CREDENTIALS LOG HISTORY
             ═══════════════════════════════════════════════════════ -->
-
-<div class="sec-header">
-    <div class="sec-dot" style="background:#16a34a;"></div>
-    <h3 class="sec-title">Credentials Log History</h3>
-    <span class="sec-count" id="creds-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <select id="creds-status-filter" class="filter-input"
-            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
-            <option value="all">All Statuses</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="reverted">Reverted</option>
-        </select>
-        <!-- 🌟 FIXED: Clear CSV layout target button -->
-        <button class="btn btn-sm" onclick="exportSection('credentials')">Export to CSV</button>
-    </div>
-</div>
-
-
-<div class="sid-table-wrapper">
-    <table class="sid-table" id="approved-requests-table">
-        <thead>
-            <tr>
-                <th style="width: 60px;">S.No</th>
-                <th>Request ID</th>
-                <th>District</th>
-                <th>Operator Name</th>
-                <th>Mobile</th>
-                <th>Email ID</th>
-                <th>EA Code</th>
-                <th>User Code</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th>Updated At</th>
-                <th style="width: 100px; text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="approved-table-body">
-            {% set ns2 = namespace(count=1) %}
-            {% for r in requests if (r.status|upper) in ['APPROVED', 'REJECTED', 'REVERTED'] %}
-            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
-                data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
-                data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
-                data-user-code="{{ r.user_code or '' }}" data-status="{{ r.status }}"
-                data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
-                <td>{{ ns2.count }}</td>
-                <td><strong>{{ r.request_no or '—' }}</strong></td>
-                <td>{{ r.district_name or '—' }}</td>
-                <td>{{ r.operator_name }}</td>
-                <td>{{ r.operator_mobile }}</td>
-                <td>{{ r.primary_email or '—' }}</td>
-                <td>{{ r.ea_code or '—' }}</td>
-                <td>{{ r.user_code or '—' }}</td>
-                <td>
-                    <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
-                        {{ r.status | replace('_', ' ') | title }}
-                    </span>
-                </td>
-                <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
-                <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% elif r.submitted_at %}{{ r.submitted_at[:16] }}{%
-                    else %}—{% endif %}</td>
-                <td>
-                    <div class="action-group" style="justify-content: center;">
-                        <button type="button" class="btn-details"
-                            onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5">
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                            Details
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            {% set ns2.count = ns2.count + 1 %}
-            {% endfor %}
-        </tbody>
+{% set creds_controls %}
+<select id="creds-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="approved">Approved</option>
+    <option value="rejected">Rejected</option>
+    <option value="reverted">Reverted</option>
+</select>
+<button class="rs-export" onclick="exportSection('credentials')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="log">
+    {% call request_section(
+    variant='done',
+    title='Credentials log history',
+    count='–', count_id='creds-count',
+    controls=creds_controls,
+    min_width=1200,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Operator name'},
+    {'label': 'Mobile'},
+    {'label': 'Email ID'},
+    {'label': 'EA code'},
+    {'label': 'User code'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='approved-requests-table', body_id='approved-table-body',
+    empty_id='approved-empty-msg',
+    empty_message='No historical logs match your filter.') %}
+    {% set ns2 = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) in ['APPROVED', 'REJECTED', 'REVERTED'] %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
+        data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
+        data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
+        data-user-code="{{ r.user_code or '' }}" data-status="{{ r.status }}"
+        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
+        <td>{{ ns2.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td>{{ r.district_name or '—' }}</td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_mobile }}</td>
+        <td>{{ r.primary_email or '—' }}</td>
+        <td>{{ r.ea_code or '—' }}</td>
+        <td>{{ r.user_code or '—' }}</td>
+        <td>
+            <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                {{ r.status | replace('_', ' ') | title }}
+            </span>
+        </td>
+        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+        <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% elif r.submitted_at %}{{ r.submitted_at[:16] }}{%
+            else %}—{% endif %}</td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-details"
+                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns2.count = ns2.count + 1 %}
+    {% endfor %}
+    </tbody>
     </table>
     <div id="approved-empty-msg" class="empty-state" style="display:none;">
         <!-- === YOUR LOCAL CODE === -->

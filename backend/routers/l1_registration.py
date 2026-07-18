@@ -60,6 +60,8 @@ async def submit_l1_registration(
     uv_password: str = Form(...),
     operator_name: Optional[str] = Form(""),
     operator_id: Optional[str] = Form(""),
+    laptop_serial_no: Optional[str] = Form(""),
+    laptop_brand: Optional[str] = Form(""),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -73,11 +75,11 @@ async def submit_l1_registration(
         # Check if there is an approved StationIDRequest matching the station_id
         station_req = db.query(StationIDRequest).filter(
             StationIDRequest.station_id_inserted == station_id.strip(),
-            StationIDRequest.status_id == StatusEnum.APPROVED.value
+            StationIDRequest.status_id == StatusEnum.ALLOTTED.value
         ).first()
 
         if station_req:
-            req_code = station_req.request_no
+            req_code = f"{station_req.request_no}-{station_id.strip()}"
         else:
             district = db.query(District).filter(District.district_code == current_user.district_id).first()
             district_name = district.district_name if district else "Unknown"
@@ -95,6 +97,8 @@ async def submit_l1_registration(
             operator_id=operator_id,
             model_type=model_type,
             software_version=software_version,
+            laptop_serial_no=laptop_serial_no,
+            laptop_brand=laptop_brand,
             uv_id=uv_id,
             uv_password=uv_password,
             status="PENDING"
@@ -153,6 +157,52 @@ async def get_l1_requests(
         })
     return compiled_list
 
+@router.get("/allotted-pending")
+async def get_allotted_pending_l1(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Station IDs that are ALLOTTED but have no L1 request filled yet.
+
+    These are the requests the DC still needs to fill L1 for. Scoped to the
+    DC's district; once an L1 request exists for a station it drops off this list.
+    """
+    user_role_str = get_user_role_str(current_user)
+
+    q = db.query(StationIDRequest).filter(
+        StationIDRequest.status_id == StatusEnum.ALLOTTED.value,
+        StationIDRequest.station_id_inserted.isnot(None),
+    )
+    if user_role_str == "dc":
+        q = q.filter(StationIDRequest.district_id == current_user.district_id)
+    allotted = q.order_by(StationIDRequest.reviewed_at.desc().nullslast()).all()
+
+    # Station IDs that already have an L1 request (any status) → exclude from this list
+    existing = {
+        (s.station_id or "").strip()
+        for s in db.query(L1RegistrationRequest.station_id).all()
+    }
+
+    out = []
+    for r in allotted:
+        dist_name = r.district.district_name if r.district else ""
+        for sid in str(r.station_id_inserted or "").split(","):
+            sid = sid.strip()
+            if not sid or sid in existing:
+                continue
+            out.append({
+                "station_id": sid,
+                # Show the station-suffixed request number (the code the L1 request
+                # will actually be created with), not the bare batch code.
+                "request_no": f"{r.request_no}-{sid}" if r.request_no else "—",
+                "model": r.model or "—",
+                "slot": r.slot or "—",
+                "district_name": dist_name,
+                "allotted_at": str(r.reviewed_at)[:19] if r.reviewed_at else "—",
+            })
+    return out
+
+
 @router.get("/requests/{request_code}")
 async def get_l1_request_details(request_code: str, db: Session = Depends(get_db)):
     req = db.query(L1RegistrationRequest).filter(L1RegistrationRequest.request_code == request_code).first()
@@ -187,6 +237,8 @@ async def get_l1_request_details(request_code: str, db: Session = Depends(get_db
         "operator_id": req.operator_id,
         "model_type": req.model_type,
         "software_version": req.software_version,
+        "laptop_serial_no": req.laptop_serial_no,
+        "laptop_brand": req.laptop_brand,
         "uv_id": req.uv_id,
         "uv_password": req.uv_password,
         "status": str(req.status).upper().replace(" ", "_").strip(),
@@ -206,27 +258,33 @@ async def perform_l1(
     current_user: User = Depends(get_current_user)
 ):
     req = db.query(L1RegistrationRequest).filter(L1RegistrationRequest.request_code == request_code).first()
-    if req: 
-        req.status_id = StatusEnum.APPROVED.value
-        req.reviewed_by = current_user.id
+    if not req:
+        raise HTTPException(status_code=404, detail="L1 registration request not found")
+
+    req.status_id = StatusEnum.DONE.value
+    req.reviewed_by = current_user.id
 
 # --- FRIEND'S UPDATED CODE ---
-        from backend.models.base import get_ist_now
-        req.reviewed_at = get_ist_now()
+    from backend.models.base import get_ist_now
+    req.reviewed_at = get_ist_now()
 # --- YOUR LOCAL CODE ---
-        final_remark = chips_remarks.strip() if chips_remarks and chips_remarks.strip() else "Request successfully approved by CHiPS Admin."
-        
+    final_remark = chips_remarks.strip() if chips_remarks and chips_remarks.strip() else "L1 registration marked as Done by CHiPS Admin."
+
 # ---------------------------
 
-        db.add(L1RegistrationRemarkHistory(
-            request_id=req.id,
-            remark=final_remark,
-            action="APPROVED",
-            user_role=get_user_role_str(current_user),
-            author_id=current_user.id
+    db.add(L1RegistrationRemarkHistory(
+        request_id=req.id,
+        remark=final_remark,
+        action="DONE",
+        user_role=get_user_role_str(current_user),
+        author_id=current_user.id
 
-        ))
-        db.commit()
+    ))
+    db.commit()
+
+    from backend.routers.kit_registration import _reconcile_kit_table
+    _reconcile_kit_table(db)
+
     return {"success": True}
 
 @router.post("/requests/approve-all")
@@ -243,19 +301,23 @@ async def approve_all_l1(
         return {"success": True, "message": "No pending requests to approve."}
         
     for req in pending_requests:
-        req.status_id = StatusEnum.REVIEWED.value
+        req.status_id = StatusEnum.DONE.value
         req.reviewed_by = current_user.id
         from backend.models.base import get_ist_now
         req.reviewed_at = get_ist_now()
         db.add(L1RegistrationRemarkHistory(
             request_id=req.id,
-            remark="Mass approval performed by CHIPS Admin.",
-            action="REVIEWED",
+            remark="L1 registration marked as Done (bulk) by CHIPS Admin.",
+            action="DONE",
             user_role=get_user_role_str(current_user),
             author_id=current_user.id
 
         ))
     db.commit()
+
+    from backend.routers.kit_registration import _reconcile_kit_table
+    _reconcile_kit_table(db)
+
     return {"success": True, "count": len(pending_requests)}
 
 @router.post("/requests/{request_code}/revert")

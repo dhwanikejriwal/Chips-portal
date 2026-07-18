@@ -38,11 +38,11 @@ def submit_l2_request(
     reason_for_l2_registration: str = Form(None),
     old_machine_id: str = Form(None),
     tech_center_remarks: str = Form(None),
-    operator_name: str = Form(...),
-    operator_id: str = Form(...),
+    operator_name: str = Form(None),
+    operator_id: str = Form(None),
     unique_id: str = Form(None),
-    block: str = Form(...),
-    address_of_govt_premises: str = Form(...),
+    block: str = Form(None),
+    address_of_govt_premises: str = Form(None),
     db: Session = Depends(get_db)
 ):
     # Verify DC exists
@@ -79,11 +79,11 @@ def submit_l2_request(
     # Look up approved StationIDRequest matching new_station_id
     station_req = db.query(StationIDRequest).filter(
         StationIDRequest.station_id_inserted == new_station_id.strip(),
-        StationIDRequest.status_id == StatusEnum.APPROVED.value
+        StationIDRequest.status_id == StatusEnum.ALLOTTED.value
     ).first()
 
     if station_req:
-        new_req.request_no = station_req.request_no
+        new_req.request_no = f"{station_req.request_no}-{new_station_id.strip()}"
     else:
         last_req = db.query(L2RegistrationRequest).filter(
             L2RegistrationRequest.request_no.isnot(None),
@@ -178,6 +178,122 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
     result.sort(key=lambda x: x["updated_at"] or x["submitted_at"], reverse=True)
 
     return result
+
+
+@router.get("/awaiting-l2/{dc_id}")
+def get_awaiting_l2(dc_id: int, db: Session = Depends(get_db)):
+    """Stations whose L1 registration is Done but that have no L2 request yet.
+
+    These are the requests the DC still needs to fill L2 for. Scoped to the
+    coordinator's district; once an L2 request exists for a station it drops
+    off this list. Mirrors the L1 "Awaiting L1 (Station ID Allotted)" section.
+    """
+    from backend.models.l1_registration import L1RegistrationRequest
+
+    # L1 states that count as "done" — kept in sync with the kit tracker.
+    L1_DONE_STATES = [
+        StatusEnum.DONE.value,
+        StatusEnum.APPROVED.value,
+        StatusEnum.REVIEWED.value,
+    ]
+
+    user = db.query(User).filter(User.id == dc_id).first()
+    district_id = user.district_id if user and user.district_id else None
+
+    q = db.query(L1RegistrationRequest).filter(
+        L1RegistrationRequest.status_id.in_(L1_DONE_STATES)
+    )
+    if district_id:
+        q = q.filter(L1RegistrationRequest.district_id == str(district_id))
+    else:
+        q = q.filter(L1RegistrationRequest.dc_id == dc_id)
+    done_l1 = q.order_by(L1RegistrationRequest.updated_at.desc()).all()
+
+    # Station IDs that already have an L2 request (any status) → exclude
+    existing_l2 = {
+        (s.new_station_id or "").strip()
+        for s in db.query(L2RegistrationRequest.new_station_id).all()
+    }
+
+    out = []
+    seen = set()
+    for r in done_l1:
+        sid = (r.station_id or "").strip()
+        if not sid or sid in existing_l2 or sid in seen:
+            continue
+        seen.add(sid)
+        dist_name = r.district.district_name if r.district else ""
+        out.append({
+            "station_id": sid,
+            "request_no": r.request_code or "—",
+            "model": r.model_type or "—",
+            "district_name": dist_name,
+            "l1_done_at": str(r.updated_at)[:19] if r.updated_at else "—",
+        })
+    return out
+
+
+@router.get("/prefill/{station_id}")
+def get_l2_prefill(station_id: str, db: Session = Depends(get_db)):
+    """Everything already known about a Station ID from the earlier stages
+    (Station ID request + L1 registration), used to pre-fill the L2 form.
+
+    Every value is read from the database for this specific station — nothing
+    is hardcoded. Only fields we actually captured before are returned; L2-only
+    fields (old station/machine, reason, block, address, etc.) are left blank
+    for the DC to fill.
+    """
+    from backend.models.l1_registration import L1RegistrationRequest
+
+    sid = (station_id or "").strip()
+
+    # Latest L1 registration for this station (source of most operator/hardware data)
+    l1 = (
+        db.query(L1RegistrationRequest)
+        .filter(L1RegistrationRequest.station_id == sid)
+        .order_by(L1RegistrationRequest.id.desc())
+        .first()
+    )
+
+    # Matching Station ID allotment row (exact match within the comma-separated list)
+    station_req = None
+    for s in (
+        db.query(StationIDRequest)
+        .filter(StationIDRequest.station_id_inserted.isnot(None))
+        .order_by(StationIDRequest.id.desc())
+        .all()
+    ):
+        ids = [x.strip() for x in str(s.station_id_inserted).split(",")]
+        if sid in ids:
+            station_req = s
+            break
+
+    data = {"new_station_id": sid}
+
+    if l1 is not None:
+        data.update({
+            "new_machine_id": l1.machine_id or "",
+            "operator_name": l1.operator_name or "",
+            "operator_id": l1.operator_id or "",
+            # L1 software version → L2 client version; L1 model type → L2 client type.
+            "client_version": l1.software_version or "",
+            "client_type": l1.model_type or "",
+            "request_no": l1.request_code or "",
+            "district_id": str(l1.district_id) if l1.district_id else "",
+            "district_name": l1.district.district_name if l1.district else "",
+        })
+
+    if station_req is not None:
+        # Fall back to allotment data where L1 didn't provide it.
+        if not data.get("client_type"):
+            data["client_type"] = station_req.model or ""
+        if not data.get("district_id") and station_req.district_id:
+            data["district_id"] = str(station_req.district_id)
+        if not data.get("district_name") and station_req.district:
+            data["district_name"] = station_req.district.district_name
+
+    return data
+
 
 @router.get("/all")
 def get_all_requests(db: Session = Depends(get_db)):

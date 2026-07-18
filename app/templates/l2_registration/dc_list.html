@@ -7,6 +7,7 @@
 {% endblock %}
 
 {% block content %}
+{% from 'partials/request_section.html' import request_section %}
 
 <!-- === FRIEND'S UPDATED CODE === -->
 <!-- Standardized L2 Registration Dashboard Banner -->
@@ -43,6 +44,12 @@
             </div>
         </div>
         <div class="chips-metric-card">
+            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-awaiting-l2">{{
+                awaiting_l2 | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Awaiting L2
+            </div>
+        </div>
+        <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 requests | selectattr('status', 'equalto', 'SENT_TO_UIDAI') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
@@ -73,6 +80,38 @@
 </div>
 
 
+<!-- Section tabs -->
+<div class="req-tabs" role="tablist">
+    <button type="button" class="req-tab active" data-tab="pending">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+            <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+            <path d="M12 11v6" />
+            <path d="M9 14h6" />
+        </svg>
+        <span>Pending L2 registration queue</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="awaiting">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+            <path
+                d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+        </svg>
+        <span>Awaiting L2 registration</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="log">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M3 3v5h5" />
+            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+            <path d="M12 7v5l3 3" />
+        </svg>
+        <span>L2 registration log history</span>
+    </button>
+</div>
+
 <!-- Filter Bar -->
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
@@ -83,7 +122,7 @@
     <div class="filter-group">
         <label>Time Period</label>
         <select id="dc-date-filter" class="filter-input" onchange="filterAllTables()">
-            <option value="all" selected>All Time</option>
+            <option value="all">All Time</option>
             <option value="today">Today</option>
             <option value="week">Week</option>
             <option value="month" selected>Month</option>
@@ -102,189 +141,203 @@
 </div>
 
 <!-- Pending Section -->
-<div class="section-heading">
-    <div class="section-heading-dot" style="background:#f59e0b;"></div>
-    <h3>Pending L2 Registration Queue</h3>
-    <span class="section-count" id="pending-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+{% set pending_controls %}
+<select id="pending-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="pending">Pending</option>
+    <option value="sent_to_uidai">Sent to UIDAI</option>
+    <option value="reapplied">Reapplied</option>
+</select>
+<button class="rs-export" onclick="exportFilteredL2('pending')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel active" data-panel="pending">
+    {% call request_section(
+    variant='progress',
+    title='Pending L2 registration queue',
+    count='–', count_id='pending-count',
+    controls=pending_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'Operator name'},
+    {'label': 'Operator ID'},
+    {'label': 'New station ID'},
+    {'label': 'Client version'},
+    {'label': 'Client type'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='pending-requests-table', body_id='pending-table-body',
+    empty_id='pending-empty-msg',
+    empty_message='No pending pipeline records found matching current filter scope.') %}
+    {% set ns_pending = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) not in ['APPROVED', 'REVERTED', 'REJECTED'] %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
+        data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
+        data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
+        data-new-station-id="{{ r.new_station_id }}" data-new-machine-id="{{ r.new_machine_id }}"
+        data-ea-code="{{ r.ea_code }}" data-reg-code="{{ r.reg_code }}"
+        data-old-station-id="{{ r.old_station_id or '' }}" data-old-machine-id="{{ r.old_machine_id or '' }}"
+        data-reason-for-l2-registration="{{ r.reason_for_l2_registration or '' }}"
+        data-tech-center-remarks="{{ r.tech_center_remarks or '' }}" data-unique-id="{{ r.unique_id }}"
+        data-block="{{ r.block }}" data-address-of-govt-premises="{{ r.address_of_govt_premises }}"
+        data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+        data-district="{{ r.district_name or 'Raipur' }}" data-remarks='{{ r.remarks_history | tojson | safe }}'>
 
-        <select id="pending-status-filter" class="filter-input"
-            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
-            <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="sent_to_uidai">Sent to UIDAI</option>
-            <option value="reapplied">Reapplied</option>
-        </select>
-        <button class="btn btn-sm" onclick="exportFilteredL2('pending')">Export to CSV</button>
-    </div>
-</div>
-<div class="sid-table-wrapper" style="margin-bottom: 28px;">
-    <table class="sid-table" id="pending-requests-table">
-        <thead>
-            <tr>
-                <th style="width: 50px;">S.No</th>
-                <th>Request ID</th>
-                <th>Operator Name</th>
-                <th>Operator ID</th>
-                <th>New Station ID</th>
-                <th>Client Version</th>
-                <th>Client Type</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th>Updated At</th>
-                <th style="text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="pending-table-body">
-            {% set ns_pending = namespace(count=1) %}
-            {% for r in requests if (r.status|upper) not in ['APPROVED', 'REVERTED', 'REJECTED'] %}
-            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
-                data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
-                data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
-                data-new-station-id="{{ r.new_station_id }}" data-new-machine-id="{{ r.new_machine_id }}"
-                data-ea-code="{{ r.ea_code }}" data-reg-code="{{ r.reg_code }}"
-                data-old-station-id="{{ r.old_station_id or '' }}" data-old-machine-id="{{ r.old_machine_id or '' }}"
-                data-reason-for-l2-registration="{{ r.reason_for_l2_registration or '' }}"
-                data-tech-center-remarks="{{ r.tech_center_remarks or '' }}" data-unique-id="{{ r.unique_id }}"
-                data-block="{{ r.block }}" data-address-of-govt-premises="{{ r.address_of_govt_premises }}"
-                data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
-                data-district="{{ r.district_name or 'Raipur' }}"
-                data-remarks='{{ r.remarks_history | tojson | safe }}'>
+        <td>{{ ns_pending.count }}</td>
+        <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_id }}</td>
+        <td><strong>{{ r.new_station_id }}</strong></td>
+        <td>{{ r.client_version }}</td>
+        <td>{{ r.client_type }}</td>
+        <td>
+            <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                {{ r.status | replace('_', ' ') | title }}
+            </span>
+        </td>
+        <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
+        <td>
+            {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and r.updated_at and r.updated_at != '—' %}
+            {{ r.updated_at }}
+            {% else %}
+            —
+            {% endif %}
+        </td>
+        <td style="text-align: center;">
+            <button class="btn-details" onclick="openL2DetailsModal(this.closest('tr'))">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% set ns_pending.count = ns_pending.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel pending -->
 
-                <td>{{ ns_pending.count }}</td>
-                <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
-                <td>{{ r.operator_name }}</td>
-                <td>{{ r.operator_id }}</td>
-                <td><strong>{{ r.new_station_id }}</strong></td>
-                <td>{{ r.client_version }}</td>
-                <td>{{ r.client_type }}</td>
-                <td>
-                    <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
-                        {{ r.status | replace('_', ' ') | title }}
-                    </span>
-                </td>
-                <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
-                <td>
-                    {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and r.updated_at and r.updated_at != '—' %}
-                    {{ r.updated_at }}
-                    {% else %}
-                    —
-                    {% endif %}
-                </td>
-                <td style="text-align: center;">
-                    <button class="btn-details" onclick="openL2DetailsModal(this.closest('tr'))">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        Details
-                    </button>
-                </td>
-            </tr>
-            {% set ns_pending.count = ns_pending.count + 1 %}
-            {% endfor %}
-        </tbody>
-    </table>
-    <div id="pending-empty-msg" class="empty-state" style="display: none;">
-
-        <div class="empty-state-icon"></div>
-        <p>No pending pipeline records found matching current filter scope.</p>
-
-    </div>
-</div>
+<!-- Awaiting L2 Section: Stations whose L1 is Done but L2 not filled yet -->
+<div class="req-tabpanel" data-panel="awaiting">
+    {% call request_section(
+    variant='pending',
+    title='Awaiting L2 registration (L1 done)',
+    count=awaiting_l2|length, count_id='awaiting-l2-count',
+    table_id='awaiting-l2-table', body_id='awaiting-l2-tbody',
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Station ID'},
+    {'label': 'Request no'},
+    {'label': 'Model'},
+    {'label': 'District'},
+    {'label': 'L1 done at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    empty_message='No stations with L1 done are awaiting L2 registration.',
+    show_empty=(awaiting_l2|length == 0)) %}
+    {% for s in awaiting_l2 %}
+    <tr>
+        <td>{{ loop.index }}</td>
+        <td><strong>{{ s.station_id }}</strong></td>
+        <td>{{ s.request_no }}</td>
+        <td>{{ s.model }}</td>
+        <td>{{ s.district_name or '—' }}</td>
+        <td>{{ s.l1_done_at }}</td>
+        <td style="text-align: center;">
+            <button type="button" class="btn-primary"
+                style="padding:6px 14px; font-size:13px; font-weight:600; height:auto;"
+                onclick="startL2ForStation('{{ s.station_id }}')">
+                Register L2
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel awaiting -->
 
 <!-- History Section -->
-<div class="section-heading">
-    <div class="section-heading-dot" style="background:#16a34a;"></div>
-    <h3>L2 Registration Log History</h3>
-    <span class="section-count" id="approved-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <select id="approved-status-filter" class="filter-input"
-            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
-            <option value="all">All Statuses</option>
-            <option value="approved">Approved</option>
-            <option value="reverted">Reverted</option>
-            <option value="rejected">Rejected</option>
-        </select>
+{% set approved_controls %}
+<select id="approved-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="approved">Approved</option>
+    <option value="reverted">Reverted</option>
+    <option value="rejected">Rejected</option>
+</select>
+<button class="rs-export" onclick="exportFilteredL2('credentials')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="log">
+    {% call request_section(
+    variant='done',
+    title='L2 registration log history',
+    count='–', count_id='approved-count',
+    controls=approved_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'Operator name'},
+    {'label': 'Operator ID'},
+    {'label': 'New station ID'},
+    {'label': 'Client version'},
+    {'label': 'Client type'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='approved-requests-table', body_id='approved-table-body',
+    empty_id='approved-empty-msg',
+    empty_message='No approved request history records found matching current filter scope.') %}
+    {% set ns_approved = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) in ['APPROVED', 'REVERTED', 'REJECTED'] %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
+        data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
+        data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
+        data-new-station-id="{{ r.new_station_id }}" data-new-machine-id="{{ r.new_machine_id }}"
+        data-ea-code="{{ r.ea_code }}" data-reg-code="{{ r.reg_code }}"
+        data-old-station-id="{{ r.old_station_id or '' }}" data-old-machine-id="{{ r.old_machine_id or '' }}"
+        data-reason-for-l2-registration="{{ r.reason_for_l2_registration or '' }}"
+        data-tech-center-remarks="{{ r.tech_center_remarks or '' }}" data-unique-id="{{ r.unique_id }}"
+        data-block="{{ r.block }}" data-address-of-govt-premises="{{ r.address_of_govt_premises }}"
+        data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+        data-district="{{ r.district_name or 'Raipur' }}" data-remarks='{{ r.remarks_history | tojson | safe }}'>
 
-        <button class="btn btn-sm" onclick="exportFilteredL2('credentials')">Export to CSV</button>
+        <td>{{ ns_approved.count }}</td>
+        <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_id }}</td>
+        <td><strong>{{ r.new_station_id }}</strong></td>
+        <td>{{ r.client_version }}</td>
+        <td>{{ r.client_type }}</td>
+        <td>
+            <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                {{ r.status | replace('_', ' ') | title }}
+            </span>
+        </td>
+        <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
 
-    </div>
-</div>
-<div class="sid-table-wrapper">
-    <table class="sid-table" id="approved-requests-table">
-        <thead>
-            <tr>
-                <th style="width: 50px;">S.No</th>
-                <th>Request ID</th>
-                <th>Operator Name</th>
-                <th>Operator ID</th>
-                <th>New Station ID</th>
-                <th>Client Version</th>
-                <th>Client Type</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th>Updated At</th>
+        <td>{{ r.updated_at if r.updated_at else (r.completed_at if r.completed_at else (r.reviewed_at if
+            r.reviewed_at else '—')) }}</td>
 
-                <th style="text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="approved-table-body">
-            {% set ns_approved = namespace(count=1) %}
-            {% for r in requests if (r.status|upper) in ['APPROVED', 'REVERTED', 'REJECTED'] %}
-            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
-                data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
-                data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
-                data-new-station-id="{{ r.new_station_id }}" data-new-machine-id="{{ r.new_machine_id }}"
-                data-ea-code="{{ r.ea_code }}" data-reg-code="{{ r.reg_code }}"
-                data-old-station-id="{{ r.old_station_id or '' }}" data-old-machine-id="{{ r.old_machine_id or '' }}"
-                data-reason-for-l2-registration="{{ r.reason_for_l2_registration or '' }}"
-                data-tech-center-remarks="{{ r.tech_center_remarks or '' }}" data-unique-id="{{ r.unique_id }}"
-                data-block="{{ r.block }}" data-address-of-govt-premises="{{ r.address_of_govt_premises }}"
-                data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
-                data-district="{{ r.district_name or 'Raipur' }}"
-                data-remarks='{{ r.remarks_history | tojson | safe }}'>
-
-                <td>{{ ns_approved.count }}</td>
-                <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
-                <td>{{ r.operator_name }}</td>
-                <td>{{ r.operator_id }}</td>
-                <td><strong>{{ r.new_station_id }}</strong></td>
-                <td>{{ r.client_version }}</td>
-                <td>{{ r.client_type }}</td>
-                <td>
-                    <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
-                        {{ r.status | replace('_', ' ') | title }}
-                    </span>
-                </td>
-                <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
-
-                <td>{{ r.updated_at if r.updated_at else (r.completed_at if r.completed_at else (r.reviewed_at if
-                    r.reviewed_at else '—')) }}</td>
-
-                <td style="text-align: center;">
-                    <button class="btn-details" onclick="openL2DetailsModal(this.closest('tr'))">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        Details
-                    </button>
-                </td>
-            </tr>
-            {% set ns_approved.count = ns_approved.count + 1 %}
-            {% endfor %}
-        </tbody>
-    </table>
-    <div id="approved-empty-msg" class="empty-state" style="display: none;">
-
-        <div class="empty-state-icon"></div>
-        <p>No approved request history records found matching current filter scope.</p>
-
-    </div>
-</div>
+        <td style="text-align: center;">
+            <button class="btn-details" onclick="openL2DetailsModal(this.closest('tr'))">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% set ns_approved.count = ns_approved.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel log -->
 
 <script>
 
@@ -390,7 +443,7 @@
         document.getElementById('dc-search-input').value = '';
         document.getElementById('pending-status-filter').value = 'all';
         document.getElementById('approved-status-filter').value = 'all';
-        document.getElementById('dc-date-filter').value = 'all';
+        document.getElementById('dc-date-filter').value = 'month';
         filterAllTables();
     }
 
@@ -952,6 +1005,26 @@
 
     function exportTableToExcel(tableID, filename = 'export.csv') {
         exportFilteredL2(tableID === 'pending-requests-table' ? 'pending' : 'credentials');
+    }
+
+    // Confirm, then open the L2 form pre-filled for a station whose L1 is Done
+    // (from the "Awaiting L2 Registration (L1 Done)" section).
+    function startL2ForStation(stationId) {
+        Swal.fire({
+            title: 'Proceed with L2 Registration?',
+            html: `You are about to begin the L2 registration for Station ID <strong>${stationId}</strong>. Do you want to continue?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#378ADD',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Yes, Continue',
+            cancelButtonText: 'Cancel',
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+            // Clear any stale draft so the pre-filled Station ID is authoritative.
+            sessionStorage.removeItem('l2_request_draft');
+            window.location.href = `/auth/dc/l2-registration/new?station_id=${encodeURIComponent(stationId)}`;
+        });
     }
 
 </script>

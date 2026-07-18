@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.models.candidate import Candidate
     from backend.models.user_login import UserLogin
+    from backend.models.station_id_master import StationIDMaster
 
 class District(Base):
     __tablename__ = "district_table"
@@ -24,4 +25,4 @@ class District(Base):
     # Relationships
     users: Mapped[list["UserLogin"]] = relationship("UserLogin", back_populates="district")
     candidates: Mapped[list["Candidate"]] = relationship("Candidate", back_populates="district_rel")
-    
+    station_id_master: Mapped["StationIDMaster | None"] = relationship("StationIDMaster", back_populates="district", uselist=False)

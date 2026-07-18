@@ -26,8 +26,9 @@ from backend.models.operator_activation import (
 from backend.models.station_id import StationIDRequest, StationIDRemark
 from backend.models.otp_verification import OtpVerification
 from backend.models.admin_login_logs import AdminLoginLog
-
 from backend.models.operator import Operator
+from backend.models.kit_registration import KitRegistration
+from backend.models.station_id_master import StationIDMaster
 
 __all__ = [
     "Base",
@@ -58,8 +59,11 @@ __all__ = [
     "OperatorActivationRemark",
     "StationIDRequest",
     "StationIDRemark",
+
     "OtpVerification",
     "AdminLoginLog",
     "HoldCandidate",
     "Operator",
+    "KitRegistration",
+    "StationIDMaster",
 ]

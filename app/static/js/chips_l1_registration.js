@@ -46,7 +46,7 @@ function approveL1Request(requestCode) {
         }
     }).then(result => {
         if (result.isConfirmed) {
-            Swal.fire({ title: 'Approved!', text: 'L1 Request has been successfully processed.', icon: 'success', showConfirmButton: true, timer: 3000, timerProgressBar: true })
+            Swal.fire({ title: 'Marked as Done!', text: 'L1 registration has been successfully marked as Done.', icon: 'success', showConfirmButton: true, timer: 3000, timerProgressBar: true })
                 .then(() => {
                     sessionStorage.setItem('chips_action_reloading', 'true');
                     window.location.reload();
@@ -71,7 +71,7 @@ function revertL1Request(requestCode) {
         </div>`,
         showCancelButton: true,
         confirmButtonText: '↩ Revert Request',
-        confirmButtonColor: '#007bff',
+        confirmButtonColor: '#378ADD',
         cancelButtonText: 'Cancel',
         cancelButtonColor: '#6c757d',
         width: '500px',
@@ -83,7 +83,7 @@ function revertL1Request(requestCode) {
                 Swal.showValidationMessage('A revert reason is required.');
                 return false;
             }
-            
+
             const payload = new URLSearchParams();
             payload.append('revert_reason', reason);
 
@@ -116,7 +116,7 @@ function getStatusBadgeHtml(status) {
     const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
     let badgeClass = 'badge-pending';
     let label = 'Pending';
-    if (s.includes('approve')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+    if (s.includes('done') || s.includes('approve') || s.includes('reviewed')) { badgeClass = 'badge-approved'; label = 'Done'; }
     else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
     else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
     else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
@@ -142,7 +142,7 @@ function buildRemarksHtml(remarks) {
         if (action) {
             statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(action);
             const aLower = action.toLowerCase();
-            if (aLower.includes('approve')) markerClass = 'marker-approved';
+            if (aLower.includes('done') || aLower.includes('approve') || aLower.includes('reviewed')) markerClass = 'marker-approved';
             else if (aLower.includes('revert') || aLower.includes('reject')) markerClass = 'marker-reverted';
             else if (aLower.includes('forward') || aLower.includes('uidai')) markerClass = 'marker-forwarded';
             else if (aLower.includes('reappl')) markerClass = 'marker-reapplied';
@@ -244,6 +244,8 @@ window.showL1Details = function (data, activeView) {
                 ${infoCell('Machine ID', data.machine_id)}
                 ${infoCell('Model Type', data.model_type)}
                 ${infoCell('Software Version', data.software_version)}
+                ${infoCell('Laptop Serial Number', data.laptop_serial_no)}
+                ${infoCell('Laptop Brand', data.laptop_brand)}
             </div>
 
             ${sectionHead('Operator Details')}
@@ -252,11 +254,11 @@ window.showL1Details = function (data, activeView) {
                 ${infoCell('Operator ID', data.operator_id)}
             </div>
 
-            ${sectionHead('UV Credentials')}
+            ${sectionHead('Ultra Viewer Credentials')}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-                ${infoCell('UV ID', data.uv_id)}
+                ${infoCell('Ultra Viewer ID', data.uv_id)}
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
-                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">UV Password</div>
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Ultra Viewer Password</div>
                     <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
                         <input type="password" id="chips_uv_password_display" value="${escapeHtml(data.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: #0f172a; width: 100%; outline: none;" />
                         <button type="button" onclick="togglePasswordVisibility('chips_uv_password_display', this)" style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #64748b;">

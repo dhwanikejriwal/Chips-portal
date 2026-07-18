@@ -32,9 +32,18 @@ def dc_list():
         requests_list = response.json() if response.status_code == 200 else []
     except requests.exceptions.ConnectionError:
         requests_list = []
-        
+
+    # Stations whose L1 is Done but still awaiting an L2 request from the DC
+    try:
+        awaiting_resp = requests.get(f"{BACKEND}/awaiting-l2/{dc_id}", headers=headers, timeout=5)
+        awaiting_l2 = awaiting_resp.json() if awaiting_resp.status_code == 200 else []
+        if not isinstance(awaiting_l2, list):
+            awaiting_l2 = []
+    except requests.exceptions.ConnectionError:
+        awaiting_l2 = []
+
     requests_list.sort(key=lambda x: x.get("updated_at") or x.get("completed_at") or x.get("reviewed_at") or x.get("submitted_at") or "", reverse=True)
-    return render_template("l2_registration/dc_list.html", requests=requests_list)
+    return render_template("l2_registration/dc_list.html", requests=requests_list, awaiting_l2=awaiting_l2)
 
 
 @l2_registration_bp.route("/dc/l2-registration/new", methods=["GET", "POST"])
@@ -88,6 +97,24 @@ def dc_new():
             return jsonify({"status": "error", "message": "Backend Microservice Offline."}), 500
 
     return render_template("l2_registration/submit_form.html")
+
+
+@l2_registration_bp.route("/dc/l2-registration/prefill/<station_id>", methods=["GET"])
+def dc_l2_prefill(station_id):
+    """Proxy: fetch DB-sourced L2 prefill data for a station (from L1 + Station ID stages)."""
+    jwt_token = get_valid_token()
+    if not jwt_token:
+        return jsonify({}), 401
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    try:
+        resp = requests.get(f"{BACKEND}/prefill/{station_id}", headers=headers, timeout=5)
+        return Response(
+            resp.content,
+            status=resp.status_code,
+            content_type=resp.headers.get("Content-Type", "application/json"),
+        )
+    except requests.exceptions.ConnectionError:
+        return jsonify({}), 500
 
 
 @l2_registration_bp.route("/dc/l2-registration/<int:request_id>/reapply", methods=["POST"])

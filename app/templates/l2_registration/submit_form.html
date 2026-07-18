@@ -103,14 +103,12 @@
 
         <div class="form-grid-3x">
             <div class="input-group">
-                <label>Operator Name <span class="required-star">*</span></label>
-                <input type="text" name="operator_name" required placeholder="Enter Operator Name"
-                    class="form-control-input">
+                <label>Operator Name</label>
+                <input type="text" name="operator_name" placeholder="Enter Operator Name" class="form-control-input">
             </div>
             <div class="input-group">
-                <label>Operator ID <span class="required-star">*</span></label>
-                <input type="text" name="operator_id" required placeholder="Enter Operator User ID"
-                    class="form-control-input">
+                <label>Operator ID</label>
+                <input type="text" name="operator_id" placeholder="Enter Operator User ID" class="form-control-input">
             </div>
             <div class="input-group">
                 <label>Unique ID</label>
@@ -127,14 +125,13 @@
                 </select>
             </div>
             <div class="input-group">
-                <label>Block <span class="required-star">*</span></label>
-                <input type="text" name="block" required placeholder="Enter Block name" class="form-control-input">
+                <label>Block</label>
+                <input type="text" name="block" placeholder="Enter Block name" class="form-control-input">
             </div>
             <div class="input-group" style="grid-column: span 3;">
-                <label>Address of Govt Premises <span class="required-star">*</span></label>
-                <textarea name="address_of_govt_premises" required
-                    placeholder="Specify government premises address details..." class="form-control-input"
-                    style="min-height: 80px; resize: vertical;"></textarea>
+                <label>Address of Govt Premises</label>
+                <textarea name="address_of_govt_premises" placeholder="Specify government premises address details..."
+                    class="form-control-input" style="min-height: 80px; resize: vertical;"></textarea>
             </div>
         </div>
 
@@ -327,6 +324,51 @@
         }
 
         window.loadL2Draft();
+
+        // Pre-fill the L2 form when arriving from the "Awaiting L2 Registration
+        // (L1 Done)" section via ?station_id=... All values are pulled from the
+        // database (L1 + Station ID stages) — nothing is hardcoded here.
+        const presetStation = new URLSearchParams(window.location.search).get('station_id');
+        if (presetStation) {
+            const stationInput = document.getElementsByName('new_station_id')[0];
+            if (stationInput) {
+                stationInput.value = presetStation;
+                stationInput.setAttribute('readonly', 'readonly');
+                stationInput.style.background = '#f1f5f9';
+                stationInput.style.cursor = 'not-allowed';
+                stationInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+
+            // Only fields the form actually exposes; skip metadata keys.
+            const fillable = ['new_machine_id', 'operator_name', 'operator_id', 'client_version', 'client_type'];
+
+            fetch(`/auth/dc/l2-registration/prefill/${encodeURIComponent(presetStation)}`)
+                .then(res => res.ok ? res.json() : {})
+                .then(data => {
+                    if (!data || typeof data !== 'object') return;
+                    fillable.forEach(key => {
+                        const val = data[key];
+                        if (val === undefined || val === null || val === '') return;
+                        const el = document.getElementsByName(key)[0];
+                        if (!el) return;
+                        if (el.tagName === 'SELECT') {
+                            // Set only if the value matches an available option.
+                            const match = Array.from(el.options).find(o => o.value === val);
+                            if (match) {
+                                el.value = val;
+                                // Trigger dependent logic (e.g. EA code auto-fill).
+                                el.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        } else {
+                            el.value = val;
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    });
+                    // Persist the pre-filled values into the draft.
+                    if (typeof window.saveL2Draft === 'function') window.saveL2Draft();
+                })
+                .catch(() => { /* prefill is best-effort; leave blanks for manual entry */ });
+        }
     });
 </script>
 {% endblock %}

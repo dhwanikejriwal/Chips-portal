@@ -654,6 +654,15 @@
                         }
 
                         // Step logic removed since this is a single page form
+                        // Ensure we are on the step that has the error
+                        const firstErrorInput = document.querySelector('.oa-field-error').previousElementSibling;
+                        const errorStep = firstErrorInput ? firstErrorInput.closest('.oa-form-step') : null;
+                        if (errorStep) {
+                            const stepIndex = parseInt(errorStep.id.replace('step-', '').replace('-panel', ''));
+                            if (!isNaN(stepIndex)) {
+                                goToStep(stepIndex);
+                            }
+                        }
 
                     } else {
                         // Show general error in banner
@@ -691,7 +700,7 @@
         const hint = document.getElementById('mobile-hint');
         const valid = /^[6-9][0-9]{9}$/.test(val);
         const partialOk = val.length === 0 || /^[6-9]/.test(val);
-        
+
         let dupEl = input.parentNode.querySelector('.dup-error-msg');
         if (dupEl) dupEl.remove();
 
@@ -1180,7 +1189,6 @@
             }
             return;
         }
-
         // Otherwise try to load the draft
         if (!isReapplyMode) {
             window.loadDraft();

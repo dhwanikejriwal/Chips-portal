@@ -548,7 +548,7 @@ window.handleFormSubmissionPipeline = function (event) {
     }
 
     const formElement = document.getElementById('reactivationForm');
-    
+
     // Check if training completion date is provided
     const trainingDateInput = document.getElementById("doc_training_date");
     if (trainingDateInput && !trainingDateInput.value) {
@@ -559,114 +559,114 @@ window.handleFormSubmissionPipeline = function (event) {
 
     const formData = new FormData(formElement);
 
-// 📁 STRICT DOCUMENT VALIDATION LAYER
-const requiredFiles = [
-    { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'], maxMB: 2 },
-    { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'], maxMB: 2 },
-    { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'], maxMB: 2 },
-    { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'], maxMB: 5 }
-];
+    // 📁 STRICT DOCUMENT VALIDATION LAYER
+    const requiredFiles = [
+        { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'], maxMB: 2 },
+        { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'], maxMB: 2 },
+        { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'], maxMB: 2 },
+        { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'], maxMB: 5 }
+    ];
 
-for (const fileDef of requiredFiles) {
-    const fileObj = formData.get(fileDef.name);
+    for (const fileDef of requiredFiles) {
+        const fileObj = formData.get(fileDef.name);
 
-    // Check presence
-    if (!fileObj || fileObj.size === 0) {
-        if (window.currentReapplyCode) {
-            // Documents are optional when reapplying; skip presence checks
-            continue;
+        // Check presence
+        if (!fileObj || fileObj.size === 0) {
+            if (window.currentReapplyCode) {
+                // Documents are optional when reapplying; skip presence checks
+                continue;
+            }
+            Swal.fire({ title: 'Missing Document', text: `Please upload the ${fileDef.label}.`, icon: 'warning' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
         }
-        Swal.fire({ title: 'Missing Document', text: `Please upload the ${fileDef.label}.`, icon: 'warning' });
-        const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
-        if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
+
+        // Check size boundaries
+        const maxBytes = fileDef.maxMB * 1024 * 1024;
+        if (fileObj.size > maxBytes) {
+            Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${fileDef.maxMB}MB.`, icon: 'error' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        // Check file extension extension validity
+        const fileName = fileObj.name.toLowerCase();
+        const hasValidExt = fileDef.exts.some(ext => fileName.endsWith(ext));
+        if (!hasValidExt) {
+            Swal.fire({ title: 'Invalid File Format', text: `The ${fileDef.label} must end with one of: ${fileDef.exts.join(', ')}`, icon: 'error' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
     }
 
-    // Check size boundaries
-    const maxBytes = fileDef.maxMB * 1024 * 1024;
-    if (fileObj.size > maxBytes) {
-        Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${fileDef.maxMB}MB.`, icon: 'error' });
-        const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
-        if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-    }
+    formData.append('manual_operators', JSON.stringify(structuredOperatorList));
 
-    // Check file extension extension validity
-    const fileName = fileObj.name.toLowerCase();
-    const hasValidExt = fileDef.exts.some(ext => fileName.endsWith(ext));
-    if (!hasValidExt) {
-        Swal.fire({ title: 'Invalid File Format', text: `The ${fileDef.label} must end with one of: ${fileDef.exts.join(', ')}`, icon: 'error' });
-        const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
-        if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-    }
-}
+    const submitRequestAction = (remarksValue) => {
+        if (remarksValue) {
+            formData.append('reapply_remarks', remarksValue);
+        }
 
-formData.append('manual_operators', JSON.stringify(structuredOperatorList));
-
-const submitRequestAction = (remarksValue) => {
-    if (remarksValue) {
-        formData.append('reapply_remarks', remarksValue);
-    }
-
-    Swal.fire({
-        title: 'Submitting Request...',
-        allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
-    });
-
-    const routingTargetUrl = '/auth/dc/submit';
-    fetch(routingTargetUrl, { method: 'POST', body: formData })
-        .then(res => {
-            return res.json().then(data => {
-                if (!res.ok) {
-                    let errMsg = "Server transaction processing failure.";
-                    if (data && data.error) {
-                        errMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : data.error;
-                    } else if (data && data.detail) {
-                        errMsg = typeof data.detail === 'object' ? JSON.stringify(data.detail) : data.detail;
-                    }
-                    throw new Error(errMsg);
-                }
-                return data;
-            });
-        })
-        .then(data => {
-            const isReapply = !!window.currentReapplyCode;
-            Swal.fire({
-                title: isReapply ? 'Reapplied!' : 'Submitted Successfully',
-                text: isReapply ? 'Your corrected request has been sent back to CHiPS Admin.' : 'Reactivation request submitted successfully.',
-                icon: 'success',
-                confirmButtonColor: '#007bff',
-                allowOutsideClick: false,
-                showConfirmButton: true,
-                timer: 3000,
-                timerProgressBar: true
-            }).then(() => {
-                window.location.reload();
-            });
-        })
-        .catch(err => {
-            Swal.close();
-            Swal.fire({ title: 'Submission Error', text: err.message, icon: 'error' });
+        Swal.fire({
+            title: 'Submitting Request...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
         });
-};
 
-if (window.currentReapplyCode) {
-    formData.append('reapply_request_code', window.currentReapplyCode);
+        const routingTargetUrl = '/auth/dc/submit';
+        fetch(routingTargetUrl, { method: 'POST', body: formData })
+            .then(res => {
+                return res.json().then(data => {
+                    if (!res.ok) {
+                        let errMsg = "Server transaction processing failure.";
+                        if (data && data.error) {
+                            errMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : data.error;
+                        } else if (data && data.detail) {
+                            errMsg = typeof data.detail === 'object' ? JSON.stringify(data.detail) : data.detail;
+                        }
+                        throw new Error(errMsg);
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                const isReapply = !!window.currentReapplyCode;
+                Swal.fire({
+                    title: isReapply ? 'Reapplied!' : 'Submitted Successfully',
+                    text: isReapply ? 'Your corrected request has been sent back to CHiPS Admin.' : 'Reactivation request submitted successfully.',
+                    icon: 'success',
+                    confirmButtonColor: '#378ADD',
+                    allowOutsideClick: false,
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            })
+            .catch(err => {
+                Swal.close();
+                Swal.fire({ title: 'Submission Error', text: err.message, icon: 'error' });
+            });
+    };
 
-    // Validate the reapply remarks field in the form itself
-    const remarksField = document.getElementById('reapply_remarks_field');
-    const remarks = remarksField ? remarksField.value.trim() : '';
-    if (!remarks) {
-        Swal.fire({ title: 'Validation Error', text: 'Please enter reapplication remarks.', icon: 'warning' });
-        if (remarksField) remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
+    if (window.currentReapplyCode) {
+        formData.append('reapply_request_code', window.currentReapplyCode);
+
+        // Validate the reapply remarks field in the form itself
+        const remarksField = document.getElementById('reapply_remarks_field');
+        const remarks = remarksField ? remarksField.value.trim() : '';
+        if (!remarks) {
+            Swal.fire({ title: 'Validation Error', text: 'Please enter reapplication remarks.', icon: 'warning' });
+            if (remarksField) remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        submitRequestAction(remarks);
+    } else {
+        submitRequestAction(null);
     }
-    submitRequestAction(remarks);
-} else {
-    submitRequestAction(null);
-}
 }
 
 
@@ -1619,7 +1619,7 @@ window.applyHistoryPanelFiltersPipeline = function () {
                 const matchesOpStatus = (statusValue === "ALL") || (opStatus === cleanStatusFilter);
 
                 if (matchesSearch && matchesOpStatus) {
-                    opRow.style.display = "flex";
+                    opRow.style.display = "";
                     visibleOpsCount++;
                 } else {
                     opRow.style.display = "none";
@@ -1809,7 +1809,7 @@ window.submitOperatorReapplication = function (data) {
                     title: 'Success',
                     text: 'Operator reapplied successfully!',
                     icon: 'success',
-                    confirmButtonColor: '#007bff',
+                    confirmButtonColor: '#378ADD',
                     allowOutsideClick: false,
                     showConfirmButton: true,
                     timer: 3000,
@@ -2110,7 +2110,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-});
+    });
 });
 
 window.navigateWizardStep = function (stepNumber) {
@@ -2128,7 +2128,7 @@ window.navigateWizardStep = function (stepNumber) {
 window.switchMainView = function (viewType, btn) {
     const batchesContainer = document.getElementById('view-batches-container');
     const approvedContainer = document.getElementById('view-approved-container');
-    
+
     if (viewType === 'batches') {
         if (batchesContainer) batchesContainer.style.display = 'block';
         if (approvedContainer) approvedContainer.style.display = 'none';
@@ -2136,7 +2136,7 @@ window.switchMainView = function (viewType, btn) {
         if (batchesContainer) batchesContainer.style.display = 'none';
         if (approvedContainer) approvedContainer.style.display = 'block';
     }
-    
+
     // Toggle active classes on tabs
     document.querySelectorAll('.main-view-tab').forEach(tab => {
         tab.classList.remove('active-view');
@@ -2144,11 +2144,11 @@ window.switchMainView = function (viewType, btn) {
         tab.style.borderBottomColor = 'transparent';
         tab.style.fontWeight = '600';
     });
-    
+
     if (btn) {
         btn.classList.add('active-view');
-        btn.style.color = '#007bff';
-        btn.style.borderBottomColor = '#007bff';
+        btn.style.color = '#378ADD';
+        btn.style.borderBottomColor = '#378ADD';
         btn.style.fontWeight = '700';
     }
 };

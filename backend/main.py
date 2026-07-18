@@ -52,6 +52,8 @@ from backend.models.operator_onboarding import OperatorOnboarding
 from backend.routers.station_id import router as station_id_router
 from backend.routers.operator_mapping import router as operator_mapping_router
 from backend.routers.operator_onboarding import router as operator_onboarding_router
+
+from backend.routers.kit_registration import router as kit_registration_router
 from backend.routers.notifications import router as notifications_router
 from backend.routers.dashboard import router as dashboard_router
 
@@ -70,6 +72,7 @@ app.include_router(operator_activation_router, prefix="/operator-activation")
 app.include_router(station_id_router, prefix="/station-id")
 app.include_router(operator_mapping_router, prefix="/operator-mapping")
 app.include_router(operator_onboarding_router, prefix="/operator-onboarding")
+app.include_router(kit_registration_router, prefix="/kit-registration")
 app.include_router(dashboard_router, prefix="/dashboard")
 
 
