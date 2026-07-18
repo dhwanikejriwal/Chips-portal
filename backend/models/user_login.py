@@ -16,8 +16,8 @@ class UserLogin(Base):
     __tablename__ = "user_login_table"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
-    password: Mapped[str] = mapped_column(String(255), nullable=False)
+    username: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True, index=True)
+    password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     district_id: Mapped[str | None] = mapped_column(String(20), ForeignKey("district_table.district_code"), nullable=True)
     roleid: Mapped[int] = mapped_column(Integer, ForeignKey("master_user_role.id"), nullable=False)
     is_active: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

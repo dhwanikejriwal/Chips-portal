@@ -228,6 +228,10 @@
                         <input type="text" id="nseit_certificate_number" name="nseit_certificate_number" required
                             class="form-control-input" placeholder="Enter Certificate Number"
                             value="{{ request_data.nseit_certificate_number if request_data else '' }}">
+                        <span id="nseit-autofill-note"
+                            style="display: none; color: #0284c7; font-size: 11px; font-weight: 600; margin-top: 4px;">
+                            Please verify that the auto-filled ID is correct.
+                        </span>
                     </div>
                     <div class="input-group">
                         <label>NSEIT Certificate Issue Date <span class="required-star">*</span></label>
@@ -523,6 +527,8 @@
 
             // Scroll to top of step 2
             document.getElementById('step-2-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            window.checkFormValidity();
         }
     };
 
@@ -679,18 +685,45 @@
     }
 
     // Validate Mobile
-    function validateMobile(input) {
+    async function validateMobile(input) {
         input.value = input.value.replace(/\D/g, '').slice(0, 10);
         const val = input.value;
         const hint = document.getElementById('mobile-hint');
         const valid = /^[6-9][0-9]{9}$/.test(val);
         const partialOk = val.length === 0 || /^[6-9]/.test(val);
+        
+        let dupEl = input.parentNode.querySelector('.dup-error-msg');
+        if (dupEl) dupEl.remove();
+
         if (val.length > 0 && (!partialOk || (val.length === 10 && !valid))) {
             hint.style.display = 'block';
             input.setCustomValidity('Invalid Mobile Number');
         } else {
             hint.style.display = 'none';
             input.setCustomValidity('');
+
+            if (val.length === 10 && valid) {
+                const excludeId = isReapplyMode ? "{{ reapply_id or '' }}" : "";
+                try {
+                    const response = await fetch(`/auth/dc/operator-activation/check-duplicate?mobile=${val}&exclude_id=${excludeId}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.exists) {
+                            input.setCustomValidity(data.message);
+                            dupEl = document.createElement('div');
+                            dupEl.className = 'dup-error-msg';
+                            dupEl.style.color = '#ef4444';
+                            dupEl.style.fontSize = '11px';
+                            dupEl.style.marginTop = '4px';
+                            dupEl.style.fontWeight = '600';
+                            dupEl.innerText = data.message;
+                            input.parentNode.appendChild(dupEl);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Duplicate mobile check failed", e);
+                }
+            }
         }
     }
 
@@ -713,16 +746,43 @@
     }
 
     // Validate Email
-    function validateEmail(input) {
-        const val = input.value;
+    async function validateEmail(input) {
+        const val = input.value.trim();
         const hint = document.getElementById('email-hint');
         const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+
+        let dupEl = input.parentNode.querySelector('.dup-error-msg');
+        if (dupEl) dupEl.remove();
+
         if (val.length > 0 && !valid) {
             hint.style.display = 'block';
             input.setCustomValidity('Please enter a valid email address');
         } else {
             hint.style.display = 'none';
             input.setCustomValidity('');
+
+            if (val.length > 0 && valid) {
+                const excludeId = isReapplyMode ? "{{ reapply_id or '' }}" : "";
+                try {
+                    const response = await fetch(`/auth/dc/operator-activation/check-duplicate?email=${encodeURIComponent(val)}&exclude_id=${excludeId}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.exists) {
+                            input.setCustomValidity(data.message);
+                            dupEl = document.createElement('div');
+                            dupEl.className = 'dup-error-msg';
+                            dupEl.style.color = '#ef4444';
+                            dupEl.style.fontSize = '11px';
+                            dupEl.style.marginTop = '4px';
+                            dupEl.style.fontWeight = '600';
+                            dupEl.innerText = data.message;
+                            input.parentNode.appendChild(dupEl);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Duplicate email check failed", e);
+                }
+            }
         }
     }
 
@@ -871,6 +931,102 @@
         }
     }
 
+    let activeOcrValidations = 0;
+
+    window.checkFormValidity = function () {
+        const submitBtn = document.getElementById('oa-submit-btn');
+        if (!submitBtn) return;
+
+        let allValid = true;
+        document.querySelectorAll('.oa-file-input').forEach(input => {
+            const hasFile = input.files && input.files.length > 0;
+            const isRequired = input.hasAttribute('required');
+
+            if (isRequired && !hasFile) {
+                allValid = false;
+            }
+            if (hasFile && input.dataset.isValid !== 'true') {
+                allValid = false;
+            }
+        });
+
+        if (activeOcrValidations > 0 || !allValid) {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.5';
+            submitBtn.style.cursor = 'not-allowed';
+        } else {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+        }
+    };
+
+    async function performOcrValidation(input) {
+        const parent = input.closest('.oa-doc-card');
+        if (!parent) return;
+
+        // Remove previous validation, size error, auto-upload, and field error messages
+        parent.querySelectorAll('.ocr-validation-msg, .error-msg-file, .auto-upload-msg, .oa-field-error').forEach(el => el.remove());
+
+        let nextSibling = parent.nextElementSibling;
+        if (nextSibling && nextSibling.classList.contains('oa-field-error')) {
+            nextSibling.remove();
+        }
+
+        const file = input.files[0];
+        if (!file) return;
+
+        // Create status element
+        const ocrEl = document.createElement('div');
+        ocrEl.className = 'ocr-validation-msg';
+        ocrEl.style.fontSize = '12px';
+        ocrEl.style.marginTop = '6px';
+        ocrEl.style.fontWeight = '600';
+        ocrEl.style.color = '#3b82f6'; // Blue for loading
+        ocrEl.innerText = 'Validating document authenticity...';
+        parent.appendChild(ocrEl);
+
+        activeOcrValidations++;
+        window.checkFormValidity();
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('doc_type', input.name);
+            formData.append('name_as_per_aadhaar', document.getElementById('name_as_per_aadhaar').value || '');
+            formData.append('operator_aadhaar', document.getElementById('operator_aadhaar').value || '');
+            formData.append('operator_pan', document.getElementById('operator_pan').value || '');
+            formData.append('operator_mobile', document.getElementById('operator_mobile').value || '');
+            formData.append('nseit_certificate_number', document.getElementById('nseit_certificate_number').value || '');
+
+            const response = await fetch('/auth/dc/operator-activation/validate-document', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                ocrEl.style.color = '#10b981'; // Green for success
+                ocrEl.innerText = '✓ Document validated successfully.';
+                input.dataset.isValid = 'true';
+            } else {
+                ocrEl.style.color = '#ef4444'; // Red for error
+                ocrEl.innerText = `✗ ${data.message || 'Validation failed. Please verify the document matches Step 1 details.'}`;
+                input.dataset.isValid = 'false';
+                input.value = ''; // Clear input on failure to prevent submission
+            }
+        } catch (e) {
+            console.error("OCR validation error", e);
+            ocrEl.style.color = '#ef4444';
+            ocrEl.innerText = '✗ Network error occurred during validation.';
+            input.dataset.isValid = 'false';
+            input.value = '';
+        } finally {
+            activeOcrValidations--;
+            window.checkFormValidity();
+        }
+    }
+
     window.clearFormFields = function () {
         if (typeof DRAFT_KEY !== 'undefined') {
             sessionStorage.removeItem(DRAFT_KEY);
@@ -959,7 +1115,7 @@
             form.addEventListener('change', window.saveDraft);
         }
 
-        // Add file size validation matching reactivation
+        // Add file size and OCR validation
         document.querySelectorAll('.oa-file-input').forEach(input => {
             input.addEventListener('change', function () {
                 // Remove any existing error message
@@ -968,8 +1124,15 @@
                     let errEl = parent.querySelector('.error-msg-file');
                     if (errEl) errEl.remove();
 
+                    let ocrEl = parent.querySelector('.ocr-validation-msg');
+                    if (ocrEl) ocrEl.remove();
+
                     const file = this.files[0];
-                    if (!file) return;
+                    if (!file) {
+                        this.dataset.isValid = 'false';
+                        window.checkFormValidity();
+                        return;
+                    }
 
                     const name = this.name;
                     const maxMB = name === 'excel_sheet' ? 5 : 2;
@@ -978,6 +1141,7 @@
                     if (file.size > maxBytes) {
                         // Clear input to enforce strictness
                         this.value = '';
+                        this.dataset.isValid = 'false';
 
                         // Add red warning message below the field
                         errEl = document.createElement('div');
@@ -989,7 +1153,12 @@
                         errEl.style.fontFamily = "'Inter', sans-serif";
                         errEl.innerText = `Must be smaller than ${maxMB}MB.`;
                         parent.appendChild(errEl);
+                        window.checkFormValidity();
+                        return;
                     }
+
+                    // Perform OCR validation
+                    performOcrValidation(this);
                 }
             });
         });
@@ -1016,6 +1185,14 @@
         if (!isReapplyMode) {
             window.loadDraft();
         }
+        const nseitInput = document.getElementById('nseit_certificate_number');
+        if (nseitInput) {
+            nseitInput.addEventListener('input', () => {
+                const autofillNote = document.getElementById('nseit-autofill-note');
+                if (autofillNote) autofillNote.style.display = 'none';
+            });
+        }
+        window.checkFormValidity();
     });
 
     // Debounce Timer
@@ -1094,6 +1271,10 @@
         }
         if (document.getElementById('nseit_certificate_number') && c.nseit_id) {
             document.getElementById('nseit_certificate_number').value = c.nseit_id;
+            const autofillNote = document.getElementById('nseit-autofill-note');
+            if (autofillNote) {
+                autofillNote.style.display = 'block';
+            }
         }
         if (document.getElementById('nseit_certification_date') && c.issue_date) {
             document.getElementById('nseit_certification_date').value = c.issue_date;
@@ -1206,6 +1387,10 @@
                         if (data.parsed_data.cert_no && document.getElementById('nseit_certificate_number')) {
                             document.getElementById('nseit_certificate_number').value = data.parsed_data.cert_no;
                             filled = true;
+                            const autofillNote = document.getElementById('nseit-autofill-note');
+                            if (autofillNote) {
+                                autofillNote.style.display = 'block';
+                            }
                         }
                         if (data.parsed_data.issue_date && document.getElementById('nseit_certification_date')) {
                             document.getElementById('nseit_certification_date').value = data.parsed_data.issue_date;

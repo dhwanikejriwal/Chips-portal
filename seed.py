@@ -2,9 +2,11 @@ import sys
 import os
 import csv
 import bcrypt
+from sqlalchemy import text
 from sqlalchemy.orm import Session
+from difflib import get_close_matches
 from backend.database import SessionLocal
-from backend.models import MasterUserRole, District, UserLogin, MasterStatus
+from backend.models import MasterUserRole, District, UserLogin, MasterStatus, UserProfile
 from backend.models.base import StatusEnum
 
 CSV_PATH = "LGD - Local Government Directory, Government of India.csv"
@@ -13,22 +15,67 @@ def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
+def clean_str(val):
+    if not val:
+        return ""
+    val = val.strip().replace('"', '').replace('\n', ' ').replace('\r', ' ')
+    return " ".join(val.split())
+
 def seed_database():
-    print("Seeding database values using LGD CSV data...")
+    print("Seeding database values...")
     
-    if not os.path.exists(CSV_PATH):
-        print(f"Error: CSV file not found at '{CSV_PATH}'", file=sys.stderr)
-        sys.exit(1)
-        
     db: Session = SessionLocal()
     
     try:
+        # 0. Ensure database columns are compatible
+        print("Executing database schema migration updates...")
+        db.execute(text("ALTER TABLE user_profile_table ALTER COLUMN phone TYPE VARCHAR(100);"))
+        db.execute(text("ALTER TABLE user_login_table ALTER COLUMN username DROP NOT NULL;"))
+        db.execute(text("ALTER TABLE user_login_table ALTER COLUMN password DROP NOT NULL;"))
+        db.commit()
+
+        # 0.5. Clean up legacy duplicates to prevent unique constraint failures
+        print("Cleaning up legacy case-insensitive duplicate UserLogin/UserProfile accounts...")
+        
+        # 1. Delete all logins where username is NULL (MTO/ADC without email) to clear duplicates
+        no_login_users = db.query(UserLogin).filter(UserLogin.username.is_(None)).all()
+        no_login_ids = [u.id for u in no_login_users]
+        if no_login_ids:
+            db.query(UserProfile).filter(UserProfile.user_id.in_(no_login_ids)).delete(synchronize_session=False)
+            db.query(UserLogin).filter(UserLogin.id.in_(no_login_ids)).delete(synchronize_session=False)
+            db.commit()
+            
+        # 2. Find and delete case-insensitive duplicates of usernames (e.g. svivek448@gmail.com)
+        all_users = db.query(UserLogin).all()
+        seen_usernames = {}
+        to_delete_ids = []
+        for u in all_users:
+            if u.username:
+                u_lower = u.username.lower()
+                if u_lower in seen_usernames:
+                    old_user = seen_usernames[u_lower]
+                    if u.id > old_user.id:
+                        to_delete_ids.append(u.id)
+                    else:
+                        to_delete_ids.append(old_user.id)
+                        seen_usernames[u_lower] = u
+                else:
+                    seen_usernames[u_lower] = u
+        if to_delete_ids:
+            db.query(UserProfile).filter(UserProfile.user_id.in_(to_delete_ids)).delete(synchronize_session=False)
+            db.query(UserLogin).filter(UserLogin.id.in_(to_delete_ids)).delete(synchronize_session=False)
+            db.commit()
+            db.expire_all()
+            print(f"Removed {len(to_delete_ids)} legacy duplicate user account(s).")
+
         # 1. Seed Roles
         roles_data = [
             {"id": 1, "role": "Admin"},      # CHIPS State Admin
             {"id": 2, "role": "DC"},         # District Coordinator
             {"id": 3, "role": "EDM"},        # District Manager
-            {"id": 4, "role": "Candidate"}   # Operator Candidate
+            {"id": 4, "role": "Candidate"},  # Operator Candidate
+            {"id": 5, "role": "MTO"},
+            {"id": 6, "role": "Assistant Division Coordinator"}
         ]
         
         for r in roles_data:
@@ -68,29 +115,32 @@ def seed_database():
         print("Master statuses successfully verified/seeded.")
         # 2. Parse and Seed Districts from CSV
         print("Reading districts from CSV...")
-        with open(CSV_PATH, mode='r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            
-            for row in reader:
-                # Clean up empty rows if any
-                if not row.get("District LGD Code"):
-                    continue
+        if os.path.exists(CSV_PATH):
+            with open(CSV_PATH, mode='r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
                 
-                lgd_code = row["District LGD Code"].strip()
-                s_no = int(row["S No"].strip())
-                name = row["District Name (In In English)" if "District Name (In In English)" in row else "District Name (In English)"].strip()
-                short_name = row["Short Name of District"].strip()
-                
-                existing_district = db.query(District).filter_by(district_code=lgd_code).first()
-                if not existing_district:
-                    db.add(District(
-                        district_code=lgd_code,
-                        id=s_no,
-                        district_name=name,
-                        district_short_name=short_name
-                    ))
-        db.commit()
-        print("All districts from LGD CSV successfully verified/seeded.")
+                for row in reader:
+                    # Clean up empty rows if any
+                    if not row.get("District LGD Code"):
+                        continue
+                    
+                    lgd_code = row["District LGD Code"].strip()
+                    s_no = int(row["S No"].strip())
+                    name = row["District Name (In In English)" if "District Name (In In English)" in row else "District Name (In English)"].strip()
+                    short_name = row["Short Name of District"].strip()
+                    
+                    existing_district = db.query(District).filter_by(district_code=lgd_code).first()
+                    if not existing_district:
+                        db.add(District(
+                            district_code=lgd_code,
+                            id=s_no,
+                            district_name=name,
+                            district_short_name=short_name
+                        ))
+            db.commit()
+            print("All districts from LGD CSV successfully verified/seeded.")
+        else:
+            print(f"Warning: CSV file not found at '{CSV_PATH}'. Skipping district seeding.", file=sys.stderr)
 
         # 3. Seed Default Administrative Users
         # Raipur LGD code is '387' (RPR in CSV)
@@ -199,15 +249,16 @@ def seed_database():
         ]
 
         for u in users_data:
-            existing_user = db.query(UserLogin).filter_by(username=u["username"]).first()
+            username_lower = u["username"].lower()
+            existing_user = db.query(UserLogin).filter(UserLogin.username.ilike(username_lower)).first()
             if existing_user:
-                # Update existing user values (e.g. if you changed the password in seed.py)
+                existing_user.username = username_lower
                 existing_user.password = u["password"]
                 existing_user.district_id = u["district_id"]
                 existing_user.roleid = u["roleid"]
             else:
                 db.add(UserLogin(
-                    username=u["username"],
+                    username=username_lower,
                     password=u["password"],
                     district_id=u["district_id"],
                     roleid=u["roleid"]
@@ -216,6 +267,145 @@ def seed_database():
             
         db.commit()
         print("Default users (Admin, DCs, EDMs) verified/seeded. Login credentials verified and updated.")
+
+        # 4. Parse and Seed Resource Contacts from CSV (EDM, DC, MTO, ADC)
+        resource_csv = "Aadhaar Dist Resources - updated (2).xlsx - All (1).csv"
+        if os.path.exists(resource_csv):
+            print(f"Reading resources and profiles from '{resource_csv}'...")
+            with open(resource_csv, mode='r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                rows = list(reader)
+            
+            # Skip first 2 header rows
+            data_rows = rows[2:]
+            
+            # Load all districts from DB to map clean names
+            districts = db.query(District).all()
+            dist_map = {d.district_name.lower().replace("-", " ").replace(" ", ""): d.district_code for d in districts}
+            
+            def get_district_code(name):
+                if not name:
+                    return None
+                name_clean = name.lower().replace("-", " ").replace(" ", "").strip()
+                if name_clean in dist_map:
+                    return dist_map[name_clean]
+                
+                # Fuzzy matching
+                keys = list(dist_map.keys())
+                matches = get_close_matches(name_clean, keys, n=1, cutoff=0.6)
+                if matches:
+                    return dist_map[matches[0]]
+                
+                # Substring matching
+                for k, v in dist_map.items():
+                    if k in name_clean or name_clean in k:
+                        return v
+                return None
+
+            for row in data_rows:
+                if not row or len(row) < 5:
+                    continue
+                district_name = clean_str(row[1])
+                if not district_name:
+                    continue
+                
+                dist_code = get_district_code(district_name)
+                if not dist_code:
+                    print(f"Warning: Could not resolve district code for '{district_name}'")
+                    continue
+
+                # Config for roles/positions in the CSV row
+                people = [
+                    {"role_id": 3, "role_name": "EDM", "name_idx": 2, "phone_idx": 3, "email_idx": 4, "pwd_prefix": "edm", "auto_create_login": True},
+                    {"role_id": 2, "role_name": "DC", "name_idx": 5, "phone_idx": 6, "email_idx": 7, "pwd_prefix": "dc", "auto_create_login": True},
+                    {"role_id": 5, "role_name": "MTO", "name_idx": 8, "phone_idx": 9, "email_idx": 10, "pwd_prefix": "mto", "auto_create_login": False},
+                    {"role_id": 6, "role_name": "Assistant Division Coordinator", "name_idx": 11, "phone_idx": 12, "email_idx": 13, "pwd_prefix": "adc", "auto_create_login": False}
+                ]
+
+                for person in people:
+                    if len(row) <= person["email_idx"]:
+                        continue
+                    name = clean_str(row[person["name_idx"]])
+                    phone = clean_str(row[person["phone_idx"]])
+                    email = clean_str(row[person["email_idx"]])
+
+                    if not name or name.lower() in ("none", "null", "-"):
+                        continue
+
+                    # Determine username/email
+                    if not email or email.lower() in ("none", "null", "-"):
+                        if person["auto_create_login"]:
+                            # Generate a unique username if EDM/DC has no email
+                            username = f"{person['pwd_prefix']}.{district_name.lower().replace(' ', '').replace('-', '')}@chips.in"
+                            email = ""
+                        else:
+                            # For MTO/ADC without email/login, we use None for username so they can't login
+                            username = None
+                            email = ""
+                    else:
+                        username = email.lower()
+
+                    if phone.lower() in ("none", "null", "-"):
+                        phone = ""
+
+                    user = None
+                    if username is not None:
+                        # Look up existing user by unique username (seeded above)
+                        user = db.query(UserLogin).filter(UserLogin.username == username).first()
+                    else:
+                        # Look up existing MTO/ADC by role and district if no username
+                        user = db.query(UserLogin).filter(
+                            UserLogin.district_id == dist_code,
+                            UserLogin.roleid == person["role_id"],
+                            UserLogin.username.is_(None)
+                        ).first()
+
+                    if not user:
+                        # Create UserLogin record
+                        if person["auto_create_login"]:
+                            # Standard auto-created credentialed login
+                            pwd_plain = f"{person['pwd_prefix']}{district_name.lower().replace(' ', '').replace('-', '')}123"
+                            pwd_hashed = hash_password(pwd_plain)
+                            user = UserLogin(
+                                username=username,
+                                password=pwd_hashed,
+                                district_id=dist_code,
+                                roleid=person["role_id"],
+                                is_active=1,
+                                has_changed_password=0
+                            )
+                        else:
+                            # Create an un-credentialed (no login) UserLogin record
+                            user = UserLogin(
+                                username=None,
+                                password=None,
+                                district_id=dist_code,
+                                roleid=person["role_id"],
+                                is_active=1,
+                                has_changed_password=0
+                            )
+                        db.add(user)
+                        db.flush() # Populate user.id
+
+                    # Create or update UserProfile
+                    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+                    if not profile:
+                        profile = UserProfile(
+                            user_id=user.id,
+                            full_name=name,
+                            email=email if email else None,
+                            phone=phone if phone else None
+                        )
+                        db.add(profile)
+                    else:
+                        profile.full_name = name
+                        profile.email = email if email else None
+                        profile.phone = phone if phone else None
+
+            db.commit()
+            print("Resource users and profiles successfully verified/seeded from CSV.")
+        else:
+            print(f"Warning: Resource CSV file not found at '{resource_csv}'. Skipping profile seeding.")
 
         print("\nDatabase seeding completed successfully! Ready to test.")
         

@@ -52,6 +52,108 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 4. Initialize counts by running the filter pipeline
     applyHistoryPanelFiltersPipeline();
+
+    // 🌟 5. Instant Input Verification and Database Duplicate Lookups
+    const mobileInput = document.getElementById("op_mobile");
+    if (mobileInput) {
+        mobileInput.addEventListener("input", async () => {
+            const val = mobileInput.value.trim();
+            const errNode = document.getElementById("err_op_mobile");
+            if (!errNode) return;
+            errNode.innerText = "";
+
+            if (val.length === 10) {
+                if (!/^[6-9]\d{9}$/.test(val)) {
+                    errNode.innerText = "Must be a valid 10-digit number starting with 6-9.";
+                    return;
+                }
+                const opId = document.getElementById('editing_op_id') ? document.getElementById('editing_op_id').value : '';
+                // Check local duplicate
+                const isLocalDup = structuredOperatorList.some(op => op.mobile === val && op.id !== opId);
+                if (isLocalDup) {
+                    errNode.innerText = "This mobile number is already added to this batch.";
+                    return;
+                }
+                // Check DB duplicate
+                try {
+                    const res = await fetch(`/auth/dc/reactivation/check-duplicate?mobile=${val}&exclude_id=${opId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.exists) {
+                            errNode.innerText = data.message;
+                        }
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        });
+    }
+
+    const emailInput = document.getElementById("op_email");
+    if (emailInput) {
+        emailInput.addEventListener("change", async () => {
+            const val = emailInput.value.trim();
+            const errNode = document.getElementById("err_op_email");
+            if (!errNode) return;
+            errNode.innerText = "";
+
+            if (val.length > 0) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(val)) {
+                    errNode.innerText = "Please enter a valid email format.";
+                    return;
+                }
+                const opId = document.getElementById('editing_op_id') ? document.getElementById('editing_op_id').value : '';
+                // Check local duplicate
+                const isLocalDup = structuredOperatorList.some(op => op.email === val && op.id !== opId);
+                if (isLocalDup) {
+                    errNode.innerText = "This email address is already added to this batch.";
+                    return;
+                }
+                // Check DB duplicate
+                try {
+                    const res = await fetch(`/auth/dc/reactivation/check-duplicate?email=${encodeURIComponent(val)}&exclude_id=${opId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.exists) {
+                            errNode.innerText = data.message;
+                        }
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        });
+    }
+
+    if (certDateInput) {
+        certDateInput.addEventListener("change", () => {
+            const val = certDateInput.value;
+            const errNode = document.getElementById("err_op_cert_date");
+            if (!errNode) return;
+            errNode.innerText = "";
+
+            if (val) {
+                const todayD = new Date();
+                const yyyy = todayD.getFullYear();
+                const mm = String(todayD.getMonth() + 1).padStart(2, '0');
+                const dd = String(todayD.getDate()).padStart(2, '0');
+                const todayStr = `${yyyy}-${mm}-${dd}`;
+
+                if (val > todayStr) {
+                    errNode.innerText = "Certification date cannot be in the future.";
+                } else {
+                    const certD = new Date(val);
+                    const threeYearsAgo = new Date();
+                    threeYearsAgo.setFullYear(todayD.getFullYear() - 3);
+                    if (certD < threeYearsAgo) {
+                        errNode.innerText = "NSEIT Certification Date must not be more than 3 years old.";
+                    }
+                }
+            }
+        });
+    }
 });
 
 // 🔄 DYNAMIC VIEW PANEL ROUTER (Bound to global context)
@@ -124,9 +226,11 @@ window.switchReactivationView = function (targetPanel, shouldReset = false) {
 };
 
 // 🎛️ STEP-1 CACHE ENTRY VALIDATOR
-window.addOperatorRecordToExcelLog = function () {
+window.addOperatorRecordToExcelLog = async function () {
     document.querySelectorAll('.error-msg').forEach(el => el.innerText = '');
     let hasValidationError = false;
+
+    const opId = document.getElementById('editing_op_id') ? document.getElementById('editing_op_id').value : '';
 
     const fields = {
         role: document.getElementById('op_role').value.trim(),
@@ -173,9 +277,19 @@ window.addOperatorRecordToExcelLog = function () {
         hasValidationError = true;
     }
 
-    if (fields.mobile && !/^[6-9]\d{9}$/.test(fields.mobile)) {
-        document.getElementById('err_op_mobile').innerText = 'Must be a valid 10-digit number starting with 6-9.';
-        hasValidationError = true;
+    // Check local duplicate mobile in batch list
+    let isMobileLocalDup = false;
+    if (fields.mobile) {
+        if (!/^[6-9]\d{9}$/.test(fields.mobile)) {
+            document.getElementById('err_op_mobile').innerText = 'Must be a valid 10-digit number starting with 6-9.';
+            hasValidationError = true;
+        } else {
+            isMobileLocalDup = structuredOperatorList.some(op => op.mobile === fields.mobile && op.id !== opId);
+            if (isMobileLocalDup) {
+                document.getElementById('err_op_mobile').innerText = 'This mobile number is already added to this batch.';
+                hasValidationError = true;
+            }
+        }
     }
 
     if (fields.aadhar && !/^\d{4}$/.test(fields.aadhar)) {
@@ -183,9 +297,51 @@ window.addOperatorRecordToExcelLog = function () {
         hasValidationError = true;
     }
 
-    if (fields.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) {
-        document.getElementById('err_op_email').innerText = 'Please enter a valid email format.';
-        hasValidationError = true;
+    // Check local duplicate email in batch list
+    let isEmailLocalDup = false;
+    if (fields.email) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) {
+            document.getElementById('err_op_email').innerText = 'Please enter a valid email format.';
+            hasValidationError = true;
+        } else {
+            isEmailLocalDup = structuredOperatorList.some(op => op.email === fields.email && op.id !== opId);
+            if (isEmailLocalDup) {
+                document.getElementById('err_op_email').innerText = 'This email address is already added to this batch.';
+                hasValidationError = true;
+            }
+        }
+    }
+
+    // Check database duplicate mobile
+    if (fields.mobile && /^[6-9]\d{9}$/.test(fields.mobile) && !isMobileLocalDup) {
+        try {
+            const res = await fetch(`/auth/dc/reactivation/check-duplicate?mobile=${fields.mobile}&exclude_id=${opId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.exists) {
+                    document.getElementById('err_op_mobile').innerText = data.message;
+                    hasValidationError = true;
+                }
+            }
+        } catch (e) {
+            console.error("Mobile duplicate check failed", e);
+        }
+    }
+
+    // Check database duplicate email
+    if (fields.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email) && !isEmailLocalDup) {
+        try {
+            const res = await fetch(`/auth/dc/reactivation/check-duplicate?email=${encodeURIComponent(fields.email)}&exclude_id=${opId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.exists) {
+                    document.getElementById('err_op_email').innerText = data.message;
+                    hasValidationError = true;
+                }
+            }
+        } catch (e) {
+            console.error("Email duplicate check failed", e);
+        }
     }
 
     if (fields.certDate) {
@@ -198,6 +354,15 @@ window.addOperatorRecordToExcelLog = function () {
         if (fields.certDate > todayStr) {
             document.getElementById('err_op_cert_date').innerText = 'Certification date cannot be in the future.';
             hasValidationError = true;
+        } else {
+            // Validate NSEIT Certification Date does not cross 3 years
+            const certD = new Date(fields.certDate);
+            const threeYearsAgo = new Date();
+            threeYearsAgo.setFullYear(todayD.getFullYear() - 3);
+            if (certD < threeYearsAgo) {
+                document.getElementById('err_op_cert_date').innerText = 'NSEIT Certification Date must not be more than 3 years old.';
+                hasValidationError = true;
+            }
         }
     }
 
@@ -214,7 +379,6 @@ window.addOperatorRecordToExcelLog = function () {
         return;
     }
 
-    const opId = document.getElementById('editing_op_id') ? document.getElementById('editing_op_id').value : '';
     const opStatus = document.getElementById('editing_op_status') ? document.getElementById('editing_op_status').value : '';
     const opRejectReason = document.getElementById('editing_op_reject_reason') ? document.getElementById('editing_op_reject_reason').value : '';
 
@@ -384,7 +548,16 @@ window.handleFormSubmissionPipeline = function (event) {
     }
 
     const formElement = document.getElementById('reactivationForm');
-const formData = new FormData(formElement);
+    
+    // Check if training completion date is provided
+    const trainingDateInput = document.getElementById("doc_training_date");
+    if (trainingDateInput && !trainingDateInput.value) {
+        Swal.fire({ title: 'Missing Information', text: 'Please select the Training Completion Date.', icon: 'warning' });
+        trainingDateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
+    const formData = new FormData(formElement);
 
 // 📁 STRICT DOCUMENT VALIDATION LAYER
 const requiredFiles = [
@@ -446,7 +619,15 @@ const submitRequestAction = (remarksValue) => {
     fetch(routingTargetUrl, { method: 'POST', body: formData })
         .then(res => {
             return res.json().then(data => {
-                if (!res.ok) throw new Error(data.error || "Server transaction processing failure.");
+                if (!res.ok) {
+                    let errMsg = "Server transaction processing failure.";
+                    if (data && data.error) {
+                        errMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : data.error;
+                    } else if (data && data.detail) {
+                        errMsg = typeof data.detail === 'object' ? JSON.stringify(data.detail) : data.detail;
+                    }
+                    throw new Error(errMsg);
+                }
                 return data;
             });
         })

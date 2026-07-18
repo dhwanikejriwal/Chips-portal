@@ -189,7 +189,7 @@ def chips_dashboard():
     l2_raw           = _get("/l2-registration/all", token)
     l1_raw           = _get("/l1-registration/requests", token)
     reactivation_raw = _get("/reactivation/requests", token)
-    districts_raw    = _get("/api/candidate_register/districts?all_districts=true", token)
+    districts_raw    = _get("/dashboard/districts-with-resources", token)
 
     # ── Normalise LMS list ────────────────────────────────────────────────
     lms_requests = []

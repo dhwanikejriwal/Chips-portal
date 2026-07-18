@@ -498,7 +498,7 @@ def validate_passbook(extracted_text: str, operator_name: str) -> str | None:
 def validate_nseit_certificate(extracted_text: str, operator_name: str, cert_number: str) -> str | None:
     if not extracted_text or len(extracted_text.strip()) < 10:
         return "Validation Error: Could not read text from the NSEIT Certificate. Please upload a clear image."
-    keywords = ["NSEIT", "CERTIFICATE", "TESTING", "CERTIFICATION", "UIDAI", "AADHAAR"]
+    keywords = ["NSEIT", "CERTIFICATE", "CERTIFICATION", "UIDAI", "AADHAAR"]
     matches = sum(1 for kw in keywords if kw in extracted_text)
     if matches < 2:
         return "Validation Error: The uploaded document does not appear to be a valid NSEIT Certificate."

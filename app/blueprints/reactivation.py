@@ -133,6 +133,32 @@ def view_reactivation_dashboard():
     )
 
 
+@reactivation_bp.route("/dc/reactivation/check-duplicate", methods=["GET"])
+def check_duplicate():
+    if not session.get("username"):
+        return jsonify({"error": "Unauthorized session context"}), 401
+
+    headers = {}
+    if session.get("access_token"):
+        headers["Authorization"] = f"Bearer {session.get('access_token')}"
+
+    params = {
+        "mobile": request.args.get("mobile"),
+        "email": request.args.get("email"),
+        "exclude_id": request.args.get("exclude_id")
+    }
+
+    try:
+        response = requests.get(
+            f"{FASTAPI_URL}/check-duplicate",
+            params=params,
+            headers=headers
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @reactivation_bp.route("/dc/submit", methods=["POST"])
 def submit_reactivation_form():
     if not session.get("username"):

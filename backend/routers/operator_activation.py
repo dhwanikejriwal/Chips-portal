@@ -141,10 +141,26 @@ def autofill_from_certificate(
     from datetime import datetime
     
     # 2. Check if the document is actually an NSEIT certificate
-    keywords = ["NSEIT", "CERTIFICATE", "TESTING", "CERTIFICATION", "UIDAI", "AADHAAR", "EA SUPERVISOR", "EXAM"]
-    matches = sum(1 for kw in keywords if kw in extracted_text.upper())
-    if matches < 2:
-        return {"status": "error", "message": "The uploaded document does not appear to be a valid NSEIT Certificate."}
+    text_upper = extracted_text.upper()
+    
+    # Check if LMS
+    is_lms = "ACCOMPLISHMENT" in text_upper and "SUCCESSFULLY COMPLETED" in text_upper
+    if is_lms:
+        return {"status": "error", "message": "Invalid Document: The uploaded file appears to be an LMS Certificate, not an NSEIT Certificate."}
+        
+    # Check if PAN
+    if "INCOME TAX DEPARTMENT" in text_upper or "PERMANENT ACCOUNT NUMBER" in text_upper:
+        return {"status": "error", "message": "Invalid Document: The uploaded file appears to be a PAN Card, not an NSEIT Certificate."}
+        
+    # Check if Aadhaar
+    if ("UNIQUE IDENTIFICATION" in text_upper or "E-AADHAAR" in text_upper or "GOVT OF INDIA" in text_upper) and "NSEIT" not in text_upper:
+        return {"status": "error", "message": "Invalid Document: The uploaded file appears to be an Aadhaar Card, not an NSEIT Certificate."}
+
+    # Strong NSEIT keywords validation
+    nseit_keywords = ["ELIGIBILITY", "OPERATOR ELIGIBILITY", "PASSED THE EXAMINATION", "NSEIT", "TESTING AND CERTIFICATION"]
+    is_nseit = any(kw in text_upper for kw in nseit_keywords)
+    if not is_nseit:
+        return {"status": "error", "message": "The uploaded document does not appear to be a valid NSEIT Operator Eligibility Certificate."}
     
     # 1. Certificate Number
     # Use regex to find an alphanumeric word containing digits after "Certificate No."
@@ -175,12 +191,12 @@ def autofill_from_certificate(
     if issue_date_match:
         date_str = issue_date_match.group(1).strip()
         try:
-            if date_str[3].isalpha(): # 24-Aug-2020 format
+            if len(date_str) > 3 and date_str[3].isalpha(): # 24-Aug-2020 format
                 dt = datetime.strptime(date_str, '%d-%b-%Y')
             else: # 02-07-2026 format
                 dt = datetime.strptime(date_str, '%d-%m-%Y')
             parsed_issue_date = dt.strftime('%Y-%m-%d')
-        except ValueError:
+        except Exception:
             parsed_issue_date = None
     
     # Try multiple patterns for Name
@@ -197,28 +213,6 @@ def autofill_from_certificate(
     if parsed_name:
         parsed_name = re.sub(r'UIDAI.*', '', parsed_name).strip()
 
-    # 3. Search DB for matching candidate
-    best_match = None
-    if cert_no:
-        best_match = db.query(Candidate).filter(Candidate.nseit_id == cert_no).first()
-        if not best_match and cert_no.isdigit():
-            # If DB has e.g. A6567483 and we extracted 6567483, find by ending
-            best_match = db.query(Candidate).filter(Candidate.nseit_id.like(f"%{cert_no}")).first()
-            if best_match:
-                cert_no = best_match.nseit_id
-        
-    # If not found, try searching by name if we parsed one, or just scan all candidates for fuzzy matching
-    if not best_match and parsed_name:
-        # Get all candidates who might be eligible
-        candidates = db.query(Candidate).all()
-        best_score = 0
-        for c in candidates:
-            score = fuzz.token_set_ratio(c.name.upper(), parsed_name)
-            if score > best_score:
-                best_score = score
-                if score >= 80: # Reasonable threshold for name matching
-                    best_match = c
-
     # 4. If operator_name was provided by the frontend, strictly cross-verify it against the certificate
     if operator_name:
         # We can reuse our strict validation logic
@@ -228,24 +222,6 @@ def autofill_from_certificate(
         if err:
             return {"status": "error", "message": err}
 
-    if best_match:
-        # Return full candidate details
-        return {
-            "status": "success",
-            "match_type": "database",
-            "candidate": {
-                "id": best_match.r_id,
-                "name": best_match.name,
-                "mobile": best_match.mobile,
-                "email": best_match.email,
-                "aadhaar_last4": best_match.aadhaar[-4:] if best_match.aadhaar else "",
-                "pincode": best_match.pincode or "",
-                "nseit_id": best_match.nseit_id or cert_no or "",
-                "issue_date": parsed_issue_date or ""
-            }
-        }
-    
-    # 4. Fallback if no DB match
     return {
         "status": "success",
         "match_type": "parsed_only",
@@ -255,6 +231,75 @@ def autofill_from_certificate(
             "issue_date": parsed_issue_date or ""
         }
     }
+
+@router.get("/check-duplicate")
+def check_duplicate(
+    mobile: str = None, 
+    email: str = None, 
+    exclude_id: str = None,
+    db: Session = Depends(get_db)
+):
+    parsed_exclude_id = None
+    if exclude_id and exclude_id.strip():
+        try:
+            parsed_exclude_id = int(exclude_id)
+        except ValueError:
+            pass
+
+    if mobile:
+        query = db.query(OperatorActivationRequest).filter(OperatorActivationRequest.operator_mobile == mobile.strip())
+        if parsed_exclude_id is not None:
+            query = query.filter(OperatorActivationRequest.id != parsed_exclude_id)
+        if query.first():
+            return {"exists": True, "message": "An Operator Activation Request has already been submitted with this mobile number."}
+            
+    if email:
+        query = db.query(OperatorActivationRequest).filter(OperatorActivationRequest.primary_email == email.strip())
+        if parsed_exclude_id is not None:
+            query = query.filter(OperatorActivationRequest.id != parsed_exclude_id)
+        if query.first():
+            return {"exists": True, "message": "An Operator Activation Request has already been submitted with this email address."}
+            
+    return {"exists": False}
+
+@router.post("/validate-document")
+def validate_single_document(
+    doc_type: str = Form(...),
+    file: UploadFile = File(...),
+    name_as_per_aadhaar: str = Form(...),
+    operator_aadhaar: str = Form(None),
+    operator_pan: str = Form(None),
+    operator_mobile: str = Form(None),
+    nseit_certificate_number: str = Form(None),
+):
+    err = None
+    try:
+        file_bytes = file.file.read()
+        file.file.seek(0)
+        
+        if doc_type == "aadhaar_photo":
+            text = extract_text_from_bytes(file_bytes, file.content_type)
+            err = validate_aadhaar(text, name_as_per_aadhaar, operator_aadhaar)
+        elif doc_type == "pan_card":
+            text = extract_text_from_bytes(file_bytes, file.content_type)
+            err = validate_pan(text, name_as_per_aadhaar, operator_pan)
+        elif doc_type == "passbook":
+            text = extract_text_from_bytes(file_bytes, file.content_type)
+            err = validate_passbook(text, name_as_per_aadhaar)
+        elif doc_type == "nseit_certificate":
+            text = extract_text_from_bytes(file_bytes, file.content_type)
+            err = validate_nseit_certificate(text, name_as_per_aadhaar, nseit_certificate_number)
+        elif doc_type == "hard_copy_form":
+            text = extract_text_from_bytes(file_bytes, file.content_type)
+            err = validate_consent_form(text, name_as_per_aadhaar)
+        elif doc_type == "excel_sheet":
+            err = validate_excel_sheet(file_bytes, name_as_per_aadhaar, operator_mobile)
+            
+        if err:
+            return {"status": "error", "message": err}
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @router.post("/submit")
 def submit_operator_activation(
@@ -306,6 +351,20 @@ def submit_operator_activation(
                 detail="An Operator Activation Request has already been submitted for this candidate."
             )
 
+    # Check if a request already exists with the same mobile or email
+    from sqlalchemy import or_
+    existing_req_mob_email = db.query(OperatorActivationRequest).filter(
+        or_(
+            OperatorActivationRequest.operator_mobile == operator_mobile.strip(),
+            OperatorActivationRequest.primary_email == primary_email.strip()
+        )
+    ).first()
+    if existing_req_mob_email:
+        raise HTTPException(
+            status_code=400,
+            detail="An Operator Activation Request has already been submitted with this mobile number or email address."
+        )
+
     # If candidate exists, check if they have completed NSEIT
     # If candidate does not exist, we still allow the process to proceed (as requested by user)
     if candidate:
@@ -321,66 +380,6 @@ def submit_operator_activation(
         # I'll just skip the strict block entirely for now to prevent blocking.
         # if not nseit_done:
         #    raise HTTPException(...)
-
-
-    # OCR VALIDATION
-    field_errors = {}
-    
-    # 1. Validate Aadhaar
-    if aadhaar_photo:
-        aadhaar_bytes = aadhaar_photo.file.read()
-        aadhaar_photo.file.seek(0)
-        aadhaar_text = extract_text_from_bytes(aadhaar_bytes, aadhaar_photo.content_type)
-        err = validate_aadhaar(aadhaar_text, name_as_per_aadhaar, operator_aadhaar)
-        if err:
-            field_errors["aadhaar_photo"] = err
-
-    # 2. Validate PAN
-    if pan_card:
-        pan_bytes = pan_card.file.read()
-        pan_card.file.seek(0)
-        pan_text = extract_text_from_bytes(pan_bytes, pan_card.content_type)
-        err = validate_pan(pan_text, name_as_per_aadhaar, operator_pan)
-        if err:
-            field_errors["pan_card"] = err
-            
-    # 3. Validate Passbook (verify name)
-    if passbook:
-        pb_bytes = passbook.file.read()
-        passbook.file.seek(0)
-        pb_text = extract_text_from_bytes(pb_bytes, passbook.content_type)
-        err = validate_passbook(pb_text, name_as_per_aadhaar)
-        if err:
-            field_errors["passbook"] = err
-
-    # 4. Validate NSEIT Certificate (verify name and cert number)
-    if nseit_certificate:
-        cert_bytes = nseit_certificate.file.read()
-        nseit_certificate.file.seek(0)
-        cert_text = extract_text_from_bytes(cert_bytes, nseit_certificate.content_type)
-        err = validate_nseit_certificate(cert_text, name_as_per_aadhaar, nseit_certificate_number)
-        if err:
-            field_errors["nseit_certificate"] = err
-            
-    # 5. Validate Consent Form
-    if hard_copy_form:
-        hc_bytes = hard_copy_form.file.read()
-        hard_copy_form.file.seek(0)
-        hc_text = extract_text_from_bytes(hc_bytes, hard_copy_form.content_type)
-        err = validate_consent_form(hc_text, name_as_per_aadhaar)
-        if err:
-            field_errors["hard_copy_form"] = err
-
-    # 6. Validate Excel Sheet
-    if excel_sheet:
-        ex_bytes = excel_sheet.file.read()
-        excel_sheet.file.seek(0)
-        err = validate_excel_sheet(ex_bytes, name_as_per_aadhaar, operator_mobile)
-        if err:
-            field_errors["excel_sheet"] = err
-            
-    if field_errors:
-        raise HTTPException(status_code=400, detail={"field_errors": field_errors})
 
 
     # 2. Determine the request code
@@ -479,12 +478,17 @@ def submit_operator_activation(
 
 @router.get("/dc/{dc_id}")
 def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
-    """All requests submitted by a specific DC — shown on DC portal list page."""
-    requests = (
-        db.query(OperatorActivationRequest)
-        .filter(OperatorActivationRequest.dc_id == dc_id)
-        .all()
-    )
+    """All requests submitted by a specific DC (scoped by district) — shown on DC portal list page."""
+    user = db.query(User).filter(User.id == dc_id).first()
+    district_id = user.district_id if user and user.district_id else None
+
+    query = db.query(OperatorActivationRequest)
+    if district_id:
+        query = query.filter(OperatorActivationRequest.district_id == str(district_id))
+    else:
+        query = query.filter(OperatorActivationRequest.dc_id == dc_id)
+
+    requests = query.all()
 
 
     result = []
@@ -1073,6 +1077,25 @@ def reapply_request(
         raise HTTPException(
             status_code=400, detail=f"Cannot reapply a request with status: {r.status}"
         )
+
+    # Check if another request already exists with the same mobile or email
+    conditions = []
+    if operator_mobile:
+        conditions.append(OperatorActivationRequest.operator_mobile == operator_mobile.strip())
+    if primary_email:
+        conditions.append(OperatorActivationRequest.primary_email == primary_email.strip())
+    
+    if conditions:
+        from sqlalchemy import or_
+        existing_other_req = db.query(OperatorActivationRequest).filter(
+            (OperatorActivationRequest.id != request_id) &
+            or_(*conditions)
+        ).first()
+        if existing_other_req:
+            raise HTTPException(
+                status_code=400,
+                detail="Another Operator Activation Request already exists with this mobile number or email address."
+            )
 
 
     if name_as_per_aadhaar:

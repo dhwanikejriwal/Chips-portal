@@ -240,7 +240,7 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
         # created_at, and only count requests currently awaiting CHiPS action.
         lms_forward_sub = (
             db.query(LMSRemark.request_id.label("lms_id"), func.max(LMSRemark.time).label("forwarded_at"))
-            .filter(LMSRemark.status_after.in_(FORWARDED_STATUSES))
+            .filter(LMSRemark.status_after_id.in_([to_code(s) for s in FORWARDED_STATUSES]))
             .group_by(LMSRemark.request_id)
             .subquery()
         )
@@ -257,7 +257,7 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
 
         nseit_forward_sub = (
             db.query(NSEITRemark.request_id.label("nseit_id"), func.max(NSEITRemark.time).label("forwarded_at"))
-            .filter(NSEITRemark.status_after.in_(FORWARDED_STATUSES))
+            .filter(NSEITRemark.status_after_id.in_([to_code(s) for s in FORWARDED_STATUSES]))
             .group_by(NSEITRemark.request_id)
             .subquery()
         )

@@ -225,8 +225,7 @@ def change_password(payload: ChangePasswordRequest, current_user = Depends(get_c
     hashed_pw = bcrypt.hashpw(payload.new_password.encode('utf-8'), salt).decode('utf-8')
 
     current_user.password = hashed_pw
-    if isinstance(current_user, CandidateLogin):
-        current_user.has_changed_password = 1
+    current_user.has_changed_password = 1
 
     db.commit()
     return {"success": True, "detail": "Password updated successfully."}

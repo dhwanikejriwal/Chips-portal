@@ -25,11 +25,15 @@ from fastapi import Request
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    with open("c:\\chips-portal\\error.log", "a") as f:
-        f.write(f"Exception on {request.url}:\n")
-        f.write(traceback.format_exc())
-        f.write("\n")
-    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+    try:
+        os.makedirs("c:\\chips-portal", exist_ok=True)
+        with open("c:\\chips-portal\\error.log", "a") as f:
+            f.write(f"Exception on {request.url}:\n")
+            f.write(traceback.format_exc())
+            f.write("\n")
+    except Exception:
+        print(traceback.format_exc())
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 # Register routers (Friend's / Shared)
 from backend.routers.auth import router as auth_router

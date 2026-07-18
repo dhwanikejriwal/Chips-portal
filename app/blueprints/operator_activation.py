@@ -85,10 +85,72 @@ def autofill_from_certificate():
         if response.status_code == 200:
             return jsonify(response.json()), 200
         else:
-            err_detail = response.json().get("message", "Autofill failed") if response.content else "Autofill failed"
+            try:
+                err_detail = response.json().get("message") or response.json().get("detail") or "Autofill failed"
+            except Exception:
+                err_detail = response.text or "Autofill failed"
             return jsonify({"status": "error", "message": err_detail}), response.status_code
     except requests.exceptions.ConnectionError:
         return jsonify({"status": "error", "message": "Backend offline"}), 500
+
+
+@operator_activation_bp.route("/dc/operator-activation/check-duplicate", methods=["GET"])
+def check_duplicate():
+    jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    params = {
+        "mobile": request.args.get("mobile"),
+        "email": request.args.get("email"),
+        "exclude_id": request.args.get("exclude_id")
+    }
+
+    try:
+        response = requests.get(
+            f"{backend_url()}/check-duplicate",
+            params=params,
+            headers=headers
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@operator_activation_bp.route("/dc/operator-activation/validate-document", methods=["POST"])
+def validate_single_document():
+    jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    
+    file_obj = request.files.get("file")
+    if not file_obj or not file_obj.filename:
+        return jsonify({"status": "error", "message": "No file uploaded"}), 400
+
+    files = {"file": (file_obj.filename, file_obj.read(), file_obj.content_type)}
+    
+    data = {
+        "doc_type": request.form.get("doc_type"),
+        "name_as_per_aadhaar": request.form.get("name_as_per_aadhaar", ""),
+        "operator_aadhaar": request.form.get("operator_aadhaar", ""),
+        "operator_pan": request.form.get("operator_pan", ""),
+        "operator_mobile": request.form.get("operator_mobile", ""),
+        "nseit_certificate_number": request.form.get("nseit_certificate_number", ""),
+    }
+
+    try:
+        response = requests.post(
+            f"{backend_url()}/validate-document",
+            files=files,
+            data=data,
+            headers=headers
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["GET"])

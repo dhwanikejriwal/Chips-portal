@@ -186,9 +186,34 @@ async def submit_operator_reactivation(
                 shutil.copyfileobj(uploaded_file.file, buffer)
             db.add(ReactivationDocument(request_id=active_req_id, doc_type=doc_type, path=file_save_path, original_filename=uploaded_file.filename, file_size=bytes_size))
 
+        from datetime import timedelta
         operators_added = []
         for op in operator_rows:
+            op_mobile = str(op.get('mobile', '')).strip()
+            op_email = str(op.get('email', '')).strip()
+            op_id = op.get('id')
+            
+            # Check for existing duplicate in DB
+            mobile_query = db.query(ReactivationOperator).filter(ReactivationOperator.operator_mobile == op_mobile)
+            if op_id:
+                mobile_query = mobile_query.filter(ReactivationOperator.id != op_id)
+            if mobile_query.first():
+                raise HTTPException(status_code=400, detail=f"Operator Reactivation Request already exists with mobile number: {op_mobile}")
+                
+            if op_email:
+                email_query = db.query(ReactivationOperator).filter(ReactivationOperator.email_id == op_email)
+                if op_id:
+                    email_query = email_query.filter(ReactivationOperator.id != op_id)
+                if email_query.first():
+                    raise HTTPException(status_code=400, detail=f"Operator Reactivation Request already exists with email address: {op_email}")
+
             parsed_cert_date = date.fromisoformat(op['certDate']) if op.get('certDate') else None
+            if parsed_cert_date:
+                # Check if older than 3 years (3 * 365 days)
+                three_years_ago = date.today() - timedelta(days=3*365)
+                if parsed_cert_date < three_years_ago:
+                    raise HTTPException(status_code=400, detail=f"NSEIT Certification Date for {op.get('name')} must not be more than 3 years old.")
+
             new_op = ReactivationOperator(
                 request_id=active_req_id,
 
@@ -199,8 +224,8 @@ async def submit_operator_reactivation(
                 user_code=op.get('user', '').strip(),
                 certificate_number=op.get('cert', '').strip(),
                 lms_certificate_id=op.get('lmsId', '').strip(),
-                operator_mobile=str(op.get('mobile', '')).strip(),
-                email_id=op.get('email', '').strip(),
+                operator_mobile=op_mobile,
+                email_id=op_email,
                 aadhaar_number=str(op.get('aadhar', '')).strip(),
                 certification_date=parsed_cert_date,
                 remarks=op.get('remarks', '').strip(),
@@ -235,6 +260,36 @@ async def submit_operator_reactivation(
         print(error_msg)
         raise HTTPException(status_code=400, detail=str(e))
 
+
+@router.get("/check-duplicate")
+def check_duplicate(
+    mobile: str = None, 
+    email: str = None, 
+    exclude_id: str = None,
+    db: Session = Depends(get_db)
+):
+    parsed_exclude_id = None
+    if exclude_id and exclude_id.strip():
+        try:
+            parsed_exclude_id = int(exclude_id)
+        except ValueError:
+            pass
+
+    if mobile:
+        query = db.query(ReactivationOperator).filter(ReactivationOperator.operator_mobile == mobile.strip())
+        if parsed_exclude_id is not None:
+            query = query.filter(ReactivationOperator.id != parsed_exclude_id)
+        if query.first():
+            return {"exists": True, "message": "An Operator Reactivation Request already exists with this mobile number."}
+            
+    if email:
+        query = db.query(ReactivationOperator).filter(ReactivationOperator.email_id == email.strip())
+        if parsed_exclude_id is not None:
+            query = query.filter(ReactivationOperator.id != parsed_exclude_id)
+        if query.first():
+            return {"exists": True, "message": "An Operator Reactivation Request already exists with this email address."}
+            
+    return {"exists": False}
 
 @router.get("/requests")
 async def get_reactivation_requests(

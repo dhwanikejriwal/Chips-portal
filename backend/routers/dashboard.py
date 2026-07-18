@@ -663,5 +663,70 @@ def update_district_settings(district_code: str, settings: DistrictSettingsUpdat
     db.commit()
     return {"message": "Settings updated successfully"}
 
+@router.get("/districts-with-resources")
+def get_districts_with_resources(db: Session = Depends(get_db)):
+    from backend.models.user_login import UserLogin
+    from sqlalchemy.orm import joinedload
+
+    districts = db.query(District).order_by(District.district_name).all()
+
+    # Pre-fetch all district resources (EDMs, DCs, MTOs, ADCs) and their profiles
+    all_users = db.query(UserLogin).filter(
+        UserLogin.district_id.isnot(None),
+        UserLogin.is_active == 1
+    ).options(joinedload(UserLogin.profile)).all()
+
+    # Map users by district_id and roleid
+    district_resources = {}
+    for user in all_users:
+        dist_id = user.district_id
+        if dist_id not in district_resources:
+            district_resources[dist_id] = {
+                "edm_name": "", "edm_contact": "", "edm_email": "",
+                "dc_name": "", "dc_contact": "", "dc_email": "",
+                "mto_name": "", "mto_contact": "", "mto_email": "",
+                "adc_name": "", "adc_contact": "", "adc_email": ""
+            }
+        
+        profile = user.profile
+        name = profile.full_name if (profile and profile.full_name) else ""
+        contact = profile.phone if (profile and profile.phone) else ""
+        email = profile.email if (profile and profile.email) else (user.username or "")
+
+        if user.roleid == 3: # EDM
+            district_resources[dist_id]["edm_name"] = name
+            district_resources[dist_id]["edm_contact"] = contact
+            district_resources[dist_id]["edm_email"] = email
+        elif user.roleid == 2: # DC
+            district_resources[dist_id]["dc_name"] = name
+            district_resources[dist_id]["dc_contact"] = contact
+            district_resources[dist_id]["dc_email"] = email
+        elif user.roleid == 5: # MTO
+            district_resources[dist_id]["mto_name"] = name
+            district_resources[dist_id]["mto_contact"] = contact
+            district_resources[dist_id]["mto_email"] = email
+        elif user.roleid == 6: # ADC (Assistant Division Coordinator)
+            district_resources[dist_id]["adc_name"] = name
+            district_resources[dist_id]["adc_contact"] = contact
+            district_resources[dist_id]["adc_email"] = email
+
+    res = []
+    for d in districts:
+        res_info = district_resources.get(d.district_code)
+        if not res_info:
+            res_info = {
+                "edm_name": "", "edm_contact": "", "edm_email": "",
+                "dc_name": "Not Assigned", "dc_contact": "", "dc_email": "",
+                "mto_name": "", "mto_contact": "", "mto_email": "",
+                "adc_name": "", "adc_contact": "", "adc_email": ""
+            }
+        res.append({
+            "district_code": d.district_code,
+            "district_name": d.district_name,
+            "district_short_name": d.district_short_name,
+            "aadhaar_resources": res_info
+        })
+    return res
+
 
 
