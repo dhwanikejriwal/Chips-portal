@@ -95,147 +95,15 @@ endblock %}
         }
     }
 
-    /* ── Slider / marquee notification bar ── */
-    .pending-alerts-bar {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        background: linear-gradient(90deg, #FFFBEB 0%, #FEF9EC 100%);
-        border: 1px solid #FDE68A;
-        border-radius: 12px;
-        padding: 10px 14px;
-        margin: 0 0 18px 0;
-        box-shadow: 0 1px 3px rgba(180, 83, 9, 0.06);
-        overflow: hidden;
+    /* ── Pending-alerts bar (styles in css/pending_alerts.css) ──
+       Cancel the content area's top padding + flash spacing so the bar sits
+       neatly below the header. */
+    .content {
+        padding-top: 0 !important;
     }
 
-    .pab-lead {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-shrink: 0;
-        font-size: 12px;
-        font-weight: 800;
-        color: #92400E;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        padding-right: 14px;
-        border-right: 1px solid #FDE68A;
-    }
-
-    .pab-lead i {
-        color: #D97706;
-        font-size: 14px;
-        animation: pab-ring 3s ease-in-out infinite;
-        transform-origin: top center;
-    }
-
-    @keyframes pab-ring {
-
-        0%,
-        86%,
-        100% {
-            transform: rotate(0deg);
-        }
-
-        88% {
-            transform: rotate(12deg);
-        }
-
-        90% {
-            transform: rotate(-10deg);
-        }
-
-        92% {
-            transform: rotate(8deg);
-        }
-
-        94% {
-            transform: rotate(-6deg);
-        }
-
-        96% {
-            transform: rotate(3deg);
-        }
-    }
-
-    .pab-viewport {
-        flex: 1;
-        overflow: hidden;
-        min-width: 0;
-        -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
-        mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
-    }
-
-    .pab-track {
-        display: inline-flex;
-        align-items: center;
-        gap: 32px;
-        white-space: nowrap;
-        padding-right: 32px;
-        will-change: transform;
-        animation: pab-marquee var(--pab-duration, 30s) linear infinite;
-    }
-
-    .pending-alerts-bar:hover .pab-track {
-        animation-play-state: paused;
-    }
-
-    @keyframes pab-marquee {
-        from {
-            transform: translateX(0);
-        }
-
-        to {
-            transform: translateX(-50%);
-        }
-    }
-
-    .pab-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        text-decoration: none;
-        font-size: 13px;
-        font-weight: 600;
-        color: #78350F;
-        transition: opacity 0.15s;
-    }
-
-    .pab-item:hover {
-        opacity: 0.75;
-    }
-
-    .pab-ico {
-        width: 24px;
-        height: 24px;
-        border-radius: 7px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 11px;
-        color: #fff;
-        flex-shrink: 0;
-    }
-
-    .pab-badge {
-        background: #92400E;
-        color: #FEF3C7;
-        font-size: 11px;
-        font-weight: 800;
-        padding: 1px 8px;
-        border-radius: 99px;
-        line-height: 1.5;
-    }
-
-    @media (max-width: 640px) {
-        .pab-lead span {
-            display: none;
-        }
-
-        .pab-lead {
-            padding-right: 10px;
-        }
+    .flash-container {
+        margin-bottom: 0 !important;
     }
 
     .trend-chart-tooltip {
@@ -248,16 +116,16 @@ endblock %}
 {% block content %}
 <div class="dashboard-wrapper">
 
-    <!-- ── Slider notification bar (reverted / rejected + new candidate requests) ── -->
-    <div id="pending-alerts-bar" class="pending-alerts-bar" style="display: none;">
+    <!-- ── Pending-alerts bar (reverted / rejected + new candidate requests) ── -->
+    <nav id="pending-alerts-bar" class="pab" aria-label="Pending alerts" style="display: none;">
         <div class="pab-lead">
-            <i class="fa-solid fa-bell"></i>
-            <span>Action Required</span>
+            <i class="ti ti-bell-ringing" aria-hidden="true"></i>
+            <span class="pab-lead-text">Action required</span>
         </div>
-        <div class="pab-viewport">
-            <div class="pab-track" id="pab-track"></div>
+        <div class="pab-track-wrap">
+            <ul class="pab-track" id="pab-track"></ul>
         </div>
-    </div>
+    </nav>
 
     <!-- ── Header + tab navigation ── -->
     <div class="dash-header-container">
@@ -327,28 +195,42 @@ endblock %}
             }, 0);
         };
 
+        // Sentence-case labels; the label block already says "action required".
         var alerts = [
-            { label: "New / Reapplied LMS", count: newCred(stats.lms_requests), icon: "fa-id-card", color: "#2563EB", url: "/auth/dc/lms" },
-            { label: "New / Reapplied NSEIT", count: newCred(stats.nseit_requests), icon: "fa-award", color: "#7C3AED", url: "/auth/dc/nseit" },
-            { label: "Reverted / Rejected Station ID", count: revRej(stats.station_id_requests).length, icon: "fa-desktop", color: "#0284C7", url: "/auth/dc/station-id/list" },
-            { label: "Reverted / Rejected L1", count: revRej(stats.l1_requests).length, icon: "fa-shield-halved", color: "#059669", url: "/auth/dc/l1-registration" },
-            { label: "Reverted / Rejected L2", count: revRej(stats.l2_requests).length, icon: "fa-folder-open", color: "#0D9488", url: "/auth/dc/l2-registration/list" },
-            { label: "Reverted / Rejected Operator Act.", count: revRej(stats.activation_requests).length, icon: "fa-user-check", color: "#DC2626", url: "/auth/dc/operator-activation/list" },
-            { label: "Reverted Operator Re-activation", count: revRejOps(stats.reactivation_requests), icon: "fa-rotate-right", color: "#DB2777", url: "/auth/dc/reactivation" }
+            { label: "New / reapplied LMS", count: newCred(stats.lms_requests), icon: "ti-id-badge-2", url: "/auth/dc/lms" },
+            { label: "New / reapplied NSEIT", count: newCred(stats.nseit_requests), icon: "ti-award", url: "/auth/dc/nseit" },
+            { label: "Reverted Station ID", count: revRej(stats.station_id_requests).length, icon: "ti-device-desktop", url: "/auth/dc/station-id/list" },
+            { label: "Reverted L1", count: revRej(stats.l1_requests).length, icon: "ti-shield", url: "/auth/dc/l1-registration" },
+            { label: "Reverted L2", count: revRej(stats.l2_requests).length, icon: "ti-folder", url: "/auth/dc/l2-registration/list" },
+            { label: "Reverted operator activation", count: revRej(stats.activation_requests).length, icon: "ti-user-check", url: "/auth/dc/operator-activation/list" },
+            { label: "Reverted operator reactivation", count: revRejOps(stats.reactivation_requests), icon: "ti-refresh", url: "/auth/dc/reactivation" }
         ].filter(function (a) { return a.count > 0; });
 
+        // Render nothing when everything is at zero — empty is the goal state.
         if (!alerts.length) return;
 
-        var itemsHtml = alerts.map(function (a) {
-            return '<a class="pab-item" href="' + a.url + '">'
-                + '<span class="pab-ico" style="background:' + a.color + ';"><i class="fa-solid ' + a.icon + '"></i></span>'
-                + '<span>' + a.label + '</span>'
-                + '<span class="pab-badge">' + a.count + '</span>'
-                + '</a>';
-        }).join('');
+        var escapeHtml = function (s) {
+            return String(s).replace(/[&<>"']/g, function (c) {
+                return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+            });
+        };
 
-        track.innerHTML = itemsHtml + itemsHtml;   // duplicate for a seamless -50% loop
+        // dup = the second, seamless-loop copy: hidden from AT and untabbable.
+        var mk = function (a, dup) {
+            var lbl = escapeHtml(a.label);
+            return '<li class="pab-item"' + (dup ? ' aria-hidden="true"' : '') + '>'
+                + '<a href="' + a.url + '"' + (dup ? ' tabindex="-1"' : ' aria-label="' + lbl + ', ' + a.count + ' to action"') + '>'
+                + '<i class="ti ' + a.icon + ' pab-item-ico" aria-hidden="true"></i>'
+                + '<span class="pab-item-label">' + lbl + '</span>'
+                + '<span class="pab-badge" aria-hidden="true">' + a.count + '</span>'
+                + '</a></li>';
+        };
+
+        var real = alerts.map(function (a) { return mk(a, false); }).join('');
+        var copy = alerts.map(function (a) { return mk(a, true); }).join('');
+        track.innerHTML = real + copy;   // duplicate for a seamless -50% loop
         bar.style.display = "flex";
+
         var halfWidth = track.scrollWidth / 2;
         track.style.setProperty("--pab-duration", Math.max(18, Math.round(halfWidth / 55)) + "s");
     });
@@ -359,7 +241,7 @@ endblock %}
 <script type="text/babel">
     const { useState, useMemo, useRef, useEffect } = React;
     const S = window.REAL_DATABASE_STATS || {};
-    const KPI_GRADIENT = 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #3730a3 100%)';
+    const KPI_GRADIENT = 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #3b0764 100%)';
 
     // ── Status mappers → { label } ──
     const credStatus = (status) => {

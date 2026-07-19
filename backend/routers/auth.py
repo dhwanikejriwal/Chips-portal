@@ -223,6 +223,8 @@ def change_password(payload: ChangePasswordRequest, current_user = Depends(get_c
 
     current_user.password = hashed_pw
     current_user.has_changed_password = 1
+    if isinstance(current_user, CandidateLogin):
+        current_user.has_changed_password = True
 
     db.commit()
     return {"success": True, "detail": "Password updated successfully."}

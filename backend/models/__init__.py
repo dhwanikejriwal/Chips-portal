@@ -29,6 +29,11 @@ from backend.models.admin_login_logs import AdminLoginLog
 from backend.models.report import ReportHistory
 
 from backend.models.operator import Operator
+from backend.models.kit_registration import KitRegistration
+from backend.models.otp_verification import OtpVerification
+from backend.models.aadhaar_district_resources import AadhaarDistrictResource
+from backend.models.admin_login_logs import AdminLoginLog
+from backend.models.station_id_master import StationIDMaster
 
 __all__ = [
     "Base",
@@ -63,4 +68,9 @@ __all__ = [
     "AdminLoginLog",
     "ReportHistory",
     "Operator",
+    "KitRegistration",
+    "OtpVerification",
+    "AadhaarDistrictResource",
+    "AdminLoginLog",
+    "StationIDMaster",
 ]

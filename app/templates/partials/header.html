@@ -1,119 +1,28 @@
 <style>
-    /* Responsive header variables and base overrides */
+    /* ==========================================================================
+       Global site header — single shared partial, included on every page.
+       Fixed 60px height at every breakpoint. Colours come only from
+       app/static/css/tokens.css (--navy-*, --white, --action, --rail-pending,
+       --avatar-*) — no raw hex in this file.
+       ========================================================================== */
     :root {
-        --header-height: 80px;
+        --header-height: 60px;
     }
 
     .header {
-        height: var(--header-height) !important;
+        height: var(--header-height);
+        min-height: var(--header-height);
+        max-height: var(--header-height);
         display: flex;
+        align-items: center;
         justify-content: space-between;
-        align-items: center;
-        padding: 0 30px !important;
-        background: #ffffff;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        position: relative;
-        z-index: 1000;
-        transition: all 0.3s ease;
-    }
-
-    .logo-section {
-        display: flex;
-        align-items: center;
         gap: 16px;
-    }
-
-    .logo-section img {
-        height: 50px;
-        width: auto;
-        transition: height 0.3s ease;
-    }
-
-    .logo-section h1 {
-        font-size: 26px;
-        font-weight: 700;
-        color: #1a202c;
-        margin: 0;
-        white-space: nowrap;
-        letter-spacing: -0.5px;
-        transition: font-size 0.3s ease;
-    }
-
-    .user-profile-box {
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        background: #f8fafc;
-        padding: 6px 14px;
-        border-radius: 10px;
-        border: 1px solid #e2e8f0;
-        transition: all 0.3s ease;
-    }
-
-    /* 📸 ── PERFECTLY BOUNDED SMALL HEADER AVATAR VIEWPORT ── */
-    .profile-avatar {
-        width: 36px !important;
-        height: 36px !important;
-        border-radius: 50% !important;
-        background: #0ea5e9 !important;
-        /* Matches the blue passport bg fallback */
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2) !important;
-        border: 2px solid #10b981 !important;
-        flex-shrink: 0 !important;
-        overflow: hidden !important;
-        /* 🌟 Crucial to mask out the zoomed corners */
-        position: relative !important;
-    }
-
-    .profile-avatar img {
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover !important;
-        object-position: center top !important;
-        /* 🌟 THE TRICK: Zooms in by 15% to push the baked-in white photo borders completely out of sight */
-        transform: scale(1.15) !important;
-    }
-
-    .user-info {
-        display: flex;
-        flex-direction: column;
-        text-align: right;
-        white-space: nowrap;
-        justify-content: center;
-    }
-
-    .user-name {
-        font-size: 13px;
-        font-weight: 600;
-        color: #1e293b;
-        transition: font-size 0.3s ease;
-    }
-
-    .user-role {
-        font-size: 10px;
-        color: #64748b;
-        text-transform: uppercase;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        transition: font-size 0.3s ease;
-    }
-
-    .logout-link {
-        color: #ef4444;
-        text-decoration: none;
-        font-size: 12px;
-        font-weight: 600;
-        padding-left: 12px;
-        border-left: 1px solid #cbd5e1;
-        transition: all 0.2s ease;
-    }
-
-    .logout-link:hover {
-        color: #ef4444;
+        padding: 0 20px;
+        background: var(--surface-header);
+        border-bottom: 1px solid var(--navy-300);
+        position: sticky;
+        top: 0;
+        z-index: 50;
     }
 
     /* Force main layout height adjustment relative to header height */
@@ -121,226 +30,459 @@
         height: calc(100vh - var(--header-height)) !important;
     }
 
-    /* --- RESPONSIVE BREAKPOINTS --- */
-
-    /* Small desktops / Large tablets (up to 1100px) */
-    @media (max-width: 1100px) {
-        :root {
-            --header-height: 75px;
-        }
-
-        .logo-section h1 {
-            font-size: 22px;
-        }
-
-        .logo-section img {
-            height: 44px;
-        }
-    }
-
-    /* Medium/Small tablets (up to 992px) */
-    @media (max-width: 992px) {
-        :root {
-            --header-height: 70px;
-        }
-
-        .header {
-            padding: 0 20px !important;
-        }
-
-        .logo-section h1 {
-            font-size: 18px;
-        }
-
-        .logo-section img {
-            height: 38px;
-        }
-
-        .logo-section {
-            gap: 12px;
-        }
-
-        .user-profile-box {
-            padding: 5px 10px;
-            gap: 10px;
-        }
-
-        .profile-avatar {
-            width: 32px !important;
-            height: 32px !important;
-            font-size: 13px !important;
-        }
-    }
-
-    /* Small tablets / Mobile landscape (up to 768px) */
-    @media (max-width: 768px) {
-        :root {
-            --header-height: 65px;
-        }
-
-        .logo-section h1 {
-            font-size: 16px;
-        }
-
-        .logo-section img {
-            height: 34px;
-        }
-
-        .user-name {
-            font-size: 12px;
-        }
-
-        .user-role {
-            font-size: 9px;
-        }
-
-        .logout-link {
-            font-size: 11px;
-            padding-left: 8px;
-        }
-    }
-
-    /* Sidebar goes inline below 700px in layout.css, so main-layout height should be auto */
-    @media (max-width: 700px) {
-        .main-layout {
-            height: auto !important;
-        }
-    }
-
-    /* Large mobile devices (up to 576px) */
-    @media (max-width: 576px) {
-        .header {
-            padding: 0 12px !important;
-        }
-
-        .logo-section h1 {
-            font-size: 14px;
-        }
-
-        .logo-section img {
-            height: 30px;
-        }
-
-        .logo-section {
-            gap: 8px;
-        }
-
-        .user-role {
-            display: none !important;
-        }
-
-        .user-profile-box {
-            padding: 4px 8px;
-            gap: 8px;
-        }
-
-        .profile-avatar {
-            width: 28px !important;
-            height: 28px !important;
-            font-size: 12px !important;
-        }
-    }
-
-    /* Small mobile devices / Stacked layout (up to 420px) */
-    @media (max-width: 420px) {
-        :root {
-            --header-height: auto;
-        }
-
-        .header {
-            flex-direction: column;
-            padding: 10px 12px !important;
-            gap: 10px !important;
-            align-items: stretch;
-        }
-
-        .logo-section {
-            width: 100%;
-            justify-content: flex-start;
-        }
-
-        .logo-section h1 {
-            font-size: 15px;
-            white-space: normal;
-        }
-
-        .user-profile-box {
-            width: 100%;
-            margin-left: 0;
-            justify-content: space-between;
-        }
-
-        .user-info {
-            text-align: left;
-        }
-    }
-
-    /* Anonymous user header actions */
-    .header-actions {
+    /* ---- Left: brand lockup ----
+       [hamburger] [divider] [emblem] [CHiPS logo] [divider] [portal title]
+       one flex row, one flat 14px gap between every child. */
+    .header-brand {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 14px;
+        min-width: 0;
+        overflow: hidden;
     }
 
-    .header-btn-login {
-        color: #1e293b;
-        text-decoration: none;
-        font-size: 14px;
-        font-weight: 600;
-        transition: color 0.2s;
-    }
-
-    .header-btn-login:hover {
-        color: #4f46e5;
-    }
-
-    .header-btn-register {
-        background-color: #0f172a;
-        color: #ffffff;
-        padding: 8px 18px;
-        border-radius: 9999px;
-        font-weight: 600;
-        font-size: 13px;
-        text-decoration: none;
-        transition: background-color 0.2s, border-color 0.2s;
-        border: 1px solid #0f172a;
-    }
-
-    .header-btn-login-button:hover {
-        background: #f8fafc !important;
-        border-color: #cbd5e1 !important;
-        color: #1e293b !important;
-        transform: translateY(-1px);
-    }
-
-    .header-btn-home-button:hover {
-        background: #f8fafc !important;
-        border-color: #cbd5e1 !important;
-        color: #1e293b !important;
-        transform: translateY(-1px);
-    }
-
-    /* Sidebar toggle button inside header */
-    .sidebar-toggle-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
+    .header-hamburger {
+        flex-shrink: 0;
+        width: 34px;
+        height: 34px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #333;
+        background: none;
+        border: none;
+        border-radius: 7px;
+        color: var(--navy-700);
+        cursor: pointer;
+        padding: 0;
+        outline: none;
+        transition: background 0.15s ease;
+    }
+
+    .header-hamburger svg {
+        width: 19px;
+        height: 19px;
+    }
+
+    .header-hamburger:hover {
+        background: var(--navy-50);
+    }
+
+    .header-hamburger:focus-visible {
+        outline: 2px solid var(--action);
+        outline-offset: 2px;
+    }
+
+    .header-divider {
+        flex-shrink: 0;
+        width: 1px;
+        height: 26px;
+        background: var(--navy-200);
+    }
+
+    /* Both marks are normalised by HEIGHT only — never width. The emblem is a
+       circular seal, the CHiPS mark is a wide wordmark; forcing equal widths
+       is what makes two logos look randomly scaled next to each other. */
+    .header-emblem,
+    .header-chipslogo {
+        flex-shrink: 0;
+        display: block;
+        height: 30px;
+        width: auto;
+    }
+
+    .header-chipslogo {
+        /* The source asset has no transparent background available (see
+           header partial notes); rounding softens its edge against the
+           header's white instead of a hard rectangular cut line. */
+        border-radius: 5px;
+    }
+
+    /* In dark mode the multicolour marks sit on a subtle light chip so the
+       CHiPS green and the emblem stay legible against the dark header.
+       (--logo-chip is transparent in light mode, so this is a no-op there.) */
+    .header-emblem {
+        background: var(--logo-chip);
+        border-radius: 50%;
+    }
+
+    .header-chipslogo {
+        background: var(--logo-chip);
+    }
+
+    html[data-theme="dark"] .header-emblem {
+        padding: 1px;
+    }
+
+    html[data-theme="dark"] .header-chipslogo {
+        padding: 2px 4px;
+    }
+
+    /* ---- Language toggle (EN | हिं) ----
+       Compact pill sitting immediately LEFT of the theme toggle. The active
+       segment is filled indigo, the inactive one muted grey. Segments are
+       min-width (not fixed) so "हिं" never clips. */
+    .lang-toggle {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        height: 30px;
+        padding: 2px 3px 2px 8px;
+        border: 1px solid var(--navy-200);
+        border-radius: 999px;
+        background: var(--surface-header);
+    }
+
+    .lang-toggle .lang-globe {
+        font-size: 15px;
+        line-height: 1;
+        color: var(--icon-muted, var(--navy-500));
+        margin-right: 2px;
+    }
+
+    .lang-seg {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 30px;
+        height: 24px;
+        padding: 0 8px;
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        color: #9aa2b1;
+        font-family: inherit;
+        font-size: 11.5px;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        outline: none;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .lang-seg:hover {
+        color: var(--navy-700);
+        background: var(--navy-50);
+    }
+
+    .lang-seg.is-active {
+        background: #4f46e5;
+        color: #ffffff;
+    }
+
+    .lang-seg.is-active:hover {
+        background: #4f46e5;
+        color: #ffffff;
+    }
+
+    .lang-seg:focus-visible {
+        outline: 2px solid var(--action);
+        outline-offset: 1px;
+    }
+
+    /* ---- Theme toggle (moon in light → "go dark"; sun in dark → "go light") ---- */
+    .theme-toggle {
+        position: relative;
+        flex-shrink: 0;
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        border-radius: 7px;
+        color: var(--icon-muted);
+        cursor: pointer;
+        padding: 0;
+        outline: none;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .theme-toggle:hover {
+        background: var(--surface-hover);
+    }
+
+    .theme-toggle:focus-visible {
+        outline: 2px solid var(--action);
+        outline-offset: 2px;
+    }
+
+    .theme-toggle .theme-icon {
+        font-size: 18px;
+        line-height: 1;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    /* Show the icon of the theme you'll switch TO. Driven purely off the
+       html[data-theme] attribute so it's correct on first paint (no JS flash). */
+    .theme-toggle .theme-icon--sun {
+        display: none;
+    }
+
+    html[data-theme="dark"] .theme-toggle .theme-icon--moon {
+        display: none;
+    }
+
+    html[data-theme="dark"] .theme-toggle .theme-icon--sun {
+        display: inline-flex;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .theme-toggle .theme-icon {
+            transition: none;
+        }
+    }
+
+    .header-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--navy-900);
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        user-select: none;
+        cursor: default;
+    }
+
+    /* ---- Right: user controls ---- */
+    .header-controls {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .header-bell {
+        position: relative;
+        flex-shrink: 0;
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        border-radius: 7px;
+        color: var(--navy-500);
+        cursor: pointer;
+        padding: 0;
+        outline: none;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .header-bell svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .header-bell:hover {
+        background: var(--navy-50);
+    }
+
+    .header-bell:focus-visible {
+        outline: 2px solid var(--action);
+        outline-offset: 2px;
+    }
+
+    /* Rendered only when there are unread notifications — no permanent dot. */
+    .header-bell-dot {
+        display: none;
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--rail-pending);
+        box-shadow: 0 0 0 2px var(--surface-header);
+        pointer-events: none;
+    }
+
+    .header-bell-dot.is-visible {
+        display: block;
+    }
+
+    /* ---- User chip ---- */
+    .user-chip {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 5px 10px 5px 5px;
+        border: 1px solid var(--navy-200);
+        border-radius: 99px;
+        background: var(--surface-header);
+        cursor: pointer;
+        font-family: inherit;
+        outline: none;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .user-chip:hover {
+        background: var(--navy-50);
+        border-color: var(--navy-300);
+    }
+
+    .user-chip:focus-visible {
+        outline: 2px solid var(--action);
+        outline-offset: 2px;
+    }
+
+    .user-avatar {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--avatar-bg);
+        color: var(--avatar-fg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 600;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .user-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center top;
+        transform: scale(1.15);
+    }
+
+    .user-text {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        min-width: 0;
+        line-height: 1.25;
+    }
+
+    .user-name {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--navy-900);
+        max-width: 170px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-meta {
+        font-size: 11px;
+        color: var(--navy-500);
+        white-space: nowrap;
+        max-width: 170px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-chevron {
+        flex-shrink: 0;
+        font-size: 14px;
+        color: var(--navy-400);
+        transition: transform 0.15s ease;
+    }
+
+    .user-chip[aria-expanded="true"] .user-chevron {
+        transform: rotate(180deg);
+    }
+
+    /* ---- User dropdown menu ---- */
+    .user-menu {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 8px);
+        width: 220px;
+        background: var(--surface-card);
+        border: 1px solid var(--navy-200);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
         padding: 6px;
-        border-radius: 4px;
-        transition: background 0.2s;
+        z-index: 1010;
+    }
+
+    .user-menu.is-open {
+        display: block;
+    }
+
+    .user-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: none;
+        background: none;
+        font-family: inherit;
+        font-size: 14px;
+        color: var(--navy-900);
+        text-decoration: none;
+        cursor: pointer;
+        text-align: left;
+    }
+
+    .user-menu-item:hover,
+    .user-menu-item:focus-visible {
+        background: var(--navy-50);
         outline: none;
     }
 
-    .sidebar-toggle-btn:hover {
-        background: #f1f3f5;
+    .user-menu-item i {
+        font-size: 17px;
+        color: var(--navy-500);
     }
 
+    .user-menu-divider {
+        height: 1px;
+        margin: 6px 0;
+        background: var(--navy-200);
+    }
 
-    /* Notifications style */
+    /* Logout: the least-used action in the portal, so it only gets red text
+       once it's tucked inside the menu — never in the always-visible bar. */
+    .user-menu-item.is-danger {
+        color: var(--rail-pending);
+    }
+
+    .user-menu-item.is-danger i {
+        color: var(--rail-pending);
+    }
+
+    /* ---- Responsive ----
+       Height never changes. Below 900px the title (and its leading divider)
+       drop so the logos keep their room; below 640px the chip collapses to
+       just the avatar + chevron. */
+    @media (max-width: 900px) {
+
+        .header-title,
+        .header-divider--title {
+            display: none;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .user-text {
+            display: none;
+        }
+
+        .user-chip {
+            gap: 4px;
+            padding: 4px 8px 4px 4px;
+        }
+    }
+
+    /* ---- Notifications panel (unchanged palette — a distinct, intentional
+       semantic colour system for categorising request types, separate from
+       the navy chrome ramp above) ---- */
     .notification-dropdown {
         display: none;
         position: absolute;
@@ -355,38 +497,6 @@
         z-index: 1050;
         font-family: inherit;
         overflow: hidden;
-    }
-
-    .notification-bell-btn:hover {
-        background-color: #f1f5f9 !important;
-        color: #1e293b !important;
-    }
-
-    /* Dedicated class (not the generic .badge used elsewhere in the app) so its
-       box model can't inherit unrelated padding/border-radius from common.css. */
-    .notification-dot {
-        display: none;
-        position: absolute;
-        top: 2px;
-        right: 2px;
-        min-width: 16px;
-        height: 16px;
-        margin: 0;
-        padding: 0 4px;
-        box-sizing: border-box;
-        background: #ef4444;
-        color: #ffffff;
-        border-radius: 999px;
-        box-shadow: 0 0 0 2px #ffffff;
-        font-size: 10px;
-        font-weight: 700;
-        line-height: 16px;
-        text-align: center;
-        pointer-events: none;
-    }
-
-    .notification-dot.is-visible {
-        display: block;
     }
 
     .notification-panel-header {
@@ -673,38 +783,91 @@
     .notification-view-all-btn:hover {
         background: #1d4ed8;
     }
+
+    /* ---- Anonymous (logged-out) header actions ---- */
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .header-btn-home-button,
+    .header-btn-login-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border: 1px solid var(--navy-200);
+        border-radius: 10px;
+        background: var(--surface-card);
+        color: var(--navy-900);
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .header-btn-home-button:hover,
+    .header-btn-login-button:hover {
+        background: var(--navy-50);
+        border-color: var(--navy-300);
+    }
 </style>
 
 <header class="header">
-    <div class="logo-section">
+    <div class="header-brand">
         {% if session.get('access_token') and session.get('role') != 'Candidate' %}
-        <button id="sidebar-toggle" class="sidebar-toggle-btn">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
+        <button id="sidebar-toggle" class="header-hamburger" aria-label="Toggle sidebar" aria-expanded="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
                 <line x1="3" y1="12" x2="21" y2="12"></line>
                 <line x1="3" y1="6" x2="21" y2="6"></line>
                 <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
         </button>
+        <span class="header-divider" aria-hidden="true"></span>
         {% endif %}
-        <img src="{{ url_for('static', filename='css/images/gov_logo.jpg') }}" alt="Government Logo">
-        <img src="{{ url_for('static', filename='css/images/chips_logo.jpg') }}" alt="CHiPS Logo" style="margin-left: -4px;">
-        <h1 style="color: #1a202c; user-select: none; cursor: default;">Aadhaar Operator Request Portal</h1>
+
+        <img class="header-emblem" src="{{ url_for('static', filename='css/images/gov_logo.jpg') }}"
+            alt="Government of Chhattisgarh emblem">
+        <img class="header-chipslogo" src="{{ url_for('static', filename='css/images/chips_logo.jpg') }}" alt="CHiPS">
+
+        <span class="header-divider header-divider--title" aria-hidden="true"></span>
+        <h1 class="header-title" data-i18n="app.title">Aadhaar Operator Request Portal</h1>
     </div>
 
+    {% macro lang_toggle() %}
+    <div id="lang-toggle" class="lang-toggle" role="group" aria-label="Switch language"
+        title="भाषा बदलें / Switch language">
+        <i class="ti ti-world lang-globe" aria-hidden="true"></i>
+        <button type="button" class="lang-seg" data-lang="en" aria-pressed="false">EN</button>
+        <button type="button" class="lang-seg" data-lang="hi" lang="hi" aria-pressed="false">हिं</button>
+    </div>
+    {% endmacro %}
+
+    {% macro theme_toggle() %}
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark mode" aria-pressed="false"
+        title="Toggle theme">
+        <i class="ti ti-moon theme-icon theme-icon--moon" aria-hidden="true"></i>
+        <i class="ti ti-sun theme-icon theme-icon--sun" aria-hidden="true"></i>
+    </button>
+    {% endmacro %}
+
     {% if session.get('access_token') %}
-    <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; position: relative;">
+    <div class="header-controls">
+        {{ lang_toggle() }}
+        {{ theme_toggle() }}
         {% if session.get('role') != 'Candidate' %}
         <!-- Notification Bell Container -->
         <div class="notification-container" style="position: relative;">
-            <button id="notification-bell-btn" class="notification-bell-btn"
-                style="background: none; border: none; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: 50%; transition: all 0.2s; outline: none; width: 40px; height: 40px;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
+            <button id="notification-bell-btn" class="header-bell" aria-label="Notifications">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                     <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
-                <span id="notification-badge" class="notification-dot"></span>
+                <span id="notification-badge" class="header-bell-dot"></span>
             </button>
 
             <!-- Dropdown panel -->
@@ -819,259 +982,427 @@
         </div>
         {% endif %}
 
-        <div class="user-profile-box" style="margin-left: 0;">
-            <div class="profile-avatar">
-                {% if session.get('role') == 'Candidate' and status_data and status_data.photo_upload %}
-                <img src="{{ status_data.photo_upload }}" alt="User Photo">
-                {% else %}
-                {{ (session.get('username') or 'U')[0] | upper }}
-                {% endif %}
-            </div>
+        {% set role = session.get('role') %}
+        {% if role == 'Admin' %}
+        {% set identity_name = 'CHiPS admin' %}
+        {% set identity_role_label = 'Admin' %}
+        {% elif role == 'Candidate' %}
+        {% set identity_name = 'Candidate' %}
+        {% set identity_role_label = 'Candidate' %}
+        {% else %}
+        {# The name line shows the district (what distinguishes this DC from
+        any other) rather than repeating the generic role, which already
+        appears on the line below. #}
+        {% set identity_name = session.get('district_name', '') or 'District coordinator' %}
+        {% set identity_role_label = 'District Coordinator' %}
+        {% endif %}
+        {% set identity_username = session.get('username', '') %}
+        {# Initials are derived from the ROLE, not the name line above, so
+        they stay recognisable (DC / AD / CA) even though the name line
+        can be a district. #}
+        {% set identity_label_parts = identity_role_label.split(' ') %}
+        {% if identity_label_parts | length > 1 %}
+        {% set identity_initials = (identity_label_parts[0][0] ~ identity_label_parts[1][0]) | upper %}
+        {% else %}
+        {% set identity_initials = identity_role_label[:2] | upper %}
+        {% endif %}
 
-            <div class="user-info">
-                <span class="user-name">{{ session.get('username', '') }}</span>
-                {% if session.get('role') == 'Admin' %}
-                <span class="user-role">CHIPS Administrator</span>
-                {% elif session.get('role') == 'Candidate' %}
-                <span class="user-role">Candidate</span>
+        <div class="user-chip-wrap" style="position: relative;">
+            <button type="button" id="identity-chip-btn" class="user-chip" aria-haspopup="menu" aria-expanded="false"
+                aria-controls="identity-menu">
+                <span class="user-avatar">
+                    {% if role == 'Candidate' and status_data and status_data.photo_upload %}
+                    <img src="{{ status_data.photo_upload }}" alt="User photo">
+                    {% else %}
+                    {{ identity_initials }}
+                    {% endif %}
+                </span>
+                <span class="user-text">
+                    <span class="user-name">{{ identity_name }}</span>
+                    <span class="user-meta">{{ identity_role_label }} &middot; {{ identity_username }}</span>
+                </span>
+                <i class="ti ti-chevron-down user-chevron"></i>
+            </button>
+
+            <div id="identity-menu" class="user-menu" role="menu" aria-labelledby="identity-chip-btn">
+                {% if role == 'Candidate' %}
+                <a href="{{ url_for('candidate.profile') }}" class="user-menu-item" role="menuitem">
+                    <i class="ti ti-user"></i>My account
+                </a>
                 {% else %}
-                <span class="user-role">District Coordinator ({{ session.get('district_name', '') }})</span>
+                <a href="#" class="user-menu-item" role="menuitem" onclick="return false;">
+                    <i class="ti ti-user"></i>My account
+                </a>
                 {% endif %}
+                <div class="user-menu-divider"></div>
+                <a href="{{ url_for('auth.logout') }}" class="user-menu-item is-danger" role="menuitem">
+                    <i class="ti ti-logout"></i>Log out
+                </a>
             </div>
-            {% if session.get('role') == 'Candidate' %}
-            <a href="{{ url_for('candidate.profile') }}"
-                style="color: #3c3489; text-decoration: none; font-size: 12px; font-weight: 600; padding-left: 12px; border-left: 1px solid #cbd5e1; transition: all 0.2s ease;">Profile</a>
-            {% endif %}
-            <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
         </div>
     </div>
     {% else %}
     <div class="header-actions">
-        <a href="/" class="header-btn-home-button"
-            style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 500; text-decoration: none; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); cursor: pointer; margin-right: 8px;">
+        {{ lang_toggle() }}
+        {{ theme_toggle() }}
+        <a href="/" class="header-btn-home-button">
             <i class="ti ti-home" style="font-size:16px;"></i>Home
         </a>
-        <a href="{{ url_for('auth.login') }}" class="header-btn-login-button"
-            style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 500; text-decoration: none; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); cursor: pointer;">
+        <a href="{{ url_for('auth.login') }}" class="header-btn-login-button">
             <i class="ti ti-lock" style="font-size:16px;"></i>DC/CHIPS Login
         </a>
     </div>
     {% endif %}
 </header>
-    {% if session.get('access_token') and session.get('role') != 'Candidate' %}
-    <script>
-        (function () {
-            const BACKEND_API_URL = "{{ config['BACKEND_API_URL'] }}";
-            const ACCESS_TOKEN = "{{ session.get('access_token') }}";
-            const USER_ROLE = "{{ session.get('role') }}";
-            const isChips = USER_ROLE === 'Admin';
-            
-            const dropdown = document.getElementById('notification-dropdown');
-            const bellBtn = document.getElementById('notification-bell-btn');
-            const closeBtn = document.getElementById('notification-close-btn');
-            const badge = document.getElementById('notification-badge');
-            
-            const groupRegistrationCount = document.getElementById('notification-group-registration-count');
-            const groupCredentialsCount = document.getElementById('notification-group-credentials-count');
-            const groupRegistrationBreakdown = document.getElementById('notification-group-registration-breakdown');
-            const groupCredentialsBreakdown = document.getElementById('notification-group-credentials-breakdown');
-            
-            const emptyState = document.getElementById('notification-empty-state');
-            const typeList = document.getElementById('notification-type-list');
-            const viewAllBtn = document.getElementById('notification-view-all');
-            const viewAllLabel = document.getElementById('notification-view-all-label');
-            const viewAllChevron = document.getElementById('notification-view-all-chevron');
 
-            let lastSummary = null;
-            let isTypeListExpanded = false;
+<script>
+    /* Language toggle: delegates to the global i18n runtime (static/js/i18n.js,
+       loaded in base.html <head>). Clicking a segment persists the choice
+       (localStorage "lang"), sets <html lang> and re-renders every data-i18n*
+       node. The active segment is kept in sync via the "langchange" event so
+       any other switcher on the page stays consistent. */
+    (function () {
+        var segs = document.querySelectorAll('#lang-toggle .lang-seg');
+        if (!segs.length || !window.i18n) return;
 
-            const TYPE_URLS = {
-                'L1': '/chips/l1-requests',
-                'L2': '/chips/l2-requests',
-                'station_id': '/chips/station-id-requests',
-                'operator_activation': '/chips/activation-requests',
-                'operator_reactivation': '/chips/reactivation-requests',
-                'LMS': '/chips/lms-requests',
-                'NSEIT': '/chips/nseit-requests'
-            };
+        function reflect(lang) {
+            segs.forEach(function (seg) {
+                var active = seg.getAttribute('data-lang') === lang;
+                seg.classList.toggle('is-active', active);
+                seg.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+        }
 
-            if (USER_ROLE === 'dc' || USER_ROLE === 'edm') {
-                TYPE_URLS['L1'] = '/dc/l1-requests';
-                TYPE_URLS['L2'] = '/dc/l2-requests';
-                TYPE_URLS['station_id'] = '/dc/station-id-requests';
-                TYPE_URLS['operator_activation'] = '/dc/activation-requests';
-                TYPE_URLS['operator_reactivation'] = '/dc/reactivation-requests';
-                TYPE_URLS['LMS'] = '/candidate-requests';
-                TYPE_URLS['NSEIT'] = '/candidate-requests';
+        reflect(window.i18n.getLang());
+
+        segs.forEach(function (seg) {
+            seg.addEventListener('click', function () {
+                window.i18n.setLang(seg.getAttribute('data-lang'));
+            });
+        });
+
+        document.addEventListener('langchange', function (e) {
+            reflect(e.detail.lang);
+        });
+    })();
+</script>
+
+<script>
+    /* Theme toggle: flip data-theme on <html>, persist the explicit choice, and
+       keep the label/pressed state in sync. The initial theme was already
+       applied FOUC-free by the bootstrap script in base.html <head>; the icon
+       shown is driven purely by CSS off the [data-theme] attribute. */
+    (function () {
+        var btn = document.getElementById('theme-toggle');
+        if (!btn) return;
+
+        function current() {
+            return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        }
+
+        function reflect(theme) {
+            var goingDark = theme !== 'dark'; // button switches TO the other theme
+            btn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+            btn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+        }
+
+        reflect(current());
+
+        btn.addEventListener('click', function () {
+            var next = current() === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            try { localStorage.setItem('portal-theme', next); } catch (e) { /* private mode */ }
+            reflect(next);
+        });
+    })();
+</script>
+{% if session.get('access_token') %}
+<script>
+    (function () {
+        const chipBtn = document.getElementById('identity-chip-btn');
+        const menu = document.getElementById('identity-menu');
+        if (!chipBtn || !menu) return;
+
+        const menuItems = Array.prototype.slice.call(
+            menu.querySelectorAll('.user-menu-item')
+        );
+
+        function setOpen(open) {
+            menu.classList.toggle('is-open', open);
+            chipBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        function isOpen() {
+            return menu.classList.contains('is-open');
+        }
+
+        chipBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setOpen(!isOpen());
+        });
+
+        chipBtn.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setOpen(true);
+                if (menuItems[0]) menuItems[0].focus();
+            } else if (e.key === 'Escape') {
+                setOpen(false);
             }
+        });
 
-            const REVERT_REJECT_TYPES = ['L1', 'L2', 'station_id', 'operator_activation', 'operator_reactivation'];
+        menuItems.forEach(function (item, index) {
+            item.addEventListener('click', function () {
+                setOpen(false);
+            });
 
-            function renderTypeList(data) {
-                typeList.innerHTML = '';
-                (data.types || []).forEach(function(t) {
-                    const url = TYPE_URLS[t.key];
-                    if (!url) return;
-                    const row = document.createElement('a');
-                    row.className = 'notification-type-row' + (t.count > 0 ? ' has-new' : '');
-                    const qs = [];
-                    if (data.baseline_at) qs.push(`highlight_since=${encodeURIComponent(data.baseline_at)}`);
-                    if (!isChips && REVERT_REJECT_TYPES.indexOf(t.key) !== -1) qs.push('status=reverted_rejected');
-                    row.href = url + (qs.length ? `?${qs.join('&')}` : '');
-                    // Tag each row so new candidate requests and returned
-                    // (reverted/rejected) items are distinguishable at a glance.
-                    let tag = '';
-                    if ((t.revert_count || 0) > 0) tag = `<span class="notification-type-tag revert">${t.revert_count} revert</span>`;
-                    else if ((t.new_count || 0) > 0) tag = `<span class="notification-type-tag new">${t.new_count} new</span>`;
-                    row.innerHTML = `<span>${t.label}${tag}</span><span class="notification-type-count">${t.count}</span>`;
-                    typeList.appendChild(row);
-                });
-            }
-
-            // Render the "N new · M revert" line under a group card, showing only
-            // the non-zero sides. Hidden entirely when the group is empty.
-            function renderBreakdown(el, group) {
-                if (!el) return;
-                const newCount = group ? (group.new_count || 0) : 0;
-                const revertCount = group ? (group.revert_count || 0) : 0;
-                const parts = [];
-                if (newCount > 0) parts.push(`<span class="nb-new">${newCount} new</span>`);
-                if (revertCount > 0) parts.push(`<span class="nb-revert">${revertCount} revert</span>`);
-                if (parts.length === 0) {
-                    el.style.display = 'none';
-                    el.innerHTML = '';
-                    return;
+            item.addEventListener('keydown', function (e) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const next = menuItems[(index + 1) % menuItems.length];
+                    if (next) next.focus();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prev = menuItems[(index - 1 + menuItems.length) % menuItems.length];
+                    if (prev) prev.focus();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setOpen(false);
+                    chipBtn.focus();
+                } else if (e.key === 'Tab') {
+                    setOpen(false);
                 }
-                el.innerHTML = parts.join('<span class="nb-sep">·</span>');
-                el.style.display = 'flex';
+            });
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!menu.contains(e.target) && e.target !== chipBtn && !chipBtn.contains(e.target)) {
+                setOpen(false);
             }
+        });
 
-            // Session latch for the bell's red indicator (Part 3 — badge persists
-            // for the whole session regardless of UI interaction, and only resets
-            // on the next login). A count can drop mid-session — a DC resolving a
-            // revert, or any item being acted on — so we latch the peak count in
-            // sessionStorage and never let the displayed badge fall below it for
-            // the life of the session.
-            //
-            // The latch is keyed by the session's baseline_at (which changes on
-            // every fresh login) rather than by role, so a logout→login in the
-            // same tab — or a different user of the same role — starts a clean
-            // latch instead of inheriting the previous session's lit badge.
-            const BADGE_LATCH_PREFIX = 'notif-badge-latch-' + (USER_ROLE || 'x') + '-';
-
-            function badgeLatchKey(data) {
-                return BADGE_LATCH_PREFIX + (data.baseline_at || 'na');
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && isOpen()) {
+                setOpen(false);
+                chipBtn.focus();
             }
+        });
+    })();
+</script>
+{% endif %}
+{% if session.get('access_token') and session.get('role') != 'Candidate' %}
+<script>
+    (function () {
+        const BACKEND_API_URL = "{{ config['BACKEND_API_URL'] }}";
+        const ACCESS_TOKEN = "{{ session.get('access_token') }}";
+        const USER_ROLE = "{{ session.get('role') }}";
+        const isChips = USER_ROLE === 'Admin';
 
-            function pruneOldLatches(currentKey) {
-                // Keep only this session's latch so sessionStorage doesn't grow
-                // across repeated logins in the same tab.
-                for (let i = sessionStorage.length - 1; i >= 0; i--) {
-                    const k = sessionStorage.key(i);
-                    if (k && k.startsWith(BADGE_LATCH_PREFIX) && k !== currentKey) {
-                        sessionStorage.removeItem(k);
-                    }
+        const dropdown = document.getElementById('notification-dropdown');
+        const bellBtn = document.getElementById('notification-bell-btn');
+        const closeBtn = document.getElementById('notification-close-btn');
+        const badge = document.getElementById('notification-badge');
+
+        const groupRegistrationCount = document.getElementById('notification-group-registration-count');
+        const groupCredentialsCount = document.getElementById('notification-group-credentials-count');
+        const groupRegistrationBreakdown = document.getElementById('notification-group-registration-breakdown');
+        const groupCredentialsBreakdown = document.getElementById('notification-group-credentials-breakdown');
+
+        const emptyState = document.getElementById('notification-empty-state');
+        const typeList = document.getElementById('notification-type-list');
+        const viewAllBtn = document.getElementById('notification-view-all');
+        const viewAllLabel = document.getElementById('notification-view-all-label');
+        const viewAllChevron = document.getElementById('notification-view-all-chevron');
+
+        let lastSummary = null;
+        let isTypeListExpanded = false;
+
+        const TYPE_URLS = {
+            'L1': '/chips/l1-requests',
+            'L2': '/chips/l2-requests',
+            'station_id': '/chips/station-id-requests',
+            'operator_activation': '/chips/activation-requests',
+            'operator_reactivation': '/chips/reactivation-requests',
+            'LMS': '/chips/lms-requests',
+            'NSEIT': '/chips/nseit-requests'
+        };
+
+        if (USER_ROLE === 'dc' || USER_ROLE === 'edm') {
+            TYPE_URLS['L1'] = '/dc/l1-requests';
+            TYPE_URLS['L2'] = '/dc/l2-requests';
+            TYPE_URLS['station_id'] = '/dc/station-id-requests';
+            TYPE_URLS['operator_activation'] = '/dc/activation-requests';
+            TYPE_URLS['operator_reactivation'] = '/dc/reactivation-requests';
+            TYPE_URLS['LMS'] = '/candidate-requests';
+            TYPE_URLS['NSEIT'] = '/candidate-requests';
+        }
+
+        const REVERT_REJECT_TYPES = ['L1', 'L2', 'station_id', 'operator_activation', 'operator_reactivation'];
+
+        function renderTypeList(data) {
+            typeList.innerHTML = '';
+            (data.types || []).forEach(function (t) {
+                const url = TYPE_URLS[t.key];
+                if (!url) return;
+                const row = document.createElement('a');
+                row.className = 'notification-type-row' + (t.count > 0 ? ' has-new' : '');
+                const qs = [];
+                if (data.baseline_at) qs.push(`highlight_since=${encodeURIComponent(data.baseline_at)}`);
+                if (!isChips && REVERT_REJECT_TYPES.indexOf(t.key) !== -1) qs.push('status=reverted_rejected');
+                row.href = url + (qs.length ? `?${qs.join('&')}` : '');
+                // Tag each row so new candidate requests and returned
+                // (reverted/rejected) items are distinguishable at a glance.
+                let tag = '';
+                if ((t.revert_count || 0) > 0) tag = `<span class="notification-type-tag revert">${t.revert_count} revert</span>`;
+                else if ((t.new_count || 0) > 0) tag = `<span class="notification-type-tag new">${t.new_count} new</span>`;
+                row.innerHTML = `<span>${t.label}${tag}</span><span class="notification-type-count">${t.count}</span>`;
+                typeList.appendChild(row);
+            });
+        }
+
+        // Render the "N new · M revert" line under a group card, showing only
+        // the non-zero sides. Hidden entirely when the group is empty.
+        function renderBreakdown(el, group) {
+            if (!el) return;
+            const newCount = group ? (group.new_count || 0) : 0;
+            const revertCount = group ? (group.revert_count || 0) : 0;
+            const parts = [];
+            if (newCount > 0) parts.push(`<span class="nb-new">${newCount} new</span>`);
+            if (revertCount > 0) parts.push(`<span class="nb-revert">${revertCount} revert</span>`);
+            if (parts.length === 0) {
+                el.style.display = 'none';
+                el.innerHTML = '';
+                return;
+            }
+            el.innerHTML = parts.join('<span class="nb-sep">·</span>');
+            el.style.display = 'flex';
+        }
+
+        // Session latch for the bell's red indicator (Part 3 — badge persists
+        // for the whole session regardless of UI interaction, and only resets
+        // on the next login). A count can drop mid-session — a DC resolving a
+        // revert, or any item being acted on — so we latch the peak count in
+        // sessionStorage and never let the displayed badge fall below it for
+        // the life of the session.
+        //
+        // The latch is keyed by the session's baseline_at (which changes on
+        // every fresh login) rather than by role, so a logout→login in the
+        // same tab — or a different user of the same role — starts a clean
+        // latch instead of inheriting the previous session's lit badge.
+        const BADGE_LATCH_PREFIX = 'notif-badge-latch-' + (USER_ROLE || 'x') + '-';
+
+        function badgeLatchKey(data) {
+            return BADGE_LATCH_PREFIX + (data.baseline_at || 'na');
+        }
+
+        function pruneOldLatches(currentKey) {
+            // Keep only this session's latch so sessionStorage doesn't grow
+            // across repeated logins in the same tab.
+            for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                const k = sessionStorage.key(i);
+                if (k && k.startsWith(BADGE_LATCH_PREFIX) && k !== currentKey) {
+                    sessionStorage.removeItem(k);
                 }
             }
+        }
 
-            function renderNotifications(data) {
-                lastSummary = data;
+        function renderNotifications(data) {
+            lastSummary = data;
 
-                const latchKey = badgeLatchKey(data);
-                pruneOldLatches(latchKey);
+            const latchKey = badgeLatchKey(data);
+            pruneOldLatches(latchKey);
 
-                const liveCount = data.new_request_count || 0;
-                let latchedCount = parseInt(sessionStorage.getItem(latchKey) || '0', 10);
-                if (liveCount > latchedCount) {
-                    latchedCount = liveCount;
-                    sessionStorage.setItem(latchKey, String(latchedCount));
-                }
-                // Peak count seen this session — never drops back to 0 once shown.
-                const shownCount = latchedCount;
-
-                badge.textContent = shownCount > 99 ? '99+' : shownCount;
-                badge.classList.toggle('is-visible', shownCount > 0);
-
-                const groups = data.groups || [];
-                const registrationGroup = groups.find(g => g.name === 'Registration and activation');
-                const credentialsGroup = groups.find(g => g.name === 'Credentials and exams');
-                groupRegistrationCount.textContent = registrationGroup ? registrationGroup.count : 0;
-                groupCredentialsCount.textContent = credentialsGroup ? credentialsGroup.count : 0;
-                renderBreakdown(groupRegistrationBreakdown, registrationGroup);
-                renderBreakdown(groupCredentialsBreakdown, credentialsGroup);
-
-                emptyState.style.display = shownCount > 0 ? 'none' : 'flex';
-
-                if (isTypeListExpanded) renderTypeList(data);
+            const liveCount = data.new_request_count || 0;
+            let latchedCount = parseInt(sessionStorage.getItem(latchKey) || '0', 10);
+            if (liveCount > latchedCount) {
+                latchedCount = liveCount;
+                sessionStorage.setItem(latchKey, String(latchedCount));
             }
+            // Peak count seen this session — never drops back to 0 once shown.
+            const shownCount = latchedCount;
 
-            function loadNotifications() {
-                fetch(`${BACKEND_API_URL}/notifications/summary`, {
-                    headers: {
-                        'Authorization': `Bearer ${ACCESS_TOKEN}`
-                    }
-                })
+            badge.classList.toggle('is-visible', shownCount > 0);
+
+            const groups = data.groups || [];
+            const registrationGroup = groups.find(g => g.name === 'Registration and activation');
+            const credentialsGroup = groups.find(g => g.name === 'Credentials and exams');
+            groupRegistrationCount.textContent = registrationGroup ? registrationGroup.count : 0;
+            groupCredentialsCount.textContent = credentialsGroup ? credentialsGroup.count : 0;
+            renderBreakdown(groupRegistrationBreakdown, registrationGroup);
+            renderBreakdown(groupCredentialsBreakdown, credentialsGroup);
+
+            emptyState.style.display = shownCount > 0 ? 'none' : 'flex';
+
+            if (isTypeListExpanded) renderTypeList(data);
+        }
+
+        function loadNotifications() {
+            fetch(`${BACKEND_API_URL}/notifications/summary`, {
+                headers: {
+                    'Authorization': `Bearer ${ACCESS_TOKEN}`
+                }
+            })
                 .then(res => {
                     if (res.status === 200) return res.json();
                     throw new Error('Failed to fetch');
                 })
                 .then(renderNotifications)
                 .catch(err => console.error('Notifications fetch error:', err));
+        }
+
+        loadNotifications();
+
+        // Keep the count live while this page stays open, so new requests and
+        // reverts that arrive during the session appear without a reload
+        // (Part 4). 20s sits in the spec's 15–30s band.
+        setInterval(loadNotifications, 20000);
+
+        // Browsers throttle setInterval heavily in background tabs (often to
+        // once a minute or slower), so a session left open in an unfocused tab
+        // can sit on stale counts far longer than the interval suggests.
+        // Refresh immediately whenever the tab regains focus/visibility so
+        // switching back always shows the latest state without a manual reload.
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) loadNotifications();
+        });
+        window.addEventListener('focus', loadNotifications);
+
+        let isDropdownOpen = false;
+        function setDropdownOpen(open) {
+            isDropdownOpen = open;
+            dropdown.style.display = open ? 'block' : 'none';
+        }
+
+        bellBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setDropdownOpen(!isDropdownOpen);
+            if (isDropdownOpen) {
+                // Refresh so anything that arrived since page load shows up.
+                loadNotifications();
             }
+        });
 
-            loadNotifications();
+        // Expands the panel in place to list every individual request type
+        // with its own new-request count, instead of navigating away.
+        viewAllBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            isTypeListExpanded = !isTypeListExpanded;
+            typeList.classList.toggle('is-expanded', isTypeListExpanded);
+            viewAllChevron.classList.toggle('is-open', isTypeListExpanded);
+            viewAllLabel.textContent = isTypeListExpanded ? 'Hide requests' : 'View all requests';
+            if (isTypeListExpanded && lastSummary) renderTypeList(lastSummary);
+        });
 
-            // Keep the count live while this page stays open, so new requests and
-            // reverts that arrive during the session appear without a reload
-            // (Part 4). 20s sits in the spec's 15–30s band.
-            setInterval(loadNotifications, 20000);
+        closeBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setDropdownOpen(false);
+        });
 
-            // Browsers throttle setInterval heavily in background tabs (often to
-            // once a minute or slower), so a session left open in an unfocused tab
-            // can sit on stale counts far longer than the interval suggests.
-            // Refresh immediately whenever the tab regains focus/visibility so
-            // switching back always shows the latest state without a manual reload.
-            document.addEventListener('visibilitychange', function () {
-                if (!document.hidden) loadNotifications();
-            });
-            window.addEventListener('focus', loadNotifications);
-
-            let isDropdownOpen = false;
-            function setDropdownOpen(open) {
-                isDropdownOpen = open;
-                dropdown.style.display = open ? 'block' : 'none';
-            }
-
-            bellBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                setDropdownOpen(!isDropdownOpen);
-                if (isDropdownOpen) {
-                    // Refresh so anything that arrived since page load shows up.
-                    loadNotifications();
-                }
-            });
-
-            // Expands the panel in place to list every individual request type
-            // with its own new-request count, instead of navigating away.
-            viewAllBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                isTypeListExpanded = !isTypeListExpanded;
-                typeList.classList.toggle('is-expanded', isTypeListExpanded);
-                viewAllChevron.classList.toggle('is-open', isTypeListExpanded);
-                viewAllLabel.textContent = isTypeListExpanded ? 'Hide requests' : 'View all requests';
-                if (isTypeListExpanded && lastSummary) renderTypeList(lastSummary);
-            });
-
-            closeBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
+        document.addEventListener('click', function (e) {
+            if (!dropdown.contains(e.target) && e.target !== bellBtn && !bellBtn.contains(e.target)) {
                 setDropdownOpen(false);
-            });
-
-            document.addEventListener('click', function(e) {
-                if (!dropdown.contains(e.target) && e.target !== bellBtn && !bellBtn.contains(e.target)) {
-                    setDropdownOpen(false);
-                }
-            });
-        })();
-    </script>
-    {% endif %}
+            }
+        });
+    })();
+</script>
+{% endif %}

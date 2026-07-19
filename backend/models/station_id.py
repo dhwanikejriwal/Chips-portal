@@ -7,7 +7,8 @@ class StationIDRequest(Base):
     __tablename__ = "station_id_requests"
 
     id = Column(Integer, primary_key=True, index=True)
-    request_no = Column(String(20), nullable=True, unique=True)
+    # Not unique: a batch allotment splits into one row per Station ID, all sharing the request_no.
+    request_no = Column(String(20), nullable=True, index=True)
     dc_id = Column(Integer, ForeignKey("user_login_table.id"), nullable=False, index=True)
     district_id = Column(String(20), ForeignKey("district_table.district_code"), nullable=True, index=True)
 
@@ -19,6 +20,9 @@ class StationIDRequest(Base):
     user_type_custom_reason = Column(Text, nullable=True)  # filled when user_type == 'custom'
 
     number_of_kits = Column(Integer, nullable=False)
+
+    # Slot type for the request: '937 slot' or '300 slot'
+    slot = Column(String(20), nullable=True)
 
     status_id = Column(Integer, ForeignKey("master_status.id"), nullable=False, default=5, index=True) # 5 = SENT_TO_CHIPS
 

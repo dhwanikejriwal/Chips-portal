@@ -469,4 +469,4 @@ def search_suspended_operators():
         else:
             return jsonify({"status": "error", "message": "Search failed"}), response.status_code
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500

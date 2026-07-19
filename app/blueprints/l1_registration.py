@@ -41,7 +41,25 @@ def dc_l1_portal():
         requests_data = []
 
     requests_data.sort(key=lambda x: x.get("updated_at") or x.get("reviewed_at") or x.get("created_at") or "", reverse=True)
-    return render_template("dc/dc_l1_registration.html", requests=requests_data)
+
+    # Allotted Station IDs still awaiting an L1 request from the DC
+    try:
+        allotted_resp = requests.get(
+            "http://127.0.0.1:8000/l1-registration/allotted-pending",
+            headers=headers,
+            timeout=5,
+        )
+        allotted_stations = allotted_resp.json() if allotted_resp.status_code == 200 else []
+        if not isinstance(allotted_stations, list):
+            allotted_stations = []
+    except Exception:
+        allotted_stations = []
+
+    return render_template(
+        "dc/dc_l1_registration.html",
+        requests=requests_data,
+        allotted_stations=allotted_stations,
+    )
 
 
 @l1_bp.route("/chips/l1-registration")

@@ -93,7 +93,7 @@
         align-items: center;
         gap: 4px;
         padding: 6px 12px;
-        background: var(--dc-primary, #007bff);
+        background: var(--action, #378ADD);
         color: #fff;
         border: none;
         border-radius: 7px;
@@ -105,7 +105,7 @@
     }
 
     .btn-issue:hover {
-        background: var(--dc-primary-hover, #0056b3);
+        background: #2C74BE;
     }
 
     .btn-revert {
@@ -114,19 +114,20 @@
         gap: 4px;
         padding: 5px 12px;
         background: #fff;
-        color: #dc2626;
-        border: 1.5px solid #fca5a5;
+        color: var(--rail-pending, #D85A30);
+        border: 1.5px solid var(--rail-pending, #D85A30);
         border-radius: 7px;
         font-size: 12px;
         font-weight: 700;
         cursor: pointer;
         transition: all 0.15s;
         white-space: nowrap;
+        opacity: 0.85;
     }
 
     .btn-revert:hover {
-        background: #fee2e2;
-        border-color: #dc2626;
+        background: #FBE9E2;
+        opacity: 1;
     }
 
     /* ── Responsive Layout ── */
@@ -150,7 +151,7 @@
 
     /* Make main content area padding shrink on small screens */
     @media (max-width: 992px) {
-        main.content {
+        .content {
             padding: 16px !important;
         }
 
@@ -175,7 +176,7 @@
     }
 
     @media (max-width: 768px) {
-        main.content {
+        .content {
             padding: 12px !important;
         }
 
@@ -249,7 +250,7 @@
     }
 
     @media (max-width: 520px) {
-        main.content {
+        .content {
             padding: 8px !important;
         }
 
@@ -282,7 +283,7 @@
 
     /* Custom button classes for SweetAlert popup windows */
     .swal-btn-action-blue {
-        background-color: #007bff !important;
+        background-color: #378ADD !important;
         color: white !important;
         font-weight: 700 !important;
         border-radius: 6px !important;
@@ -294,7 +295,7 @@
     }
 
     .swal-btn-action-blue:hover {
-        background-color: #0056b3 !important;
+        background-color: #2C74BE !important;
     }
 
     .swal-btn-action-cancel {
@@ -316,582 +317,457 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% endblock %}
 {% block content %}
-<div class="main-layout">
-    <main class="content" style="flex: 1; padding: 25px; overflow-y: auto; background-color: #f8fafc;">
-        <!-- Jinja2 Metric Calculations -->
-        {% set metrics = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0)
-        %}
+{% from 'partials/request_section.html' import request_section %}
+<div style="background-color: var(--app-bg);">
+    <!-- Jinja2 Metric Calculations -->
+    {% set metrics = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0)
+    %}
+    {% for req in requests %}
+    {% for op in req.operators %}
+    {% set status_upper = op.status|upper %}
+    {% set metrics.total = metrics.total + 1 %}
+    {% if status_upper == 'REAPPLIED' %}
+    {% set metrics.reapplied = metrics.reapplied + 1 %}
+    {% elif status_upper == 'PENDING' %}
+    {% set metrics.pending = metrics.pending + 1 %}
+    {% elif 'UIDAI' in status_upper %}
+    {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
+    {% elif status_upper in ['REVERTED', 'REVERT BACK'] %}
+    {% set metrics.reverted = metrics.reverted + 1 %}
+    {% elif status_upper == 'REJECTED' %}
+    {% set metrics.rejected = metrics.rejected + 1 %}
+    {% elif status_upper in ['APPROVED', 'REVIEWED', 'ASSIGNED', 'ACTIVE', 'ACTIVATED'] %}
+    {% set metrics.approved = metrics.approved + 1 %}
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+
+    <!-- Reactivation Control Panel Banner -->
+    <div class="chips-header-banner" style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
+        <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+            <div
+                style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+            </div>
+            <div>
+                <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">Operator Reactivation
+                    Dashboard
+                </h1>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Manage and review reactivation
+                    requests</p>
+            </div>
+        </div>
+        <div class="chips-banner-metrics"
+            style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
+            <div class="chips-metric-card">
+                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                    metrics.pending
+                    }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-reapplied" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
+                    {{
+                    metrics.reapplied }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-sent-to-uidai"
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                    metrics.sent_to_uidai }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to
+                    UIDAI</div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
+                    {{ metrics.reverted
+                    }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
+                    {{ metrics.rejected
+                    }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
+                    {{ metrics.approved
+                    }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-total-requests"
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.total }}
+                </div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
+                    Requests</div>
+            </div>
+        </div>
+    </div>
+    <div class="form-card-container"
+        style="border:none; padding:0; background:transparent; box-shadow:none; margin-bottom:3px;">
+        {% if aging_filter %}
+        <div class="aging-filter-notice"
+            style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+            <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ requests|length }}
+                found)</span>
+            <a href="/auth/chips/reactivation" class="aging-filter-notice-link"
+                style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+        </div>
+        {% endif %}
+
+        <!-- Section tabs -->
+        <div class="req-tabs" role="tablist">
+            <button type="button" class="req-tab active" data-tab="pending">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="8" y="2" width="8" height="4" rx="1" />
+                    <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+                    <path d="M12 11v6" />
+                    <path d="M9 14h6" />
+                </svg>
+                <span>Pending reactivation requests</span>
+            </button>
+            <button type="button" class="req-tab" data-tab="uidai">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+                <span>Sent to UIDAI queue</span>
+            </button>
+            <button type="button" class="req-tab" data-tab="log">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M3 3v5h5" />
+                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                    <path d="M12 7v5l3 3" />
+                </svg>
+                <span>Reactivation log history</span>
+            </button>
+        </div>
+
+        <!-- Global Filter Bar -->
+        <div class="filter-bar">
+            <div class="filter-group filter-group-search">
+                <label>Search Operator</label>
+                <input type="text" id="admin-search-input" oninput="filterAdminQueues()"
+                    placeholder="Search by Request ID, District, Name..." class="filter-input">
+            </div>
+            <div class="filter-group">
+                <label>District</label>
+                <select id="admin-district-filter" onchange="filterAdminQueues()" class="filter-input">
+                    <option value="all">All Districts</option>
+                    {% for d in [
+                    'Balod', 'Baloda Bazar-Bhatapara', 'Balrampur-Ramanujganj', 'Bastar', 'Bemetara',
+                    'Bijapur', 'Bilaspur', 'Dantewada', 'Dhamtari', 'Durg', 'Gariaband',
+                    'Gaurela-Pendra-Marwahi', 'Janjgir-Champa', 'Jashpur', 'Kabirdham', 'Kanker',
+                    'Khairagarh-Chhuikhadan-Gandai', 'Kondagaon', 'Korba', 'Koriya', 'Mahasamund',
+                    'Manendragarh-Chirmiri-Bharatpur', 'Mohla-Manpur-Ambagarh Chowki', 'Mungeli',
+                    'Narayanpur', 'Raigarh', 'Raipur', 'Rajnandgaon', 'Sakti', 'Sarangarh-Bilaigarh',
+                    'Sukma', 'Surajpur', 'Surguja'
+                    ] %}
+                    <option value="{{ d | lower | trim }}">{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Time Period</label>
+                <select id="admin-date-filter" onchange="filterAdminQueues()" class="filter-input">
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">Week</option>
+                    <option value="month" selected>Month</option>
+                </select>
+            </div>
+            <div class="filter-group-button" style="flex: 0 0 auto;">
+                <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Clear Filters
+                </button>
+            </div>
+        </div>
+
+        <!-- ── PENDING REACTIVATION (group box holding one card per batch) ── -->
+        <div class="req-tabpanel active" data-panel="pending">
+            <div class="rs-group rs-group--pending">
+                <div class="rs-group-head">
+                    <span class="rs-rail" aria-hidden="true"></span>
+                    <h3 class="rs-title">Pending reactivation requests</h3>
+                    <span class="rs-count" id="pending-count">–</span>
+                    <div class="rs-head-controls" style="margin-left: auto;">
+                        <select id="admin-pending-status-filter" onchange="filterAdminQueues()" class="rs-filter">
+                            <option value="all">All statuses</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="REAPPLIED">Reapplied</option>
+                        </select>
+                        <button class="rs-export"
+                            onclick="exportTableToCSV('admin-pending-table', 'incoming_reactivation_batches.csv')">Export
+                            to CSV</button>
+                    </div>
+                </div>
+                <div class="rs-group-body" id="pending-cards-container">
+                    {% if requests %}
+                    {% set pending_found = namespace(val=false) %}
+                    {% for req in requests %}
+                    {% set has_pending_op = namespace(val=false) %}
+                    {% for op in req.operators %}
+                    {% if op.status|upper in ['PENDING', 'REAPPLIED'] %}
+                    {% set has_pending_op.val = true %}
+                    {% set pending_found.val = true %}
+                    {% endif %}
+                    {% endfor %}
+                    {% if has_pending_op.val %}
+                    {% set batch_controls %}
+                    <span
+                        style="font-size: 12px; color: var(--text-muted, #626B93); white-space: nowrap; margin-right: 4px;">Submitted:
+                        <strong style="color:var(--text-strong, #151C3A);">{{ req.created_at or "—" }}</strong> ·
+                        Updated: <strong style="color:var(--text-strong, #151C3A);">{{ req.updated_at or "—"
+                            }}</strong></span>
+                    <button type="button" onclick="viewBatchDocuments('{{ req.request_code }}')"
+                        style="background: #fff; color: var(--text-label, #3C466E); border: 1px solid var(--border, #C9D0E2); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">View
+                        Documents</button>
+                    <button type="button" onclick="dispatchBatchToUidaiPipeline('{{ req.request_code }}')"
+                        style="background: var(--action, #378ADD); color: white; border: 1px solid var(--action, #378ADD); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Send
+                        All</button>
+                    <button type="button" onclick="processBatchRevertModal('{{ req.request_code }}')"
+                        style="background: var(--rail-pending, #D85A30); color: white; border: 1px solid var(--rail-pending, #D85A30); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Revert
+                        All</button>
+                    {% endset %}
+                    {% call request_section(
+                    variant='pending',
+                    title='Request ID: ' ~ req.request_code,
+                    count=req.operators|length,
+                    card_classes='pending-card request-card',
+                    card_data={'request-id': req.request_code|upper, 'code': req.request_code|upper, 'district':
+                    req.district_name|lower, 'created': req.created_at, 'status': req.status, 'training-date':
+                    req.training_date},
+                    controls=batch_controls,
+                    min_width=1040,
+                    columns=[
+                    {'label': 'S.No', 'cls': 'rs-col-sno'},
+                    {'label': 'Operator name'},
+                    {'label': 'Mobile'},
+                    {'label': 'Email'},
+                    {'label': 'Status'},
+                    {'label': 'Action', 'align': 'center'}
+                    ]) %}
+                    {% for op in req.operators %}
+                    {% set op_status_upper = op.status|upper %}
+                    {% if op_status_upper in ['PENDING', 'REAPPLIED'] %}
+                    <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+                        data-mobile="{{ op.operator_mobile }}"
+                        data-email="{{ op.email_id | lower | default('', true) }}" data-status="{{ op.status | upper }}"
+                        data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+                        data-created="{{ req.created_at }}" data-training-date="{{ req.training_date }}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ op.operator_name }}</td>
+                        <td>{{ op.operator_mobile }}</td>
+                        <td>{{ op.email_id or '—' }}</td>
+                        <td>
+                            {% if op_status_upper == 'REAPPLIED' %}
+                            <span class="badge badge-reapplied">Reapplied</span>
+                            {% else %}
+                            <span class="badge badge-pending">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            <div class="action-group"
+                                style="gap: 5px; display: flex; align-items: center; justify-content: center;">
+                                <button type="button" class="btn-issue"
+                                    onclick="executeIndividualUidai('{{ op.id }}', '{{ req.request_code }}', this)">
+                                    Send to UIDAI
+                                </button>
+                                <button type="button" class="btn-revert"
+                                    onclick="executeIndividualReversion('{{ op.id }}', '{{ req.request_code }}', this)">
+                                    Revert
+                                </button>
+                                <button type="button" class="btn-details"
+                                    onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">
+                                    Details
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                    {% endcall %}
+                    {% endif %}
+                    {% endfor %}
+                    {% if not pending_found.val %}
+                    <div id="pending-empty-msg" class="empty-state">
+                        <p>No pending requests</p>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div id="pending-empty-msg" class="empty-state">
+                        <p>No pending requests</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div><!-- /panel pending -->
+    </div>
+
+    <!-- ── SENT TO UIDAI (flat operator table) ── -->
+    <div class="req-tabpanel" data-panel="uidai">
+        {% set uidai_controls %}
+        <button class="rs-export"
+            onclick="exportTableToCSV('admin-uidai-table', 'uidai_reactivation_operators.csv')">Export to CSV</button>
+        {% endset %}
+        {% call request_section(
+        variant='progress',
+        title='Sent to UIDAI queue',
+        count='–', count_id='uidai-count',
+        controls=uidai_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'District'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email'},
+        {'label': 'Status'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='admin-uidai-table', body_id='uidai-tbody',
+        empty_id='uidai-empty-msg', empty_message='No UIDAI requests') %}
+        {% set uidai_ns = namespace(i=1) %}
         {% for req in requests %}
         {% for op in req.operators %}
-        {% set status_upper = op.status|upper %}
-        {% set metrics.total = metrics.total + 1 %}
-        {% if status_upper == 'REAPPLIED' %}
-        {% set metrics.reapplied = metrics.reapplied + 1 %}
-        {% elif status_upper == 'PENDING' %}
-        {% set metrics.pending = metrics.pending + 1 %}
-        {% elif 'UIDAI' in status_upper %}
-        {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
-        {% elif status_upper in ['REVERTED', 'REVERT BACK'] %}
-        {% set metrics.reverted = metrics.reverted + 1 %}
-        {% elif status_upper == 'REJECTED' %}
-        {% set metrics.rejected = metrics.rejected + 1 %}
-        {% elif status_upper in ['APPROVED', 'REVIEWED', 'ASSIGNED', 'ACTIVE', 'ACTIVATED'] %}
-        {% set metrics.approved = metrics.approved + 1 %}
+        {% if 'UIDAI' in op.status|upper %}
+        <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+            data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
+            data-status="{{ op.status | upper }}" data-district="{{ req.district_name }}"
+            data-code="{{ req.request_code }}" data-created="{{ req.created_at }}"
+            data-training-date="{{ req.training_date }}">
+            <td>{{ uidai_ns.i }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.district_name }}</td>
+            <td>{{ op.operator_name }}</td>
+            <td>{{ op.operator_mobile }}</td>
+            <td>{{ op.email_id or '—' }}</td>
+            <td><span class="badge badge-forwarded">Sent to UIDAI</span></td>
+            <td style="text-align: center;">
+                <div class="action-group"
+                    style="gap: 5px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" class="btn-activate-op action-toggle-btn"
+                        onclick="executeIndividualActivation('{{ op.id }}', '{{ req.request_code }}', this)">UIDAI
+                        Approved</button>
+                    <button type="button" class="btn-revert"
+                        onclick="executeIndividualRejection('{{ op.id }}', '{{ req.request_code }}', this)">UIDAI
+                        Rejected</button>
+                    <button type="button" class="btn-details"
+                        onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">Details</button>
+                </div>
+            </td>
+        </tr>
+        {% set uidai_ns.i = uidai_ns.i + 1 %}
         {% endif %}
         {% endfor %}
         {% endfor %}
+        {% endcall %}
+    </div><!-- /panel uidai -->
 
-        <!-- Reactivation Control Panel Banner -->
-        <div class="chips-header-banner"
-            style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
-            <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
-                <div
-                    style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                        <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                </div>
-                <div>
-                    <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">Operator Reactivation
-                        Dashboard
-                    </h1>
-                    <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Manage and review reactivation
-                        requests</p>
-                </div>
-            </div>
-            <div class="chips-banner-metrics"
-                style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
-                <div class="chips-metric-card" style="flex: 1 1 calc(20% - 15px); min-width: 150px; margin: 0;">
-                    <div id="metric-pending"
-                        style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.pending
-                        }}</div>
-                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending
-                    </div>
-                </div>
-                <div class="chips-metric-card" style="flex: 1 1 calc(20% - 15px); min-width: 150px; margin: 0;">
-                    <div id="metric-reapplied"
-                        style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                        metrics.reapplied }}</div>
-                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
-                    </div>
-                </div>
-                <div class="chips-metric-card" style="flex: 1 1 calc(20% - 15px); min-width: 150px; margin: 0;">
-                    <div id="metric-sent-to-uidai"
-                        style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                        metrics.sent_to_uidai }}</div>
-                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to
-                        UIDAI</div>
-                </div>
-                <div class="chips-metric-card" style="flex: 1 1 calc(20% - 15px); min-width: 150px; margin: 0;">
-                    <div id="metric-reverted"
-                        style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.reverted
-                        }}</div>
-                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
-                    </div>
-                </div>
-                <div class="chips-metric-card" style="flex: 1 1 calc(20% - 15px); min-width: 150px; margin: 0;">
-                    <div id="metric-rejected"
-                        style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.rejected
-                        }}</div>
-                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected
-                    </div>
-                </div>
-                <div class="chips-metric-card" style="flex: 1 1 calc(50% - 15px); min-width: 250px; margin: 0;">
-                    <div id="metric-approved"
-                        style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.approved
-                        }}</div>
-                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
-                    </div>
-                </div>
-                <div class="chips-metric-card" style="flex: 1 1 calc(50% - 15px); min-width: 250px; margin: 0;">
-                    <div id="metric-total-requests"
-                        style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.total }}
-                    </div>
-                    <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
-                        Requests</div>
-                </div>
-            </div>
-        </div>
-        <div class="form-card-container">
-            {% if aging_filter %}
-            <div
-                style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
-                <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ requests|length }}
-                    found)</span>
-                <a href="/auth/chips/reactivation"
-                    style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
-            </div>
-            {% endif %}
-
-            <!-- Global Filter Bar -->
-            <div class="filter-bar">
-                <div class="filter-group filter-group-search">
-                    <label>Search Operator</label>
-                    <input type="text" id="admin-search-input" oninput="filterAdminQueues()"
-                        placeholder="Search by Request ID, District, Name..." class="filter-input">
-                </div>
-                <div class="filter-group">
-                    <label>District</label>
-                    <select id="admin-district-filter" onchange="filterAdminQueues()" class="filter-input">
-                        <option value="all">All Districts</option>
-                        {% for d in [
-                        'Balod', 'Baloda Bazar-Bhatapara', 'Balrampur-Ramanujganj', 'Bastar', 'Bemetara',
-                        'Bijapur', 'Bilaspur', 'Dantewada', 'Dhamtari', 'Durg', 'Gariaband',
-                        'Gaurela-Pendra-Marwahi', 'Janjgir-Champa', 'Jashpur', 'Kabirdham', 'Kanker',
-                        'Khairagarh-Chhuikhadan-Gandai', 'Kondagaon', 'Korba', 'Koriya', 'Mahasamund',
-                        'Manendragarh-Chirmiri-Bharatpur', 'Mohla-Manpur-Ambagarh Chowki', 'Mungeli',
-                        'Narayanpur', 'Raigarh', 'Raipur', 'Rajnandgaon', 'Sakti', 'Sarangarh-Bilaigarh',
-                        'Sukma', 'Surajpur', 'Surguja'
-                        ] %}
-                        <option value="{{ d | lower | trim }}">{{ d }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label>Time Period</label>
-                    <select id="admin-date-filter" onchange="filterAdminQueues()" class="filter-input">
-                        <option value="all" selected>All Time</option>
-                        <option value="today">Today</option>
-                        <option value="week">Week</option>
-                        <option value="month">Month</option>
-                    </select>
-                </div>
-                <div class="filter-group-button" style="flex: 0 0 auto;">
-                    <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                        Clear Filters
-                    </button>
-                </div>
-            </div>
-
-            <!-- ── PENDING REACTIVATION TABLE ── -->
-            <div class="section-heading">
-                <div class="section-heading-dot" style="background:#f59e0b;"></div>
-                <h2>Pending Reactivation Requests</h2>
-                <span class="section-count" id="pending-count">–</span>
-                <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-                    <select id="admin-pending-status-filter" onchange="filterAdminQueues()" class="filter-input"
-                        style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;">
-                        <option value="all">All Statuses</option>
-                        <option value="PENDING">Pending</option>
-                        <option value="REAPPLIED">Reapplied</option>
-                    </select>
-                    <button class="btn btn-sm"
-                        onclick="exportTableToCSV('admin-pending-table', 'incoming_reactivation_batches.csv')">Export to
-                        CSV</button>
-                </div>
-            </div>
-
-            <div id="pending-cards-container" style="max-height: 550px; overflow-y: auto; padding-right: 5px;">
-                {% if requests %}
-                {% set pending_found = namespace(val=false) %}
-                {% for req in requests %}
-                {% set has_pending_op = namespace(val=false) %}
-                {% for op in req.operators %}
-                {% if op.status|upper in ['PENDING', 'REAPPLIED'] %}
-                {% set has_pending_op.val = true %}
-                {% set pending_found.val = true %}
-                {% endif %}
-                {% endfor %}
-                {% if has_pending_op.val %}
-                <div class="pending-card request-card" data-request-id="{{ req.request_code | upper }}"
-                    data-code="{{ req.request_code | upper }}" data-district="{{ req.district_name | lower }}"
-                    data-created="{{ req.created_at }}" data-status="{{ req.status }}"
-                    data-training-date="{{ req.training_date }}"
-                    style="border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                    <div class="batch-card-header-wrapper"
-                        style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; border-radius: 8px 8px 0 0;">
-                        <div class="batch-card-header"
-                            style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 10px;">
-                            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
-                                <span
-                                    style="font-weight: 700; font-size: 15px; color: #1e293b; white-space: nowrap;">Request
-                                    ID: <span style="color: #2563eb;">{{ req.request_code }}</span></span>
-                                <span
-                                    style="font-size: 12px; color: #64748b; background: #e2e8f0; padding: 3px 8px; border-radius: 4px; font-weight: 600; white-space: nowrap;">Operators:
-                                    {{ req.operators|length }}</span>
-                                <button type="button" onclick="viewBatchDocuments('{{ req.request_code }}')"
-                                    style="margin-left: 5px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
-                                    onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'"
-                                    onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                        <polyline points="14 2 14 8 20 8"></polyline>
-                                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                                        <polyline points="10 9 9 9 8 9"></polyline>
-                                    </svg>
-                                    View Documents
-                                </button>
-                                <button type="button" onclick="dispatchBatchToUidaiPipeline('{{ req.request_code }}')"
-                                    style="margin-left: 5px; background: #2563eb; color: white; border: 1px solid #2563eb; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
-                                    onmouseover="this.style.background='#1d4ed8'; this.style.borderColor='#1d4ed8'"
-                                    onmouseout="this.style.background='#2563eb'; this.style.borderColor='#2563eb'">
-                                    Send All
-                                </button>
-                                <button type="button" onclick="processBatchRevertModal('{{ req.request_code }}')"
-                                    style="margin-left: 5px; background: #dc2626; color: white; border: 1px solid #dc2626; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
-                                    onmouseover="this.style.background='#b91c1c'; this.style.borderColor='#b91c1c'"
-                                    onmouseout="this.style.background='#dc2626'; this.style.borderColor='#dc2626'">
-                                    Revert All
-                                </button>
-                            </div>
-                            <div
-                                style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; margin-left: auto;">
-                                <span style="font-size: 13px; color: #475569;">Submitted: <strong
-                                        style="color: #1e293b;">{{ req.created_at or "—" }}</strong></span>
-                                <span style="font-size: 13px; color: #475569;">Updated: <strong
-                                        style="color: #1e293b;">{{ req.updated_at or "—" }}</strong></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="padding: 10px 20px;">
-                        {% for op in req.operators %}
-                        {% set op_status_upper = op.status|upper %}
-                        {% if op_status_upper in ['PENDING', 'REAPPLIED'] %}
-                        <div class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
-                            data-mobile="{{ op.operator_mobile }}"
-                            data-email="{{ op.email_id | lower | default('', true) }}"
-                            data-status="{{ op.status | upper }}" data-district="{{ req.district_name }}"
-                            data-code="{{ req.request_code }}" data-created="{{ req.created_at }}"
-                            data-training-date="{{ req.training_date }}"
-                            style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap; gap: 10px;">
-                            <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
-                                <span style="color: #64748b; font-size: 13px; font-weight: 600; min-width: 20px;">{{
-                                    loop.index }}.</span>
-                                <span style="font-size: 14px; font-weight: 600; color: #334155;">{{ op.operator_name
-                                    }}</span>
-                                <span style="font-size: 12px; color: #475569;">({{ op.operator_mobile }}{% if
-                                    op.email_id %} | {{ op.email_id }}{% endif %} | {{ req.district_name }})</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 15px;">
-                                <div
-                                    style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                                    <span style="color: #64748b;">Status:</span>
-                                    {% if op_status_upper == 'REAPPLIED' %}
-                                    <span class="badge badge-reapplied">Reapplied</span>
-                                    {% else %}
-                                    <span class="badge badge-pending">Pending</span>
-                                    {% endif %}
-                                </div>
-                                <div class="action-group" style="gap: 5px; display: flex; align-items: center;">
-                                    <button type="button" class="btn-issue"
-                                        onclick="executeIndividualUidai('{{ op.id }}', '{{ req.request_code }}', this)">
-                                        Send to UIDAI
-                                    </button>
-                                    <button type="button" class="btn-revert"
-                                        onclick="executeIndividualReversion('{{ op.id }}', '{{ req.request_code }}', this)">
-                                        Revert
-                                    </button>
-                                    <button type="button" class="btn-details"
-                                        onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">
-                                        Details
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-                {% endfor %}
-                {% if not pending_found.val %}
-                <div id="pending-empty-msg" class="empty-state">
-                    <p>No pending requests</p>
-                </div>
-                {% endif %}
+    <!-- ── REACTIVATION LOG HISTORY (flat operator table) ── -->
+    <div class="req-tabpanel" data-panel="log">
+        {% set history_controls %}
+        <select id="admin-history-status-filter" onchange="filterAdminQueues()" class="rs-filter">
+            <option value="all">All statuses</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REVERTED">Reverted</option>
+            <option value="REJECTED">Rejected</option>
+        </select>
+        <button class="rs-export"
+            onclick="exportTableToCSV('admin-approved-table', 'reactivation_historical_logs.csv')">Export to
+            CSV</button>
+        {% endset %}
+        {% call request_section(
+        variant='done',
+        title='Reactivation log history',
+        count='–', count_id='approved-count',
+        controls=history_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'District'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email'},
+        {'label': 'Status'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='admin-approved-table', body_id='approved-tbody',
+        empty_id='approved-empty-msg', empty_message='No historical requests') %}
+        {% set hist_ns = namespace(i=1) %}
+        {% for req in requests %}
+        {% for op in req.operators %}
+        {% set op_status_upper = op.status|upper %}
+        {% if op_status_upper not in ['PENDING', 'REAPPLIED', 'SENT_TO_UIDAI'] %}
+        <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+            data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
+            data-status="{{ op.status | upper }}" data-district="{{ req.district_name }}"
+            data-code="{{ req.request_code }}" data-created="{{ req.created_at }}"
+            data-training-date="{{ req.training_date }}">
+            <td>{{ hist_ns.i }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.district_name }}</td>
+            <td>{{ op.operator_name }}</td>
+            <td>{{ op.operator_mobile }}</td>
+            <td>{{ op.email_id or '—' }}</td>
+            <td>
+                {% if op_status_upper == 'APPROVED' %}
+                <span class="badge badge-approved">Approved</span>
+                {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
+                <span class="badge badge-reverted">Reverted</span>
+                {% elif op_status_upper == 'REJECTED' %}
+                <span class="badge badge-rejected">Rejected</span>
                 {% else %}
-                <div id="pending-empty-msg" class="empty-state">
-                    <p>No pending requests</p>
-                </div>
+                <span class="badge badge-pending">{{ op.status }}</span>
                 {% endif %}
-            </div>
-        </div>
-
-        <!-- ── SENT TO UIDAI TABLE ── -->
-        <div class="section-heading" style="margin-top: 30px;">
-            <div class="section-heading-dot" style="background:#0ea5e9;"></div>
-            <h2>Sent to UIDAI Queue</h2>
-            <span class="section-count" id="uidai-count">–</span>
-            <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-                <button class="btn btn-sm"
-                    onclick="exportTableToCSV('admin-uidai-table', 'uidai_reactivation_operators.csv')">Export to
-                    CSV</button>
-            </div>
-        </div>
-
-        <div id="uidai-cards-container" style="max-height: 550px; overflow-y: auto; padding-right: 5px;">
-            {% if requests %}
-            {% set uidai_found = namespace(val=false) %}
-            {% for req in requests %}
-            {% set has_uidai_op = namespace(val=false) %}
-            {% for op in req.operators %}
-            {% if 'UIDAI' in op.status|upper %}
-            {% set has_uidai_op.val = true %}
-            {% set uidai_found.val = true %}
-            {% endif %}
-            {% endfor %}
-            {% if has_uidai_op.val %}
-            <div class="uidai-card request-card" data-request-id="{{ req.request_code | upper }}"
-                data-code="{{ req.request_code | upper }}" data-district="{{ req.district_name | lower }}"
-                data-created="{{ req.created_at }}" data-status="{{ req.status }}"
-                data-training-date="{{ req.training_date }}"
-                style="border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div class="batch-card-header-wrapper"
-                    style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; border-radius: 8px 8px 0 0;">
-                    <div class="batch-card-header"
-                        style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
-                            <span
-                                style="font-weight: 700; font-size: 15px; color: #1e293b; white-space: nowrap;">Request
-                                ID: <span style="color: #2563eb;">{{ req.request_code }}</span></span>
-                            <span
-                                style="font-size: 12px; color: #64748b; background: #e2e8f0; padding: 3px 8px; border-radius: 4px; font-weight: 600; white-space: nowrap;">Operators:
-                                {{ req.operators|length }}</span>
-                            <button type="button" onclick="viewBatchDocuments('{{ req.request_code }}')"
-                                style="margin-left: 5px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
-                                onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'"
-                                onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                    <polyline points="14 2 14 8 20 8"></polyline>
-                                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                                    <polyline points="10 9 9 9 8 9"></polyline>
-                                </svg>
-                                View Documents
-                            </button>
-                            <button type="button" onclick="executeBatchApprove('{{ req.request_code }}')"
-                                style="margin-left: 5px; background: #16a34a; color: white; border: 1px solid #16a34a; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
-                                onmouseover="this.style.background='#15803d'; this.style.borderColor='#15803d'"
-                                onmouseout="this.style.background='#16a34a'; this.style.borderColor='#16a34a'">
-                                Approve All
-                            </button>
-                            <button type="button" onclick="executeBatchReject('{{ req.request_code }}')"
-                                style="margin-left: 5px; background: #dc2626; color: white; border: 1px solid #dc2626; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
-                                onmouseover="this.style.background='#b91c1c'; this.style.borderColor='#b91c1c'"
-                                onmouseout="this.style.background='#dc2626'; this.style.borderColor='#dc2626'">
-                                Reject All
-                            </button>
-                        </div>
-                        <div
-                            style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; margin-left: auto;">
-                            <span style="font-size: 13px; color: #475569;">Submitted: <strong style="color: #1e293b;">{{
-                                    req.created_at or "—" }}</strong></span>
-                            <span style="font-size: 13px; color: #475569;">Updated: <strong style="color: #1e293b;">{{
-                                    req.updated_at or "—" }}</strong></span>
-                        </div>
-                    </div>
+            </td>
+            <td style="text-align: center;">
+                <div class="action-group"
+                    style="gap: 5px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" class="btn-details"
+                        onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">Details</button>
                 </div>
-                <div style="padding: 10px 20px;">
-                    {% for op in req.operators %}
-                    {% set op_status_upper = op.status|upper %}
-                    {% if 'UIDAI' in op_status_upper %}
-                    <div class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
-                        data-mobile="{{ op.operator_mobile }}"
-                        data-email="{{ op.email_id | lower | default('', true) }}" data-status="{{ op.status | upper }}"
-                        data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
-                        data-created="{{ req.created_at }}" data-training-date="{{ req.training_date }}"
-                        style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
-                            <span style="color: #64748b; font-size: 13px; font-weight: 600; min-width: 20px;">{{
-                                loop.index }}.</span>
-                            <span style="font-size: 14px; font-weight: 600; color: #334155;">{{ op.operator_name
-                                }}</span>
-                            <span style="font-size: 12px; color: #475569;">({{ op.operator_mobile }}{% if op.email_id %}
-                                | {{ op.email_id }}{% endif %} | {{ req.district_name }})</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <div
-                                style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                                <span style="color: #64748b;">Status:</span>
-                                <span class="badge badge-forwarded">Sent to UIDAI</span>
-                            </div>
-                            <div class="action-group" style="gap: 5px; display: flex; align-items: center;">
-                                <button type="button" class="btn-activate-op action-toggle-btn"
-                                    onclick="executeIndividualActivation('{{ op.id }}', '{{ req.request_code }}', this)">
-                                    UIDAI Approved
-                                </button>
-                                <button type="button" class="btn-revert"
-                                    onclick="executeIndividualRejection('{{ op.id }}', '{{ req.request_code }}', this)">
-                                    UIDAI Rejected
-                                </button>
-                                <button type="button" class="btn-details"
-                                    onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">
-                                    Details
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            {% endfor %}
-            {% if not uidai_found.val %}
-            <div id="uidai-empty-msg" class="empty-state">
-                <p>No UIDAI requests</p>
-            </div>
-            {% endif %}
-            {% else %}
-            <div id="uidai-empty-msg" class="empty-state">
-                <p>No UIDAI requests</p>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- ── HISTORY LOG TABLE ── -->
-        <div class="section-heading" style="margin-top: 30px;">
-            <div class="section-heading-dot" style="background:#16a34a;"></div>
-            <h2>Reactivation Log History</h2>
-            <span class="section-count" id="approved-count">–</span>
-            <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-                <select id="admin-history-status-filter" onchange="filterAdminQueues()" class="filter-input"
-                    style="width: 160px; margin: 0; padding: 6px 10px; font-size: 13px;">
-                    <option value="all">All Statuses</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="REVERTED">Reverted</option>
-                    <option value="REJECTED">Rejected</option>
-                </select>
-                <button class="btn btn-sm"
-                    onclick="exportTableToCSV('admin-approved-table', 'reactivation_historical_logs.csv')">Export to
-                    CSV</button>
-            </div>
-        </div>
-
-        <div id="approved-cards-container" style="max-height: 550px; overflow-y: auto; padding-right: 5px;">
-            {% if requests %}
-            {% set hist_found = namespace(val=false) %}
-            {% for req in requests %}
-            {% set has_hist_op = namespace(val=false) %}
-            {% for op in req.operators %}
-            {% if op.status|upper not in ['PENDING', 'REAPPLIED', 'SENT_TO_UIDAI'] %}
-            {% set has_hist_op.val = true %}
-            {% set hist_found.val = true %}
-            {% endif %}
-            {% endfor %}
-            {% if has_hist_op.val %}
-            <div class="approved-card request-card" data-request-id="{{ req.request_code | upper }}"
-                data-code="{{ req.request_code | upper }}" data-district="{{ req.district_name | lower }}"
-                data-created="{{ req.created_at }}" data-status="{{ req.status }}"
-                data-training-date="{{ req.training_date }}"
-                style="border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div class="batch-card-header-wrapper"
-                    style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; border-radius: 8px 8px 0 0;">
-                    <div class="batch-card-header"
-                        style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
-                            <span
-                                style="font-weight: 700; font-size: 15px; color: #1e293b; white-space: nowrap;">Request
-                                ID: <span style="color: #2563eb;">{{ req.request_code }}</span></span>
-                            <span
-                                style="font-size: 12px; color: #64748b; background: #e2e8f0; padding: 3px 8px; border-radius: 4px; font-weight: 600; white-space: nowrap;">Operators:
-                                {{ req.operators|length }}</span>
-                            <button type="button" onclick="viewBatchDocuments('{{ req.request_code }}')"
-                                style="margin-left: 5px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
-                                onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'"
-                                onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                    <polyline points="14 2 14 8 20 8"></polyline>
-                                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                                    <polyline points="10 9 9 9 8 9"></polyline>
-                                </svg>
-                                View Documents
-                            </button>
-                        </div>
-                        <div
-                            style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap; margin-left: auto;">
-                            <span style="font-size: 13px; color: #475569;">Submitted: <strong style="color: #1e293b;">{{
-                                    req.created_at or "—" }}</strong></span>
-                            <span style="font-size: 13px; color: #475569;">Updated: <strong style="color: #1e293b;">{{
-                                    req.updated_at or "—" }}</strong></span>
-                        </div>
-                    </div>
-                </div>
-                <div style="padding: 10px 20px;">
-                    {% for op in req.operators %}
-                    {% set op_status_upper = op.status|upper %}
-                    {% if op_status_upper not in ['PENDING', 'REAPPLIED', 'SENT_TO_UIDAI'] %}
-                    <div class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
-                        data-mobile="{{ op.operator_mobile }}"
-                        data-email="{{ op.email_id | lower | default('', true) }}" data-status="{{ op.status | upper }}"
-                        data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
-                        data-created="{{ req.created_at }}" data-training-date="{{ req.training_date }}"
-                        style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
-                            <span style="color: #64748b; font-size: 13px; font-weight: 600; min-width: 20px;">{{
-                                loop.index }}.</span>
-                            <span style="font-size: 14px; font-weight: 600; color: #334155;">{{ op.operator_name
-                                }}</span>
-                            <span style="font-size: 12px; color: #475569;">({{ op.operator_mobile }}{% if op.email_id %}
-                                | {{ op.email_id }}{% endif %} | {{ req.district_name }})</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <div
-                                style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                                <span style="color: #64748b;">Status:</span>
-                                {% if op_status_upper == 'APPROVED' %}
-                                <span class="badge badge-approved">Approved</span>
-                                {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
-                                <span class="badge badge-reverted">Reverted</span>
-                                {% elif op_status_upper == 'REJECTED' %}
-                                <span class="badge badge-reverted"
-                                    style="background-color: #fef2f2; color: #b91c1c;">Rejected</span>
-                                {% else %}
-                                <span class="badge badge-pending">{{ op.status }}</span>
-                                {% endif %}
-                            </div>
-                            <div class="action-group" style="gap: 5px; display: flex; align-items: center;">
-                                <button type="button" class="btn-details"
-                                    onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">
-                                    Details
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            {% endfor %}
-            {% if not hist_found.val %}
-            <div id="approved-empty-msg" class="empty-state">
-                <p>No historical requests</p>
-            </div>
-            {% endif %}
-            {% else %}
-            <div id="approved-empty-msg" class="empty-state">
-                <p>No historical requests</p>
-            </div>
-            {% endif %}
-        </div>
+            </td>
+        </tr>
+        {% set hist_ns.i = hist_ns.i + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% endcall %}
         <!-- End History section -->
+    </div><!-- /panel log -->
 
-    </main>
 </div>
 
 <script>
     function clearAllFilters() {
         document.getElementById('admin-search-input').value = '';
         document.getElementById('admin-district-filter').value = 'all';
-        document.getElementById('admin-date-filter').value = 'all';
+        document.getElementById('admin-date-filter').value = 'month';
         document.getElementById('admin-pending-status-filter').value = 'all';
         document.getElementById('admin-history-status-filter').value = 'all';
         // Explicitly wipe sessionStorage so filters don't stick on page reload
@@ -954,7 +830,7 @@
                 }
 
                 if (matchesDistrict && matchesDate && matchesQuery && matchesPendingStatus) {
-                    opRow.style.display = 'flex';
+                    opRow.style.display = '';
                     visibleOpsCount++;
                 } else {
                     opRow.style.display = 'none';
@@ -970,91 +846,61 @@
             }
         });
 
-        // 2. Filter UIDAI cards
-        let uidaiIndex = 0;
+        // 2. Filter SENT TO UIDAI (flat operator rows)
         let totalUidaiOperators = 0;
-        document.querySelectorAll('#uidai-cards-container .uidai-card').forEach(card => {
-            const cardDistrict = (card.getAttribute('data-district') || '').toLowerCase();
-            const cardCode = (card.getAttribute('data-request-id') || '').toLowerCase();
-            const cardCreated = card.getAttribute('data-created') || '';
+        document.querySelectorAll('#uidai-tbody .op-row-item').forEach(opRow => {
+            const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
+            const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
+            const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
+            const opDistrict = (opRow.getAttribute('data-district') || '').toLowerCase();
+            const opCode = (opRow.getAttribute('data-code') || '').toLowerCase();
+            const opCreated = opRow.getAttribute('data-created') || '';
 
-            let matchesDistrict = district === 'all' || cardDistrict === district;
-            let matchesDate = checkDateFilterMatches(cardCreated, dateFilter, now);
+            const matchesDistrict = district === 'all' || opDistrict === district;
+            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
 
-            let visibleOpsCount = 0;
-            const opRows = card.querySelectorAll('.op-row-item');
-            opRows.forEach(opRow => {
-                const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
-                const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
-                const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
-
-                const matchesQuery = cardCode.includes(query) || cardDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
-
-                if (matchesDistrict && matchesDate && matchesQuery) {
-                    opSentToUidaiCount++;
-                    opRow.style.display = 'flex';
-                    visibleOpsCount++;
-                } else {
-                    opRow.style.display = 'none';
-                }
-            });
-
-            if (visibleOpsCount > 0) {
-                card.style.display = '';
-                uidaiIndex++;
-                totalUidaiOperators += visibleOpsCount;
+            if (matchesDistrict && matchesDate && matchesQuery) {
+                opSentToUidaiCount++;
+                opRow.style.display = '';
+                totalUidaiOperators++;
             } else {
-                card.style.display = 'none';
+                opRow.style.display = 'none';
             }
         });
 
-        // 3. Filter APPROVED / History cards
-        let approvedIndex = 0;
+        // 3. Filter LOG HISTORY (flat operator rows)
         let totalApprovedOperators = 0;
-        document.querySelectorAll('#approved-cards-container .approved-card').forEach(card => {
-            const cardDistrict = (card.getAttribute('data-district') || '').toLowerCase();
-            const cardCode = (card.getAttribute('data-request-id') || '').toLowerCase();
-            const cardCreated = card.getAttribute('data-created') || '';
+        document.querySelectorAll('#approved-tbody .op-row-item').forEach(opRow => {
+            const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
+            const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
+            const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
+            const opDistrict = (opRow.getAttribute('data-district') || '').toLowerCase();
+            const opCode = (opRow.getAttribute('data-code') || '').toLowerCase();
+            const opCreated = opRow.getAttribute('data-created') || '';
+            let opStatus = (opRow.getAttribute('data-status') || '').toUpperCase();
 
-            let matchesDistrict = district === 'all' || cardDistrict === district;
-            let matchesDate = checkDateFilterMatches(cardCreated, dateFilter, now);
+            const matchesDistrict = district === 'all' || opDistrict === district;
+            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
 
-            let visibleOpsCount = 0;
-            const opRows = card.querySelectorAll('.op-row-item');
-            opRows.forEach(opRow => {
-                const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
-                const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
-                const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
-                let opStatus = (opRow.getAttribute('data-status') || '').toUpperCase();
+            if (matchesDistrict && matchesDate && matchesQuery) {
+                if (['APPROVED', 'ASSIGNED', 'REVIEWED'].includes(opStatus)) opApprovedCount++;
+                else if (['REVERTED', 'REVERT_BACK'].includes(opStatus)) opRevertedCount++;
+                else if (opStatus === 'REJECTED') opRejectedCount++;
+            }
 
-                const matchesQuery = cardCode.includes(query) || cardDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
+            if (['ASSIGNED', 'APPROVED', 'REVIEWED'].includes(opStatus)) { opStatus = 'APPROVED'; }
+            else if (['REVERTED', 'REVERT_BACK'].includes(opStatus)) { opStatus = 'REVERTED'; }
+            else if (opStatus === 'REJECTED') { opStatus = 'REJECTED'; }
 
-                if (matchesDistrict && matchesDate && matchesQuery) {
-                    if (['APPROVED', 'ASSIGNED', 'REVIEWED'].includes(opStatus)) opApprovedCount++;
-                    else if (['REVERTED', 'REVERT_BACK'].includes(opStatus)) opRevertedCount++;
-                    else if (opStatus === 'REJECTED') opRejectedCount++;
-                }
+            const matchesHistoryStatus = historyStatusFilter === 'ALL' || opStatus === historyStatusFilter;
 
-                if (['ASSIGNED', 'APPROVED', 'REVIEWED'].includes(opStatus)) { opStatus = 'APPROVED'; }
-                else if (['REVERTED', 'REVERT_BACK'].includes(opStatus)) { opStatus = 'REVERTED'; }
-                else if (opStatus === 'REJECTED') { opStatus = 'REJECTED'; }
-
-                const matchesHistoryStatus = historyStatusFilter === 'ALL' || opStatus === historyStatusFilter;
-
-                if (matchesDistrict && matchesDate && matchesQuery && matchesHistoryStatus) {
-                    opRow.style.display = 'flex';
-                    visibleOpsCount++;
-                } else {
-                    opRow.style.display = 'none';
-                }
-            });
-
-            if (visibleOpsCount > 0) {
-                card.style.display = '';
-                approvedIndex++;
-                totalApprovedOperators += visibleOpsCount;
+            if (matchesDistrict && matchesDate && matchesQuery && matchesHistoryStatus) {
+                opRow.style.display = '';
+                totalApprovedOperators++;
             } else {
-                card.style.display = 'none';
+                opRow.style.display = 'none';
             }
         });
 
@@ -1066,12 +912,12 @@
         const uidaiCountEl = document.getElementById('uidai-count');
         if (uidaiCountEl) uidaiCountEl.textContent = totalUidaiOperators;
         const uidaiEmptyMsg = document.getElementById('uidai-empty-msg');
-        if (uidaiEmptyMsg) uidaiEmptyMsg.style.display = (uidaiIndex === 0) ? 'block' : 'none';
+        if (uidaiEmptyMsg) uidaiEmptyMsg.style.display = (totalUidaiOperators === 0) ? 'block' : 'none';
 
         const approvedCountEl = document.getElementById('approved-count');
         if (approvedCountEl) approvedCountEl.textContent = totalApprovedOperators;
         const approvedEmptyMsg = document.getElementById('approved-empty-msg');
-        if (approvedEmptyMsg) approvedEmptyMsg.style.display = (approvedIndex === 0) ? 'block' : 'none';
+        if (approvedEmptyMsg) approvedEmptyMsg.style.display = (totalApprovedOperators === 0) ? 'block' : 'none';
 
         // Update dashboard banner metric cards dynamically
         const metricPending = document.getElementById('metric-pending');
@@ -2359,16 +2205,16 @@
         if (tableID === 'admin-pending-table') {
             selector = '#pending-cards-container .op-row-item';
         } else if (tableID === 'admin-uidai-table') {
-            selector = '#uidai-cards-container .op-row-item';
+            selector = '#uidai-tbody .op-row-item';
         } else {
-            selector = '#approved-cards-container .op-row-item';
+            selector = '#approved-tbody .op-row-item';
         }
 
         const opRows = document.querySelectorAll(selector);
         const ids = [];
         opRows.forEach(row => {
             const card = row.closest('.request-card');
-            if (row.style.display !== 'none' && card && card.style.display !== 'none') {
+            if (row.style.display !== 'none' && (!card || card.style.display !== 'none')) {
                 const opId = row.getAttribute('data-id');
                 if (opId && !ids.includes(opId)) ids.push(opId);
             }
@@ -2428,7 +2274,7 @@
         } else {
             document.getElementById('admin-search-input').value = '';
             document.getElementById('admin-district-filter').value = 'all';
-            document.getElementById('admin-date-filter').value = 'all';
+            document.getElementById('admin-date-filter').value = 'month';
             document.getElementById('admin-pending-status-filter').value = 'all';
             document.getElementById('admin-history-status-filter').value = 'all';
         }

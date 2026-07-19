@@ -22,6 +22,7 @@ class UserLogin(Base):
     roleid: Mapped[int] = mapped_column(Integer, ForeignKey("master_user_role.id"), nullable=False)
     is_active: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     has_changed_password: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
 
     # Relationships
     role: Mapped["MasterUserRole"] = relationship("MasterUserRole", back_populates="users")

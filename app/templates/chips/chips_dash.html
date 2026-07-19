@@ -173,14 +173,14 @@
 
     /* Tabs row inside the card */
     .dash-header-tabs-row {
-        padding: 0 20px;
+        padding: 0 16px;
         background: #F8FAFC;
         border-radius: 12px;
     }
 
     .tabs-container {
         display: flex;
-        gap: 20px;
+        gap: 16px;
         margin-bottom: 0;
         width: 100%;
         border: none;
@@ -198,18 +198,18 @@
     }
 
     .tab-btn {
-        padding: 12px 2px;
+        padding: 7px 2px;
         border: none;
         background: transparent;
         color: #64748B;
-        font-size: 13.5px;
+        font-size: 13px;
         font-weight: 600;
         cursor: pointer;
         font-family: 'Outfit', sans-serif;
         transition: all 0.2s ease;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         position: relative;
         border-bottom: 2px solid transparent;
         border-radius: 0;
@@ -218,7 +218,7 @@
     }
 
     .tab-btn i {
-        font-size: 14px;
+        font-size: 13px;
         opacity: 0.8;
     }
 
@@ -1342,6 +1342,55 @@
             gap: 15px;
         }
     }
+
+    /* ── Dark mode: header card + Homepage/Operator requests/Kit request
+       tab bar. These are page-scoped (no var() tokens used above), so
+       re-skin them here instead of relying on the shared theme-dark.css. ── */
+    html[data-theme="dark"] .dash-header-container {
+        background: var(--surface-card);
+        border-color: var(--border-strong);
+    }
+
+    html[data-theme="dark"] .portal-badge {
+        color: var(--text-secondary);
+    }
+
+    html[data-theme="dark"] .dash-page-title {
+        color: var(--text-primary);
+    }
+
+    html[data-theme="dark"] .select-icon,
+    html[data-theme="dark"] .filter-select-wrapper::after {
+        color: var(--text-secondary);
+    }
+
+    html[data-theme="dark"] .custom-select {
+        background-color: var(--surface-input);
+        border-color: var(--border-strong);
+        color: var(--text-primary);
+    }
+
+    html[data-theme="dark"] .custom-select:hover {
+        border-color: var(--border-strong);
+        background-color: var(--surface-hover);
+    }
+
+    html[data-theme="dark"] .dash-header-tabs-row {
+        background: var(--surface-subtle);
+    }
+
+    html[data-theme="dark"] .tab-btn {
+        color: var(--text-secondary);
+    }
+
+    html[data-theme="dark"] .tab-btn:hover {
+        color: var(--text-primary);
+    }
+
+    html[data-theme="dark"] .tab-btn.active {
+        color: var(--action);
+        border-bottom-color: var(--action);
+    }
 </style>
 {% endblock %}
 
@@ -1365,177 +1414,47 @@
 {% endif %}
 <div class="dashboard-wrapper">
 
-    <!-- ── Pending Alerts Notification Bar ── -->
+    <!-- ── Pending Alerts bar (styles in css/pending_alerts.css) ── -->
     <style>
-        .pending-alerts-bar {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: linear-gradient(90deg, #FFFBEB 0%, #FEF9EC 100%);
-            border: 1px solid #FDE68A;
-            border-top: none;
-            border-radius: 0 0 12px 12px;
-            padding: 10px 14px;
-            /* Pull up past the content area's top padding so the bar's
-                   top edge sits flush against the site header bar */
-            margin: -20px 0 14px 0;
-            box-shadow: 0 1px 3px rgba(180, 83, 9, 0.06);
-            overflow: hidden;
+        /* Cancel the content area's top padding + flash spacing so the bar
+           sits neatly below the header. */
+        .content {
+            padding-top: 0 !important;
         }
 
-        @media (max-width: 768px) {
-            .pending-alerts-bar {
-                margin-top: -15px;
-            }
+        .flash-container {
+            margin-bottom: 0 !important;
         }
 
-        .pab-lead {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-shrink: 0;
-            font-size: 12px;
-            font-weight: 800;
-            color: #92400E;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            padding-right: 14px;
-            border-right: 1px solid #FDE68A;
+        /* CHiPS admin only, light mode only — the DC portal keeps the shared
+           token color, and dark mode keeps flipping via --surface-card. */
+        html[data-theme="light"] #pending-alerts-bar.pab {
+            background: #F8F6FF;
         }
 
-        .pab-lead i {
-            color: #D97706;
-            font-size: 14px;
-            animation: pab-ring 3s ease-in-out infinite;
-            transform-origin: top center;
-        }
-
-        @keyframes pab-ring {
-
-            0%,
-            86%,
-            100% {
-                transform: rotate(0deg);
-            }
-
-            88% {
-                transform: rotate(12deg);
-            }
-
-            90% {
-                transform: rotate(-10deg);
-            }
-
-            92% {
-                transform: rotate(8deg);
-            }
-
-            94% {
-                transform: rotate(-6deg);
-            }
-
-            96% {
-                transform: rotate(3deg);
-            }
-        }
-
-        .pab-viewport {
-            flex: 1;
-            overflow: hidden;
-            min-width: 0;
-            -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
-            mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
-        }
-
-        .pab-track {
-            display: inline-flex;
-            align-items: center;
-            gap: 32px;
-            white-space: nowrap;
-            padding-right: 32px;
-            will-change: transform;
-            animation: pab-marquee var(--pab-duration, 30s) linear infinite;
-        }
-
-        .pending-alerts-bar:hover .pab-track {
-            animation-play-state: paused;
-        }
-
-        @keyframes pab-marquee {
-            from {
-                transform: translateX(0);
-            }
-
-            to {
-                transform: translateX(-50%);
-            }
-        }
-
-        .pab-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 600;
-            color: #78350F;
-            transition: opacity 0.15s;
-        }
-
-        .pab-item:hover {
-            opacity: 0.75;
-        }
-
-        .pab-ico {
-            width: 24px;
-            height: 24px;
-            border-radius: 7px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            color: #fff;
-            flex-shrink: 0;
-        }
-
-        .pab-badge {
-            background: #92400E;
-            color: #FEF3C7;
-            font-size: 11px;
-            font-weight: 800;
-            padding: 1px 8px;
-            border-radius: 99px;
-            line-height: 1.5;
-        }
-
-        @media (max-width: 640px) {
-            .pab-lead span {
-                display: none;
-            }
-
-            .pab-lead {
-                padding-right: 10px;
-            }
+        /* Shrink the gaps around the bar to 3px (header above, tabs row below). */
+        #pending-alerts-bar.pab {
+            margin-top: 3px;
+            margin-bottom: 3px;
         }
     </style>
 
-    <div id="pending-alerts-bar" class="pending-alerts-bar" style="display: none;">
+    <nav id="pending-alerts-bar" class="pab" aria-label="Pending alerts" style="display: none;">
         <div class="pab-lead">
-            <i class="fa-solid fa-bell"></i>
-            <span>Pending Alerts</span>
+            <i class="ti ti-bell-ringing" aria-hidden="true"></i>
+            <span class="pab-lead-text">Pending alerts</span>
         </div>
-        <div class="pab-viewport">
-            <div class="pab-track" id="pab-track"></div>
+        <div class="pab-track-wrap">
+            <ul class="pab-track" id="pab-track"></ul>
         </div>
-    </div>
+    </nav>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             var bar = document.getElementById("pending-alerts-bar");
             var track = document.getElementById("pab-track");
             if (!bar || !track) return;
-            // Clean up the dismiss flag left behind by the old close button
-            sessionStorage.removeItem("pab-dismissed");
+            sessionStorage.removeItem("pab-dismissed"); // legacy flag cleanup
 
             var stats = window.REAL_DATABASE_STATS || {};
             var lower = function (s) { return String(s || "").trim().toLowerCase(); };
@@ -1543,47 +1462,55 @@
             var pendingActivation = (stats.activation_requests || []).filter(function (x) {
                 return ["pending", "sent_to_chips"].indexOf(lower(x.status)) !== -1;
             }).length;
-
             var pendingReactivation = (stats.reactivation_requests || []).reduce(function (acc, x) {
                 var s = String(x.status || "").trim().toUpperCase();
                 return acc + ((s === "PENDING" || s === "REAPPLIED") ? (x.operator_count || 0) : 0);
             }, 0);
-
             var pendingStation = (stats.station_id_requests || []).filter(function (x) {
                 return ["sent_to_chips", "pending", "reapplied"].indexOf(lower(x.status)) !== -1;
             }).length;
-
             var pendingL1 = (stats.l1_requests || []).filter(function (x) {
                 return ["pending", "reapplied", "sent_to_chips"].indexOf(lower(x.status)) !== -1;
             }).length;
-
             var pendingL2 = (stats.l2_requests || []).filter(function (x) {
                 return ["sent_to_chips", "pending", "reapplied"].indexOf(lower(x.status)) !== -1;
             }).length;
 
+            // Sentence-case labels; "pending" is already said by the label block.
             var alerts = [
-                { label: "Pending Operator Activation", count: pendingActivation, icon: "fa-user-check", color: "#2563EB", url: "/auth/chips/operator-activation" },
-                { label: "Pending Operator Reactivation", count: pendingReactivation, icon: "fa-rotate-right", color: "#7C3AED", url: "/auth/chips/reactivation" },
-                { label: "Pending Station ID Approvals", count: pendingStation, icon: "fa-desktop", color: "#0284C7", url: "/auth/chips/station-id" },
-                { label: "Pending L1 Requests", count: pendingL1, icon: "fa-shield-halved", color: "#059669", url: "/auth/chips/l1-registration" },
-                { label: "Pending L2 Requests", count: pendingL2, icon: "fa-folder-open", color: "#0D9488", url: "/auth/chips/l2-registration" }
+                { label: "Station ID approvals", count: pendingStation, icon: "ti-device-desktop", url: "/auth/chips/station-id" },
+                { label: "L1 requests", count: pendingL1, icon: "ti-shield", url: "/auth/chips/l1-registration" },
+                { label: "L2 requests", count: pendingL2, icon: "ti-folder", url: "/auth/chips/l2-registration" },
+                { label: "Operator activation", count: pendingActivation, icon: "ti-user-check", url: "/auth/chips/operator-activation" },
+                { label: "Operator reactivation", count: pendingReactivation, icon: "ti-refresh", url: "/auth/chips/reactivation" }
             ].filter(function (a) { return a.count > 0; });
 
+            // Render nothing at all when everything is at zero — empty is the goal state.
             if (!alerts.length) return;
 
-            var itemsHtml = alerts.map(function (a) {
-                return '<a class="pab-item" href="' + a.url + '">'
-                    + '<span class="pab-ico" style="background:' + a.color + ';"><i class="fa-solid ' + a.icon + '"></i></span>'
-                    + '<span>' + a.label + '</span>'
-                    + '<span class="pab-badge">' + a.count + '</span>'
-                    + '</a>';
-            }).join('');
+            var escapeHtml = function (s) {
+                return String(s).replace(/[&<>"']/g, function (c) {
+                    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+                });
+            };
 
-            // Duplicate the content once so the -50% marquee loops seamlessly
-            track.innerHTML = itemsHtml + itemsHtml;
+            // dup = the second, seamless-loop copy: hidden from AT and untabbable
+            // so items aren't announced or focused twice.
+            var mk = function (a, dup) {
+                var lbl = escapeHtml(a.label);
+                return '<li class="pab-item"' + (dup ? ' aria-hidden="true"' : '') + '>'
+                    + '<a href="' + a.url + '"' + (dup ? ' tabindex="-1"' : ' aria-label="' + lbl + ', ' + a.count + ' pending"') + '>'
+                    + '<span class="pab-item-label">' + lbl + '</span>'
+                    + '<span class="pab-badge" aria-hidden="true">' + a.count + '</span>'
+                    + '</a></li>';
+            };
+
+            var real = alerts.map(function (a) { return mk(a, false); }).join('');
+            var copy = alerts.map(function (a) { return mk(a, true); }).join('');
+            track.innerHTML = real + copy;   // duplicate for a seamless -50% loop
             bar.style.display = "flex";
 
-            // Scroll speed proportional to content width (~55 px/s, min 18s)
+            // Slide speed proportional to content width (~55 px/s, min 18s).
             var halfWidth = track.scrollWidth / 2;
             track.style.setProperty("--pab-duration", Math.max(18, Math.round(halfWidth / 55)) + "s");
         });
@@ -1629,6 +1556,9 @@
                 </button>
                 <button class="tab-btn" data-tab="kit-registration">
                     <i class="fa-solid fa-laptop-medical"></i> Kit request
+                </button>
+                <button class="tab-btn" data-tab="kit-status" data-nav-url="/auth/chips/kit-registration">
+                    <i class="fa-solid fa-clipboard-check"></i> Kit status
                 </button>
             </div>
         </div>
@@ -1977,9 +1907,13 @@
             }
         }
 
-        /* ── MAP ZONE — 3D Glassmorphism background ── */
+        /* ── MAP ZONE — 3D Glassmorphism background ──
+           flex-grow 6 vs the drawer's flex-grow 4, both on flex-basis 0,
+           gives a stable 60/40 split at any container width (a fixed-vs-grow
+           pairing, as before, isn't a real percentage — it just fills
+           "whatever's left after a fixed sidebar"). */
         .cgm-map-zone {
-            flex: 1 1 0;
+            flex: 6 1 0;
             min-width: 0;
             position: relative;
             background: radial-gradient(ellipse at 50% 30%, #d6e8f8 0%, #b8d4ee 30%, #9bbde0 55%, #aac8e4 100%);
@@ -1999,7 +1933,7 @@
 
         /* ── DRAWER — glassmorphism floating panel ── */
         .cgm-drawer {
-            width: 310px;
+            flex: 4 1 0;
             overflow: hidden;
             background: rgba(255, 255, 255, 0.62);
             backdrop-filter: blur(18px);
@@ -2027,8 +1961,10 @@
         }
 
         .cgm-drawer-inner {
-            width: 310px;
-            min-width: 310px;
+            /* Fills the drawer's new 40%-wide box instead of sitting as a
+               fixed 310px island with dead space beside it. */
+            width: 100%;
+            min-width: 0;
             height: 100%;
             display: flex;
             flex-direction: column;
@@ -2549,18 +2485,14 @@
             opacity: 0.8;
         }
 
-        /* Pending amber badge */
+        /* Pending value — plain white, same uniform treatment as every
+           other tile on the KPI strip (no amber pill callout). */
         .cgm-pending-badge {
             display: inline-block;
-            background: rgba(254, 243, 199, 0.9);
-            color: #92400e;
-            border: 1px solid rgba(253, 230, 138, 0.7);
-            border-radius: 6px;
-            padding: 1px 7px;
-            font-size: 13px;
+            color: #FFFFFF;
+            font-size: 18px;
             font-weight: 800;
-            letter-spacing: -0.3px;
-            backdrop-filter: blur(4px);
+            letter-spacing: -0.5px;
         }
 
         /* Detail panel */
@@ -2624,95 +2556,79 @@
             letter-spacing: -0.3px;
         }
 
-        /* ── KPI metric grid ── */
+        /* ── KPI metric grid — redesigned as a translucent-on-blue "strip",
+           matching the Operator/Kit Requests Overview KPI cards (uniform
+           white number + muted label, no per-status tinting). ── */
         .cgm-dgrid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 7px;
             margin-bottom: 10px;
+            background: #1F3A8B;
+            border-radius: 12px;
+            padding: 8px;
         }
 
         .cgm-dgrid.cols-3 {
             grid-template-columns: repeat(3, 1fr);
         }
 
-        /* Glassmorphism KPI cards */
+        /* Translucent white KPI card on the blue strip */
         .cgm-dbox {
-            background: rgba(255, 255, 255, 0.68);
-            border: 1px solid rgba(255, 255, 255, 0.55);
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.30);
             border-radius: 10px;
             padding: 10px 11px;
             position: relative;
             overflow: hidden;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 2px 8px rgba(11, 37, 89, 0.07);
-            transition: transform .15s, box-shadow .15s;
+            transition: transform .15s, box-shadow .15s, background-color .15s;
         }
 
         .cgm-dbox:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 14px rgba(11, 37, 89, 0.12);
+            background: rgba(255, 255, 255, 0.24);
+            box-shadow: 0 4px 14px rgba(11, 37, 89, 0.18);
         }
 
-        /* Top accent bar — default (neutral navy for total) */
-        .cgm-dbox::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.35), rgba(99, 155, 234, 0.15));
-            border-radius: 10px 10px 0 0;
-        }
-
-        /* Approved — fresh green */
-        .cgm-dbox.good::before {
-            background: linear-gradient(90deg, #10B981, rgba(110, 231, 183, 0.5));
-        }
-
-        /* Pending — warm amber */
-        .cgm-dbox.warn::before {
-            background: linear-gradient(90deg, #F59E0B, rgba(252, 211, 77, 0.45));
-        }
-
-        /* Rejected — soft rose */
-        .cgm-dbox.bad::before {
-            background: linear-gradient(90deg, #EF4444, rgba(252, 165, 165, 0.4));
+        /* Plain info card (District Coordinator / E-DM contact details) —
+           sits directly on the drawer's own background, not the blue KPI
+           strip, so it keeps the original light glass look separately
+           from .cgm-dbox. */
+        .cgm-info-card {
+            background: rgba(255, 255, 255, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 10px;
+            padding: 10px 12px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
         /* Label above the number */
         .cgm-dbox .dl {
             font-size: 8px;
             font-weight: 700;
-            color: #7B9CB8;
+            color: rgba(255, 255, 255, 0.75);
             text-transform: uppercase;
             letter-spacing: .55px;
             margin-bottom: 2px;
         }
 
-        /* The big number */
+        /* The big number — uniform white regardless of status */
         .cgm-dbox .dv {
             font-size: 18px;
             font-weight: 800;
             margin-top: 1px;
-            color: #1a3a6b;
+            color: #FFFFFF;
             letter-spacing: -0.5px;
             line-height: 1.1;
         }
 
-        /* Contextual value colors */
-        .cgm-dbox .dv.good {
-            color: #059669;
-        }
-
-        .cgm-dbox .dv.warn {
-            color: #B45309;
-        }
-
+        /* Contextual value colors intentionally removed — every tile reads
+           the same uniform white, matching the dashboard KPI strip style. */
+        .cgm-dbox .dv.good,
+        .cgm-dbox .dv.warn,
         .cgm-dbox .dv.bad {
-            color: #DC2626;
+            color: #FFFFFF;
         }
 
         /* Bars (kept for any usage) */
@@ -2813,6 +2729,88 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* ── Dark mode: CG map + the district/state profile drawer on the
+           right. Entirely page-scoped, no var() tokens used above, so
+           re-skin every hardcoded-light surface here. The blue KPI strip
+           (.cgm-dgrid/.cgm-dbox) keeps its fixed solid color in both
+           themes by design — not touched here. ── */
+        html[data-theme="dark"] .cgm-wrap {
+            background: var(--app-bg);
+            color: var(--text-primary);
+        }
+
+        html[data-theme="dark"] .cgm-load2 {
+            background: rgba(13, 18, 38, .95);
+            color: var(--text-secondary);
+        }
+
+        html[data-theme="dark"] .cgm-spin2 {
+            border-color: var(--border-strong);
+            border-top-color: var(--action);
+        }
+
+        html[data-theme="dark"] .cgm-drawer {
+            background: rgba(22, 29, 56, 0.82);
+            border-left-color: var(--border-strong);
+            box-shadow: -6px 0 32px rgba(0, 0, 0, 0.35), -1px 0 0 rgba(255, 255, 255, 0.04) inset;
+        }
+
+        html[data-theme="dark"] .cgm-drawer-header {
+            background: rgba(19, 26, 52, 0.6);
+            border-bottom-color: var(--border-subtle);
+            box-shadow: none;
+        }
+
+        html[data-theme="dark"] .cgm-drawer-eyebrow,
+        html[data-theme="dark"] .cgm-eyebrow {
+            color: var(--text-secondary);
+        }
+
+        html[data-theme="dark"] .cgm-drawer-title,
+        html[data-theme="dark"] .cgm-dtitle {
+            color: var(--text-primary);
+        }
+
+        html[data-theme="dark"] .cgm-dtitle {
+            border-bottom-color: var(--border-subtle);
+        }
+
+        html[data-theme="dark"] .cgm-drawer-close {
+            background: var(--surface-hover);
+            border-color: var(--border-strong);
+            color: var(--text-secondary);
+        }
+
+        html[data-theme="dark"] .cgm-drawer-empty svg,
+        html[data-theme="dark"] .cgm-empty2 svg {
+            color: var(--text-secondary);
+        }
+
+        html[data-theme="dark"] .cgm-drawer-empty p,
+        html[data-theme="dark"] .cgm-empty2 p {
+            color: var(--text-secondary);
+        }
+
+        html[data-theme="dark"] .cgm-empty2 .hint {
+            color: var(--action);
+            background: var(--surface-subtle);
+            border-color: var(--border-subtle);
+        }
+
+        /* Section header pills (Station ID / L1 / L2 / Operator requests /
+           Operator Reactivation / E-DM) — all render with inline styles in
+           JS, so target them by their shared base class. */
+        html[data-theme="dark"] .cgm-dsec-header {
+            background: var(--surface-band) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-strong) !important;
+        }
+
+        html[data-theme="dark"] .cgm-info-card {
+            background: var(--surface-card);
+            border-color: var(--border-strong);
+        }
     </style>
 
     <!-- ── HOMEPAGE LAYOUT ── -->
@@ -2849,7 +2847,7 @@
 
                     <!-- Floating legend pill (bottom-left) -->
                     <div class="cgm2-legend">
-                        <div class="cgm2-legend-title" id="cgm2-leg-title">Number of Requests</div>
+                        <div class="cgm2-legend-title" id="cgm2-leg-title">Pending Requests</div>
                         <div class="cgm2-legend-grad"></div>
                         <div class="cgm2-legend-labels">
                             <span id="cgm2-leg-low">0</span>
@@ -2923,8 +2921,8 @@
             operator_total: ['#cde6f7', '#a8d0ef', '#7db8e8', '#5199d4', '#2e6fba', '#1a4a8a', '#0d2f68', '#0B2559'],
             /* Teal-blue variant for kits */
             kit_total: ['#d0eef8', '#a4d8f0', '#6ebfe5', '#3ea1d4', '#1a7ab8', '#0f5b94', '#093f6e', '#062c52'],
-            /* Amber-orange for pending (unchanged intent, kept warm) */
-            total_pending: ['#FFF7ED', '#FEEFC7', '#FED7AA', '#FDBA74', '#FB923C', '#F97316', '#EA580C', '#B91C1C']
+            /* Blue monochromatic for pending — matches the map's default look */
+            total_pending: ['#cde6f7', '#a8d0ef', '#7db8e8', '#5199d4', '#2e6fba', '#1a4a8a', '#0d2f68', '#0B2559']
         };
 
         window.isWithinTimeframe = function (daysAgo, timeframe) {
@@ -3149,7 +3147,7 @@
             kit_total: { label: 'Kits Request', fmt: function (v) { return '' + Math.round(v); }, invert: false },
             total_pending: { label: 'Total Pending Requests', fmt: function (v) { return '' + Math.round(v); }, invert: true },
         };
-        var curMetric = 'operator_total';
+        var curMetric = 'total_pending';
         var DDATA = null, GEO2 = null, locked2 = null, paths2, cScale2;
         var adjMap = {};
         var fmt2 = function (n) { return typeof n === 'number' ? n.toLocaleString('en-IN') : n; };
@@ -3807,15 +3805,15 @@
 
             // Build sidebar HTML
             var html =
-                '<div class="cgm-dbox" style="margin-bottom: 14px; padding: 10px 12px; grid-column: span 2; background: rgba(255,255,255,0.45); border-color: rgba(255,255,255,0.4);">' +
-                '<div class="dl" style="color: #6B8BAF; font-size: 8px;">District Coordinator</div>' +
-                '<div style="font-size: 13px; font-weight: 700; color: #0B2559; margin-top: 1px;">' + dcName + '</div>' +
-                (dcContact ? '<div style="font-size: 11px; color: #475569; margin-top: 3px;"><a href="tel:' + dcContact + '" style="color: inherit; text-decoration: none;"><i class="fa-solid fa-phone" style="color:#3B82F6; margin-right:5px; font-size:10px;"></i>' + dcContact + '</a></div>' : '') +
-                (dcEmail ? '<div style="font-size: 11px; color: #475569; margin-top: 2px; word-break:break-all;"><i class="fa-solid fa-envelope" style="color:#3B82F6; margin-right:5px; font-size:10px;"></i>' + dcEmail + '</div>' : '') +
+                '<div class="cgm-info-card" style="margin-bottom: 14px;">' +
+                '<div class="dl" style="color: var(--text-secondary); font-size: 8px;">District Coordinator</div>' +
+                '<div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-top: 1px;">' + dcName + '</div>' +
+                (dcContact ? '<div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;"><a href="tel:' + dcContact + '" style="color: inherit; text-decoration: none;"><i class="fa-solid fa-phone" style="color:#3B82F6; margin-right:5px; font-size:10px;"></i>' + dcContact + '</a></div>' : '') +
+                (dcEmail ? '<div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; word-break:break-all;"><i class="fa-solid fa-envelope" style="color:#3B82F6; margin-right:5px; font-size:10px;"></i>' + dcEmail + '</div>' : '') +
                 '</div>' +
 
                 // A. Station ID Requests
-                '<div class="cgm-dsec-header kit-sec" onclick="navigateToSection(\'/auth/chips/station-id\', \'' + escapeQuotes(name) + '\')" style="cursor: pointer; border-left-color:#3B82F6; background:rgba(219,234,254,0.45); color:#1a4a8a; border:1px solid rgba(147,197,253,0.35); border-left:3px solid #3B82F6;"><i class="fa-solid fa-server"></i> Station ID Requests</div>' +
+                '<div class="cgm-dsec-header kit-sec" onclick="navigateToSection(\'/auth/chips/station-id\', \'' + escapeQuotes(name) + '\')" style="cursor: pointer; border-left-color:#3B82F6; background:rgba(219,234,254,0.45); color:#1a4a8a; border:1px solid rgba(147,197,253,0.35); border-left:3px solid #3B82F6;">Station ID Requests</div>' +
                 '<div class="cgm-dgrid cols-3">' +
                 boxLink('/auth/chips/station-id', 'pending', 'Pending', pendSid, '', name) +
                 boxLink('/auth/chips/station-id', 'approved', 'Approved', appSid, appSid > 0 ? 'good' : '', name) +
@@ -3823,7 +3821,7 @@
                 '</div>' +
 
                 // B. L1 Requests
-                '<div class="cgm-dsec-header kit-sec" onclick="navigateToSection(\'/auth/chips/l1-registration\', \'' + escapeQuotes(name) + '\')" style="cursor: pointer; border-left-color:#10B981; background:rgba(209,250,229,0.4); color:#065f46; border:1px solid rgba(110,231,183,0.35); border-left:3px solid #10B981;"><i class="fa-solid fa-shield-halved"></i> L1 Requests</div>' +
+                '<div class="cgm-dsec-header kit-sec" onclick="navigateToSection(\'/auth/chips/l1-registration\', \'' + escapeQuotes(name) + '\')" style="cursor: pointer; border-left-color:#3B82F6; background:rgba(219,234,254,0.45); color:#1a4a8a; border:1px solid rgba(147,197,253,0.35); border-left:3px solid #3B82F6;">L1 Requests</div>' +
                 '<div class="cgm-dgrid cols-3">' +
                 boxLink('/auth/chips/l1-registration', 'pending', 'Pending', pendL1, '', name) +
                 boxLink('/auth/chips/l1-registration', 'approved', 'Approved', appL1, appL1 > 0 ? 'good' : '', name) +
@@ -3831,7 +3829,7 @@
                 '</div>' +
 
                 // C. L2 Requests
-                '<div class="cgm-dsec-header kit-sec" onclick="navigateToSection(\'/auth/chips/l2-registration\', \'' + escapeQuotes(name) + '\')" style="cursor: pointer; border-left-color:#10B981; background:rgba(209,250,229,0.4); color:#065f46; border:1px solid rgba(110,231,183,0.35); border-left:3px solid #10B981;"><i class="fa-solid fa-folder-open"></i> L2 Requests</div>' +
+                '<div class="cgm-dsec-header kit-sec" onclick="navigateToSection(\'/auth/chips/l2-registration\', \'' + escapeQuotes(name) + '\')" style="cursor: pointer; border-left-color:#3B82F6; background:rgba(219,234,254,0.45); color:#1a4a8a; border:1px solid rgba(147,197,253,0.35); border-left:3px solid #3B82F6;">L2 Requests</div>' +
                 '<div class="cgm-dgrid">' +
                 boxLink('/auth/chips/l2-registration', 'pending', 'Pending', pendL2, '', name) +
                 boxLink('/auth/chips/l2-registration', 'approved', 'Approved', appL2, appL2 > 0 ? 'good' : '', name) +
@@ -3840,7 +3838,7 @@
                 '</div>' +
 
                 // D. Operator Activation Requests
-                '<div class="cgm-dsec-header op-sec" onclick="navigateToSection(\'/auth/chips/operator-activation\', \'' + escapeQuotes(name) + '\')" style="cursor: pointer; border-left-color:#3B82F6; background:rgba(219,234,254,0.45); color:#1a4a8a; border:1px solid rgba(147,197,253,0.35); border-left:3px solid #3B82F6;"><i class="fa-solid fa-user-plus"></i> Operator requests</div>' +
+                '<div class="cgm-dsec-header op-sec" onclick="navigateToSection(\'/auth/chips/operator-activation\', \'' + escapeQuotes(name) + '\')" style="cursor: pointer; border-left-color:#3B82F6; background:rgba(219,234,254,0.45); color:#1a4a8a; border:1px solid rgba(147,197,253,0.35); border-left:3px solid #3B82F6;">Operator Activation</div>' +
                 '<div class="cgm-dgrid">' +
                 boxLink('/auth/chips/operator-activation', 'pending', 'Pending', opActPending, '', name) +
                 boxLink('/auth/chips/operator-activation', 'approved', 'Approved', approvedAct, approvedAct > 0 ? 'good' : '', name) +
@@ -3849,7 +3847,7 @@
                 '</div>' +
 
                 // E. Operator Reactivation Requests
-                '<div class="cgm-dsec-header op-sec" onclick="navigateToSection(\'/auth/chips/reactivation\', \'' + escapeQuotes(name) + '\')" style="cursor: pointer; border-left-color:#3B82F6; background:rgba(219,234,254,0.45); color:#1a4a8a; border:1px solid rgba(147,197,253,0.35); border-left:3px solid #3B82F6;"><i class="fa-solid fa-user-check"></i> Operator Reactivation</div>' +
+                '<div class="cgm-dsec-header op-sec" onclick="navigateToSection(\'/auth/chips/reactivation\', \'' + escapeQuotes(name) + '\')" style="cursor: pointer; border-left-color:#3B82F6; background:rgba(219,234,254,0.45); color:#1a4a8a; border:1px solid rgba(147,197,253,0.35); border-left:3px solid #3B82F6;">Operator Reactivation</div>' +
                 '<div class="cgm-dgrid">' +
                 boxLink('/auth/chips/reactivation', 'pending', 'Pending', actPending, '', name) +
                 boxLink('/auth/chips/reactivation', 'sent_to_uidai', 'Sent UIDAI', actUidai, actUidai > 0 ? 'good' : '', name) +
@@ -3859,14 +3857,12 @@
 
             // ── E-DM Resource Info (Shown at the very bottom) ──
             if (res && res.edm_name) {
-                html += '<div class="cgm-dsec-header kit-sec" style="margin-top:14px; border-left-color: #10B981; background:rgba(209,250,229,0.4); color:#065f46; border:1px solid rgba(110,231,183,0.35); border-left:3px solid #10B981;"><i class="fa-solid fa-address-book"></i> E-District Manager (E-DM)</div>';
-                html += '<div class="cgm-dgrid" style="grid-template-columns: 1fr;">';
-                html += '<div class="cgm-dbox" style="padding: 10px 12px; margin-bottom: 2px;">' +
-                    '<div style="font-size: 13px; font-weight: 700; color: #0B2559;">' + res.edm_name + '</div>' +
-                    (res.edm_contact ? '<div style="font-size: 11px; color: #475569; margin-top: 3px;"><i class="fa-solid fa-phone" style="color:#10B981; margin-right:5px; font-size:10px;"></i>' + res.edm_contact + '</div>' : '') +
-                    (res.edm_email ? '<div style="font-size: 11px; color: #475569; margin-top: 2px; word-break:break-all;"><i class="fa-solid fa-envelope" style="color:#10B981; margin-right:5px; font-size:10px;"></i>' + res.edm_email + '</div>' : '') +
+                html += '<div class="cgm-dsec-header kit-sec" style="margin-top:14px; border-left-color: #10B981; background:rgba(209,250,229,0.4); color:#065f46; border:1px solid rgba(110,231,183,0.35); border-left:3px solid #10B981;">E-District Manager (E-DM)</div>';
+                html += '<div class="cgm-info-card">' +
+                    '<div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">' + res.edm_name + '</div>' +
+                    (res.edm_contact ? '<div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;"><i class="fa-solid fa-phone" style="color:#10B981; margin-right:5px; font-size:10px;"></i>' + res.edm_contact + '</div>' : '') +
+                    (res.edm_email ? '<div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; word-break:break-all;"><i class="fa-solid fa-envelope" style="color:#10B981; margin-right:5px; font-size:10px;"></i>' + res.edm_email + '</div>' : '') +
                     '</div>';
-                html += '</div>';
             }
 
             det.innerHTML = html;
@@ -4533,6 +4529,11 @@
 
         document.querySelectorAll(".tab-btn").forEach(btn => {
             btn.addEventListener("click", () => {
+                // Some tabs are entry points to standalone pages (e.g. Kit
+                // status) rather than in-page panels — navigate to them.
+                const navUrl = btn.getAttribute("data-nav-url");
+                if (navUrl) { window.location.href = navUrl; return; }
+
                 document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
                 document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
                 btn.classList.add("active");
@@ -4943,8 +4944,8 @@
                                     setActiveKpi(null);
                                 }}
                                 className={`py-3 text-sm font-semibold transition-all duration-200 cursor-pointer border-none ${isActive
-                                        ? 'bg-white text-slate-950 rounded-lg shadow-sm font-bold'
-                                        : 'bg-transparent text-slate-600 hover:text-slate-950'
+                                    ? 'bg-white text-slate-950 rounded-lg shadow-sm font-bold'
+                                    : 'bg-transparent text-slate-600 hover:text-slate-950'
                                     } ${idx < 3 && !isActive && activeTab !== tabs[idx + 1] ? 'border-r border-slate-300/50' : ''
                                     }`}
                             >
@@ -5203,8 +5204,8 @@
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={`py-3 text-sm font-semibold transition-all duration-200 cursor-pointer border-none ${isActive
-                                        ? 'bg-white text-slate-950 rounded-lg shadow-sm font-bold'
-                                        : 'bg-transparent text-slate-600 hover:text-slate-950'
+                                    ? 'bg-white text-slate-950 rounded-lg shadow-sm font-bold'
+                                    : 'bg-transparent text-slate-600 hover:text-slate-950'
                                     }`}
                             >
                                 {tab}

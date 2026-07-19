@@ -16,7 +16,7 @@ station_id_bp = Blueprint("station_id", __name__)
 BACKEND = "http://127.0.0.1:8000/station-id"
 
 # Statuses that are NOT part of the pending queue for aging purposes
-_STATION_NON_PENDING = {"approved", "activated", "rejected", "reverted", "reverted_by_chips"}
+_STATION_NON_PENDING = {"allotted", "approved", "activated", "rejected", "reverted", "reverted_by_chips"}
 
 def _headers():
     return {"Authorization": f"Bearer {session.get('access_token', '')}"}
@@ -49,6 +49,7 @@ def dc_list():
                 "model": r.get("model"),
                 "user_type": r.get("user_type"),
                 "user_type_custom_reason": r.get("user_type_custom_reason"),
+                "slot": r.get("slot"),
                 "number_of_kits": r.get("number_of_kits"),
                 "status": r.get("status"),
                 "assigned_station_id": r.get("assigned_station_id") or r.get("station_id_inserted"),
@@ -80,6 +81,7 @@ def dc_submit():
         "model": request.form.get("model"),
         "user_type": request.form.get("user_type"),
         "user_type_custom_reason": request.form.get("user_type_custom_reason", ""),
+        "slot": request.form.get("slot"),
         "number_of_kits": request.form.get("number_of_kits"),
     }
 
@@ -166,6 +168,26 @@ def chips_detail_json(request_id):
     )
 
 
+@station_id_bp.route("/chips/station-id/<int:request_id>/recommend-station-ids", methods=["GET"])
+def chips_recommend_station_ids(request_id):
+    """Proxy the next-available Station ID suggestion for the allot modal."""
+    if not session.get("access_token"):
+        return jsonify({"available": False, "error": "Session expired."}), 401
+    try:
+        resp = http.get(
+            f"{BACKEND}/{request_id}/recommend-station-ids",
+            headers=_headers(),
+            timeout=10,
+        )
+        return Response(
+            resp.content,
+            status=resp.status_code,
+            content_type=resp.headers.get("Content-Type", "application/json"),
+        )
+    except Exception as network_err:
+        return jsonify({"available": False, "error": str(network_err)}), 500
+
+
 @station_id_bp.route("/chips/station-id/<int:request_id>/approve", methods=["POST"])
 def chips_approve(request_id):
     if not session.get("access_token"):
@@ -179,6 +201,9 @@ def chips_approve(request_id):
         "reviewed_by": str(session.get("user_id")),
         "station_id_value": str(request.form.get("station_id_value", "")).strip(),
     }
+    slot = str(request.form.get("slot", "")).strip()
+    if slot:
+        form_payload["slot"] = slot
     if raw_remarks:
         form_payload["chips_remarks"] = raw_remarks
 

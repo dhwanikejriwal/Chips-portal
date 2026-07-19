@@ -19,17 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-import traceback
-from fastapi.responses import JSONResponse
-from fastapi import Request
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    with open("c:\\chips-portal\\error.log", "a") as f:
-        f.write(f"Exception on {request.url}:\n")
-        f.write(traceback.format_exc())
-        f.write("\n")
-    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 # Register routers (Friend's / Shared)
 from backend.routers.auth import router as auth_router
@@ -51,6 +40,10 @@ from backend.routers.operator_onboarding import router as operator_onboarding_ro
 from backend.routers.notifications import router as notifications_router
 from backend.routers.dashboard import router as dashboard_router
 from backend.routers.report import router as report_router
+from backend.routers.station_id import router as station_id_router
+from backend.routers.kit_registration import router as kit_registration_router
+from backend.routers.notifications import router as notifications_router
+from backend.routers.dashboard import router as dashboard_router
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
@@ -69,6 +62,8 @@ app.include_router(operator_mapping_router, prefix="/operator-mapping")
 app.include_router(operator_onboarding_router, prefix="/operator-onboarding")
 app.include_router(dashboard_router, prefix="/dashboard")
 app.include_router(report_router, prefix="/api/reports")
+app.include_router(kit_registration_router, prefix="/kit-registration")
+app.include_router(dashboard_router, prefix="/dashboard")
 
 
 

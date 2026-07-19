@@ -6,7 +6,10 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-
+    # Serve static assets (CSS/JS) with revalidation instead of long-lived
+    # browser caching, so edits to stylesheets/scripts show up on reload
+    # without a hard refresh or per-file ?v= cache-buster.
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
     # Register blueprints (Friend's / Shared)
     from app.blueprints.auth import auth_bp
@@ -25,6 +28,7 @@ def create_app():
     from app.blueprints.operator_mapping import operator_mapping_bp
     from app.blueprints.operator_onboarding import operator_onboarding_bp
     from app.blueprints.report import report_bp
+    from app.blueprints.kit_registration import kit_registration_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/auth")
@@ -42,6 +46,7 @@ def create_app():
     app.register_blueprint(operator_mapping_bp, url_prefix="/auth")
     app.register_blueprint(operator_onboarding_bp, url_prefix="/auth")
     app.register_blueprint(report_bp, url_prefix="/auth")
+    app.register_blueprint(kit_registration_bp, url_prefix="/auth")
 
     @app.route("/")
     def index():

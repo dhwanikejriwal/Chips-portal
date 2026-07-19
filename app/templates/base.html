@@ -2,16 +2,41 @@
 <html lang="en">
 
 <head>
+    <!-- Theme bootstrap — MUST run before any CSS so the page paints in the
+         correct theme with no flash (FOUC). Explicit choice (portal-theme)
+         wins forever; otherwise fall back to the OS preference. -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('portal-theme');
+                if (t !== 'dark' && t !== 'light') {
+                    t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Chips Portal{% endblock %}</title>
     <!-- Modern Google Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- i18n runtime — loaded early (before inline scripts that use window.i18n).
+         Sets <html lang> from the persisted choice and translates all
+         data-i18n* marked nodes from /static/i18n/{en,hi}.json. -->
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
     <!-- Main Style -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/request_section.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pending_alerts.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 
     <!-- 🌟 GLOBAL INTERACTIVE POPUP INFRASTRUCTURE: SweetAlert2 -->
@@ -22,29 +47,64 @@
 
     {% block extra_css %}{% endblock %}
 
+    <!-- Dark-theme component overrides — loaded LAST so it re-skins legacy
+         hardcoded-hex components (incl. any dc_style.css pulled in via
+         extra_css above) that variables alone can't reach. Hex-free: every
+         rule references a token from tokens.css. -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme-dark.css') }}">
+
     <!-- Highlight for rows linked to from the notification panel / dashboard KPIs -->
     <style>
+        /* Devanagari-capable fallback in the global stack. Latin text keeps
+           rendering in Outfit; Hindi glyphs fall through to Noto Sans
+           Devanagari instead of a random system font. !important mirrors the
+           same-selector rule in dc/dc_style.css so this (later in the
+           cascade) wins and the stack is consistent portal-wide. */
+        body,
+        input,
+        select,
+        textarea,
+        button {
+            font-family: 'Outfit', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        }
+
         .row-highlight-new {
             position: relative;
             background: rgba(245, 158, 11, 0.08) !important;
             box-shadow: inset 3px 0 0 0 #f59e0b;
             animation: row-highlight-fade 2.5s ease-out 1;
         }
+
         @keyframes row-highlight-fade {
-            0% { background: rgba(245, 158, 11, 0.22) !important; }
-            100% { background: rgba(245, 158, 11, 0.08) !important; }
+            0% {
+                background: rgba(245, 158, 11, 0.22) !important;
+            }
+
+            100% {
+                background: rgba(245, 158, 11, 0.08) !important;
+            }
         }
+
         .row-status-match {
             position: relative;
             background: rgba(37, 99, 235, 0.08) !important;
             box-shadow: inset 3px 0 0 0 #2563eb;
             animation: row-status-fade 2.5s ease-out 1;
         }
+
         @keyframes row-status-fade {
-            0% { background: rgba(37, 99, 235, 0.20) !important; }
-            100% { background: rgba(37, 99, 235, 0.08) !important; }
+            0% {
+                background: rgba(37, 99, 235, 0.20) !important;
+            }
+
+            100% {
+                background: rgba(37, 99, 235, 0.08) !important;
+            }
         }
-        .row-status-dim { opacity: 0.45; }
+
+        .row-status-dim {
+            opacity: 0.45;
+        }
     </style>
     <!-- Tab Session Enforcer -->
     {% if session.get('access_token') %}
@@ -95,34 +155,33 @@
         {% endblock %}
     </div>
 
-    <!-- Sidebar Toggle Script -->
+    <!-- Generic request-section tab switcher. Any page that renders a
+         `.req-tabs` strip (tabs carry data-tab) plus `.req-tabpanel` panels
+         (each carries data-panel) gets click-to-switch behaviour for free.
+         Harmless on pages without tabs (delegated, only fires on a .req-tab). -->
     <script>
-        // Restore sidebar state from localStorage on load
         (function () {
-            var isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
-            if (window.innerWidth <= 768) {
-                isCollapsed = true;
-            }
-            if (isCollapsed) {
-                document.addEventListener('DOMContentLoaded', function () {
-                    var sidebar = document.querySelector('.sidebar');
-                    if (sidebar) sidebar.classList.add('collapsed');
-                });
-            }
-        })();
-
-        // Event delegation — survives HTMX DOM re-processing
-        document.addEventListener('click', function (e) {
-            var btn = e.target.closest('#sidebar-toggle');
-            if (btn) {
-                var sidebar = document.querySelector('.sidebar');
-                if (sidebar) {
-                    sidebar.classList.toggle('collapsed');
-                    localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+            document.addEventListener('click', function (e) {
+                var tab = e.target.closest('.req-tab');
+                if (!tab) return;
+                var name = tab.getAttribute('data-tab');
+                var strip = tab.closest('.req-tabs');
+                if (strip) {
+                    strip.querySelectorAll('.req-tab').forEach(function (t) {
+                        t.classList.toggle('active', t === tab);
+                    });
                 }
-            }
-        });
+                document.querySelectorAll('.req-tabpanel').forEach(function (p) {
+                    p.classList.toggle('active', p.getAttribute('data-panel') === name);
+                });
+            });
+        })();
     </script>
+
+    <!-- Sidebar state + toggle/pin/tooltip/auto-collapse behaviour now lives in
+         partials/sidebar.html (co-located with the sidebar markup + styles, and
+         only loaded when authenticated). It persists { collapsed, pinned } under
+         the "chips.sidebar" localStorage key and owns the #sidebar-toggle click. -->
     <style>
         /* Flash Alert Timer Animation */
         .flash-container .alert,
@@ -133,6 +192,7 @@
             transition: all 0.5s ease-out;
             transform-origin: top;
         }
+
         .flash-container .alert::after,
         .flash-container .alert-flash::after {
             content: '';
@@ -143,10 +203,17 @@
             background: rgba(0, 0, 0, 0.2);
             animation: collapseTimer 3s linear forwards;
         }
+
         @keyframes collapseTimer {
-            0% { width: 100%; }
-            100% { width: 0%; }
+            0% {
+                width: 100%;
+            }
+
+            100% {
+                width: 0%;
+            }
         }
+
         .flash-container .alert.fade-out,
         .flash-container .alert-flash.fade-out {
             opacity: 0;
@@ -159,12 +226,12 @@
     </style>
     <script>
         // Auto-dismiss flash messages with collapse animation after 3 seconds
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             var alerts = document.querySelectorAll('.flash-container .alert, .flash-container .alert-flash');
-            alerts.forEach(function(alert) {
-                setTimeout(function() {
+            alerts.forEach(function (alert) {
+                setTimeout(function () {
                     alert.classList.add('fade-out');
-                    setTimeout(function() {
+                    setTimeout(function () {
                         alert.remove();
                     }, 500); // Wait for the transition to finish
                 }, 3000);
@@ -254,12 +321,13 @@
         })();
     </script>
     <!-- Mandatory Password Change Modal for DC/EDM/Admin -->
-    {% if session.get('access_token') and not session.get('has_changed_password', 1) and session.get('role') in ['DC', 'EDM', 'Admin'] %}
+    {% if session.get('access_token') and not session.get('has_changed_password', 1) and session.get('role') in ['DC',
+    'EDM', 'Admin'] %}
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        Swal.fire({
-            title: 'Action Required: Change Default Password',
-            html: `
+        document.addEventListener('DOMContentLoaded', function () {
+            Swal.fire({
+                title: 'Action Required: Change Default Password',
+                html: `
                 <p style="font-size: 14px; color: #5A5F7A; text-align: left; margin-bottom: 20px;">
                     For security reasons, you must change your default password before accessing the system.
                 </p>
@@ -282,148 +350,148 @@
                     <input type="password" id="swal-confirm-password" class="swal2-input" placeholder="Confirm New Password" style="margin: 0; width: 100%; max-width: 100%; height: 44px; font-size: 15px;">
                 </div>
             `,
-            icon: 'warning',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            showCancelButton: false,
-            confirmButtonText: 'Change Password',
-            confirmButtonColor: '#6C4FE8',
-            didOpen: () => {
-                const newPassInput = document.getElementById('swal-new-password');
-                const strengthBar = document.getElementById('swal-strength-bar');
-                const strengthText = document.getElementById('swal-strength-text');
+                icon: 'warning',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showCancelButton: false,
+                confirmButtonText: 'Change Password',
+                confirmButtonColor: '#6C4FE8',
+                didOpen: () => {
+                    const newPassInput = document.getElementById('swal-new-password');
+                    const strengthBar = document.getElementById('swal-strength-bar');
+                    const strengthText = document.getElementById('swal-strength-text');
 
-                newPassInput.addEventListener('input', (e) => {
-                    const pass = e.target.value;
-                    let strength = 0;
-                    if (pass.length >= 8) strength += 1;
-                    if (/[a-z]/.test(pass)) strength += 1;
-                    if (/[A-Z]/.test(pass)) strength += 1;
-                    if (/\d/.test(pass)) strength += 1;
-                    if (/[!@#$%^&*(),.?":{}|<>]/.test(pass)) strength += 1;
+                    newPassInput.addEventListener('input', (e) => {
+                        const pass = e.target.value;
+                        let strength = 0;
+                        if (pass.length >= 8) strength += 1;
+                        if (/[a-z]/.test(pass)) strength += 1;
+                        if (/[A-Z]/.test(pass)) strength += 1;
+                        if (/\d/.test(pass)) strength += 1;
+                        if (/[!@#$%^&*(),.?":{}|<>]/.test(pass)) strength += 1;
 
-                    let color = '#E0E4F0';
-                    let text = 'Password strength';
-                    let width = '0%';
+                        let color = '#E0E4F0';
+                        let text = 'Password strength';
+                        let width = '0%';
 
-                    if (pass.length === 0) {
-                        width = '0%';
-                        color = '#E0E4F0';
-                        text = 'Password strength';
-                    } else if (strength <= 2) {
-                        color = '#EF4444'; // Red
-                        text = 'Weak (Needs more variety)';
-                        width = '33%';
-                    } else if (strength <= 4) {
-                        color = '#F59E0B'; // Yellow
-                        text = 'Medium (Getting better)';
-                        width = '66%';
-                    } else {
-                        color = '#10B981'; // Green
-                        text = 'Strong (Good to go!)';
-                        width = '100%';
+                        if (pass.length === 0) {
+                            width = '0%';
+                            color = '#E0E4F0';
+                            text = 'Password strength';
+                        } else if (strength <= 2) {
+                            color = '#EF4444'; // Red
+                            text = 'Weak (Needs more variety)';
+                            width = '33%';
+                        } else if (strength <= 4) {
+                            color = '#F59E0B'; // Yellow
+                            text = 'Medium (Getting better)';
+                            width = '66%';
+                        } else {
+                            color = '#10B981'; // Green
+                            text = 'Strong (Good to go!)';
+                            width = '100%';
+                        }
+
+                        strengthBar.style.width = width;
+                        strengthBar.style.backgroundColor = color;
+                        strengthText.innerText = text;
+                        strengthText.style.color = color === '#E0E4F0' ? '#5A5F7A' : color;
+                    });
+                },
+                preConfirm: () => {
+                    const current = document.getElementById('swal-current-password').value;
+                    const newPass = document.getElementById('swal-new-password').value;
+                    const confirmPass = document.getElementById('swal-confirm-password').value;
+
+                    if (!current || !newPass || !confirmPass) {
+                        Swal.showValidationMessage('All fields are required');
+                        return false;
+                    }
+                    if (current === newPass) {
+                        Swal.showValidationMessage('New password cannot be the same as the current password');
+                        return false;
+                    }
+                    if (newPass !== confirmPass) {
+                        Swal.showValidationMessage('New passwords do not match');
+                        return false;
+                    }
+                    if (newPass.length < 8) {
+                        Swal.showValidationMessage('Password must be at least 8 characters long');
+                        return false;
+                    }
+                    if (!/[a-z]/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one lowercase letter');
+                        return false;
+                    }
+                    if (!/[A-Z]/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one uppercase letter');
+                        return false;
+                    }
+                    if (!/\d/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one number');
+                        return false;
+                    }
+                    if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one special character');
+                        return false;
                     }
 
-                    strengthBar.style.width = width;
-                    strengthBar.style.backgroundColor = color;
-                    strengthText.innerText = text;
-                    strengthText.style.color = color === '#E0E4F0' ? '#5A5F7A' : color;
-                });
-            },
-            preConfirm: () => {
-                const current = document.getElementById('swal-current-password').value;
-                const newPass = document.getElementById('swal-new-password').value;
-                const confirmPass = document.getElementById('swal-confirm-password').value;
-                
-                if (!current || !newPass || !confirmPass) {
-                    Swal.showValidationMessage('All fields are required');
-                    return false;
+                    return {
+                        current_password: current,
+                        new_password: newPass
+                    };
                 }
-                if (current === newPass) {
-                    Swal.showValidationMessage('New password cannot be the same as the current password');
-                    return false;
-                }
-                if (newPass !== confirmPass) {
-                    Swal.showValidationMessage('New passwords do not match');
-                    return false;
-                }
-                if (newPass.length < 8) {
-                    Swal.showValidationMessage('Password must be at least 8 characters long');
-                    return false;
-                }
-                if (!/[a-z]/.test(newPass)) {
-                    Swal.showValidationMessage('Password must contain at least one lowercase letter');
-                    return false;
-                }
-                if (!/[A-Z]/.test(newPass)) {
-                    Swal.showValidationMessage('Password must contain at least one uppercase letter');
-                    return false;
-                }
-                if (!/\d/.test(newPass)) {
-                    Swal.showValidationMessage('Password must contain at least one number');
-                    return false;
-                }
-                if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPass)) {
-                    Swal.showValidationMessage('Password must contain at least one special character');
-                    return false;
-                }
-                
-                return {
-                    current_password: current,
-                    new_password: newPass
-                };
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const data = result.value;
-                Swal.fire({
-                    title: 'Updating...',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                
-                fetch('{{ config.BACKEND_API_URL }}/auth/change-password', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer {{ session.access_token }}'
-                    },
-                    body: JSON.stringify(data)
-                })
-                .then(res => res.json())
-                .then(apiRes => {
-                    if (apiRes.success) {
-                        fetch('{{ url_for("auth.session_has_changed_password") }}', { method: 'POST' })
-                        .then(() => {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Success',
-                                text: 'Password has been updated!',
-                                confirmButtonColor: '#6C4FE8'
-                            }).then(() => {
-                                window.location.reload();
-                            });
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const data = result.value;
+                    Swal.fire({
+                        title: 'Updating...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    fetch('{{ config.BACKEND_API_URL }}/auth/change-password', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer {{ session.access_token }}'
+                        },
+                        body: JSON.stringify(data)
+                    })
+                        .then(res => res.json())
+                        .then(apiRes => {
+                            if (apiRes.success) {
+                                fetch('{{ url_for("auth.session_has_changed_password") }}', { method: 'POST' })
+                                    .then(() => {
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: 'Success',
+                                            text: 'Password has been updated!',
+                                            confirmButtonColor: '#6C4FE8'
+                                        }).then(() => {
+                                            window.location.reload();
+                                        });
+                                    });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: apiRes.detail || 'Failed to update password',
+                                    confirmButtonText: 'Try Again',
+                                    confirmButtonColor: '#6C4FE8'
+                                }).then(() => {
+                                    window.location.reload();
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            Swal.fire('Error', 'Failed to connect to server', 'error');
                         });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: apiRes.detail || 'Failed to update password',
-                            confirmButtonText: 'Try Again',
-                            confirmButtonColor: '#6C4FE8'
-                        }).then(() => {
-                            window.location.reload();
-                        });
-                    }
-                })
-                .catch(err => {
-                    Swal.fire('Error', 'Failed to connect to server', 'error');
-                });
-            }
+                }
+            });
         });
-    });
     </script>
     {% endif %}
 

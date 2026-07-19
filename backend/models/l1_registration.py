@@ -16,6 +16,8 @@ class L1RegistrationRequest(Base):
     operator_id = Column(String, nullable=True)
     model_type = Column(String, nullable=False)
     software_version = Column(String, nullable=False)
+    laptop_serial_no = Column(String, nullable=True)
+    laptop_brand = Column(String, nullable=True)  # 'HP' or 'Acer'
     uv_id = Column(String, nullable=False)
     uv_password = Column(String, nullable=False)
     

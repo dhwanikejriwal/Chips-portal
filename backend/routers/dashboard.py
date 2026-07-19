@@ -504,7 +504,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         station_id_analysis["monthly_trend"] = _compute_monthly_trend(
             db, StationIDRequest, StationIDRequest.submitted_at,
             StationIDRequest.status, StationIDRequest.reviewed_at,
-            approved_values=["approved", "activated"],
+            approved_values=["allotted", "approved", "activated"],
             rejected_values=["rejected", "reverted", "reverted_by_chips"],
         )
     except Exception:
@@ -515,7 +515,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         l1_analysis["monthly_trend"] = _compute_monthly_trend(
             db, L1RegistrationRequest, L1RegistrationRequest.created_at,
             L1RegistrationRequest.status, L1RegistrationRequest.updated_at,
-            approved_values=["REVIEWED"],
+            approved_values=["DONE", "REVIEWED", "APPROVED"],
             rejected_values=["REVERTED"],
         )
     except Exception:

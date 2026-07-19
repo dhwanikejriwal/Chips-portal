@@ -1,39 +1,147 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+    <!-- Theme bootstrap (FOUC-free) — must run before any CSS. -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('portal-theme');
+                if (t !== 'dark' && t !== 'light') {
+                    t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registration Settings | CHiPS Admin</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
     <link rel="stylesheet" href="/static/css/common.css">
     <link rel="stylesheet" href="/static/css/layout.css">
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
+
     <!-- Flatpickr for better Date/Time selection -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
     <style>
-        .settings-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
-        .settings-table th, .settings-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        .settings-table th { background-color: #f8fafc; font-weight: 600; color: #475569; text-transform: uppercase; font-size: 12px; }
-        .settings-table tbody tr:hover { background-color: #f1f5f9; }
-        
-        /* Toggle Switch CSS */
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: #10b981; }
-        input:focus + .slider { box-shadow: 0 0 1px #10b981; }
-        input:checked + .slider:before { transform: translateX(20px); }
+        .settings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
 
-        .date-input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; font-family: inherit; }
-        .save-btn { background-color: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; transition: 0.2s; }
-        .save-btn:hover { background-color: #2563eb; }
-        .save-btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        .settings-table th,
+        .settings-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .settings-table th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+
+        .settings-table tbody tr:hover {
+            background-color: #f1f5f9;
+        }
+
+        /* Toggle Switch CSS */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .3s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #10b981;
+        }
+
+        input:focus+.slider {
+            box-shadow: 0 0 1px #10b981;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(20px);
+        }
+
+        .date-input {
+            padding: 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        .save-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: 0.2s;
+        }
+
+        .save-btn:hover {
+            background-color: #2563eb;
+        }
+
+        .save-btn:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
     </style>
+    <!-- Dark-theme component overrides — loaded last. -->
+    <link rel="stylesheet" href="/static/css/theme-dark.css">
 </head>
+
 <body>
 
     {% include "partials/header.html" %}
@@ -48,8 +156,11 @@
             </div>
 
             <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <input type="text" id="districtSearch" onkeyup="filterDistricts()" placeholder="Search by district name..." style="flex: 1; max-width: 300px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
-                <select id="statusFilter" onchange="filterDistricts()" style="padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; cursor: pointer;">
+                <input type="text" id="districtSearch" onkeyup="filterDistricts()"
+                    placeholder="Search by district name..."
+                    style="flex: 1; max-width: 300px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+                <select id="statusFilter" onchange="filterDistricts()"
+                    style="padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; cursor: pointer;">
                     <option value="all">All Statuses</option>
                     <option value="open">Open</option>
                     <option value="closed">Closed</option>
@@ -67,7 +178,9 @@
                     </tr>
                 </thead>
                 <tbody id="districts-tbody">
-                    <tr><td colspan="5" style="text-align: center; padding: 20px;">Loading districts...</td></tr>
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 20px;">Loading districts...</td>
+                    </tr>
                 </tbody>
             </table>
         </main>
@@ -126,7 +239,7 @@
                 dateFormat: "Y-m-d\\TH:i",
                 altInput: true,
                 altFormat: "F j, Y h:i K",
-                onChange: function(selectedDates, dateStr, instance) {
+                onChange: function (selectedDates, dateStr, instance) {
                     const idParts = instance.element.id.split('_');
                     if (idParts.length > 1) {
                         enableSave(idParts[1]);
@@ -147,7 +260,7 @@
             rows.forEach(row => {
                 const name = row.getAttribute("data-name");
                 const status = row.getAttribute("data-status");
-                
+
                 const matchesName = name.includes(input);
                 const matchesStatus = statusFilter === "all" || status === statusFilter;
 
@@ -161,7 +274,7 @@
 
         async function saveSettings(code) {
             const btn = document.getElementById(`btn_${code}`);
-            
+
             const startVal = document.getElementById(`start_${code}`).value;
             const endVal = document.getElementById(`end_${code}`).value;
 
@@ -190,7 +303,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                
+
                 const data = await response.json();
                 if (response.ok) {
                     Swal.fire({
@@ -218,21 +331,9 @@
             }
         }
     </script>
-    <script>
-        // Sidebar Toggle Collapse/Expand persistence
-        const sidebar = document.querySelector('.sidebar');
-        const toggleBtn = document.getElementById('sidebar-toggle');
-        
-        if (sidebar && toggleBtn) {
-            if (localStorage.getItem('sidebar-collapsed') === 'true') {
-                sidebar.classList.add('collapsed');
-            }
-            
-            toggleBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('collapsed');
-                localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
-            });
-        }
-    </script>
+    <!-- Sidebar toggle/persistence is handled inside partials/sidebar.html
+         (chips.sidebar localStorage key). The old inline handler was removed
+         to avoid double-toggling the hamburger. -->
 </body>
+
 </html>
