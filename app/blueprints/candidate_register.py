@@ -218,6 +218,13 @@ def register():
                 nseit_certificate_path = result
                 form_data['existing_nseit_certificate'] = nseit_certificate_path
 
+        # Backend Validation: Certificate mandatory if ID is provided
+        if lms_id and not lms_certificate_path:
+            global_field_errors['lms_certificate'] = "LMS Certificate is required when LMS ID is provided."
+
+        if nseit_id and not nseit_certificate_path:
+            global_field_errors['nseit_certificate'] = "NSEIT Certificate is required when NSEIT Certificate Number is provided."
+
         if global_field_errors:
             return render_template("user/register.html", field_errors=global_field_errors, form_data=form_data, districts=districts)
 

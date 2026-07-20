@@ -23,11 +23,12 @@ endblock %}
 
     /* ── Header + tab bar (mirrors CHiPS admin dashboard) ── */
     .dash-header-container {
-        background: #fff;
-        border: 1px solid #e2e8f0;
+        background: var(--surface-card);
+        border: 1px solid var(--border-strong);
         border-radius: 16px;
         margin-bottom: 22px;
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+        color: var(--text-primary);
     }
 
     .dash-header-tabs-row {
@@ -253,6 +254,47 @@ endblock %}
             pointer-events: none;
         }
     }
+
+    /* Subtabbed Dashboard Active Tab styling overrides */
+    .subtab-container {
+        background: #f1f5f9 !important;
+        border-color: #cbd5e1 !important;
+    }
+    
+    html[data-theme="dark"] .subtab-container {
+        background: var(--surface-subtle) !important;
+        border-color: var(--border-subtle) !important;
+    }
+    
+    .subtab-btn {
+        background: transparent !important;
+        color: #475569 !important;
+    }
+    
+    .subtab-btn:hover {
+        color: #0f172a !important;
+    }
+    
+    .subtab-btn.subtab-active {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    }
+    
+    html[data-theme="dark"] .subtab-btn {
+        color: var(--text-secondary) !important;
+    }
+    
+    html[data-theme="dark"] .subtab-btn:hover {
+        color: var(--text-primary) !important;
+    }
+    
+    html[data-theme="dark"] .subtab-btn.subtab-active {
+        background: var(--surface-card) !important;
+        color: var(--text-primary) !important;
+        box-shadow: none !important;
+        border: 1px solid var(--border-strong) !important;
+    }
 </style>
 {% endblock %}
 
@@ -331,7 +373,12 @@ endblock %}
         var REV_REJ = ["reverted", "reverted_by_chips", "reverted by chips", "rejected"];
 
         var revRej = function (arr) { return (arr || []).filter(function (x) { return REV_REJ.indexOf(lower(x.status)) !== -1; }); };
-        var newCred = function (arr) { return (arr || []).filter(function (x) { return ["pending", "reapplied"].indexOf(lower(x.status)) !== -1; }).length; };
+        var pendingCred = function (arr) {
+            return (arr || []).filter(function (x) {
+                var s = lower(x.status);
+                return s === "pending" || s === "reapplied";
+            }).length;
+        };
         var revRejOps = function (arr) {
             return (arr || []).reduce(function (acc, x) {
                 return acc + (REV_REJ.indexOf(lower(x.status)) !== -1 ? (x.operator_count || 0) : 0);
@@ -340,16 +387,15 @@ endblock %}
 
         // Sentence-case labels; the label block already says "action required".
         var alerts = [
-            { label: "New / reapplied LMS", count: newCred(stats.lms_requests), icon: "ti-id-badge-2", url: "/auth/dc/lms" },
-            { label: "New / reapplied NSEIT", count: newCred(stats.nseit_requests), icon: "ti-award", url: "/auth/dc/nseit" },
+            { label: "Pending LMS", count: pendingCred(stats.lms_requests), icon: "ti-id-badge-2", url: "/auth/dc/lms" },
+            { label: "Pending NSEIT", count: pendingCred(stats.nseit_requests), icon: "ti-award", url: "/auth/dc/nseit" },
             { label: "Reverted Station ID", count: revRej(stats.station_id_requests).length, icon: "ti-device-desktop", url: "/auth/dc/station-id/list" },
             { label: "Reverted L1", count: revRej(stats.l1_requests).length, icon: "ti-shield", url: "/auth/dc/l1-registration" },
             { label: "Reverted L2", count: revRej(stats.l2_requests).length, icon: "ti-folder", url: "/auth/dc/l2-registration/list" },
             { label: "Reverted operator activation", count: revRej(stats.activation_requests).length, icon: "ti-user-check", url: "/auth/dc/operator-activation/list" },
             { label: "Reverted operator reactivation", count: revRejOps(stats.reactivation_requests), icon: "ti-refresh", url: "/auth/dc/reactivation" }
-        ].filter(function (a) { return a.count > 0; });
+        ];
 
-        // Render nothing when everything is at zero — empty is the goal state.
         if (!alerts.length) return;
 
         var escapeHtml = function (s) {
@@ -372,6 +418,7 @@ endblock %}
         var real = alerts.map(function (a) { return mk(a, false); }).join('');
         var copy = alerts.map(function (a) { return mk(a, true); }).join('');
         track.innerHTML = real + copy;   // duplicate for a seamless -50% loop
+        if (window.i18n && typeof window.i18n.apply === 'function') window.i18n.apply(track);
         bar.style.display = "flex";
 
         var halfWidth = track.scrollWidth / 2;
@@ -411,7 +458,7 @@ endblock %}
     };
     const l1Status = (status) => {
         const s = (status || '').toString().trim().toLowerCase();
-        if (['reviewed', 'approved'].includes(s)) return { label: 'Approved' };
+        if (['reviewed', 'approved', 'done', 'l1_done'].includes(s)) return { label: 'Approved' };
         if (s === 'reverted') return { label: 'Reverted' };
         return { label: 'Pending' };
     };
@@ -645,57 +692,168 @@ endblock %}
     // ── Generic sub-tabbed dashboard (shared by all three top tabs) ──
     const KPI_STATUS_QUERY = {
         Total: '', Pending: '?status=pending', SentToUidai: '?status=sent_to_uidai',
-        Approved: '?status=approved', Rejected: '?status=rejected', Reverted: '?status=reverted'
+        Approved: '?status=approved', Rejected: '?status=rejected', Reverted: '?status=reverted',
+        Forwarded: '?status=forwarded', RevertedByChips: '?status=reverted_by_chips',
+        Hold: '?status=hold', AwaitingL1: '?status=awaiting', AwaitingL2: '?status=awaiting'
     };
 
     const SubTabbedDashboard = ({ title, tabs, revertedMode }) => {
         const [active, setActive] = useState(tabs[0].name);
         const tab = tabs.find(t => t.name === active) || tabs[0];
         const rows = tab.rows || [];
+        const isCredentialDashboard = title === "Credential & Exam Requests Overview";
+        const isOperatorDashboard = title === "Operator Requests Overview";
+        const isKitDashboard = title === "Kit Requests Overview";
 
         const counts = useMemo(() => {
-            const c = { Total: 0, Pending: 0, SentToUidai: 0, Approved: 0, Rejected: 0, Reverted: 0 };
-            rows.forEach(x => {
-                const w = tab.weightByOps ? (x.operator_count || 0) : 1;
-                c.Total += w;
-                const lbl = tab.map(x.status).label;
-                if (lbl === 'Pending') c.Pending += w;
-                else if (lbl === 'Sent to UIDAI') c.SentToUidai += w;
-                else if (lbl === 'Approved') c.Approved += w;
-                else if (lbl === 'Rejected') c.Rejected += w;
-                else if (lbl === 'Reverted') c.Reverted += w;
-            });
-            return c;
+            if (isCredentialDashboard) {
+                const c = { Total: 0, Pending: 0, Forwarded: 0, Reverted: 0, RevertedByChips: 0, Rejected: 0, Approved: 0 };
+                rows.forEach(x => {
+                    const w = tab.weightByOps ? (x.operator_count || 0) : 1;
+                    c.Total += w;
+                    const status = (x.status || '').toString().trim().toLowerCase();
+                    if (status === 'pending' || status === 'reapplied') c.Pending += w;
+                    else if (status === 'forwarded' || status === 'forwarded_again' || status === 'forwarded again') c.Forwarded += w;
+                    else if (status === 'reverted' || status === 'on hold' || status === 'hold' || status === 'on_hold') c.Reverted += w;
+                    else if (status === 'reverted_by_chips' || status === 'reverted by chips') c.RevertedByChips += w;
+                    else if (status === 'rejected') c.Rejected += w;
+                    else if (status === 'approved' || status === 'done') c.Approved += w;
+                    else c.Pending += w;
+                });
+                return c;
+            } else if (isOperatorDashboard) {
+                const c = { Total: 0, Pending: 0, SentToUidai: 0, Reverted: 0, Rejected: 0, Approved: 0 };
+                rows.forEach(x => {
+                    const w = tab.weightByOps ? (x.operator_count || 0) : 1;
+                    c.Total += w;
+                    const status = (x.status || '').toString().trim().toLowerCase();
+                    if (status === 'pending' || status === 'reapplied') c.Pending += w;
+                    else if (status === 'sent_to_uidai' || status === 'sent to uidai') c.SentToUidai += w;
+                    else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'reverted by chips') c.Reverted += w;
+                    else if (status === 'rejected') c.Rejected += w;
+                    else if (['approved', 'reviewed', 'activated'].includes(status)) c.Approved += w;
+                    else c.Pending += w;
+                });
+                return c;
+            } else if (isKitDashboard) {
+                const c = { Total: 0, Pending: 0, AwaitingL1: 0, AwaitingL2: 0, SentToUidai: 0, Reverted: 0, Rejected: 0, Approved: 0 };
+                rows.forEach(x => {
+                    const w = tab.weightByOps ? (x.operator_count || 0) : 1;
+                    const status = (x.status || '').toString().trim().toLowerCase();
+                    if (status === 'awaiting_l1' || status === 'awaiting l1') c.AwaitingL1 += w;
+                    else if (status === 'awaiting_l2' || status === 'awaiting l2') c.AwaitingL2 += w;
+                    else {
+                        c.Total += w;
+                        if (status === 'pending' || status === 'reapplied') c.Pending += w;
+                        else if (status === 'sent_to_uidai' || status === 'sent to uidai') c.SentToUidai += w;
+                        else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'reverted by chips') c.Reverted += w;
+                        else if (status === 'rejected' || status === 'uidai_rejected' || status === 'rejected_by_uidai') c.Rejected += w;
+                        else if (['approved', 'reviewed', 'activated', 'allotted', 'done', 'l1_done'].includes(status)) c.Approved += w;
+                        else c.Pending += w;
+                    }
+                });
+                return c;
+            } else {
+                const c = { Total: 0, Pending: 0, SentToUidai: 0, Approved: 0, Rejected: 0, Reverted: 0 };
+                rows.forEach(x => {
+                    const w = tab.weightByOps ? (x.operator_count || 0) : 1;
+                    c.Total += w;
+                    const lbl = tab.map(x.status).label;
+                    if (lbl === 'Pending') c.Pending += w;
+                    else if (lbl === 'Sent to UIDAI') c.SentToUidai += w;
+                    else if (lbl === 'Approved') c.Approved += w;
+                    else if (lbl === 'Rejected') c.Rejected += w;
+                    else if (lbl === 'Reverted') c.Reverted += w;
+                });
+                return c;
+            }
         }, [rows, active]);
 
-        const kpiCards = [
-            { label: 'Total Requests', count: counts.Total, key: 'Total' },
-            { label: 'Pending (at CHiPS)', count: counts.Pending, key: 'Pending' },
-            ...(tab.hasUidai ? [{ label: 'Sent to UIDAI', count: counts.SentToUidai, key: 'SentToUidai' }] : []),
-            { label: 'Approved', count: counts.Approved, key: 'Approved' },
-            { label: 'Rejected', count: counts.Rejected, key: 'Rejected' },
-            { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
-        ];
+        const kpiCards = useMemo(() => {
+            if (isCredentialDashboard) {
+                if (tab.name === 'Candidate Selection') {
+                    return [
+                        { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                        { label: 'On Hold', count: counts.Reverted, key: 'Hold' },
+                        { label: 'Rejected', count: counts.Rejected, key: 'Rejected' },
+                        { label: 'Approved', count: counts.Approved, key: 'Approved' },
+                    ];
+                }
+                return [
+                    { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                    { label: 'Forwarded to CHiPS', count: counts.Forwarded, key: 'Forwarded' },
+                    { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                    { label: 'Reverted by CHiPS', count: counts.RevertedByChips, key: 'RevertedByChips' },
+                    { label: 'Approved', count: counts.Approved, key: 'Approved' },
+                ];
+            } else if (isOperatorDashboard) {
+                return [
+                    { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                    { label: 'Sent to UIDAI', count: counts.SentToUidai, key: 'SentToUidai' },
+                    { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                    { label: 'Rejected by UIDAI', count: counts.Rejected, key: 'Rejected' },
+                    { label: 'Approved', count: counts.Approved, key: 'Approved' },
+                ];
+            } else if (isKitDashboard) {
+                if (tab.name === 'L1 Requests') {
+                    return [
+                        { label: 'Awaiting L1', count: counts.AwaitingL1, key: 'AwaitingL1' },
+                        { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                        { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                        { label: 'L1 Done', count: counts.Approved, key: 'Approved' },
+                    ];
+                } else if (tab.name === 'L2 Requests') {
+                    return [
+                        { label: 'Awaiting L2', count: counts.AwaitingL2, key: 'AwaitingL2' },
+                        { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                        { label: 'Sent to UIDAI', count: counts.SentToUidai, key: 'SentToUidai' },
+                        { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                        { label: 'Rejected by UIDAI', count: counts.Rejected, key: 'Rejected' },
+                        { label: 'L2 Done', count: counts.Approved, key: 'Approved' },
+                    ];
+                }
+                return [
+                    { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                    { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                    { label: 'Allotted', count: counts.Approved, key: 'Approved' },
+                ];
+            } else {
+                return [
+                    { label: 'Total Requests', count: counts.Total, key: 'Total' },
+                    { label: 'Pending (at CHiPS)', count: counts.Pending, key: 'Pending' },
+                    ...(tab.hasUidai ? [{ label: 'Sent to UIDAI', count: counts.SentToUidai, key: 'SentToUidai' }] : []),
+                    { label: 'Approved', count: counts.Approved, key: 'Approved' },
+                    { label: 'Rejected', count: counts.Rejected, key: 'Rejected' },
+                    { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                ];
+            }
+        }, [counts, active]);
 
         const pending = useMemo(() => rows.filter(x => tab.map(x.status).label === 'Pending'), [rows, active]);
         const trend = useMemo(() => revertedMode ? [] : computeTrend(rows, tab.map, tab.weightByOps), [rows, active]);
         const reverted = useMemo(() => rows
             .map(x => ({ ...x, _ui: tab.map(x.status).label }))
             .filter(x => x._ui === 'Reverted' || x._ui === 'Rejected'), [rows, active]);
-        const gridCols = kpiCards.length === 6 ? 'grid-cols-2 md:grid-cols-6' : 'grid-cols-2 md:grid-cols-5';
+        const gridCols = isCredentialDashboard
+            ? (tab.name === 'Candidate Selection' ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-5')
+            : isOperatorDashboard 
+            ? 'grid-cols-2 md:grid-cols-5' 
+            : isKitDashboard 
+            ? (kpiCards.length === 6 ? 'grid-cols-2 md:grid-cols-6' : (kpiCards.length === 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-3')) 
+            : (kpiCards.length === 6 ? 'grid-cols-2 md:grid-cols-6' : 'grid-cols-2 md:grid-cols-5');
 
         return (
             <div className="w-full font-sans antialiased text-slate-800">
                 <div className="mb-2"><h2 className="text-xl font-bold text-slate-900 tracking-tight m-0">{title}</h2></div>
 
                 {/* Sub-navigation */}
-                <div className={`grid bg-slate-100/90 rounded-xl p-1 border border-slate-200/50 mb-4 select-none overflow-hidden`}
+                <div className={`subtab-container grid bg-slate-100/90 rounded-xl p-1 border border-slate-200/50 mb-4 select-none overflow-hidden`}
                     style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
                     {tabs.map(t => {
                         const isActive = active === t.name;
                         return (
                             <button key={t.name} onClick={() => setActive(t.name)}
-                                className={`py-3 text-sm font-semibold transition-all duration-200 cursor-pointer border-none ${isActive ? 'bg-white text-slate-950 rounded-lg shadow-sm font-bold' : 'bg-transparent text-slate-600 hover:text-slate-950'}`}>
+                                className={`subtab-btn py-3 text-sm font-semibold transition-all duration-200 cursor-pointer border-none rounded-lg ${isActive ? 'subtab-active bg-white text-slate-950 shadow-sm font-bold' : 'bg-transparent text-slate-600 hover:text-slate-950'}`}>
                                 {t.name}
                             </button>
                         );
@@ -716,6 +874,16 @@ endblock %}
                             </a>
                         ))}
                     </div>
+                    {(isCredentialDashboard || isOperatorDashboard || isKitDashboard) && (
+                        <div className="w-full mt-4">
+                            <a href={tab.url}
+                                className="rounded-[10px] border border-white/15 bg-white/10 cursor-pointer transition-all duration-200 hover:bg-white/20 hover:border-white/50 flex flex-col items-center justify-center text-center no-underline w-full"
+                                style={{ padding: '14px 18px' }}>
+                                <div className="text-[22px] font-extrabold tracking-tight text-white leading-none">{counts.Total}</div>
+                                <div className="text-[11px] text-white/65 mt-1">{isKitDashboard ? 'Total Requested Kits' : 'Total Requests'}</div>
+                            </a>
+                        </div>
+                    )}
                 </div>
 
                 {/* Bottom section: Operator/Kit show reverted requests; Credential shows aging + trend */}
@@ -734,6 +902,7 @@ endblock %}
     // ── Mount the three tabs ──
     ReactDOM.createRoot(document.getElementById('credential-react-root')).render(
         <SubTabbedDashboard title="Credential & Exam Requests Overview" tabs={[
+            { name: 'Candidate Selection', rows: S.cand_requests, map: credStatus, url: '/auth/dc/candidate-requests', hasUidai: false, trendTitle: 'Monthly Candidate Selection Trend (Last 12 Months)' },
             { name: 'LMS Credentials', rows: S.lms_requests, map: credStatus, url: '/auth/dc/lms', hasUidai: false, trendTitle: 'Monthly LMS Credential Trend (Last 12 Months)' },
             { name: 'NSEIT Certificate', rows: S.nseit_requests, map: credStatus, url: '/auth/dc/nseit', hasUidai: false, trendTitle: 'Monthly NSEIT Certificate Trend (Last 12 Months)' },
         ]} />

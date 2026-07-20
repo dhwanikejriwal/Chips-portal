@@ -10,16 +10,14 @@
 {% block content %}
 {% from 'partials/request_section.html' import request_section %}
 <!-- Jinja2 Metric Calculations -->
-{% set total_requests = pending_requests | length + processed_requests | length %}
 {% set pending_count = pending_requests | selectattr('nseit_status', 'equalto', 'PENDING') | list | length %}
 {% set reapplied_count = pending_requests | selectattr('nseit_status', 'equalto', 'REAPPLIED') | list | length %}
 {% set approved_count = processed_requests | selectattr('nseit_status', 'equalto', 'APPROVED') | list | length %}
-{% set forwarded_count = processed_requests | selectattr('nseit_status', 'equalto', 'FORWARDED') | list | length %}
-{% set forwarded_again_count = processed_requests | selectattr('nseit_status', 'equalto', 'FORWARDED_AGAIN') | list |
-length %}
+{% set forwarded_count = sent_to_chips_requests | selectattr('nseit_status', 'equalto', 'FORWARDED') | list | length %}
+{% set forwarded_again_count = sent_to_chips_requests | selectattr('nseit_status', 'equalto', 'FORWARDED_AGAIN') | list | length %}
 {% set reverted_count = processed_requests | selectattr('nseit_status', 'equalto', 'REVERTED') | list | length %}
-{% set reverted_by_chips_count = processed_requests | selectattr('nseit_status', 'equalto', 'REVERTED_BY_CHIPS') | list
-| length %}
+{% set reverted_by_chips_count = processed_requests | selectattr('nseit_status', 'equalto', 'REVERTED_BY_CHIPS') | list | length %}
+{% set total_requests = pending_count + reapplied_count + approved_count + forwarded_count + forwarded_again_count + reverted_count + reverted_by_chips_count %}
 
 <!-- NSEIT Control Panel Banner -->
 <div class="chips-header-banner">
@@ -38,24 +36,30 @@ length %}
                 certificates</p>
         </div>
     </div>
-    <div class="chips-banner-metrics">
+    <div class="chips-banner-metrics" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); width: 100%;">
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.pending_review
-                }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
-            </div>
+            <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ pending_count + reapplied_count }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.forwarded }}
-            </div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Forwarded to
-                CHiPS</div>
+            <div id="metric-forwarded" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ forwarded_count + forwarded_again_count }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Forwarded to CHiPS</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.action_required
-                }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Action Required
-            </div>
+            <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ reverted_count }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="metric-reverted-by-chips" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ reverted_by_chips_count }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted by CHiPS</div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ approved_count }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="metric-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests</div>
         </div>
     </div>
 </div>
@@ -71,14 +75,28 @@ length %}
         </svg>
         <span>Pending NSEIT verification requests</span>
     </button>
-    <button type="button" class="req-tab" data-tab="log">
+    <button type="button" class="req-tab" data-tab="sent_to_chips">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round">
-            <path d="M3 3v5h5" />
-            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-            <path d="M12 7v5l3 3" />
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
         </svg>
-        <span>NSEIT verification history log</span>
+        <span>Sent to CHiPS</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved NSEIT log</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="reverted">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>Reverted NSEIT log</span>
     </button>
 </div>
 
@@ -132,7 +150,6 @@ length %}
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
     {'label': 'Request code'},
-    {'label': 'District'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -156,11 +173,11 @@ length %}
         data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
         data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
         data-status="{{ req.nseit_status.replace('_', ' ') | title }}"
+        data-had-nseit-at-registration="{{ 'true' if req.had_nseit_at_registration else 'false' }}"
         data-nseit-uploaded-post-approval="{{ 'true' if req.nseit_uploaded_post_approval else 'false' }}"
         data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}">
         <td>{{ loop.index }}</td>
         <td><strong>{{ req.request_code }}</strong></td>
-        <td>{{ req.district_name }}</td>
         <td>{{ req.name }}</td>
         <td>{{ req.mobile }}</td>
         <td>{{ req.email }}</td>
@@ -202,30 +219,102 @@ length %}
     {% endcall %}
 </div><!-- /panel pending -->
 
-<!-- Log History Table Section -->
-{% set approved_controls %}
-<select id="admin-history-status-filter" class="rs-filter" onchange="filterAdminQueues()">
+<!-- Sent to CHiPS Table Section -->
+{% set chips_controls %}
+<select id="admin-chips-status-filter" class="rs-filter" onchange="filterAdminQueues()">
     <option value="all">All statuses</option>
-    <option value="approved">Approved</option>
     <option value="forwarded">Forwarded</option>
     <option value="forwarded again">Forwarded Again</option>
-    <option value="reverted">Reverted</option>
-    <option value="reverted by chips">Reverted by CHiPS</option>
 </select>
-<button class="rs-export"
-    onclick="exportTableToExcel('admin-approved-table', 'nseit_verification_history_log.xlsx')">Export to Excel</button>
+<button type="button" class="rs-export" onclick="exportTableToExcel('admin-chips-table', 'sent_to_chips_nseit.xlsx')">Export to CSV</button>
 {% endset %}
-<div class="req-tabpanel" data-panel="log">
+<div class="req-tabpanel" data-panel="sent_to_chips">
+    {% call request_section(
+    variant='pending',
+    title='NSEIT requests sent to CHiPS',
+    count='–', count_id='chips-count',
+    controls=chips_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-chips-table', body_id='admin-chips-body',
+    empty_id='chips-empty-msg',
+    empty_message='No requests sent to CHiPS') %}
+    {% for req in sent_to_chips_requests %}
+    <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+        data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+        data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
+        data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+        data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_certificate_id or '' }}"
+        data-marksheet="{{ req.marksheet_upload }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-status="{{ req.nseit_status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-had-nseit-at-registration="{{ 'true' if req.had_nseit_at_registration else 'false' }}"
+        data-nseit-uploaded-post-approval="{{ 'true' if req.nseit_uploaded_post_approval else 'false' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+        data-updated="{{ req.updated_at or req.created_at }}" style="border-bottom: 1px solid #edf2f7;">
+        <td>{{ loop.index }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>
+            {% if (req.nseit_status|upper) == 'FORWARDED_AGAIN' %}
+            <span class="badge badge-forwarded-again"
+                style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded Again</span>
+            {% else %}
+            <span class="badge badge-forwarded"
+                style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>
+            {% endif %}
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td>
+            {% if req.updated_at and req.updated_at != '—' %}
+            {{ req.updated_at }}
+            {% else %}
+            —
+            {% endif %}
+        </td>
+        <td style="text-align: center;">
+            <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel sent_to_chips -->
+
+<!-- Approved Log History Table Section -->
+{% set approved_controls %}
+<button class="rs-export"
+    onclick="exportTableToExcel('admin-approved-table', 'nseit_verification_approved_history_log.xlsx')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="approved">
     {% call request_section(
     variant='done',
-    title='NSEIT verification history log',
-    count='–', count_id='approved-count',
+    title='Approved NSEIT log',
+    count='–', count_id='approved-count-badge',
     controls=approved_controls,
     min_width=1050,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
     {'label': 'Request code'},
-    {'label': 'District'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -236,8 +325,8 @@ length %}
     ],
     table_id='admin-approved-table', body_id='admin-approved-body',
     empty_id='approved-empty-msg',
-    empty_message='No log history') %}
-    {% for req in processed_requests %}
+    empty_message='No approved log history found') %}
+    {% for req in processed_requests if (req.nseit_status|upper) == 'APPROVED' %}
     <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
         data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
         data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
@@ -249,23 +338,88 @@ length %}
         data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
         data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
         data-status="{{ req.nseit_status.replace('_', ' ') | title }}"
+        data-had-nseit-at-registration="{{ 'true' if req.had_nseit_at_registration else 'false' }}"
         data-nseit-uploaded-post-approval="{{ 'true' if req.nseit_uploaded_post_approval else 'false' }}"
         data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
         data-updated="{{ req.updated_at or req.created_at }}">
         <td>{{ loop.index }}</td>
         <td><strong>{{ req.request_code }}</strong></td>
-        <td>{{ req.district_name }}</td>
         <td>{{ req.name }}</td>
         <td>{{ req.mobile }}</td>
         <td>{{ req.email }}</td>
         <td>
-            {% if (req.nseit_status|upper) == 'APPROVED' %}
             <span class="badge badge-approved">Approved</span>
-            {% elif (req.nseit_status|upper) == 'FORWARDED' %}
-            <span class="badge badge-forwarded">Forwarded</span>
-            {% elif (req.nseit_status|upper) == 'FORWARDED_AGAIN' %}
-            <span class="badge badge-forwarded-again">Forwarded Again</span>
-            {% elif (req.nseit_status|upper) == 'REVERTED_BY_CHIPS' %}
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td>{{ req.updated_at or req.created_at }}</td>
+        <td style="text-align: center;">
+            <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel approved -->
+
+<!-- Reverted Log History Table Section -->
+{% set reverted_controls %}
+<select id="reverted-status-filter" class="rs-filter" onchange="filterAdminQueues()">
+    <option value="all">All statuses</option>
+    <option value="reverted">Reverted</option>
+    <option value="reverted_by_chips">Reverted by CHiPS</option>
+</select>
+<button class="rs-export"
+    onclick="exportTableToExcel('admin-reverted-table', 'nseit_verification_reverted_history_log.xlsx')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="reverted">
+    {% call request_section(
+    variant='done',
+    title='Reverted NSEIT log',
+    count='–', count_id='reverted-count-badge',
+    controls=reverted_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-reverted-table', body_id='admin-reverted-body',
+    empty_id='reverted-empty-msg',
+    empty_message='No reverted log history found') %}
+    {% for req in processed_requests if (req.nseit_status|upper) != 'APPROVED' %}
+    <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+        data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+        data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-nseit-id="{{ req.nseit_certificate_id or '' }}"
+        data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-address="{{ req.address or '' }}"
+        data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+        data-photo="{{ req.photo_upload or '' }}" data-marksheet="{{ req.marksheet_upload }}"
+        data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-status="{{ req.nseit_status.replace('_', ' ') | title }}"
+        data-had-nseit-at-registration="{{ 'true' if req.had_nseit_at_registration else 'false' }}"
+        data-nseit-uploaded-post-approval="{{ 'true' if req.nseit_uploaded_post_approval else 'false' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+        data-updated="{{ req.updated_at or req.created_at }}">
+        <td>{{ loop.index }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>
+            {% if (req.nseit_status|upper) == 'REVERTED_BY_CHIPS' %}
             <span class="badge badge-reverted-by-chips">Reverted by CHiPS</span>
             {% else %}
             <span class="badge badge-reverted">Reverted</span>
@@ -285,19 +439,19 @@ length %}
     </tr>
     {% endfor %}
     {% endcall %}
-</div><!-- /panel log -->
+</div><!-- /panel reverted -->
 
 
 <script>
     function clearAllFilters() {
         document.getElementById('admin-search-input').value = '';
-        document.getElementById('admin-date-filter').value = 'all';
+        document.getElementById('admin-date-filter').value = 'month';
         const pendingFilter = document.getElementById('admin-pending-status-filter');
         if (pendingFilter) pendingFilter.value = 'all';
         const chipsFilter = document.getElementById('admin-chips-status-filter');
         if (chipsFilter) chipsFilter.value = 'all';
-        const historyFilter = document.getElementById('admin-history-status-filter');
-        if (historyFilter) historyFilter.value = 'all';
+        const revertedFilter = document.getElementById('reverted-status-filter');
+        if (revertedFilter) revertedFilter.value = 'all';
         filterAdminQueues();
     }
 
@@ -308,14 +462,14 @@ length %}
         const dateVal = document.getElementById('admin-date-filter').value;
         const pendingStatusVal = document.getElementById('admin-pending-status-filter') ? document.getElementById('admin-pending-status-filter').value : 'all';
         const chipsStatusVal = document.getElementById('admin-chips-status-filter') ? document.getElementById('admin-chips-status-filter').value : 'all';
-        const statusVal = document.getElementById('admin-history-status-filter') ? document.getElementById('admin-history-status-filter').value : 'all';
+        const revertedStatusVal = document.getElementById('reverted-status-filter') ? document.getElementById('reverted-status-filter').value : 'all';
 
         // Save current filter criteria to sessionStorage dynamically
         sessionStorage.setItem('dc_nseit_search', document.getElementById('admin-search-input').value);
         sessionStorage.setItem('dc_nseit_date', dateVal);
         sessionStorage.setItem('dc_nseit_pending_status', pendingStatusVal);
         sessionStorage.setItem('dc_nseit_chips_status', chipsStatusVal);
-        sessionStorage.setItem('dc_nseit_history_status', statusVal);
+        sessionStorage.setItem('dc_nseit_reverted_status', revertedStatusVal);
 
         // Filter Pending Queue
         const pendingRows = document.querySelectorAll('#admin-queue-body tr');
@@ -367,7 +521,7 @@ length %}
             }
         });
 
-        // Filter History Queue
+        // Filter Approved History Queue
         const approvedRows = document.querySelectorAll('#admin-approved-body tr');
         let approvedIdx = 1;
         approvedRows.forEach(row => {
@@ -381,12 +535,34 @@ length %}
             const matchDistrict = (districtVal === 'all') || (row.getAttribute('data-district') === districtVal);
             const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
 
-            const reqStatus = row.getAttribute('data-status').toLowerCase();
-            const matchStatus = (statusVal === 'all') || (reqStatus === statusVal);
+            if (matchSearch && matchDistrict && matchDate) {
+                row.style.display = '';
+                row.cells[0].innerText = approvedIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Filter Reverted History Queue
+        const revertedRows = document.querySelectorAll('#admin-reverted-body tr');
+        let revertedIdx = 1;
+        revertedRows.forEach(row => {
+            if (row.cells.length <= 1) return; // Empty row
+
+            const matchSearch = row.getAttribute('data-code').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-name').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-phone').includes(searchVal) ||
+                row.getAttribute('data-email').toLowerCase().includes(searchVal);
+
+            const matchDistrict = (districtVal === 'all') || (row.getAttribute('data-district') === districtVal);
+            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+
+            const reqStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
+            const matchStatus = (revertedStatusVal === 'all') || (reqStatus === revertedStatusVal.replace(/_/g, ' '));
 
             if (matchSearch && matchDistrict && matchDate && matchStatus) {
                 row.style.display = '';
-                row.cells[0].innerText = approvedIdx++;
+                row.cells[0].innerText = revertedIdx++;
             } else {
                 row.style.display = 'none';
             }
@@ -400,21 +576,71 @@ length %}
         const chipsCount = chipsIdx - 1;
         if (chipsCountEl) chipsCountEl.textContent = chipsCount;
 
-        const approvedCountEl = document.getElementById('approved-count');
+        const approvedCountEl = document.getElementById('approved-count-badge');
         const approvedCount = approvedIdx - 1;
         if (approvedCountEl) approvedCountEl.textContent = approvedCount;
 
-        const pendingTable = document.getElementById('admin-pending-table');
+        const revertedCountEl = document.getElementById('reverted-count-badge');
+        const revertedCount = revertedIdx - 1;
+        if (revertedCountEl) revertedCountEl.textContent = revertedCount;
+
         const pendingEmptyMsg = document.getElementById('pending-empty-msg');
         if (pendingEmptyMsg) pendingEmptyMsg.style.display = (pendingCount === 0) ? 'block' : 'none';
 
-        const chipsTable = document.getElementById('admin-chips-table');
         const chipsEmptyMsg = document.getElementById('chips-empty-msg');
         if (chipsEmptyMsg) chipsEmptyMsg.style.display = (chipsCount === 0) ? 'block' : 'none';
 
-        const approvedTable = document.getElementById('admin-approved-table');
         const approvedEmptyMsg = document.getElementById('approved-empty-msg');
         if (approvedEmptyMsg) approvedEmptyMsg.style.display = (approvedCount === 0) ? 'block' : 'none';
+
+        const revertedEmptyMsg = document.getElementById('reverted-empty-msg');
+        if (revertedEmptyMsg) revertedEmptyMsg.style.display = (revertedCount === 0) ? 'block' : 'none';
+
+        // Calculate and update metrics dynamically
+        let metricPending = 0;
+        let metricForwarded = 0;
+        let metricReverted = 0;
+        let metricRevertedByChips = 0;
+        let metricApproved = 0;
+
+        const allRows = document.querySelectorAll('#admin-queue-body tr, #admin-chips-body tr, #admin-approved-body tr, #admin-reverted-body tr');
+        allRows.forEach(row => {
+            if (row.cells.length <= 1) return;
+            const matchDistrict = (districtVal === 'all') || (row.getAttribute('data-district') === districtVal);
+            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+            const matchSearch = row.getAttribute('data-code').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-name').toLowerCase().includes(searchVal) ||
+                row.getAttribute('data-phone').includes(searchVal) ||
+                row.getAttribute('data-email').toLowerCase().includes(searchVal);
+
+            if (matchDistrict && matchDate && matchSearch) {
+                const reqStatus = (row.getAttribute('data-status') || '').toLowerCase();
+                if (reqStatus === 'pending' || reqStatus === 'reapplied') {
+                    metricPending++;
+                } else if (reqStatus === 'forwarded' || reqStatus === 'forwarded again' || reqStatus === 'forwarded_again') {
+                    metricForwarded++;
+                } else if (reqStatus === 'reverted') {
+                    metricReverted++;
+                } else if (reqStatus === 'reverted_by_chips' || reqStatus === 'reverted by chips') {
+                    metricRevertedByChips++;
+                } else if (reqStatus === 'approved') {
+                    metricApproved++;
+                }
+            }
+        });
+
+        const metricPendingEl = document.getElementById('metric-pending');
+        if (metricPendingEl) metricPendingEl.textContent = metricPending;
+        const metricForwardedEl = document.getElementById('metric-forwarded');
+        if (metricForwardedEl) metricForwardedEl.textContent = metricForwarded;
+        const metricRevertedEl = document.getElementById('metric-reverted');
+        if (metricRevertedEl) metricRevertedEl.textContent = metricReverted;
+        const metricRevertedByChipsEl = document.getElementById('metric-reverted-by-chips');
+        if (metricRevertedByChipsEl) metricRevertedByChipsEl.textContent = metricRevertedByChips;
+        const metricApprovedEl = document.getElementById('metric-approved');
+        if (metricApprovedEl) metricApprovedEl.textContent = metricApproved;
+        const metricTotalEl = document.getElementById('metric-total');
+        if (metricTotalEl) metricTotalEl.textContent = metricPending + metricForwarded + metricReverted + metricRevertedByChips + metricApproved;
     }
 
     function checkDateMatch(dateStr, filterVal) {
@@ -837,7 +1063,7 @@ length %}
         }
 
         let candidateReRequestReason = '';
-        const hasExistingNseitId = d.nseitId && d.nseitId !== 'None' && d.nseitId !== 'null' && d.nseitId.trim() !== '';
+        const hasExistingNseitId = d.hadNseitAtRegistration === true || d.hadNseitAtRegistration === 'true';
         if (hasExistingNseitId) {
             try {
                 let remarks = [];
@@ -1181,6 +1407,7 @@ length %}
             photo: row.getAttribute('data-photo') || '',
             lmsId: row.getAttribute('data-lms-id') || '',
             nseitId: row.getAttribute('data-nseit-id') || '',
+            hadNseitAtRegistration: row.getAttribute('data-had-nseit-at-registration') || 'false',
             examUniqueCode: row.getAttribute('data-exam-unique-code') || '',
             marksheet: (row.getAttribute('data-marksheet') && row.getAttribute('data-marksheet') !== 'None') ? row.getAttribute('data-marksheet') : '',
             tenthMarksheet: (row.getAttribute('data-tenth-marksheet') && row.getAttribute('data-tenth-marksheet') !== 'None') ? row.getAttribute('data-tenth-marksheet') : '',
@@ -1227,20 +1454,20 @@ length %}
             sessionStorage.removeItem('dc_nseit_date');
             sessionStorage.removeItem('dc_nseit_pending_status');
             sessionStorage.removeItem('dc_nseit_chips_status');
-            sessionStorage.removeItem('dc_nseit_history_status');
+            sessionStorage.removeItem('dc_nseit_reverted_status');
         }
 
         if (sessionStorage.getItem('dc_nseit_search') !== null) {
             document.getElementById('admin-search-input').value = sessionStorage.getItem('dc_nseit_search');
-            document.getElementById('admin-date-filter').value = sessionStorage.getItem('dc_nseit_date');
+            document.getElementById('admin-date-filter').value = sessionStorage.getItem('dc_nseit_date') || 'month';
             if (document.getElementById('admin-pending-status-filter')) {
                 document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('dc_nseit_pending_status');
             }
             if (document.getElementById('admin-chips-status-filter')) {
                 document.getElementById('admin-chips-status-filter').value = sessionStorage.getItem('dc_nseit_chips_status');
             }
-            if (document.getElementById('admin-history-status-filter')) {
-                document.getElementById('admin-history-status-filter').value = sessionStorage.getItem('dc_nseit_history_status');
+            if (document.getElementById('reverted-status-filter')) {
+                document.getElementById('reverted-status-filter').value = sessionStorage.getItem('dc_nseit_reverted_status') || 'all';
             }
         } else {
             document.getElementById('admin-search-input').value = '';
@@ -1251,8 +1478,8 @@ length %}
             if (document.getElementById('admin-chips-status-filter')) {
                 document.getElementById('admin-chips-status-filter').value = 'all';
             }
-            if (document.getElementById('admin-history-status-filter')) {
-                document.getElementById('admin-history-status-filter').value = 'all';
+            if (document.getElementById('reverted-status-filter')) {
+                document.getElementById('reverted-status-filter').value = 'all';
             }
         }
 

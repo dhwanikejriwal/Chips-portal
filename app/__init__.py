@@ -108,7 +108,7 @@ def create_app():
     def inject_language_toggle():
         import json
         import os
-        translations_path = os.path.join(app.root_path, 'translations', 'hi.json')
+        translations_path = os.path.join(app.root_path, 'static', 'i18n', 'hi.json')
         hindi_translations = {}
         if os.path.exists(translations_path):
             try:

@@ -47,11 +47,7 @@
 
     {% block extra_css %}{% endblock %}
 
-    <!-- Dark-theme component overrides — loaded LAST so it re-skins legacy
-         hardcoded-hex components (incl. any dc_style.css pulled in via
-         extra_css above) that variables alone can't reach. Hex-free: every
-         rule references a token from tokens.css. -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme-dark.css') }}">
+
 
     <!-- Highlight for rows linked to from the notification panel / dashboard KPIs -->
     <style>
@@ -85,26 +81,7 @@
             }
         }
 
-        .row-status-match {
-            position: relative;
-            background: rgba(37, 99, 235, 0.08) !important;
-            box-shadow: inset 3px 0 0 0 #2563eb;
-            animation: row-status-fade 2.5s ease-out 1;
-        }
 
-        @keyframes row-status-fade {
-            0% {
-                background: rgba(37, 99, 235, 0.20) !important;
-            }
-
-            100% {
-                background: rgba(37, 99, 235, 0.08) !important;
-            }
-        }
-
-        .row-status-dim {
-            opacity: 0.45;
-        }
     </style>
     <!-- Tab Session Enforcer -->
     {% if session.get('access_token') %}
@@ -161,6 +138,75 @@
          Harmless on pages without tabs (delegated, only fires on a .req-tab). -->
     <script>
         (function () {
+            // Restore active tab from sessionStorage if available
+            function restoreActiveTab() {
+                var path = window.location.pathname;
+                var params = new URLSearchParams(window.location.search);
+                var status = params.get('status');
+                var savedTab = null;
+
+                if (status) {
+                    status = status.toLowerCase();
+                    if (path.indexOf('/lms') !== -1) {
+                        sessionStorage.setItem('dc_lms_search', '');
+                        sessionStorage.setItem('dc_lms_date', 'month');
+                        sessionStorage.setItem('dc_lms_pending_status', 'all');
+                        sessionStorage.setItem('dc_lms_chips_status', 'all');
+                        sessionStorage.setItem('dc_lms_reverted_status', 'all');
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                    } else if (path.indexOf('/nseit') !== -1) {
+                        sessionStorage.setItem('dc_nseit_search', '');
+                        sessionStorage.setItem('dc_nseit_date', 'month');
+                        sessionStorage.setItem('dc_nseit_pending_status', 'all');
+                        sessionStorage.setItem('dc_nseit_chips_status', 'all');
+                        sessionStorage.setItem('dc_nseit_reverted_status', 'all');
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                    }
+
+                    if (status === 'pending' || status === 'reapplied') {
+                        savedTab = path.indexOf('/dc/reactivation') !== -1 ? 'batches' : 'pending';
+                    } else if (status === 'awaiting' || status === 'awaiting_l1' || status === 'awaiting_l2') {
+                        savedTab = 'awaiting';
+                    } else if (status === 'sent_to_uidai' || status === 'sent_to_chips' || status === 'forwarded' || status === 'forwarded_again') {
+                        savedTab = (path.indexOf('/operator-activation') !== -1 || path.indexOf('/l2-registration') !== -1 || path.indexOf('/chips/reactivation') !== -1) ? 'uidai' : (path.indexOf('/dc/reactivation') !== -1 ? 'batches' : 'sent_to_chips');
+                    } else if (status === 'approved') {
+                        savedTab = 'approved';
+                    } else if (status === 'rejected') {
+                        savedTab = path.indexOf('/candidate-requests') !== -1 ? 'rejected' : (path.indexOf('/reactivation') !== -1 ? 'batches' : 'reverted');
+                    } else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'hold' || status === 'on_hold') {
+                        savedTab = path.indexOf('/reactivation') !== -1 ? 'batches' : (path.indexOf('/candidate-requests') !== -1 ? 'hold' : 'reverted');
+                    }
+
+                    if (savedTab) {
+                        sessionStorage.setItem('active_tab_' + path, savedTab);
+                    }
+                }
+
+                if (!savedTab) {
+                    savedTab = sessionStorage.getItem('active_tab_' + path);
+                }
+                if (savedTab) {
+                    var activeTabBtn = document.querySelector('.req-tab[data-tab="' + savedTab + '"]');
+                    if (activeTabBtn) {
+                        var strip = activeTabBtn.closest('.req-tabs');
+                        if (strip) {
+                            strip.querySelectorAll('.req-tab').forEach(function (t) {
+                                t.classList.toggle('active', t === activeTabBtn);
+                            });
+                        }
+                        document.querySelectorAll('.req-tabpanel').forEach(function (p) {
+                            p.classList.toggle('active', p.getAttribute('data-panel') === savedTab);
+                        });
+                    }
+                }
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', restoreActiveTab);
+            } else {
+                restoreActiveTab();
+            }
+
             document.addEventListener('click', function (e) {
                 var tab = e.target.closest('.req-tab');
                 if (!tab) return;
@@ -174,6 +220,8 @@
                 document.querySelectorAll('.req-tabpanel').forEach(function (p) {
                     p.classList.toggle('active', p.getAttribute('data-panel') === name);
                 });
+                // Save active tab
+                sessionStorage.setItem('active_tab_' + window.location.pathname, name);
             });
         })();
     </script>
@@ -272,54 +320,7 @@
         })();
     </script>
 
-    <!-- Filter/highlight rows by status bucket (used by DC dashboard KPI links
-         and the notification panel's reverted/rejected links) -->
-    <script>
-        (function () {
-            var params = new URLSearchParams(window.location.search);
-            var wantStatus = params.get('status');
-            if (!wantStatus) return;
-            wantStatus = wantStatus.trim().toLowerCase();
 
-            // Same bucketing rules as _status_bucket() in blueprints/dashboard.py.
-            function bucket(raw) {
-                var s = (raw || '').toString().trim().toLowerCase();
-                if (['approved', 'reviewed', 'activated', 'assigned', 'sent_to_uidai', 'sent to uidai'].indexOf(s) !== -1) return 'approved';
-                if (s === 'rejected') return 'rejected';
-                if (['reverted', 'reverted by chips', 'reverted_by_chips'].indexOf(s) !== -1) return 'reverted';
-                return 'pending';
-            }
-
-            // "reverted_rejected" is a combined sentinel used by the DC
-            // notification panel, since a type's reverted/rejected count
-            // there isn't broken down by exact bucket.
-            function matchesWant(rowBucket) {
-                if (wantStatus === 'reverted_rejected') return rowBucket === 'reverted' || rowBucket === 'rejected';
-                return rowBucket === wantStatus;
-            }
-
-            function apply() {
-                var rows = document.querySelectorAll('[data-status]');
-                if (!rows.length) return;
-                var firstMatch = null;
-                rows.forEach(function (el) {
-                    if (matchesWant(bucket(el.getAttribute('data-status')))) {
-                        el.classList.add('row-status-match');
-                        if (!firstMatch) firstMatch = el;
-                    } else {
-                        el.classList.add('row-status-dim');
-                    }
-                });
-                if (firstMatch) {
-                    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }
-
-            window.addEventListener('load', function () {
-                setTimeout(apply, 300);
-            });
-        })();
-    </script>
 
     {% if ENABLE_LANGUAGE_TOGGLE %}
     <div id="google_translate_element" style="display: none;"></div>
@@ -355,196 +356,15 @@
             z-index: -9999 !important;
         }
     </style>
-    <script id="hindi-translations-data" type="application/json">
-        {{ HINDI_TRANSLATIONS | safe }}
-    </script>
     <script>
         (function () {
-            const HINDI_TRANSLATIONS_MAP = JSON.parse(document.getElementById('hindi-translations-data').textContent || '{}');
-            let currentLang = sessionStorage.getItem('portal_lang');
-
-            if (!currentLang) {
-                currentLang = 'en';
-                sessionStorage.setItem('portal_lang', 'en');
-                document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname;
-            }
-
-            const updateToggleButtons = () => {
-                const labels = document.querySelectorAll('.lang-toggle-label');
-                labels.forEach(lbl => {
-                    lbl.textContent = currentLang === 'en' ? 'हिंदी' : 'English';
-                });
-            };
-
-            const excludeDatabaseTables = (root = document) => {
-                root.querySelectorAll('td').forEach(el => {
-                    const isActionButton = el.querySelector('button, a.btn, input[type="button"], input[type="submit"]');
-                    const isStatusBadge = el.querySelector('[class*="badge"], [class*="status"]');
-
-                    if (isStatusBadge || (!isActionButton)) {
-                        el.classList.add('notranslate');
-                        el.setAttribute('translate', 'no');
-                        el.querySelectorAll('*').forEach(child => {
-                            child.classList.add('notranslate');
-                            child.setAttribute('translate', 'no');
-                        });
-                    } else {
-                        el.classList.remove('notranslate');
-                        el.removeAttribute('translate');
-                        el.querySelectorAll('*').forEach(child => {
-                            if (!child.classList.contains('lang-toggle-btn') && !child.classList.contains('lang-toggle-label')) {
-                                child.classList.remove('notranslate');
-                                child.removeAttribute('translate');
-                            }
-                        });
-                    }
-                });
-            };
-
-            const applyHybridCorrections = (element) => {
-                if (currentLang !== 'hi') return;
-
-                const dict = HINDI_TRANSLATIONS_MAP;
-                const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
-
-                const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
-                    acceptNode: function (node) {
-                        const parent = node.parentNode;
-                        if (parent && parent.nodeType === Node.ELEMENT_NODE) {
-                            if (parent.tagName === 'SCRIPT' ||
-                                parent.tagName === 'STYLE' ||
-                                parent.classList.contains('notranslate') ||
-                                parent.getAttribute('translate') === 'no' ||
-                                (typeof parent.closest === 'function' && parent.closest('.notranslate'))
-                            ) {
-                                return NodeFilter.FILTER_REJECT;
-                            }
-                            return NodeFilter.FILTER_ACCEPT;
-                        }
-                        return NodeFilter.FILTER_REJECT;
-                    }
-                });
-
-                const textNodes = [];
-                let node;
-                while (node = walker.nextNode()) {
-                    textNodes.push(node);
-                }
-
-                textNodes.forEach(textNode => {
-                    const text = textNode.nodeValue;
-                    const parent = textNode.parentNode;
-                    if (!parent) return;
-
-                    const normalizedText = text.replace(/\s+/g, ' ').trim();
-
-                    let matchedKey = null;
-                    for (const key of sortedKeys) {
-                        if (normalizedText.toLowerCase() === key.toLowerCase()) {
-                            matchedKey = key;
-                            break;
-                        }
-                    }
-
-                    if (matchedKey) {
-                        textNode.nodeValue = dict[matchedKey];
-                        parent.classList.add('notranslate');
-                        parent.setAttribute('translate', 'no');
-                    } else {
-                        let escapedText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                        let replaced = escapedText;
-                        let hasChanged = false;
-
-                        for (const key of sortedKeys) {
-                            const escapedKey = key.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\s+/g, '\\s+');
-                            const regex = new RegExp('\\b' + escapedKey + '\\b', 'gi');
-                            if (regex.test(replaced)) {
-                                replaced = replaced.replace(regex, `<span class="notranslate" translate="no">${dict[key]}</span>`);
-                                hasChanged = true;
-                            }
-                        }
-
-                        if (hasChanged) {
-                            const tempSpan = document.createElement('span');
-                            tempSpan.innerHTML = replaced;
-                            while (tempSpan.firstChild) {
-                                parent.insertBefore(tempSpan.firstChild, textNode);
-                            }
-                            parent.removeChild(textNode);
-                        }
-                    }
-                });
-
-                const inputs = element.querySelectorAll('input[placeholder], textarea[placeholder]');
-                inputs.forEach(input => {
-                    if (input.closest('.notranslate')) return;
-                    let ph = input.getAttribute('placeholder');
-                    let phChanged = false;
-                    for (const key of sortedKeys) {
-                        const regex = new RegExp('\\b' + key + '\\b', 'gi');
-                        if (ph && regex.test(ph)) {
-                            ph = ph.replace(regex, dict[key]);
-                            phChanged = true;
-                        }
-                    }
-                    if (phChanged) {
-                        input.setAttribute('placeholder', ph);
-                        input.classList.add('notranslate');
-                        input.setAttribute('translate', 'no');
-                    }
-                });
-
-                const buttons = element.querySelectorAll('input[type="submit"], input[type="button"]');
-                buttons.forEach(btn => {
-                    let val = btn.value;
-                    let valChanged = false;
-                    for (const key of sortedKeys) {
-                        const regex = new RegExp('\\b' + key + '\\b', 'gi');
-                        if (val && regex.test(val)) {
-                            val = val.replace(regex, dict[key]);
-                            valChanged = true;
-                        }
-                    }
-                    if (valChanged) {
-                        btn.value = val;
-                        btn.classList.add('notranslate');
-                        btn.setAttribute('translate', 'no');
-                    }
-                });
-
-                const selects = element.querySelectorAll('select');
-                selects.forEach(sel => {
-                    sel.classList.add('notranslate');
-                    sel.setAttribute('translate', 'no');
-
-                    const options = sel.querySelectorAll('option');
-                    options.forEach(opt => {
-                        opt.classList.add('notranslate');
-                        opt.setAttribute('translate', 'no');
-                    });
-                });
-            };
-
-            window.togglePortalLanguage = function () {
-                const newLang = currentLang === 'en' ? 'hi' : 'en';
-                sessionStorage.setItem('portal_lang', newLang);
-                if (newLang === 'hi') {
-                    document.cookie = "googtrans=/en/hi; path=/;";
-                    document.cookie = "googtrans=/en/hi; path=/; domain=." + window.location.hostname;
-                } else {
-                    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname;
-                }
-                window.location.reload();
-            };
+            var currentLang = (typeof window.i18n !== 'undefined' && window.i18n.getLang) 
+                ? window.i18n.getLang() 
+                : (localStorage.getItem('lang') || sessionStorage.getItem('portal_lang') || 'en');
 
             if (currentLang === 'hi') {
-                // Run corrections and table exclusions immediately before Google Translate loads
-                excludeDatabaseTables(document.body);
-                applyHybridCorrections(document.body);
-
                 document.cookie = "googtrans=/en/hi; path=/;";
+                document.cookie = "googtrans=/en/hi; path=/; domain=." + window.location.hostname;
 
                 window.googleTranslateElementInit = function () {
                     new google.translate.TranslateElement({
@@ -558,7 +378,12 @@
                 gtScript.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
                 document.body.appendChild(gtScript);
             }
+        })();
+    </script>
 
+
+    <script>
+        (function () {
             // --- Hindi Transliteration for Remarks/Reason fields ---
             const setupTransliteration = () => {
                 const isRemarksField = (el) => {
@@ -666,35 +491,10 @@
                 });
             };
 
-            const runSetup = () => {
-                updateToggleButtons();
-                excludeDatabaseTables();
-                setupTransliteration();
-
-                if (currentLang === 'hi') {
-                    applyHybridCorrections(document.body);
-                }
-
-                const tableObserver = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        mutation.addedNodes.forEach((node) => {
-                            if (node.nodeType === Node.ELEMENT_NODE) {
-                                excludeDatabaseTables(node);
-
-                                if (currentLang === 'hi') {
-                                    applyHybridCorrections(node);
-                                }
-                            }
-                        });
-                    });
-                });
-                tableObserver.observe(document.body, { childList: true, subtree: true });
-            };
-
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', runSetup);
+                document.addEventListener('DOMContentLoaded', setupTransliteration);
             } else {
-                runSetup();
+                setupTransliteration();
             }
         })();
     </script>

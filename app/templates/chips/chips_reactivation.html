@@ -398,7 +398,7 @@
                 <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
                     {{ metrics.rejected
                     }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by UIDAI
                 </div>
             </div>
             <div class="chips-metric-card">
@@ -449,14 +449,21 @@
                 </svg>
                 <span>Sent to UIDAI queue</span>
             </button>
-            <button type="button" class="req-tab" data-tab="log">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            <button type="button" class="req-tab" data-tab="approved">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                     stroke-linejoin="round">
-                    <path d="M3 3v5h5" />
-                    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                    <path d="M12 7v5l3 3" />
+                    <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
-                <span>Reactivation log history</span>
+                <span>Approved log</span>
+            </button>
+            <button type="button" class="req-tab" data-tab="reverted">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>Reverted/Rejected log</span>
             </button>
         </div>
 
@@ -537,12 +544,12 @@
                     {% if has_pending_op.val %}
                     {% set batch_controls %}
                     <span
-                        style="font-size: 12px; color: var(--text-muted, #626B93); white-space: nowrap; margin-right: 4px;">Submitted:
-                        <strong style="color:var(--text-strong, #151C3A);">{{ req.created_at or "—" }}</strong> ·
-                        Updated: <strong style="color:var(--text-strong, #151C3A);">{{ req.updated_at or "—"
+                        style="font-size: 12px; color: var(--text-secondary); white-space: nowrap; margin-right: 4px;">Submitted:
+                        <strong style="color:var(--text-primary);">{{ req.created_at or "—" }}</strong> ·
+                        Updated: <strong style="color:var(--text-primary);">{{ req.updated_at or "—"
                             }}</strong></span>
                     <button type="button" onclick="viewBatchDocuments('{{ req.request_code }}')"
-                        style="background: #fff; color: var(--text-label, #3C466E); border: 1px solid var(--border, #C9D0E2); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">View
+                        style="background: var(--surface-input); color: var(--text-primary); border: 1px solid var(--border-strong); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">View
                         Documents</button>
                     <button type="button" onclick="dispatchBatchToUidaiPipeline('{{ req.request_code }}')"
                         style="background: var(--action, #378ADD); color: white; border: 1px solid var(--action, #378ADD); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Send
@@ -688,23 +695,17 @@
     </div><!-- /panel uidai -->
 
     <!-- ── REACTIVATION LOG HISTORY (flat operator table) ── -->
-    <div class="req-tabpanel" data-panel="log">
-        {% set history_controls %}
-        <select id="admin-history-status-filter" onchange="filterAdminQueues()" class="rs-filter">
-            <option value="all">All statuses</option>
-            <option value="APPROVED">Approved</option>
-            <option value="REVERTED">Reverted</option>
-            <option value="REJECTED">Rejected</option>
-        </select>
-        <button class="rs-export"
-            onclick="exportTableToCSV('admin-approved-table', 'reactivation_historical_logs.csv')">Export to
-            CSV</button>
-        {% endset %}
+    {% set approved_controls %}
+    <button class="rs-export"
+        onclick="exportTableToCSV('admin-approved-table', 'reactivation_approved_logs.csv')">Export to
+        CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="approved">
         {% call request_section(
         variant='done',
-        title='Reactivation log history',
+        title='Approved log',
         count='–', count_id='approved-count',
-        controls=history_controls,
+        controls=approved_controls,
         min_width=1050,
         columns=[
         {'label': 'S.No', 'cls': 'rs-col-sno'},
@@ -717,32 +718,91 @@
         {'label': 'Action', 'align': 'center'}
         ],
         table_id='admin-approved-table', body_id='approved-tbody',
-        empty_id='approved-empty-msg', empty_message='No historical requests') %}
-        {% set hist_ns = namespace(i=1) %}
+        empty_id='approved-empty-msg', empty_message='No approved requests') %}
+        {% set approved_ns = namespace(i=1) %}
         {% for req in requests %}
         {% for op in req.operators %}
         {% set op_status_upper = op.status|upper %}
-        {% if op_status_upper not in ['PENDING', 'REAPPLIED', 'SENT_TO_UIDAI'] %}
+        {% if op_status_upper == 'APPROVED' %}
         <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
             data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
-            data-status="{{ op.status | upper }}" data-district="{{ req.district_name }}"
+            data-status="APPROVED" data-district="{{ req.district_name }}"
             data-code="{{ req.request_code }}" data-created="{{ req.created_at }}"
             data-training-date="{{ req.training_date }}">
-            <td>{{ hist_ns.i }}</td>
+            <td>{{ approved_ns.i }}</td>
             <td><strong>{{ req.request_code }}</strong></td>
             <td>{{ req.district_name }}</td>
             <td>{{ op.operator_name }}</td>
             <td>{{ op.operator_mobile }}</td>
             <td>{{ op.email_id or '—' }}</td>
             <td>
-                {% if op_status_upper == 'APPROVED' %}
                 <span class="badge badge-approved">Approved</span>
-                {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
+            </td>
+            <td style="text-align: center;">
+                <div class="action-group"
+                    style="gap: 5px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" class="btn-details"
+                        onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">Details</button>
+                </div>
+            </td>
+        </tr>
+        {% set approved_ns.i = approved_ns.i + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% endcall %}
+    </div>
+
+    {% set reverted_controls %}
+    <select id="admin-reverted-status-filter" onchange="filterAdminQueues()" class="rs-filter">
+        <option value="all">All statuses</option>
+        <option value="REVERTED">Reverted</option>
+        <option value="REJECTED">Rejected</option>
+    </select>
+    <button class="rs-export"
+        onclick="exportTableToCSV('admin-reverted-table', 'reactivation_reverted_logs.csv')">Export to
+        CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="reverted">
+        {% call request_section(
+        variant='done',
+        title='Reverted/Rejected log',
+        count='–', count_id='reverted-count',
+        controls=reverted_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'District'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email'},
+        {'label': 'Status'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='admin-reverted-table', body_id='reverted-tbody',
+        empty_id='reverted-empty-msg', empty_message='No reverted/rejected requests') %}
+        {% set reverted_ns = namespace(i=1) %}
+        {% for req in requests %}
+        {% for op in req.operators %}
+        {% set op_status_upper = op.status|upper %}
+        {% if op_status_upper in ['REVERTED', 'REVERT BACK', 'REJECTED'] %}
+        <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+            data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
+            data-status="{{ op_status_upper }}" data-district="{{ req.district_name }}"
+            data-code="{{ req.request_code }}" data-created="{{ req.created_at }}"
+            data-training-date="{{ req.training_date }}">
+            <td>{{ reverted_ns.i }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.district_name }}</td>
+            <td>{{ op.operator_name }}</td>
+            <td>{{ op.operator_mobile }}</td>
+            <td>{{ op.email_id or '—' }}</td>
+            <td>
+                {% if op_status_upper in ['REVERTED', 'REVERT BACK'] %}
                 <span class="badge badge-reverted">Reverted</span>
                 {% elif op_status_upper == 'REJECTED' %}
                 <span class="badge badge-rejected">Rejected</span>
-                {% else %}
-                <span class="badge badge-pending">{{ op.status }}</span>
                 {% endif %}
             </td>
             <td style="text-align: center;">
@@ -753,13 +813,12 @@
                 </div>
             </td>
         </tr>
-        {% set hist_ns.i = hist_ns.i + 1 %}
+        {% set reverted_ns.i = reverted_ns.i + 1 %}
         {% endif %}
         {% endfor %}
         {% endfor %}
         {% endcall %}
-        <!-- End History section -->
-    </div><!-- /panel log -->
+    </div>
 
 </div>
 
@@ -769,31 +828,26 @@
         document.getElementById('admin-district-filter').value = 'all';
         document.getElementById('admin-date-filter').value = 'month';
         document.getElementById('admin-pending-status-filter').value = 'all';
-        document.getElementById('admin-history-status-filter').value = 'all';
-        // Explicitly wipe sessionStorage so filters don't stick on page reload
-        sessionStorage.removeItem('chips_react_search');
-        sessionStorage.removeItem('chips_react_district');
-        sessionStorage.removeItem('chips_react_date');
-        sessionStorage.removeItem('chips_react_pending_status');
-        sessionStorage.removeItem('chips_react_history_status');
+        if (document.getElementById('admin-reverted-status-filter')) {
+            document.getElementById('admin-reverted-status-filter').value = 'all';
+        }
         filterAdminQueues();
     }
 
     function filterAdminQueues() {
-        const query = document.getElementById('admin-search-input').value.toLowerCase().trim();
-        const district = document.getElementById('admin-district-filter').value.toLowerCase();
-        const pendingStatusFilter = document.getElementById('admin-pending-status-filter').value.toUpperCase();
+        const query = (document.getElementById('admin-search-input').value || '').toLowerCase().trim();
+        const district = document.getElementById('admin-district-filter').value.toLowerCase().trim();
         const dateFilter = document.getElementById('admin-date-filter').value;
-        const historyStatusFilter = document.getElementById('admin-history-status-filter').value.toUpperCase();
+        const pendingStatusFilter = document.getElementById('admin-pending-status-filter').value.toUpperCase().trim();
+        const revertedStatusFilter = document.getElementById('admin-reverted-status-filter') ? document.getElementById('admin-reverted-status-filter').value.toUpperCase().trim() : 'ALL';
+        const now = new Date();
 
         // Save current filter criteria to sessionStorage dynamically
         sessionStorage.setItem('chips_react_search', document.getElementById('admin-search-input').value);
         sessionStorage.setItem('chips_react_district', document.getElementById('admin-district-filter').value);
         sessionStorage.setItem('chips_react_date', document.getElementById('admin-date-filter').value);
         sessionStorage.setItem('chips_react_pending_status', document.getElementById('admin-pending-status-filter').value);
-        sessionStorage.setItem('chips_react_history_status', document.getElementById('admin-history-status-filter').value);
-
-        const now = new Date();
+        sessionStorage.setItem('chips_react_reverted_status', revertedStatusFilter);
 
         let opPendingCount = 0;
         let opReappliedCount = 0;
@@ -869,9 +923,33 @@
             }
         });
 
-        // 3. Filter LOG HISTORY (flat operator rows)
+        // 3. Filter LOG HISTORY - APPROVED (flat operator rows)
         let totalApprovedOperators = 0;
         document.querySelectorAll('#approved-tbody .op-row-item').forEach(opRow => {
+            const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
+            const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
+            const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
+            const opDistrict = (opRow.getAttribute('data-district') || '').toLowerCase();
+            const opCode = (opRow.getAttribute('data-code') || '').toLowerCase();
+            const opCreated = opRow.getAttribute('data-created') || '';
+
+            const matchesDistrict = district === 'all' || opDistrict === district;
+            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
+
+            if (matchesDistrict && matchesDate && matchesQuery) {
+                opApprovedCount++;
+                opRow.style.display = '';
+                totalApprovedOperators++;
+                opRow.cells[0].innerText = totalApprovedOperators;
+            } else {
+                opRow.style.display = 'none';
+            }
+        });
+
+        // 4. Filter LOG HISTORY - REVERTED/REJECTED (flat operator rows)
+        let totalRevertedOperators = 0;
+        document.querySelectorAll('#reverted-tbody .op-row-item').forEach(opRow => {
             const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
             const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
             const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
@@ -885,20 +963,19 @@
             const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
 
             if (matchesDistrict && matchesDate && matchesQuery) {
-                if (['APPROVED', 'ASSIGNED', 'REVIEWED'].includes(opStatus)) opApprovedCount++;
-                else if (['REVERTED', 'REVERT_BACK'].includes(opStatus)) opRevertedCount++;
+                if (['REVERTED', 'REVERT_BACK'].includes(opStatus)) opRevertedCount++;
                 else if (opStatus === 'REJECTED') opRejectedCount++;
             }
 
-            if (['ASSIGNED', 'APPROVED', 'REVIEWED'].includes(opStatus)) { opStatus = 'APPROVED'; }
-            else if (['REVERTED', 'REVERT_BACK'].includes(opStatus)) { opStatus = 'REVERTED'; }
+            if (['REVERTED', 'REVERT_BACK'].includes(opStatus)) { opStatus = 'REVERTED'; }
             else if (opStatus === 'REJECTED') { opStatus = 'REJECTED'; }
 
-            const matchesHistoryStatus = historyStatusFilter === 'ALL' || opStatus === historyStatusFilter;
+            const matchesRevertedStatus = revertedStatusFilter === 'ALL' || opStatus === revertedStatusFilter;
 
-            if (matchesDistrict && matchesDate && matchesQuery && matchesHistoryStatus) {
+            if (matchesDistrict && matchesDate && matchesQuery && matchesRevertedStatus) {
                 opRow.style.display = '';
-                totalApprovedOperators++;
+                totalRevertedOperators++;
+                opRow.cells[0].innerText = totalRevertedOperators;
             } else {
                 opRow.style.display = 'none';
             }
@@ -918,6 +995,11 @@
         if (approvedCountEl) approvedCountEl.textContent = totalApprovedOperators;
         const approvedEmptyMsg = document.getElementById('approved-empty-msg');
         if (approvedEmptyMsg) approvedEmptyMsg.style.display = (totalApprovedOperators === 0) ? 'block' : 'none';
+
+        const revertedCountEl = document.getElementById('reverted-count');
+        if (revertedCountEl) revertedCountEl.textContent = totalRevertedOperators;
+        const revertedEmptyMsg = document.getElementById('reverted-empty-msg');
+        if (revertedEmptyMsg) revertedEmptyMsg.style.display = (totalRevertedOperators === 0) ? 'block' : 'none';
 
         // Update dashboard banner metric cards dynamically
         const metricPending = document.getElementById('metric-pending');
@@ -2206,8 +2288,10 @@
             selector = '#pending-cards-container .op-row-item';
         } else if (tableID === 'admin-uidai-table') {
             selector = '#uidai-tbody .op-row-item';
-        } else {
+        } else if (tableID === 'admin-approved-table') {
             selector = '#approved-tbody .op-row-item';
+        } else if (tableID === 'admin-reverted-table') {
+            selector = '#reverted-tbody .op-row-item';
         }
 
         const opRows = document.querySelectorAll(selector);
@@ -2262,7 +2346,7 @@
             sessionStorage.removeItem('chips_react_district');
             sessionStorage.removeItem('chips_react_date');
             sessionStorage.removeItem('chips_react_pending_status');
-            sessionStorage.removeItem('chips_react_history_status');
+            sessionStorage.removeItem('chips_react_reverted_status');
         }
 
         if (sessionStorage.getItem('chips_react_search') !== null) {
@@ -2270,13 +2354,17 @@
             document.getElementById('admin-district-filter').value = sessionStorage.getItem('chips_react_district');
             document.getElementById('admin-date-filter').value = sessionStorage.getItem('chips_react_date');
             document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('chips_react_pending_status');
-            document.getElementById('admin-history-status-filter').value = sessionStorage.getItem('chips_react_history_status');
+            if (document.getElementById('admin-reverted-status-filter') && sessionStorage.getItem('chips_react_reverted_status')) {
+                document.getElementById('admin-reverted-status-filter').value = sessionStorage.getItem('chips_react_reverted_status');
+            }
         } else {
             document.getElementById('admin-search-input').value = '';
             document.getElementById('admin-district-filter').value = 'all';
             document.getElementById('admin-date-filter').value = 'month';
             document.getElementById('admin-pending-status-filter').value = 'all';
-            document.getElementById('admin-history-status-filter').value = 'all';
+            if (document.getElementById('admin-reverted-status-filter')) {
+                document.getElementById('admin-reverted-status-filter').value = 'all';
+            }
         }
 
         // ── URL Query Parameters Parsing ────────────────────────────────
@@ -2306,18 +2394,16 @@
         }
 
         if (qStatus) {
-            const statusL = qStatus.toLowerCase().trim();
-            const pendingStatusSelect = document.getElementById('admin-pending-status-filter');
-            const historyStatusSelect = document.getElementById('admin-history-status-filter');
+            const st = qStatus.toLowerCase().trim();
+            let targetTab = null;
+            if (st === 'pending') targetTab = 'pending';
+            else if (st === 'approved') targetTab = 'approved';
+            else if (st === 'rejected' || st === 'reverted') targetTab = 'reverted';
+            else if (st === 'sent_to_uidai' || st === 'uidai') targetTab = 'uidai';
 
-            if (statusL === 'pending') {
-                if (pendingStatusSelect) pendingStatusSelect.value = 'all';
-            } else if (statusL === 'sent_to_uidai') {
-                if (pendingStatusSelect) pendingStatusSelect.value = 'SENT_TO_UIDAI';
-            } else if (statusL === 'approved') {
-                if (historyStatusSelect) historyStatusSelect.value = 'REVIEWED';
-            } else if (statusL === 'rejected') {
-                if (historyStatusSelect) historyStatusSelect.value = 'REVERTED';
+            if (targetTab) {
+                const activeTabBtn = document.querySelector(`.req-tab[data-tab="${targetTab}"]`);
+                if (activeTabBtn) activeTabBtn.click();
             }
         }
 
@@ -2343,34 +2429,21 @@
             });
         }
 
-        // ── Deep-link scroll + highlight flash ──────────────────────────
+        // ── Deep-link scroll ──────────────────────────
         if (qDist || qStatus) {
-            function flashEl(el) {
-                if (!el) return;
-                el.style.transition = 'box-shadow 0.4s ease, outline 0.4s ease';
-                el.style.outline = '2px solid rgba(59,130,246,0.6)';
-                el.style.boxShadow = '0 0 0 4px rgba(59,130,246,0.18), 0 4px 20px rgba(59,130,246,0.22)';
-                setTimeout(() => { el.style.outline = ''; el.style.boxShadow = ''; }, 2200);
-            }
             const statusL = (qStatus || '').toLowerCase().trim();
             setTimeout(() => {
-                let scrollTarget, flashTarget;
+                let scrollTarget;
                 if (!statusL || statusL === 'pending') {
                     scrollTarget = document.getElementById('admin-pending-table') || document.getElementById('pending-cards-container');
-                    flashTarget = document.getElementById('admin-pending-status-filter');
                 } else if (statusL === 'sent_to_uidai') {
                     scrollTarget = document.getElementById('admin-uidai-table') || document.getElementById('uidai-cards-container');
-                    flashTarget = document.getElementById('admin-pending-status-filter');
+                } else if (statusL === 'approved') {
+                    scrollTarget = document.getElementById('admin-approved-table') || document.getElementById('approved-cards-container');
                 } else {
-                    const historyTable = document.getElementById('admin-approved-table') || document.getElementById('approved-cards-container');
-                    scrollTarget = historyTable;
-                    flashTarget = document.getElementById('admin-history-status-filter');
+                    scrollTarget = document.getElementById('admin-reverted-table') || document.getElementById('reverted-cards-container');
                 }
                 if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                if (flashTarget) {
-                    const bar = flashTarget.closest('div[style*="flex"]') || flashTarget.closest('.filter-bar') || flashTarget;
-                    flashEl(bar);
-                }
             }, 200);
         }
     });

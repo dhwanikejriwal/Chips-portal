@@ -207,20 +207,20 @@ window.showL1Details = function (data, activeView) {
         function infoCell(label, value) {
             const v = (value && value !== 'null' && value !== 'undefined') ? escapeHtml(String(value)) : '<span style="color:#cbd5e1;">—</span>';
             return `
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
-                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">${label}</div>
-                <div style="font-size:13px;font-weight:600;color:#0f172a;word-break:break-word;">${v}</div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01); display: flex; flex-direction: column; gap: 3px;">
+                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${label}</div>
+                <div style="font-size: 13px; font-weight: 600; color: #495057; word-break: break-word;">${v}</div>
             </div>`;
         }
 
         function sectionHead(title) {
-            return `<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">${title}</div>`;
+            return `<div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin: 16px 0 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">${title}</div>`;
         }
 
         let htmlContent = `
         <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                <span style="font-size: 14px; color: #666;">Request: <strong>${data.request_code}</strong></span>
+                <span style="font-size: 14px; color: #666; font-weight: 600;">Request: ${data.request_code}</span>
                 <span>${statusBadge}</span>
             </div>
             <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
@@ -230,7 +230,7 @@ window.showL1Details = function (data, activeView) {
             ${displayStatus === 'REVERTED' ? `
             <!-- Revert Reason / Remark Box -->
             <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
-                <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
                     <span>💬</span> REVERT REASON / REMARK
                 </div>
                 <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
@@ -238,29 +238,29 @@ window.showL1Details = function (data, activeView) {
                 </div>
             </div>` : ''}
 
-            ${sectionHead('L1 Registration Specs')}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            ${sectionHead('Hardware & User Details')}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
                 ${infoCell('Station ID', data.station_id)}
                 ${infoCell('Machine ID', data.machine_id)}
+                ${infoCell('Operator Name', data.operator_name || 'N/A')}
+                ${infoCell('Operator ID', data.operator_id || 'N/A')}
+            </div>
+
+            ${sectionHead('System Details')}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
                 ${infoCell('Model Type', data.model_type)}
                 ${infoCell('Software Version', data.software_version)}
-                ${infoCell('Laptop Serial Number', data.laptop_serial_no)}
-                ${infoCell('Laptop Brand', data.laptop_brand)}
+                ${infoCell('Laptop Serial Number', data.laptop_serial_no || 'N/A')}
+                ${infoCell('Laptop Brand', data.laptop_brand || 'N/A')}
             </div>
 
-            ${sectionHead('Operator Details')}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-                ${infoCell('Operator Name', data.operator_name)}
-                ${infoCell('Operator ID', data.operator_id)}
-            </div>
-
-            ${sectionHead('Ultra Viewer Credentials')}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            ${sectionHead('Authentication Details')}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
                 ${infoCell('Ultra Viewer ID', data.uv_id)}
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
-                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Ultra Viewer Password</div>
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01); display: flex; flex-direction: column; gap: 3px;">
+                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Ultra Viewer Password</div>
                     <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
-                        <input type="password" id="chips_uv_password_display" value="${escapeHtml(data.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: #0f172a; width: 100%; outline: none;" />
+                        <input type="password" id="chips_uv_password_display" value="${escapeHtml(data.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: #495057; width: 100%; outline: none;" />
                         <button type="button" onclick="togglePasswordVisibility('chips_uv_password_display', this)" style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #64748b;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -279,7 +279,7 @@ window.showL1Details = function (data, activeView) {
         `;
 
         Swal.fire({
-            title: `<span style="font-family:inherit; font-weight:800;">L1 Registration Request Details</span>`,
+            title: `<span style="font-family:inherit; font-weight:800;">L1 Request Details</span>`,
             html: htmlContent,
             showCancelButton: false,
             showConfirmButton: true,

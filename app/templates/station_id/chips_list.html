@@ -135,6 +135,20 @@
 
 {% block content %}
 {% from 'partials/request_section.html' import request_section %}
+<!-- Jinja2 Metric Calculations -->
+{% set total_requests = requests | length %}
+{% set metrics = namespace(pending=0, reverted=0, allotted=0) %}
+{% for r in requests %}
+{% set st = r.status | upper %}
+{% if st in ['PENDING', 'REAPPLIED'] %}
+{% set metrics.pending = metrics.pending + 1 %}
+{% elif st == 'REVERTED' %}
+{% set metrics.reverted = metrics.reverted + 1 %}
+{% elif st == 'ALLOTTED' %}
+{% set metrics.allotted = metrics.allotted + 1 %}
+{% endif %}
+{% endfor %}
+
 <!-- Standardized CHiPS Header Banner -->
 <div class="chips-header-banner">
     <div style="display: flex; align-items: center; gap: 15px;">
@@ -157,30 +171,30 @@
     </div>
     <div class="chips-banner-metrics">
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'in', ['PENDING', 'REAPPLIED']) | list | length }}</div>
+            <div id="stat-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metrics.pending }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
                 data-i18n="stat.pendingReview">Pending Review
             </div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'REVERTED') | list | length }}</div>
+            <div id="stat-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metrics.reverted }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
                 data-i18n="stat.reverted">Reverted</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                selectattr('status', 'equalto', 'ALLOTTED') | list | length }}</div>
+            <div id="stat-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metrics.allotted }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
                 data-i18n="stat.allotted">Allotted</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | length }}
+            <div id="stat-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                total_requests }}
             </div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
-                data-i18n="stat.totalRequests">Total Requests
-            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested
+                Kits</div>
         </div>
     </div>
 </div>
@@ -209,54 +223,63 @@
         </svg>
         <span data-i18n="section.pending">Pending Station ID requests</span>
     </button>
-    <button type="button" class="sid-tab" data-sid-tab="log" onclick="switchSidTab('log')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+    <button type="button" class="sid-tab" data-sid-tab="approved" onclick="switchSidTab('approved')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">
-            <path d="M3 3v5h5" />
-            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-            <path d="M12 7v5l3 3" />
+            <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
-        <span data-i18n="section.logHistory">Station ID log history</span>
+        <span>Approved Station ID log</span>
     </button>
+    <button type="button" class="sid-tab" data-sid-tab="reverted" onclick="switchSidTab('reverted')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>Reverted Station ID log</span>
+    </button>
+</div>
+
+<!-- Unified Filter Controls -->
+<div class="filter-bar">
+    <div class="filter-group filter-group-search">
+        <label data-i18n="filter.searchRequest">Search Request</label>
+        <input type="text" id="sid-search" placeholder="Search by code or model..."
+            data-i18n-placeholder="filter.searchPlaceholder" class="filter-input" oninput="filterAdminQueues()">
+    </div>
+    <div class="filter-group">
+        <label data-i18n="filter.district">District</label>
+        <select id="sid-district" class="filter-input" onchange="filterAdminQueues()">
+            <option value="all" data-i18n="filter.allDistricts">All Districts</option>
+            {% for d in sid_districts %}
+            <option value="{{ d | lower | trim }}" data-i18n-district="{{ d }}">{{ d }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label data-i18n="filter.timePeriod">Time Period</label>
+        <select id="sid-date" class="filter-input" onchange="filterAdminQueues()">
+            <option value="all" data-i18n="filter.allTime">All Time</option>
+            <option value="today" data-i18n="filter.today">Today</option>
+            <option value="week" data-i18n="filter.week">Week</option>
+            <option value="month" selected data-i18n="filter.month">Month</option>
+        </select>
+    </div>
+    <div class="filter-group-button" style="flex: 0 0 auto;">
+        <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            <span data-i18n="filter.clear">Clear Filters</span>
+        </button>
+    </div>
 </div>
 
 <!-- ═══════════════ TAB PANEL 1: PENDING ═══════════════ -->
 <div class="sid-tab-panel active" id="sid-panel-pending">
-    <div class="filter-bar">
-        <div class="filter-group filter-group-search">
-            <label data-i18n="filter.searchRequest">Search Request</label>
-            <input type="text" id="pending-search" placeholder="Search by code, district, or model..."
-                data-i18n-placeholder="filter.searchPlaceholder" class="filter-input" oninput="filterPending()">
-        </div>
-        <div class="filter-group">
-            <label data-i18n="filter.district">District</label>
-            <select id="pending-district" class="filter-input" onchange="filterPending()">
-                <option value="all" data-i18n="filter.allDistricts">All Districts</option>
-                {% for d in sid_districts %}
-                <option value="{{ d | lower | trim }}" data-i18n-district="{{ d }}">{{ d }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="filter-group">
-            <label data-i18n="filter.timePeriod">Time Period</label>
-            <select id="pending-date" class="filter-input" onchange="filterPending()">
-                <option value="all" data-i18n="filter.allTime">All Time</option>
-                <option value="today" data-i18n="filter.today">Today</option>
-                <option value="week" data-i18n="filter.week">Week</option>
-                <option value="month" selected data-i18n="filter.month">Month</option>
-            </select>
-        </div>
-        <div class="filter-group-button" style="flex: 0 0 auto;">
-            <button type="button" class="btn-clear-filters" onclick="clearFilters('pending')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-                <span data-i18n="filter.clear">Clear Filters</span>
-            </button>
-        </div>
-    </div>
 
     {% set pending_controls %}
     <select id="admin-pending-status-filter" class="rs-filter" onchange="filterPending()">
@@ -347,58 +370,18 @@
     {% endcall %}
 </div><!-- /sid-panel-pending -->
 
-<!-- ═══════════════ TAB PANEL 2: LOG HISTORY ═══════════════ -->
-<div class="sid-tab-panel" id="sid-panel-log">
-    <div class="filter-bar">
-        <div class="filter-group filter-group-search">
-            <label data-i18n="filter.searchRequest">Search Request</label>
-            <input type="text" id="log-search" placeholder="Search by code, district, or model..."
-                data-i18n-placeholder="filter.searchPlaceholder" class="filter-input" oninput="filterLog()">
-        </div>
-        <div class="filter-group">
-            <label data-i18n="filter.district">District</label>
-            <select id="log-district" class="filter-input" onchange="filterLog()">
-                <option value="all" data-i18n="filter.allDistricts">All Districts</option>
-                {% for d in sid_districts %}
-                <option value="{{ d | lower | trim }}" data-i18n-district="{{ d }}">{{ d }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="filter-group">
-            <label data-i18n="filter.timePeriod">Time Period</label>
-            <select id="log-date" class="filter-input" onchange="filterLog()">
-                <option value="all" data-i18n="filter.allTime">All Time</option>
-                <option value="today" data-i18n="filter.today">Today</option>
-                <option value="week" data-i18n="filter.week">Week</option>
-                <option value="month" selected data-i18n="filter.month">Month</option>
-            </select>
-        </div>
-        <div class="filter-group-button" style="flex: 0 0 auto;">
-            <button type="button" class="btn-clear-filters" onclick="clearFilters('log')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-                <span data-i18n="filter.clear">Clear Filters</span>
-            </button>
-        </div>
-    </div>
+<!-- ═══════════════ TAB PANEL 2: APPROVED STATION ID LOG ═══════════════ -->
+<div class="sid-tab-panel" id="sid-panel-approved">
 
-    {% set log_controls %}
-    <select id="admin-history-status-filter" class="rs-filter" onchange="filterLog()">
-        <option value="all" data-i18n="ui.allStatuses">All statuses</option>
-        <option value="allotted" data-i18n="status.allotted">Allotted</option>
-        <option value="reverted" data-i18n="status.reverted">Reverted</option>
-    </select>
+    {% set approved_controls %}
     <button class="rs-export" data-i18n="ui.exportCsv"
-        onclick="exportTableToExcel('log-table', 'processed_station_id_history.xlsx')">Export to CSV</button>
+        onclick="exportTableToExcel('approved-table', 'approved_station_id_requests.xlsx')">Export to CSV</button>
     {% endset %}
     {% call request_section(
     variant='done',
-    title='Station ID log history', title_key='section.logHistory',
-    count='–', count_id='log-count',
-    controls=log_controls,
+    title='Approved Station ID log',
+    count='–', count_id='approved-count',
+    controls=approved_controls,
     min_width=1150,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno', 'key': 'col.sno'},
@@ -414,17 +397,17 @@
     {'label': 'Updated at', 'key': 'col.updatedAt'},
     {'label': 'Action', 'align': 'center', 'key': 'col.action'}
     ],
-    table_id='log-table', body_id='log-tbody',
-    empty_id='log-empty-msg',
-    empty_message='No log history', empty_key='empty.log') %}
-    {% set ns2 = namespace(count=1) %}
-    {% for r in requests if (r.status|upper) in ['ALLOTTED', 'REVERTED'] %}
+    table_id='approved-table', body_id='approved-tbody',
+    empty_id='approved-empty-msg',
+    empty_message='No approved requests') %}
+    {% set ns_approved = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) == 'ALLOTTED' %}
     <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-district="{{ r.district_name or '' }}"
         data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
         data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
         data-status="{{ r.status }}" data-created="{{ r.submitted_at or '' }}"
         data-station-id="{{ r.station_id_inserted or '' }}">
-        <td>{{ ns2.count }}</td>
+        <td>{{ ns_approved.count }}</td>
         <td><strong>{{ r.request_no or '—' }}</strong></td>
         <td{% if r.district_name %} data-i18n-district="{{ r.district_name }}" {% endif %}>{{ r.district_name or '—' }}
             </td>
@@ -453,9 +436,7 @@
                     <strong style="color:#16a34a;">—</strong>
                     {% endif %}
                 </td>
-                <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}"
-                        data-i18n="status.{{ r.status | lower | replace(' ', '_') }}">{{ r.status | replace('_', ' ') |
-                        title }}</span></td>
+                <td><span class="sid-badge sid-badge-allotted" data-i18n="status.allotted">Allotted</span></td>
                 <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
                 <td>{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
                 <td style="text-align: center;">
@@ -470,10 +451,79 @@
                     </button>
                 </td>
     </tr>
-    {% set ns2.count = ns2.count + 1 %}
+    {% set ns_approved.count = ns_approved.count + 1 %}
     {% endfor %}
     {% endcall %}
-</div><!-- /sid-panel-log -->
+</div>
+
+<!-- ═══════════════ TAB PANEL 3: REVERTED STATION ID LOG ═══════════════ -->
+<div class="sid-tab-panel" id="sid-panel-reverted">
+
+    {% set reverted_controls %}
+    <button class="rs-export" data-i18n="ui.exportCsv"
+        onclick="exportTableToExcel('reverted-table', 'reverted_station_id_requests.xlsx')">Export to CSV</button>
+    {% endset %}
+    {% call request_section(
+    variant='done',
+    title='Reverted Station ID log',
+    count='–', count_id='reverted-count',
+    controls=reverted_controls,
+    min_width=1150,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno', 'key': 'col.sno'},
+    {'label': 'Request ID', 'key': 'col.requestId'},
+    {'label': 'District', 'key': 'col.district'},
+    {'label': 'Model', 'key': 'col.model'},
+    {'label': 'User type', 'key': 'col.userType'},
+    {'label': 'Type of slot', 'key': 'col.slotType'},
+    {'label': 'No. of kits', 'align': 'right', 'key': 'col.noOfKits'},
+    {'label': 'Status', 'key': 'col.status'},
+    {'label': 'Submitted at', 'key': 'col.submittedAt'},
+    {'label': 'Updated at', 'key': 'col.updatedAt'},
+    {'label': 'Action', 'align': 'center', 'key': 'col.action'}
+    ],
+    table_id='reverted-table', body_id='reverted-tbody',
+    empty_id='reverted-empty-msg',
+    empty_message='No reverted requests') %}
+    {% set ns_reverted = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) == 'REVERTED' %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-district="{{ r.district_name or '' }}"
+        data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
+        data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
+        data-status="{{ r.status }}" data-created="{{ r.submitted_at or '' }}">
+        <td>{{ ns_reverted.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td{% if r.district_name %} data-i18n-district="{{ r.district_name }}" {% endif %}>{{ r.district_name or '—' }}
+            </td>
+            <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
+            <td>
+                {% if r.user_type == 'new_user' %}
+                <span data-i18n="value.newUser">New user</span>
+                {% else %}
+                {{ r.user_type | replace('_', ' ') | capitalize }}
+                {% endif %}
+            </td>
+            <td{% if r.slot %} data-i18n-slot="{{ r.slot }}" {% endif %}>{{ (r.slot | title) if r.slot else '—' }}</td>
+                <td><strong>{{ r.number_of_kits }}</strong></td>
+                <td><span class="sid-badge sid-badge-reverted" data-i18n="status.reverted">Reverted</span></td>
+                <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
+                <td>{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
+                <td style="text-align: center;">
+                    <button class="btn-details"
+                        onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <span data-i18n="action.details">Details</span>
+                    </button>
+                </td>
+    </tr>
+    {% set ns_reverted.count = ns_reverted.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div>
 
 <script>
     const currentReviewerId = "{{ session.get('user_id') or '' }}";
@@ -570,50 +620,70 @@
 
         if (!isActionReload) {
             // Reset filters to defaults
-            ['pending', 'log'].forEach(w => {
-                sessionStorage.removeItem('chips_sid_' + w + '_search');
-                sessionStorage.removeItem('chips_sid_' + w + '_district');
-                sessionStorage.removeItem('chips_sid_' + w + '_date');
-            });
+            sessionStorage.removeItem('chips_sid_global_search');
+            sessionStorage.removeItem('chips_sid_global_district');
+            sessionStorage.removeItem('chips_sid_global_date');
             sessionStorage.removeItem('chips_pending_status');
             sessionStorage.removeItem('chips_log_status');
+            sessionStorage.removeItem('chips_sid_active_tab');
         }
         // Restore each tab's own filter controls + the active tab.
-        document.getElementById('pending-search').value = sessionStorage.getItem('chips_sid_pending_search') || '';
-        document.getElementById('pending-district').value = sessionStorage.getItem('chips_sid_pending_district') || 'all';
-        document.getElementById('pending-date').value = sessionStorage.getItem('chips_sid_pending_date') || 'month';
+        document.getElementById('sid-search').value = sessionStorage.getItem('chips_sid_global_search') || '';
+        document.getElementById('sid-district').value = sessionStorage.getItem('chips_sid_global_district') || 'all';
+        document.getElementById('sid-date').value = sessionStorage.getItem('chips_sid_global_date') || 'month';
         document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('chips_pending_status') || 'all';
-        document.getElementById('log-search').value = sessionStorage.getItem('chips_sid_log_search') || '';
-        document.getElementById('log-district').value = sessionStorage.getItem('chips_sid_log_district') || 'all';
-        document.getElementById('log-date').value = sessionStorage.getItem('chips_sid_log_date') || 'month';
-        document.getElementById('admin-history-status-filter').value = sessionStorage.getItem('chips_log_status') || 'all';
         switchSidTab(sessionStorage.getItem('chips_sid_active_tab') || 'pending');
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const qDist = urlParams.get('district');
+        const qStatus = urlParams.get('status');
+
+        if (qStatus) {
+            const st = qStatus.toLowerCase().trim();
+            if (st === 'approved' || st === 'allotted') switchSidTab('approved');
+            else if (st === 'reverted' || st === 'reverted_rejected') switchSidTab('reverted');
+            else if (st === 'pending') switchSidTab('pending');
+        }
+
+        if (qDist) {
+            const distSelect = document.getElementById('sid-district');
+            if (distSelect) {
+                const val = qDist.toLowerCase().trim();
+                let matched = false;
+                for (let opt of distSelect.options) {
+                    if (opt.value.toLowerCase().trim() === val || opt.text.toLowerCase().trim() === val) {
+                        distSelect.value = opt.value;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    const searchInput = document.getElementById('sid-search');
+                    if (searchInput) searchInput.value = qDist;
+                }
+            }
+        }
 
         // Show one section at a time; remember the choice across reloads.
         function switchSidTab(which) {
-            if (which !== 'pending' && which !== 'log') which = 'pending';
+            if (which !== 'pending' && which !== 'approved' && which !== 'reverted') which = 'pending';
             document.querySelectorAll('.sid-tab').forEach(t =>
                 t.classList.toggle('active', t.getAttribute('data-sid-tab') === which));
             document.querySelectorAll('.sid-tab-panel').forEach(p => p.classList.remove('active'));
             const panel = document.getElementById('sid-panel-' + which);
             if (panel) panel.classList.add('active');
             sessionStorage.setItem('chips_sid_active_tab', which);
+            if (typeof window.updateStationMetrics === 'function') window.updateStationMetrics();
         }
 
         function clearFilters(which) {
-            if (which === 'log') {
-                document.getElementById('log-search').value = '';
-                document.getElementById('log-district').value = 'all';
-                document.getElementById('log-date').value = 'month';
-                document.getElementById('admin-history-status-filter').value = 'all';
-                filterLog();
-            } else {
-                document.getElementById('pending-search').value = '';
-                document.getElementById('pending-district').value = 'all';
-                document.getElementById('pending-date').value = 'month';
+            document.getElementById('sid-search').value = '';
+            document.getElementById('sid-district').value = 'all';
+            document.getElementById('sid-date').value = 'month';
+            if (document.getElementById('admin-pending-status-filter')) {
                 document.getElementById('admin-pending-status-filter').value = 'all';
-                filterPending();
             }
+            filterAdminQueues();
         }
 
         // Rolling 7 / 30-day + today thresholds, shared by both tables.
@@ -627,15 +697,15 @@
         }
 
         function filterPending() {
-            const q = (document.getElementById('pending-search').value || '').toLowerCase().trim();
-            const df = document.getElementById('pending-date').value;
-            const selectedDistrict = document.getElementById('pending-district').value;
+            const q = (document.getElementById('sid-search').value || '').toLowerCase().trim();
+            const df = document.getElementById('sid-date').value;
+            const selectedDistrict = document.getElementById('sid-district').value;
             const sf = document.getElementById('admin-pending-status-filter').value.toLowerCase().trim();
             const now = new Date();
 
-            sessionStorage.setItem('chips_sid_pending_search', document.getElementById('pending-search').value);
-            sessionStorage.setItem('chips_sid_pending_district', selectedDistrict);
-            sessionStorage.setItem('chips_sid_pending_date', df);
+            sessionStorage.setItem('chips_sid_global_search', document.getElementById('sid-search').value);
+            sessionStorage.setItem('chips_sid_global_district', selectedDistrict);
+            sessionStorage.setItem('chips_sid_global_date', df);
             sessionStorage.setItem('chips_pending_status', sf);
 
             let visible = 0;
@@ -661,19 +731,68 @@
         }
 
         function filterLog() {
-            const q = (document.getElementById('log-search').value || '').toLowerCase().trim();
-            const df = document.getElementById('log-date').value;
-            const selectedDistrict = document.getElementById('log-district').value;
-            const sf = document.getElementById('admin-history-status-filter').value.toLowerCase().trim();
+            const q = (document.getElementById('sid-search').value || '').toLowerCase().trim();
+            const df = document.getElementById('sid-date').value;
+            const selectedDistrict = document.getElementById('sid-district').value;
             const now = new Date();
 
-            sessionStorage.setItem('chips_sid_log_search', document.getElementById('log-search').value);
-            sessionStorage.setItem('chips_sid_log_district', selectedDistrict);
-            sessionStorage.setItem('chips_sid_log_date', df);
-            sessionStorage.setItem('chips_log_status', sf);
+            sessionStorage.setItem('chips_sid_global_search', document.getElementById('sid-search').value);
+            sessionStorage.setItem('chips_sid_global_district', selectedDistrict);
+            sessionStorage.setItem('chips_sid_global_date', df);
 
-            let visible = 0;
-            document.querySelectorAll('#log-tbody tr[data-id]').forEach(row => {
+            // Filter approved log
+            let visibleApproved = 0;
+            document.querySelectorAll('#approved-tbody tr[data-id]').forEach(row => {
+                const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+                const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+                const model = (row.getAttribute('data-model') || '').toLowerCase();
+                const created = row.getAttribute('data-created') || '';
+                const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
+
+                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
+                const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
+                const matchDate = sidDateMatch(created, df, now);
+
+                const show = matchQ && matchDistrict && matchDate;
+                row.style.display = show ? '' : 'none';
+                if (show) { visibleApproved++; if (row.cells[0]) row.cells[0].innerText = visibleApproved; }
+            });
+            if (document.getElementById('approved-count')) document.getElementById('approved-count').textContent = visibleApproved;
+            if (document.getElementById('approved-empty-msg')) document.getElementById('approved-empty-msg').style.display = (visibleApproved === 0) ? 'block' : 'none';
+
+            // Filter reverted log
+            let visibleReverted = 0;
+            document.querySelectorAll('#reverted-tbody tr[data-id]').forEach(row => {
+                const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+                const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+                const model = (row.getAttribute('data-model') || '').toLowerCase();
+                const created = row.getAttribute('data-created') || '';
+                const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
+
+                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
+                const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
+                const matchDate = sidDateMatch(created, df, now);
+
+                const show = matchQ && matchDistrict && matchDate;
+                row.style.display = show ? '' : 'none';
+                if (show) { visibleReverted++; if (row.cells[0]) row.cells[0].innerText = visibleReverted; }
+            });
+            if (document.getElementById('reverted-count')) document.getElementById('reverted-count').textContent = visibleReverted;
+            if (document.getElementById('reverted-empty-msg')) document.getElementById('reverted-empty-msg').style.display = (visibleReverted === 0) ? 'block' : 'none';
+        }
+
+        window.updateStationMetrics = function () {
+            const q = (document.getElementById('sid-search').value || '').toLowerCase().trim();
+            const df = document.getElementById('sid-date').value;
+            const selectedDistrict = document.getElementById('sid-district').value;
+            const now = new Date();
+
+            let metricPending = 0;
+            let metricReverted = 0;
+            let metricAllotted = 0;
+
+            const allRowsForMetrics = document.querySelectorAll('#pending-tbody tr[data-id], #approved-tbody tr[data-id], #reverted-tbody tr[data-id]');
+            allRowsForMetrics.forEach(row => {
                 const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
                 const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
                 const model = (row.getAttribute('data-model') || '').toLowerCase();
@@ -682,24 +801,33 @@
                 const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
 
                 const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
-                let matchStatus = false;
-                if (sf === 'all') matchStatus = true;
-                else if (sf === 'reverted by chips') matchStatus = ((status || '').toLowerCase().replace(/ /g, '_') === 'reverted');
-                else matchStatus = (status === sf);
                 const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
                 const matchDate = sidDateMatch(created, df, now);
 
-                const show = matchQ && matchStatus && matchDistrict && matchDate;
-                row.style.display = show ? '' : 'none';
-                if (show) { visible++; if (row.cells[0]) row.cells[0].innerText = visible; }
+                if (matchQ && matchDistrict && matchDate) {
+                    if (status === 'pending' || status === 'reapplied') {
+                        metricPending++;
+                    } else if (status === 'reverted') {
+                        metricReverted++;
+                    } else if (status === 'allotted') {
+                        metricAllotted++;
+                    }
+                }
             });
-            if (document.getElementById('log-count')) document.getElementById('log-count').textContent = visible;
-            if (document.getElementById('log-empty-msg')) document.getElementById('log-empty-msg').style.display = (visible === 0) ? 'block' : 'none';
-        }
+
+            const statPendingEl = document.getElementById('stat-pending');
+            if (statPendingEl) statPendingEl.textContent = metricPending;
+            const statRevertedEl = document.getElementById('stat-reverted');
+            if (statRevertedEl) statRevertedEl.textContent = metricReverted;
+            const statApprovedEl = document.getElementById('stat-approved');
+            if (statApprovedEl) statApprovedEl.textContent = metricAllotted;
+            const statTotalEl = document.getElementById('stat-total');
+            if (statTotalEl) statTotalEl.textContent = metricPending + metricReverted + metricAllotted;
+        };
 
         // Kept for existing callers (init + window export).
-        function filterAdminQueues() { filterPending(); filterLog(); }
-        function clearAllFilters() { clearFilters('pending'); clearFilters('log'); }
+        function filterAdminQueues() { filterPending(); filterLog(); if (typeof window.updateStationMetrics === 'function') window.updateStationMetrics(); }
+        function clearAllFilters() { clearFilters('pending'); filterAdminQueues(); }
 
         function submitDynamicForm(action, fields) {
             const form = document.createElement('form');
@@ -1053,26 +1181,38 @@
                     </div>
                 </div>` : ''}
 
-                <!-- Request Metadata Card -->
+                <!-- Station ID Specifications Card -->
                 <div style="margin-bottom: 20px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">${t('modal.requestMetadata')}</div>
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Station ID Specifications</div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${t('col.district')}</div>
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">District Name</div>
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(window.i18n.district(data.district_name))}</div>
                         </div>
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${t('col.model')}</div>
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Model Selection</div>
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(data.model)}</div>
                         </div>
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${t('col.userType')}</div>
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Number of Kits</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${data.number_of_kits} Kit(s)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Purpose & Details Card -->
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">User Purpose &amp; Details</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">User Type Purpose</div>
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${userTypeLabel}</div>
                         </div>
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${t('col.noOfKits')}</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${data.number_of_kits}</div>
-                        </div>
+                        ${data.user_type === 'custom' ? `
+                        <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Custom Reason</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(data.user_type_custom_reason || '')}</div>
+                        </div>` : ''}
                     </div>
                 </div>
 
@@ -1149,7 +1289,12 @@
         // Export helper function to fetch Excel stream from backend
         function exportTableToExcel(tableID, filename = 'export.csv') {
             const ids = [];
-            const selector = (tableID === 'admin-pending-table') ? '#pending-tbody tr' : '#log-tbody tr';
+            let selector = '#pending-tbody tr';
+            if (tableID === 'approved-table') {
+                selector = '#approved-tbody tr';
+            } else if (tableID === 'reverted-table') {
+                selector = '#reverted-tbody tr';
+            }
             const rows = document.querySelectorAll(selector);
 
             rows.forEach(row => {

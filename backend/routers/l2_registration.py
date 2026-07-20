@@ -64,13 +64,12 @@ def submit_l2_request(
         reason_for_l2_registration=reason_for_l2_registration,
         old_machine_id=old_machine_id,
         tech_center_remarks=tech_center_remarks,
-        operator_name=operator_name,
-        operator_id=operator_id,
+        operator_name=operator_name.strip() if operator_name else "",
+        operator_id=operator_id.strip() if operator_id else "",
         unique_id=unique_id.strip() if unique_id else "",
-        block=block,
-        address_of_govt_premises=address_of_govt_premises,
+        block=block.strip() if block else "",
+        address_of_govt_premises=address_of_govt_premises.strip() if address_of_govt_premises else "",
         status_id=StatusEnum.PENDING.value
-
     )
     db.add(new_req)
     db.commit()
@@ -553,11 +552,11 @@ def reapply_l2_request(
     r.reason_for_l2_registration = reason_for_l2_registration
     r.old_machine_id = old_machine_id
     r.tech_center_remarks = tech_center_remarks
-    r.operator_name = operator_name
-    r.operator_id = operator_id
+    r.operator_name = operator_name.strip() if operator_name else ""
+    r.operator_id = operator_id.strip() if operator_id else ""
     r.unique_id = unique_id.strip() if unique_id else ""
-    r.block = block
-    r.address_of_govt_premises = address_of_govt_premises
+    r.block = block.strip() if block else ""
+    r.address_of_govt_premises = address_of_govt_premises.strip() if address_of_govt_premises else ""
     r.status_id = StatusEnum.REAPPLIED.value
 
     r.reviewed_at = None

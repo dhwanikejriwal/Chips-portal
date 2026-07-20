@@ -1018,26 +1018,23 @@
         {% if role == 'Admin' %}
         {% set identity_name = 'CHiPS admin' %}
         {% set identity_role_label = 'Admin' %}
+        {% set identity_initials = 'AD' %}
         {% elif role == 'Candidate' %}
-        {% set identity_name = 'Candidate' %}
+        {% set identity_name = session.get('full_name') or session.get('candidate_name') or session.get('username') or 'Candidate' %}
         {% set identity_role_label = 'Candidate' %}
+        {% set identity_initials = 'CA' %}
         {% else %}
-        {# The name line shows the district (what distinguishes this DC from
-        any other) rather than repeating the generic role, which already
-        appears on the line below. #}
-        {% set identity_name = session.get('district_name', '') or 'District coordinator' %}
-        {% set identity_role_label = 'District Coordinator' %}
+        {% set identity_name = session.get('full_name') or session.get('username') or 'District Coordinator' %}
+        {% set dist_name = session.get('district_name', '') %}
+        {% if role == 'EDM' %}
+        {% set identity_role_label = 'E-District Manager - ' ~ dist_name if dist_name else 'E-District Manager' %}
+        {% set identity_initials = 'ED' %}
+        {% else %}
+        {% set identity_role_label = 'District Coordinator - ' ~ dist_name if dist_name else 'District Coordinator' %}
+        {% set identity_initials = 'DC' %}
+        {% endif %}
         {% endif %}
         {% set identity_username = session.get('username', '') %}
-        {# Initials are derived from the ROLE, not the name line above, so
-        they stay recognisable (DC / AD / CA) even though the name line
-        can be a district. #}
-        {% set identity_label_parts = identity_role_label.split(' ') %}
-        {% if identity_label_parts | length > 1 %}
-        {% set identity_initials = (identity_label_parts[0][0] ~ identity_label_parts[1][0]) | upper %}
-        {% else %}
-        {% set identity_initials = identity_role_label[:2] | upper %}
-        {% endif %}
 
         <div class="user-chip-wrap" style="position: relative;">
             <button type="button" id="identity-chip-btn" class="user-chip" aria-haspopup="menu" aria-expanded="false"
@@ -1051,7 +1048,7 @@
                 </span>
                 <span class="user-text">
                     <span class="user-name">{{ identity_name }}</span>
-                    <span class="user-meta">{{ identity_role_label }} &middot; {{ identity_username }}</span>
+                    <span class="user-meta">{{ identity_role_label }}</span>
                 </span>
                 <i class="ti ti-chevron-down user-chevron"></i>
             </button>
@@ -1062,7 +1059,7 @@
                     <i class="ti ti-user"></i>My account
                 </a>
                 {% else %}
-                <a href="#" class="user-menu-item" role="menuitem" onclick="return false;">
+                <a href="{{ url_for('auth.profile') }}" class="user-menu-item" role="menuitem">
                     <i class="ti ti-user"></i>My account
                 </a>
                 {% endif %}

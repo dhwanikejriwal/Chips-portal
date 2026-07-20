@@ -41,7 +41,7 @@ def upgrade() -> None:
         INSERT INTO kit_registration_table
             (request_no, station_id, district, station_id_provided_date,
              l1_status_id, l1_done_date, l2_status_id, l2_done_date, created_at, updated_at)
-        SELECT
+        SELECT DISTINCT ON (btrim(sid.val))
             s.request_no,
             btrim(sid.val)                              AS station_id,
             d.district_name                             AS district,
@@ -61,7 +61,8 @@ def upgrade() -> None:
           AND NOT EXISTS (
               SELECT 1 FROM kit_registration_table k
               WHERE k.station_id = btrim(sid.val)
-          );
+          )
+        ORDER BY btrim(sid.val), COALESCE(s.reviewed_at, s.submitted_at) DESC;
     """)
 
 

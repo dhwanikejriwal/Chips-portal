@@ -177,7 +177,7 @@
 <div id="view-l1-dashboard-panel">
 
     <!-- L1 Registration Dashboard Banner -->
-    <div class="chips-header-banner">
+    <div class="chips-header-banner" style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
             <div style="display: flex; align-items: center; gap: 15px;">
                 <div
@@ -203,7 +203,7 @@
                 New Request
             </button>
         </div>
-        <div class="chips-banner-metrics">
+        <div class="chips-banner-metrics" style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-pending">{{
                     pending_count }}</div>
@@ -231,21 +231,28 @@
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-approved">{{
                     approved_count }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Done
-                </div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">L1 Done</div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{
                     total_requests }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
-                    Requests</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested Kits</div>
             </div>
         </div>
     </div>
 
     <!-- Section tabs -->
     <div class="req-tabs" role="tablist">
-        <button type="button" class="req-tab active" data-tab="pending">
+        <button type="button" class="req-tab active" data-tab="awaiting">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+                <path
+                    d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+            </svg>
+            <span>Awaiting L1 registration</span>
+        </button>
+        <button type="button" class="req-tab" data-tab="pending">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                 stroke-linejoin="round">
                 <rect x="8" y="2" width="8" height="4" rx="1" />
@@ -255,23 +262,21 @@
             </svg>
             <span>Pending L1 registration requests</span>
         </button>
-        <button type="button" class="req-tab" data-tab="awaiting">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        <button type="button" class="req-tab" data-tab="approved">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                 stroke-linejoin="round">
-                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-                <path
-                    d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+                <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            <span>Awaiting L1 registration</span>
+            <span>Approved L1 log</span>
         </button>
-        <button type="button" class="req-tab" data-tab="log">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        <button type="button" class="req-tab" data-tab="reverted">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                 stroke-linejoin="round">
-                <path d="M3 3v5h5" />
-                <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                <path d="M12 7v5l3 3" />
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
-            <span>Processed log history</span>
+            <span>Reverted L1 log</span>
         </button>
     </div>
 
@@ -280,7 +285,7 @@
         <div class="filter-group filter-group-search">
             <label>Search Request</label>
             <input type="text" id="l1-search-input" class="filter-input" onkeyup="filterL1Table()"
-                placeholder="Search by request ID, model or district...">
+                placeholder="Search by request ID or model...">
         </div>
         <div class="filter-group">
             <label>Time Period</label>
@@ -312,7 +317,53 @@
     </select>
     <button class="rs-export" onclick="exportTableToExcel('pending-table', 'pending')">Export to CSV</button>
     {% endset %}
-    <div class="req-tabpanel active" data-panel="pending">
+    <!-- Awaiting L1 Section: Station IDs allotted but L1 not filled yet -->
+    <div class="req-tabpanel active" data-panel="awaiting">
+        {% call request_section(
+        variant='pending',
+        title='Awaiting L1 registration (Station ID allotted)',
+        count=allotted_stations|length, count_id='allotted-count',
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Station ID'},
+        {'label': 'Request no'},
+        {'label': 'Model'},
+        {'label': 'Type of slot'},
+        {'label': 'Allotted at'},
+        {'label': 'Actions', 'align': 'center'}
+        ],
+        table_id='allotted-table', body_id='allotted-tbody',
+        empty_message='No allotted Station IDs are awaiting L1 registration.',
+        show_empty=(allotted_stations|length == 0)) %}
+        {% for s in allotted_stations %}
+        <tr data-status="AWAITING" data-request-no="{{ s.request_no }}" data-station-id="{{ s.station_id }}" data-model="{{ s.model }}" data-created="{{ s.allotted_at }}">
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ s.station_id }}</strong></td>
+            <td>{{ s.request_no }}</td>
+            <td>{{ s.model }}</td>
+            <td>{{ s.slot }}</td>
+            <td>{{ s.allotted_at }}</td>
+            <td style="text-align: center;">
+                <button type="button" class="btn-issue"
+                    onclick="startL1ForStation('{{ s.station_id }}', '{{ s.model }}')">
+                    Register L1
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel awaiting -->
+
+    <!-- Pending Section -->
+    {% set pending_controls %}
+    <select id="pending-status-filter" class="rs-filter" onchange="filterL1Table()">
+        <option value="all">All statuses</option>
+        <option value="PENDING">Pending</option>
+        <option value="REAPPLIED">Reapplied</option>
+    </select>
+    <button class="rs-export" onclick="exportTableToExcel('pending-table', 'pending')">Export to CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="pending">
         {% call request_section(
         variant='progress',
         title='Pending L1 registration requests',
@@ -373,58 +424,16 @@
         {% endcall %}
     </div><!-- /panel pending -->
 
-    <!-- Awaiting L1 Section: Station IDs allotted but L1 not filled yet -->
-    <div class="req-tabpanel" data-panel="awaiting">
-        {% call request_section(
-        variant='pending',
-        title='Awaiting L1 registration (Station ID allotted)',
-        count=allotted_stations|length, count_id='allotted-count',
-        columns=[
-        {'label': 'S.No', 'cls': 'rs-col-sno'},
-        {'label': 'Station ID'},
-        {'label': 'Request no'},
-        {'label': 'Model'},
-        {'label': 'Type of slot'},
-        {'label': 'Allotted at'},
-        {'label': 'Actions', 'align': 'center'}
-        ],
-        table_id='allotted-table', body_id='allotted-tbody',
-        empty_message='No allotted Station IDs are awaiting L1 registration.',
-        show_empty=(allotted_stations|length == 0)) %}
-        {% for s in allotted_stations %}
-        <tr>
-            <td>{{ loop.index }}</td>
-            <td><strong>{{ s.station_id }}</strong></td>
-            <td>{{ s.request_no }}</td>
-            <td>{{ s.model }}</td>
-            <td>{{ s.slot }}</td>
-            <td>{{ s.allotted_at }}</td>
-            <td style="text-align: center;">
-                <button type="button" class="btn-issue"
-                    onclick="startL1ForStation('{{ s.station_id }}', '{{ s.model }}')">
-                    Register L1
-                </button>
-            </td>
-        </tr>
-        {% endfor %}
-        {% endcall %}
-    </div><!-- /panel awaiting -->
-
-    <!-- History Section -->
-    {% set log_controls %}
-    <select id="log-status-filter" class="rs-filter" onchange="filterL1Table()">
-        <option value="all">All statuses</option>
-        <option value="DONE">Done</option>
-        <option value="REVERTED">Reverted</option>
-    </select>
-    <button class="rs-export" onclick="exportTableToExcel('log-table', 'history')">Export to CSV</button>
+    <!-- Approved History Section -->
+    {% set approved_controls %}
+    <button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_history')">Export to CSV</button>
     {% endset %}
-    <div class="req-tabpanel" data-panel="log">
+    <div class="req-tabpanel" data-panel="approved">
         {% call request_section(
         variant='done',
-        title='Processed log history',
-        count='–', count_id='log-count',
-        controls=log_controls,
+        title='Approved L1 log',
+        count='–', count_id='approved-count-badge',
+        controls=approved_controls,
         columns=[
         {'label': 'S.No', 'cls': 'rs-col-sno'},
         {'label': 'Request ID'},
@@ -435,23 +444,19 @@
         {'label': 'Updated at'},
         {'label': 'Actions', 'align': 'center'}
         ],
-        table_id='log-table', body_id='log-tbody',
-        empty_id='log-empty-msg',
-        empty_message='No historical request logs found matching current scope.') %}
-        {% set ns_l = namespace(count=1) %}
-        {% for req in requests if (req.status|upper) not in ['PENDING', 'REAPPLIED'] %}
+        table_id='approved-table', body_id='approved-tbody',
+        empty_id='approved-empty-msg',
+        empty_message='No approved request logs found.') %}
+        {% set ns_a = namespace(count=1) %}
+        {% for req in requests if (req.status|upper) in ['DONE', 'APPROVED', 'REVIEWED'] %}
         <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}"
             data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
-            <td>{{ ns_l.count }}</td>
+            <td>{{ ns_a.count }}</td>
             <td><strong>{{ req.request_code }}</strong></td>
             <td>{{ req.station_id }}</td>
             <td>{{ req.model_type }}</td>
             <td>
-                {% if (req.status|upper) in ['DONE', 'APPROVED', 'REVIEWED'] %}
                 <span class="badge badge-approved">Done</span>
-                {% else %}
-                <span class="badge badge-reverted">Reverted</span>
-                {% endif %}
             </td>
             <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
             <td>{{ req.updated_at|string|truncate(19, True, '') if req.updated_at else
@@ -469,10 +474,65 @@
                 </div>
             </td>
         </tr>
-        {% set ns_l.count = ns_l.count + 1 %}
+        {% set ns_a.count = ns_a.count + 1 %}
         {% endfor %}
         {% endcall %}
-    </div><!-- /panel log -->
+    </div><!-- /panel approved -->
+
+    <!-- Reverted History Section -->
+    {% set reverted_controls %}
+    <button class="rs-export" onclick="exportTableToExcel('reverted-table', 'reverted_history')">Export to CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="reverted">
+        {% call request_section(
+        variant='done',
+        title='Reverted L1 log',
+        count='–', count_id='reverted-count-badge',
+        controls=reverted_controls,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'Station ID'},
+        {'label': 'Model'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Actions', 'align': 'center'}
+        ],
+        table_id='reverted-table', body_id='reverted-tbody',
+        empty_id='reverted-empty-msg',
+        empty_message='No reverted request logs found.') %}
+        {% set ns_r = namespace(count=1) %}
+        {% for req in requests if (req.status|upper) not in ['PENDING', 'REAPPLIED', 'DONE', 'APPROVED', 'REVIEWED'] %}
+        <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}"
+            data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
+            <td>{{ ns_r.count }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.station_id }}</td>
+            <td>{{ req.model_type }}</td>
+            <td>
+                <span class="badge badge-reverted">Reverted</span>
+            </td>
+            <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
+            <td>{{ req.updated_at|string|truncate(19, True, '') if req.updated_at else
+                (req.reviewed_at|string|truncate(19, True, '') if req.reviewed_at else '—') }}</td>
+            <td style="text-align: center;">
+                <div style="display:flex; gap:6px; justify-content:center;">
+                    <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Details
+                    </button>
+                </div>
+            </td>
+        </tr>
+        {% set ns_r.count = ns_r.count + 1 %}
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel reverted -->
 
 </div>
 

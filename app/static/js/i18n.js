@@ -1,40 +1,21 @@
 /* ==========================================================================
-   Portal i18n runtime — key-based EN ⇄ HI localization (C-DAC model).
+   Portal i18n runtime — Key-based & Google Translate Hybrid Model.
 
-   Resource files: /static/i18n/en.json and /static/i18n/hi.json, keyed
-   identically. Nothing is machine-translated at runtime; every user-facing
-   string is looked up by key from the active dictionary.
+   1. Hardcoded dictionary: /static/i18n/en.json and /static/i18n/hi.json.
+      - Explicit data-i18n*, data-i18n-placeholder, data-i18n-title,
+        data-i18n-district, data-i18n-slot.
+      - Auto reverse-index matching exact English strings from en.json.
+      - Any element/node translated via dictionary gets marked with `notranslate`
+        so Google Translate does not alter official curated Hindi terms.
 
-   TWO translation mechanisms, one dictionary:
+   2. Google Translate Fallback:
+      - Any page content NOT covered by hardcoded dictionary keys is translated
+        automatically via Google Translate.
+      - Database table cells, status badges, usernames, and technical IDs are
+        protected with `notranslate` so raw data is preserved intact.
 
-   1. EXPLICIT keys — markup opts in per node:
-        data-i18n="key"              → element textContent
-        data-i18n-placeholder="key"  → placeholder attribute
-        data-i18n-title="key"        → title attribute
-        data-i18n-district="Raipur"  → transliterated place name via
-                                       "district.<lowercased value>"
-        data-i18n-slot="937 slot"    → only the word "slot" is swapped for
-                                       t("value.slotSuffix"); digits stay 0-9
-
-   2. AUTO reverse-index — a map of {english value → key} is built from
-      en.json. Every text node and common attribute (placeholder / title /
-      aria-label) whose trimmed content EXACTLY matches a dictionary value
-      is translated in place; the English original is remembered (WeakMap /
-      element expando) so switching back to EN restores it verbatim. This is
-      what gives portal-wide coverage — one dictionary entry translates every
-      occurrence on every page without per-node markup. Technical codes, IDs,
-      usernames and dates never match an entry, so they are never touched.
-
-   A MutationObserver re-runs translation on inserted subtrees, so
-   JS-rendered content — SweetAlert2 popups, dropdown panels, dynamic rows —
-   is localized too. All writes are guarded (only write when the value
-   actually changes), which makes the pipeline idempotent and loop-free.
-
-   Missing keys NEVER blank content: lookup falls back current → en → leave
-   the DOM untouched.
-
-   Persistence: localStorage "lang" = "en" | "hi" (default "en"). Switching
-   sets <html lang> and fires a "langchange" CustomEvent.
+   Persistence: localStorage "lang" & sessionStorage "portal_lang" = "en" | "hi".
+   Cookie: `googtrans=/en/hi` for Hindi; expired/removed for English.
    Public API: window.t(key, params?), window.i18n.{setLang,getLang,apply,district}.
    ========================================================================== */
 (function () {
@@ -49,30 +30,37 @@
     var nodeOriginals = (typeof WeakMap === 'function') ? new WeakMap() : null;
 
     try {
-        var saved = localStorage.getItem(STORAGE_KEY);
+        var saved = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem('portal_lang');
         if (LANGS.indexOf(saved) !== -1) current = saved;
     } catch (e) { /* private mode */ }
 
-    // <html lang> is set immediately (before first paint) so fonts, screen
-    // readers and CSS [lang] hooks are correct from the start.
+    // <html lang> is set immediately (before first paint)
     document.documentElement.setAttribute('lang', current);
 
-    // Warm start: dictionaries cached from a previous visit apply instantly,
-    // so a persisted Hindi choice doesn't flash English while fetching.
+    // Warm start: dictionaries cached from a previous visit apply instantly
     LANGS.forEach(function (l) {
         try {
             var raw = localStorage.getItem(DICT_CACHE_PREFIX + l);
             if (raw) dicts[l] = JSON.parse(raw);
-        } catch (e) { /* corrupt cache — refetched below */ }
+        } catch (e) { /* corrupt cache */ }
     });
+
+    function setGoogTransCookie(lang) {
+        var domain = window.location.hostname;
+        if (lang === 'hi') {
+            document.cookie = "googtrans=/en/hi; path=/;";
+            document.cookie = "googtrans=/en/hi; path=/; domain=." + domain;
+        } else {
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + domain;
+        }
+    }
 
     function buildReverse() {
         reverse = {};
         reverseLower = {};
         var en = dicts.en || {};
         Object.keys(en).forEach(function (k) {
-            // district.* entries participate too: a text node that is exactly
-            // a district name transliterates on any page, no markup needed.
             var v = String(en[k]).trim();
             if (!v) return;
             if (!(v in reverse)) reverse[v] = k;
@@ -92,8 +80,6 @@
         return null;
     }
 
-    /* t("modal.vAssignAll", {n: 3}) — {placeholders} are substituted after
-       lookup so one key serves any dynamic value in either language. */
     function t(key, params) {
         var v = lookup(key);
         if (v === null) return key;
@@ -120,6 +106,28 @@
         return v !== null ? v : raw;
     }
 
+    /* ---- Protect raw database table cells & status badges ---- */
+    function excludeDatabaseTables(root) {
+        root = root || document.body || document.documentElement;
+        if (!root || current !== 'hi') return;
+        var tds = root.querySelectorAll ? root.querySelectorAll('td') : [];
+        for (var k = 0; k < tds.length; k++) {
+            var el = tds[k];
+            var isActionButton = el.querySelector('button, a.btn, input[type="button"], input[type="submit"]');
+            var isStatusBadge = el.querySelector('[class*="badge"], [class*="status"]');
+
+            if (isStatusBadge || (!isActionButton)) {
+                el.classList.add('notranslate');
+                el.setAttribute('translate', 'no');
+                var children = el.querySelectorAll('*');
+                for (var i = 0; i < children.length; i++) {
+                    children[i].classList.add('notranslate');
+                    children[i].setAttribute('translate', 'no');
+                }
+            }
+        }
+    }
+
     /* ---- auto: text nodes -------------------------------------------------- */
     function translateTextNodes(root) {
         if (!reverse || !nodeOriginals) return;
@@ -133,7 +141,6 @@
                 if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'TEXTAREA') {
                     return NodeFilter.FILTER_REJECT;
                 }
-                // explicitly keyed nodes are owned by the data-i18n pass
                 if (p.hasAttribute && (p.hasAttribute('data-i18n') ||
                     p.hasAttribute('data-i18n-district') || p.hasAttribute('data-i18n-slot'))) {
                     return NodeFilter.FILTER_REJECT;
@@ -150,10 +157,20 @@
             var v = lookup(key);
             if (v === null) continue;
             if (orig === undefined) nodeOriginals.set(n, n.nodeValue);
-            // preserve the node's original leading/trailing whitespace
             var m = base.match(/^(\s*)[\s\S]*?(\s*)$/);
-            var next = m[1] + v + m[2];
+            var next = current === 'hi' ? (m[1] + v + m[2]) : (m[1] + base.trim() + m[2]);
             if (n.nodeValue !== next) n.nodeValue = next;
+
+            var p = n.parentNode;
+            if (p && p.nodeType === 1) {
+                if (current === 'hi') {
+                    p.classList.add('notranslate');
+                    p.setAttribute('translate', 'no');
+                } else {
+                    p.classList.remove('notranslate');
+                    p.removeAttribute('translate');
+                }
+            }
         }
     }
 
@@ -165,7 +182,6 @@
             var els = Array.prototype.slice.call(root.querySelectorAll(sel));
             if (root.hasAttribute && root.hasAttribute(attr)) els.unshift(root);
             els.forEach(function (el) {
-                // explicit keys own their attribute
                 if (attr === 'placeholder' && el.hasAttribute('data-i18n-placeholder')) return;
                 if (attr === 'title' && el.hasAttribute('data-i18n-title')) return;
                 var store = el.__i18nAttrs || (el.__i18nAttrs = {});
@@ -175,7 +191,15 @@
                 var v = lookup(key);
                 if (v === null) return;
                 if (store[attr] === undefined) store[attr] = base;
-                if (el.getAttribute(attr) !== v) el.setAttribute(attr, v);
+                var targetVal = current === 'hi' ? v : base;
+                if (el.getAttribute(attr) !== targetVal) el.setAttribute(attr, targetVal);
+                if (current === 'hi') {
+                    el.classList.add('notranslate');
+                    el.setAttribute('translate', 'no');
+                } else {
+                    el.classList.remove('notranslate');
+                    el.removeAttribute('translate');
+                }
             });
         });
     }
@@ -192,39 +216,79 @@
 
         q(root, '[data-i18n]').forEach(function (el) {
             var v = lookup(el.getAttribute('data-i18n'));
-            if (v !== null && el.textContent !== v) el.textContent = v;
+            if (v !== null) {
+                if (el.textContent !== v) el.textContent = v;
+                if (current === 'hi') {
+                    el.classList.add('notranslate');
+                    el.setAttribute('translate', 'no');
+                } else {
+                    el.classList.remove('notranslate');
+                    el.removeAttribute('translate');
+                }
+            }
         });
 
         q(root, '[data-i18n-placeholder]').forEach(function (el) {
             var v = lookup(el.getAttribute('data-i18n-placeholder'));
-            if (v !== null && el.getAttribute('placeholder') !== v) el.setAttribute('placeholder', v);
+            if (v !== null) {
+                if (el.getAttribute('placeholder') !== v) el.setAttribute('placeholder', v);
+                if (current === 'hi') {
+                    el.classList.add('notranslate');
+                    el.setAttribute('translate', 'no');
+                } else {
+                    el.classList.remove('notranslate');
+                    el.removeAttribute('translate');
+                }
+            }
         });
 
         q(root, '[data-i18n-title]').forEach(function (el) {
             var v = lookup(el.getAttribute('data-i18n-title'));
-            if (v !== null && el.getAttribute('title') !== v) el.setAttribute('title', v);
+            if (v !== null) {
+                if (el.getAttribute('title') !== v) el.setAttribute('title', v);
+                if (current === 'hi') {
+                    el.classList.add('notranslate');
+                    el.setAttribute('translate', 'no');
+                } else {
+                    el.classList.remove('notranslate');
+                    el.removeAttribute('translate');
+                }
+            }
         });
 
-        // Place names: transliterated, never translated. The attribute holds
-        // the original English name so switching back to EN restores it.
         q(root, '[data-i18n-district]').forEach(function (el) {
             var v = districtName(el.getAttribute('data-i18n-district'));
-            if (v && el.textContent !== v) el.textContent = v;
+            if (v) {
+                if (el.textContent !== v) el.textContent = v;
+                if (current === 'hi') {
+                    el.classList.add('notranslate');
+                    el.setAttribute('translate', 'no');
+                } else {
+                    el.classList.remove('notranslate');
+                    el.removeAttribute('translate');
+                }
+            }
         });
 
-        // Slot values like "937 slot": only the unit word is localised;
-        // numerals stay Western Arabic per spec.
         q(root, '[data-i18n-slot]').forEach(function (el) {
             var raw = (el.getAttribute('data-i18n-slot') || '').trim();
             if (!raw || !/slot/i.test(raw)) return;
-            var v = raw.replace(/slots?/i, t('value.slotSuffix'));
+            var v = current === 'hi' ? raw.replace(/slots?/i, t('value.slotSuffix')) : raw;
             if (el.textContent !== v) el.textContent = v;
+            if (current === 'hi') {
+                el.classList.add('notranslate');
+                el.setAttribute('translate', 'no');
+            } else {
+                el.classList.remove('notranslate');
+                el.removeAttribute('translate');
+            }
         });
     }
 
     function apply(root) {
         root = root || document.body || document.documentElement;
         if (!root) return;
+        excludeDatabaseTables(root);
         translateTextNodes(root);
         if (root.nodeType === 1) {
             translateAttrs(root);
@@ -236,11 +300,22 @@
         document.dispatchEvent(new CustomEvent('langchange', { detail: { lang: current } }));
     }
 
-    function setLang(lang) {
-        if (LANGS.indexOf(lang) === -1 || lang === current) return;
+    function setLang(lang, shouldReload) {
+        if (LANGS.indexOf(lang) === -1) return;
+        var changed = (lang !== current);
         current = lang;
-        try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) { /* private mode */ }
+        try {
+            localStorage.setItem(STORAGE_KEY, lang);
+            sessionStorage.setItem('portal_lang', lang);
+        } catch (e) { /* private mode */ }
         document.documentElement.setAttribute('lang', lang);
+        setGoogTransCookie(lang);
+
+        if (shouldReload !== false) {
+            window.location.reload();
+            return;
+        }
+
         apply();
         announce();
     }
@@ -253,13 +328,14 @@
         apply: apply,
         district: districtName
     };
+    window.togglePortalLanguage = function () {
+        setLang(current === 'en' ? 'hi' : 'en', true);
+    };
 
     /* ---- dynamic content: SweetAlert popups, dropdowns, JS-built rows ------ */
     function observe() {
         if (!('MutationObserver' in window) || !document.body) return;
         var mo = new MutationObserver(function (muts) {
-            // Idempotent writes make this safe: re-processing our own
-            // mutations converges immediately instead of looping.
             for (var i = 0; i < muts.length; i++) {
                 var added = muts[i].addedNodes;
                 for (var j = 0; j < added.length; j++) {

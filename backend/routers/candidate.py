@@ -382,7 +382,7 @@ def update_nseit_id(r_id: int, nseit_id: str, nseit_certificate_upload: str | No
         if nseit:
             new_remark = NSEITRemark(
                 request_id=nseit.id,
-                remark=f"CANDIDATE ALREADY HAS EXISTING ID: Candidate updated ID from registration ID to new ID: {nseit_id}",
+                remark=f"Candidate updated ID from registration ID to new ID: {nseit_id}",
                 sender_id=login_id,
                 is_public=1,
                 status_after_id=nseit.status_id

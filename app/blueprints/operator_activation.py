@@ -664,3 +664,17 @@ def dc_export_credentials():
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=credentials_log_history.csv"}
     )
+
+@operator_activation_bp.route("/dc/operator-activation/export-excel/uidai", methods=["GET"])
+def dc_export_uidai():
+    jwt_token = session.get("access_token")
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    ids = request.args.get("ids", "")
+    params = {"ids": ids} if ids else {}
+    response = requests.get(f"{backend_url()}/export-excel/pending", headers=headers, params=params)
+    from flask import Response
+    return Response(
+        response.content,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=sent_to_uidai_activation_queue.csv"}
+    )

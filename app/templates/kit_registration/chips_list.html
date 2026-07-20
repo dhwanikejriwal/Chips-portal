@@ -56,10 +56,15 @@
     </div>
 </div>
 
+{% set kit_controls %}
+<button class="rs-export" onclick="exportKitTableToExcel()">Export to CSV</button>
+{% endset %}
+
 {% call request_section(
     variant='progress',
     title='Kit registration status',
     count=requests|length,
+    controls=kit_controls,
     min_width=1250,
     columns=[
         {'label': 'S.No', 'cls': 'rs-col-sno'},
@@ -111,4 +116,29 @@
             </tr>
             {% endfor %}
 {% endcall %}
+
+<script>
+    function exportKitTableToExcel() {
+        const ids = [];
+        const rows = document.querySelectorAll('#kit-tbody tr[data-id]');
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const id = row.getAttribute('data-id');
+                if (id) ids.push(id);
+            }
+        });
+
+        if (ids.length === 0) {
+            Swal.fire({
+                title: 'No Records Found',
+                text: 'There is no data loaded in this table queue to export.',
+                icon: 'info',
+                confirmButtonColor: '#4f46e5'
+            });
+            return;
+        }
+
+        window.location.href = `/auth/chips/kit-registration/export-excel?ids=${ids.join(',')}`;
+    }
+</script>
 {% endblock %}

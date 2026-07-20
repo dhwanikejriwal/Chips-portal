@@ -146,7 +146,8 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             "district_id": user.district_id,
             "district_name": district_name,
             "user_id": user.id,
-            "has_changed_password": user.has_changed_password
+            "has_changed_password": user.has_changed_password,
+            "full_name": user.profile.full_name if user.profile else ""
         }
 
 security = HTTPBearer()
@@ -184,6 +185,66 @@ def get_current_user(
         detail="User not found",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+class ProfileUpdateRequest(BaseModel):
+    full_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+
+@router.get("/profile")
+def get_profile(current_user: UserLogin = Depends(get_current_user), db: Session = Depends(get_db)):
+    from backend.models.user_profile import UserProfile
+    
+    # If the current_user is a candidate (not UserLogin), raise unauthorized
+    if not isinstance(current_user, UserLogin):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profile page not supported for Candidate through this route."
+        )
+
+    profile = current_user.profile
+    if not profile:
+        profile = UserProfile(user_id=current_user.id)
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+    
+    district_name = current_user.district.district_name if current_user.district else ""
+    return {
+        "username": current_user.username,
+        "role": current_user.role.role,
+        "district_name": district_name,
+        "full_name": profile.full_name or "",
+        "email": profile.email or "",
+        "phone": profile.phone or ""
+    }
+
+@router.post("/profile")
+def update_profile(
+    payload: ProfileUpdateRequest,
+    current_user: UserLogin = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from backend.models.user_profile import UserProfile
+
+    # If the current_user is a candidate (not UserLogin), raise unauthorized
+    if not isinstance(current_user, UserLogin):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Profile page not supported for Candidate through this route."
+        )
+
+    profile = current_user.profile
+    if not profile:
+        profile = UserProfile(user_id=current_user.id)
+        db.add(profile)
+    
+    profile.full_name = payload.full_name
+    profile.email = payload.email
+    profile.phone = payload.phone
+    db.commit()
+    db.refresh(profile)
+    return {"success": True, "message": "Profile updated successfully"}
 
 class ChangePasswordRequest(BaseModel):
     current_password: str

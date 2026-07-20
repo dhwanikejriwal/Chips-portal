@@ -10,8 +10,28 @@
 {% from 'partials/request_section.html' import request_section %}
 
 
+<!-- Jinja2 Metric Calculations -->
+{% set total_requests = requests | length %}
+{% set metrics = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0) %}
+{% for r in requests %}
+    {% set st = r.status | upper %}
+    {% if st == 'PENDING' %}
+        {% set metrics.pending = metrics.pending + 1 %}
+    {% elif st == 'REAPPLIED' %}
+        {% set metrics.reapplied = metrics.reapplied + 1 %}
+    {% elif st == 'SENT_TO_UIDAI' %}
+        {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
+    {% elif st in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
+        {% set metrics.reverted = metrics.reverted + 1 %}
+    {% elif st == 'REJECTED' %}
+        {% set metrics.rejected = metrics.rejected + 1 %}
+    {% elif st in ['APPROVED', 'UIDAI_APPROVED', 'APPROVED_LEGACY'] %}
+        {% set metrics.approved = metrics.approved + 1 %}
+    {% endif %}
+{% endfor %}
+
 <div id="view-dashboard-panel">
-    <div class="chips-header-banner">
+    <div class="chips-header-banner" style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
             <div style="display: flex; align-items: center; gap: 15px;">
                 <div
@@ -41,45 +61,38 @@
                 New Request
             </button>
         </div>
-        <div class="chips-banner-metrics">
+        <div class="chips-banner-metrics" style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
             <div class="chips-metric-card">
-                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'Pending') | list | length }}</div>
+                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.pending }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
             </div>
             <div class="chips-metric-card">
-                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'Reapplied') | list | length }}</div>
+                <div id="metric-reapplied" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.reapplied }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
                 </div>
             </div>
             <div class="chips-metric-card">
-                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'Sent to UIDAI') | list | length }}</div>
+                <div id="metric-sent-to-uidai" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.sent_to_uidai }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
                 </div>
             </div>
             <div class="chips-metric-card">
-                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'Reverted') | list | length }}</div>
+                <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.reverted }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
                 </div>
             </div>
             <div class="chips-metric-card">
-                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'Rejected') | list | length }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected
+                <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.rejected }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by UIDAI
                 </div>
             </div>
             <div class="chips-metric-card">
-                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests |
-                    selectattr('status', 'equalto', 'Approved') | list | length }}</div>
+                <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.approved }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
                 </div>
             </div>
             <div class="chips-metric-card">
-                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | length
-                    }}</div>
+                <div id="metric-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
                     Requests</div>
             </div>
@@ -101,14 +114,29 @@
             </svg>
             <span>Pending operator activation queue</span>
         </button>
-        <button type="button" class="req-tab" data-tab="log">
+        <button type="button" class="req-tab" data-tab="uidai">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                 stroke-linejoin="round">
-                <path d="M3 3v5h5" />
-                <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                <path d="M12 7v5l3 3" />
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
             </svg>
-            <span>Activation log history</span>
+            <span>Sent to UIDAI log</span>
+        </button>
+        <button type="button" class="req-tab" data-tab="approved">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Approved Activation log</span>
+        </button>
+        <button type="button" class="req-tab" data-tab="reverted">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>Reverted/Rejected Activation log</span>
         </button>
     </div>
 
@@ -146,7 +174,6 @@
         <option value="all">All statuses</option>
         <option value="pending">Pending</option>
         <option value="reapplied">Reapplied</option>
-        <option value="sent_to_uidai">Sent to UIDAI</option>
     </select>
     <button class="rs-export"
         onclick="exportTableToCSV('pending-requests-table', 'pending_operator_activations.csv')">Export to CSV</button>
@@ -174,7 +201,7 @@
         table_id='pending-requests-table', body_id='pending-table-body',
         empty_id='pending-empty-msg',
         empty_message='No pending pipeline records found matching current filter scope.') %}
-        {% for r in requests if (r.status|upper) not in ['APPROVED', 'REVERTED', 'REJECTED', 'REVERTED_BY_CHIPS'] %}
+        {% for r in requests if (r.status|upper) in ['PENDING', 'REAPPLIED'] %}
         <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
             data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
             data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
@@ -220,22 +247,78 @@
         {% endcall %}
     </div><!-- /panel pending -->
 
-    <!-- History Section -->
-    {% set approved_controls %}
-    <select id="approved-status-filter" class="rs-filter" onchange="filterAllTables()">
-        <option value="all">All statuses</option>
-        <option value="approved">Approved</option>
-        <option value="reverted">Reverted</option>
-        <option value="rejected">Rejected</option>
-    </select>
-    <button class="rs-export" onclick="exportTableToCSV('approved-requests-table', 'activation_log_history.csv')">Export
-        to CSV</button>
+    <!-- Sent to UIDAI Section -->
+    {% set uidai_controls %}
+    <button class="rs-export"
+        onclick="exportTableToCSV('uidai-requests-table', 'sent_to_uidai_operator_activations.csv')">Export to CSV</button>
     {% endset %}
-    <div class="req-tabpanel" data-panel="log">
+    <div class="req-tabpanel" data-panel="uidai">
+        {% call request_section(
+        variant='progress',
+        title='Sent to UIDAI queue',
+        count='–', count_id='uidai-count-badge',
+        controls=uidai_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email ID'},
+        {'label': 'EA code'},
+        {'label': 'User code'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='uidai-requests-table', body_id='uidai-table-body',
+        empty_id='uidai-empty-msg',
+        empty_message='No sent to UIDAI requests found.') %}
+        {% for r in requests if (r.status|upper) == 'SENT_TO_UIDAI' %}
+        <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
+            data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
+            data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
+            data-user-code="{{ r.user_code or '' }}" data-district="{{ r.district_name or 'Raipur' }}"
+            data-aadhaar="{{ r.operator_aadhaar or '' }}" data-pan="{{ r.operator_pan or '' }}"
+            data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+            data-remarks='{{ r.remarks_history | tojson | safe }}'>
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
+            <td>{{ r.operator_name }}</td>
+            <td>{{ r.operator_mobile }}</td>
+            <td>{{ r.primary_email or '—' }}</td>
+            <td>{{ r.ea_code or '—' }}</td>
+            <td>{{ r.user_code or '—' }}</td>
+            <td>
+                <span class="sid-badge sid-badge-sent_to_uidai">Sent to UIDAI</span>
+            </td>
+            <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
+            <td>{{ r.reviewed_at if r.reviewed_at else (r.updated_at if r.updated_at else '—') }}</td>
+            <td style="text-align: center;">
+                <button class="btn-details" onclick="openActivationDetailsModal(this.closest('tr'))">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel uidai -->
+
+    <!-- Approved History Section -->
+    {% set approved_controls %}
+    <button class="rs-export" onclick="exportTableToCSV('approved-requests-table', 'approved_history.csv')">Export to CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="approved">
         {% call request_section(
         variant='done',
-        title='Activation log history',
-        count='–', count_id='approved-count',
+        title='Approved Activation log',
+        count='–', count_id='approved-count-badge',
         controls=approved_controls,
         min_width=1050,
         columns=[
@@ -253,8 +336,76 @@
         ],
         table_id='approved-requests-table', body_id='approved-table-body',
         empty_id='approved-empty-msg',
-        empty_message='No approved request history records found matching current filter scope.') %}
-        {% for r in requests if (r.status|upper) in ['APPROVED', 'REVERTED', 'REJECTED', 'REVERTED_BY_CHIPS'] %}
+        empty_message='No approved request history records found.') %}
+        {% for r in requests if (r.status|upper) in ['APPROVED', 'UIDAI_APPROVED', 'APPROVED_LEGACY'] %}
+        <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
+            data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
+            data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
+            data-user-code="{{ r.user_code or '' }}" data-district="{{ r.district_name or 'Raipur' }}"
+            data-aadhaar="{{ r.operator_aadhaar or '' }}" data-pan="{{ r.operator_pan or '' }}"
+            data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+            data-remarks='{{ r.remarks_history | tojson | safe }}'>
+
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
+            <td>{{ r.operator_name }}</td>
+            <td>{{ r.operator_mobile }}</td>
+            <td>{{ r.primary_email or '—' }}</td>
+            <td>{{ r.ea_code or '—' }}</td>
+            <td>{{ r.user_code or '—' }}</td>
+            <td>
+                <span class="sid-badge sid-badge-approved">Approved</span>
+            </td>
+            <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
+            <td>{{ r.reviewed_at if r.reviewed_at else (r.updated_at if r.updated_at else '—') }}</td>
+            <td style="text-align: center;">
+                <button class="btn-details" onclick="openActivationDetailsModal(this.closest('tr'))">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel approved -->
+
+    <!-- Reverted History Section -->
+    {% set reverted_controls %}
+    <select id="reverted-status-filter" class="rs-filter" onchange="filterAllTables()">
+        <option value="all">All statuses</option>
+        <option value="reverted">Reverted</option>
+        <option value="rejected">Rejected</option>
+    </select>
+    <button class="rs-export" onclick="exportTableToCSV('reverted-requests-table', 'reverted_history.csv')">Export to CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="reverted">
+        {% call request_section(
+        variant='done',
+        title='Reverted/Rejected Activation log',
+        count='–', count_id='reverted-count-badge',
+        controls=reverted_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email ID'},
+        {'label': 'EA code'},
+        {'label': 'User code'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='reverted-requests-table', body_id='reverted-table-body',
+        empty_id='reverted-empty-msg',
+        empty_message='No reverted or rejected request history records found.') %}
+        {% for r in requests if (r.status|upper) in ['REVERTED', 'REVERTED_BY_CHIPS', 'REJECTED'] %}
         <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
             data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
             data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
@@ -291,8 +442,8 @@
             </td>
         </tr>
         {% endfor %}
-        </tbody>
-        </table>
+        {% endcall %}
+    </div><!-- /panel reverted -->
         <div id="approved-empty-msg" class="empty-state" style="display: none;">
 
             <div class="empty-state-icon"><i class="fas fa-check-circle" style="color: #10b981;"></i></div>
@@ -376,16 +527,25 @@
         sessionStorage.setItem('dc_op_search', document.getElementById('dc-search-input').value);
         sessionStorage.setItem('dc_op_date', dateFilter);
         sessionStorage.setItem('dc_op_pending_status', document.getElementById('pending-status-filter').value);
-        sessionStorage.setItem('dc_op_approved_status', document.getElementById('approved-status-filter').value);
+        if (document.getElementById('reverted-status-filter')) {
+            sessionStorage.setItem('dc_op_reverted_status', document.getElementById('reverted-status-filter').value);
+        }
 
         const configs = [
             { tbodyId: 'pending-table-body', emptyMsgId: 'pending-empty-msg', tableId: 'pending-requests-table', countId: 'pending-count' },
-            { tbodyId: 'approved-table-body', emptyMsgId: 'approved-empty-msg', tableId: 'approved-requests-table', countId: 'approved-count' }
+            { tbodyId: 'uidai-table-body', emptyMsgId: 'uidai-empty-msg', tableId: 'uidai-requests-table', countId: 'uidai-count-badge' },
+            { tbodyId: 'approved-table-body', emptyMsgId: 'approved-empty-msg', tableId: 'approved-requests-table', countId: 'approved-count-badge' },
+            { tbodyId: 'reverted-table-body', emptyMsgId: 'reverted-empty-msg', tableId: 'reverted-requests-table', countId: 'reverted-count-badge' }
         ];
 
         configs.forEach(cfg => {
-            const sfId = cfg.tbodyId === 'pending-table-body' ? 'pending-status-filter' : 'approved-status-filter';
-            const statusFilter = document.getElementById(sfId).value;
+            let sfId = null;
+            if (cfg.tbodyId === 'pending-table-body') {
+                sfId = 'pending-status-filter';
+            } else if (cfg.tbodyId === 'reverted-table-body') {
+                sfId = 'reverted-status-filter';
+            }
+            const statusFilter = sfId ? document.getElementById(sfId).value : 'all';
             const rows = document.querySelectorAll(`#${cfg.tbodyId} tr`);
             let visibleRowsCount = 0;
             let tableIndexCounter = 1; // 🌟 Tracks visible index increments dynamically
@@ -454,7 +614,6 @@
                 }
             });
 
-            const tableElement = document.getElementById(cfg.tableId);
             const emptyMessageElement = document.getElementById(cfg.emptyMsgId);
             const countElement = document.getElementById(cfg.countId);
 
@@ -465,12 +624,95 @@
             }
             if (countElement) countElement.textContent = visibleRowsCount;
         });
+
+        // Calculate and update metrics dynamically
+        let metricPending = 0;
+        let metricReapplied = 0;
+        let metricSentToUidai = 0;
+        let metricReverted = 0;
+        let metricRejected = 0;
+        let metricApproved = 0;
+
+        const allRows = document.querySelectorAll('#pending-table-body tr, #uidai-table-body tr, #approved-table-body tr, #reverted-table-body tr');
+        allRows.forEach(row => {
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
+            const name = (row.getAttribute('data-name') || '').toLowerCase();
+            const mobile = (row.getAttribute('data-mobile') || '').toLowerCase();
+            const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+            const email = (row.getAttribute('data-email') || '').toLowerCase();
+            const eaCode = (row.getAttribute('data-ea-code') || '').toLowerCase();
+            const userCode = (row.getAttribute('data-user-code') || '').toLowerCase();
+            const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+            const createdDate = row.getAttribute('data-created') || '';
+
+            const matchQuery = !searchQuery ||
+                name.includes(searchQuery) ||
+                mobile.includes(searchQuery) ||
+                reqNo.includes(searchQuery) ||
+                email.includes(searchQuery) ||
+                eaCode.includes(searchQuery) ||
+                userCode.includes(searchQuery);
+
+            let matchDate = true;
+            if (dateFilter === 'today') {
+                matchDate = createdDate.startsWith(p.today);
+            } else if (dateFilter === 'week') {
+                if (!createdDate) {
+                    matchDate = false;
+                } else {
+                    const rowDate = new Date(createdDate.replace(' ', 'T'));
+                    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    matchDate = rowDate >= sevenDaysAgo;
+                }
+            } else if (dateFilter === 'month') {
+                if (!createdDate) {
+                    matchDate = false;
+                } else {
+                    const rowDate = new Date(createdDate.replace(' ', 'T'));
+                    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    matchDate = rowDate >= thirtyDaysAgo;
+                }
+            }
+
+            if (matchQuery && matchDate) {
+                if (rowStatus === 'pending') {
+                    metricPending++;
+                } else if (rowStatus === 'reapplied') {
+                    metricReapplied++;
+                } else if (rowStatus === 'sent_to_uidai' || rowStatus === 'sent to uidai') {
+                    metricSentToUidai++;
+                } else if (rowStatus === 'reverted') {
+                    metricReverted++;
+                } else if (rowStatus === 'rejected') {
+                    metricRejected++;
+                } else if (rowStatus === 'approved' || rowStatus === 'uidai_approved' || rowStatus === 'approved_legacy') {
+                    metricApproved++;
+                }
+            }
+        });
+
+        const metricPendingEl = document.getElementById('metric-pending');
+        if (metricPendingEl) metricPendingEl.textContent = metricPending;
+        const metricReappliedEl = document.getElementById('metric-reapplied');
+        if (metricReappliedEl) metricReappliedEl.textContent = metricReapplied;
+        const metricSentToUidaiEl = document.getElementById('metric-sent-to-uidai');
+        if (metricSentToUidaiEl) metricSentToUidaiEl.textContent = metricSentToUidai;
+        const metricRevertedEl = document.getElementById('metric-reverted');
+        if (metricRevertedEl) metricRevertedEl.textContent = metricReverted;
+        const metricRejectedEl = document.getElementById('metric-rejected');
+        if (metricRejectedEl) metricRejectedEl.textContent = metricRejected;
+        const metricApprovedEl = document.getElementById('metric-approved');
+        if (metricApprovedEl) metricApprovedEl.textContent = metricApproved;
+        const metricTotalEl = document.getElementById('metric-total');
+        if (metricTotalEl) metricTotalEl.textContent = metricPending + metricReapplied + metricSentToUidai + metricReverted + metricRejected + metricApproved;
     }
 
     window.clearAllFilters = function () {
         document.getElementById('dc-search-input').value = '';
         document.getElementById('pending-status-filter').value = 'all';
-        document.getElementById('approved-status-filter').value = 'all';
+        if (document.getElementById('reverted-status-filter')) {
+            document.getElementById('reverted-status-filter').value = 'all';
+        }
         document.getElementById('dc-date-filter').value = 'month';
         filterAllTables();
     }
@@ -484,19 +726,23 @@
             sessionStorage.removeItem('dc_op_search');
             sessionStorage.removeItem('dc_op_date');
             sessionStorage.removeItem('dc_op_pending_status');
-            sessionStorage.removeItem('dc_op_approved_status');
+            sessionStorage.removeItem('dc_op_reverted_status');
         }
 
         if (sessionStorage.getItem('dc_op_search') !== null) {
             document.getElementById('dc-search-input').value = sessionStorage.getItem('dc_op_search');
             document.getElementById('dc-date-filter').value = sessionStorage.getItem('dc_op_date');
             document.getElementById('pending-status-filter').value = sessionStorage.getItem('dc_op_pending_status');
-            document.getElementById('approved-status-filter').value = sessionStorage.getItem('dc_op_approved_status');
+            if (document.getElementById('reverted-status-filter') && sessionStorage.getItem('dc_op_reverted_status')) {
+                document.getElementById('reverted-status-filter').value = sessionStorage.getItem('dc_op_reverted_status');
+            }
         } else {
             document.getElementById('dc-search-input').value = '';
             document.getElementById('dc-date-filter').value = 'month';
             document.getElementById('pending-status-filter').value = 'all';
-            document.getElementById('approved-status-filter').value = 'all';
+            if (document.getElementById('reverted-status-filter')) {
+                document.getElementById('reverted-status-filter').value = 'all';
+            }
         }
 
         filterAllTables();
@@ -1131,7 +1377,9 @@
 
         if (filename === 'pending_operator_activations.csv') {
             window.location.href = `/auth/dc/operator-activation/export-excel/pending?ids=${ids.join(',')}`;
-        } else if (filename === 'activation_log_history.csv') {
+        } else if (filename === 'sent_to_uidai_operator_activations.csv') {
+            window.location.href = `/auth/dc/operator-activation/export-excel/uidai?ids=${ids.join(',')}`;
+        } else if (filename === 'activation_log_history.csv' || filename === 'approved_history.csv' || filename === 'reverted_history.csv') {
             window.location.href = `/auth/dc/operator-activation/export-excel/credentials?ids=${ids.join(',')}`;
         } else {
             window.location.href = `/auth/dc/operator-activation/export-excel?ids=${ids.join(',')}`;

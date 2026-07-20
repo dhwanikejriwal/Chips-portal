@@ -1566,7 +1566,6 @@ window.applyHistoryPanelFiltersPipeline = function () {
     const m = (now.getMonth() + 1).toString().padStart(2, '0');
     const d = now.getDate().toString().padStart(2, '0');
     const todayPrefix = `${y}-${m}-${d}`;
-    const monthPrefix = `${y}-${m}`;
 
     rows.forEach(row => {
         const rowId = row.getAttribute("data-request-id") || "";
@@ -1652,6 +1651,39 @@ window.applyHistoryPanelFiltersPipeline = function () {
     // Beside the table heading, display the count of matching visible operators
     const countEl = document.getElementById('batches-count');
     if (countEl) countEl.textContent = totalVisibleOperators;
+
+    // Filter Flat Approved Operators Table
+    const approvedRows = document.querySelectorAll(".flat-op-row");
+    let visibleApproved = 0;
+    approvedRows.forEach((row, idx) => {
+        const opName = (row.getAttribute("data-name") || "").toLowerCase();
+        const opMobile = (row.getAttribute("data-mobile") || "").toLowerCase();
+        const opEmail = (row.getAttribute("data-email") || "").toLowerCase();
+        const reqId = (row.getAttribute("data-request-id") || "").toLowerCase();
+        const rowCreated = row.getAttribute("data-created") || "";
+
+        const matchSearch = !searchQuery || 
+            opName.includes(searchQuery) || 
+            opMobile.includes(searchQuery) || 
+            opEmail.includes(searchQuery) || 
+            reqId.includes(searchQuery);
+
+        const matchStatus = (statusValue === "ALL") || (statusValue === "APPROVED");
+        const show = matchSearch && matchStatus;
+        row.style.display = show ? "" : "none";
+        if (show) {
+            visibleApproved++;
+            row.cells[0].innerText = visibleApproved;
+        }
+    });
+
+    const flatApprovedCountEl = document.getElementById("flat-approved-count");
+    if (flatApprovedCountEl) flatApprovedCountEl.textContent = visibleApproved;
+
+    const flatApprovedEmptyMsg = document.getElementById("flat-approved-empty-msg");
+    if (flatApprovedEmptyMsg) {
+        flatApprovedEmptyMsg.style.display = (visibleApproved === 0) ? "block" : "none";
+    }
 
     // Dynamically update dashboard metric cards
     const pendingEl = document.getElementById('metric-pending');

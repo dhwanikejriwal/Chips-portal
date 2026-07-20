@@ -98,7 +98,14 @@ def get_lms_requests(district_code: str | None = None, db: Session = Depends(get
                     if file_timestamp > (approval_timestamp + 5.0):
                         nseit_uploaded_post_approval = True
 
+        had_lms_at_registration = False
+        if any("CANDIDATE ALREADY HAS EXISTING ID" in r.remark for r in remarks):
+            had_lms_at_registration = True
+        elif c.lms_id and not lms_uploaded_post_approval:
+            had_lms_at_registration = True
+
         result.append({
+            "had_lms_at_registration": had_lms_at_registration,
             "lms_id": l.id,
             "r_id": c.id,
             "request_code": c.request_code,

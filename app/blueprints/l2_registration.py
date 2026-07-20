@@ -96,7 +96,17 @@ def dc_new():
         except requests.exceptions.ConnectionError:
             return jsonify({"status": "error", "message": "Backend Microservice Offline."}), 500
 
-    return render_template("l2_registration/submit_form.html")
+    dc_id = session.get("user_id")
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    try:
+        awaiting_resp = requests.get(f"{BACKEND}/awaiting-l2/{dc_id}", headers=headers, timeout=5)
+        awaiting_l2 = awaiting_resp.json() if awaiting_resp.status_code == 200 else []
+        if not isinstance(awaiting_l2, list):
+            awaiting_l2 = []
+    except Exception:
+        awaiting_l2 = []
+
+    return render_template("l2_registration/submit_form.html", awaiting_l2=awaiting_l2)
 
 
 @l2_registration_bp.route("/dc/l2-registration/prefill/<station_id>", methods=["GET"])
@@ -330,4 +340,17 @@ def dc_export_creds():
         response.content,
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=history_l2_queue.csv"}
+    )
+
+@l2_registration_bp.route("/dc/l2-registration/export-excel/uidai", methods=["GET"])
+def dc_export_uidai():
+    jwt_token = get_valid_token()
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    ids = request.args.get("ids", "")
+    params = {"ids": ids} if ids else {}
+    response = requests.get(f"{BACKEND}/export-excel/pending", headers=headers, params=params, stream=True)
+    return Response(
+        response.content,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=sent_to_uidai_l2_queue.csv"}
     )

@@ -311,3 +311,59 @@ def mark_l2_done(kit_id: int, db: Session = Depends(get_db)):
     _mark_l2_done(kit)
     db.commit()
     return {"success": True, "message": "L2 marked Done. Kit registration complete."}
+
+
+@router.get("/export-excel")
+def export_kit_registration_excel(ids: str = None, db: Session = Depends(get_db)):
+    """Exports all information corresponding to the requested tracking entries."""
+    _reconcile_kit_table(db)
+
+    status_names = {ms.id: ms.name for ms in db.query(MasterStatus).all()}
+
+    l1_stations = {
+        (r.station_id or "").strip()
+        for r in db.query(L1RegistrationRequest.station_id).all()
+    }
+    l2_stations = {
+        (r.new_station_id or "").strip()
+        for r in db.query(L2RegistrationRequest.new_station_id).all()
+    }
+
+    query = db.query(KitRegistration)
+    if ids:
+        id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+        query = query.filter(KitRegistration.id.in_(id_list))
+
+    rows = query.order_by(
+        KitRegistration.station_id_provided_date.desc().nullslast(),
+        KitRegistration.id.desc(),
+    ).all()
+
+    export_data = []
+    for idx, r in enumerate(rows):
+        serialized = _serialize(r, status_names, r.station_id in l1_stations, r.station_id in l2_stations)
+        serialized["s_no"] = idx + 1
+        serialized["machine_id"] = r.machine_id or "—"
+        serialized["laptop_serial_no"] = r.laptop_serial_no or "—"
+        serialized["laptop_name"] = r.laptop_name or "—"
+        export_data.append(serialized)
+
+    column_mappings = {
+        "s_no": "S.No",
+        "request_no": "Request No",
+        "station_id": "Station ID",
+        "district": "District",
+        "station_id_provided_date": "Station ID Provided Date",
+        "l1_status": "L1 Status",
+        "l1_done_date": "L1 Done Date",
+        "l1_pending_days": "L1 Pending Days",
+        "l2_status": "L2 Status",
+        "l2_done_date": "L2 Done Date",
+        "l2_pending_days": "L2 Pending Days",
+        "machine_id": "Machine ID",
+        "laptop_serial_no": "Laptop Serial No",
+        "laptop_name": "Laptop Name"
+    }
+
+    from backend.utils.exporter import generate_csv_export
+    return generate_csv_export(export_data, column_mappings, "kit_registration_status")

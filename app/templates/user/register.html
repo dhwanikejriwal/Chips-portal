@@ -237,8 +237,7 @@
                         <div style="flex: 0.8; position: relative;">
                             <input type="file" id="lms_certificate" name="lms_certificate" accept=".pdf,.png,.jpg,.jpeg"
                                 style="display: none;" onchange="updateFileLabel(this, 'lms_cert_label')">
-                            <button type="button" class="btn"
-                                style="width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 10px; border: 1px dashed #4f46e5; background-color: #f5f3ff; color: #4f46e5; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease; font-size: 13px;"
+                            <button type="button" class="btn btn-upload"
                                 onclick="document.getElementById('lms_certificate').click()">
                                 <i class="ti ti-upload" style="font-size: 16px;"></i>
                                 <span id="lms_cert_label">Upload</span>
@@ -296,8 +295,7 @@
                             <input type="file" id="nseit_certificate" name="nseit_certificate"
                                 accept=".pdf,.png,.jpg,.jpeg" style="display: none;"
                                 onchange="updateFileLabel(this, 'nseit_cert_label')">
-                            <button type="button" class="btn"
-                                style="width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 10px; border: 1px dashed #4f46e5; background-color: #f5f3ff; color: #4f46e5; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease; font-size: 13px;"
+                            <button type="button" class="btn btn-upload"
                                 onclick="document.getElementById('nseit_certificate').click()">
                                 <i class="ti ti-upload" style="font-size: 16px;"></i>
                                 <span id="nseit_cert_label">Upload</span>
@@ -1016,11 +1014,118 @@
             const isPincodeValid = pincodeVal.length === 6 && pincodeVal.startsWith('49');
 
             const isPhotoOk = validateFileSize('photo', 'photo_error', 'Profile photo');
-            const isTenthOk = validateFileSize('tenth_marksheet', 'tenth_marksheet_error', '10th marksheet');
+            
+            // Validate 10th marksheet size
+            const isTenthSizeOk = validateFileSize('tenth_marksheet', 'tenth_marksheet_error', '10th marksheet');
+            
+            // Check if 10th marksheet is validated successfully (if new file is uploaded)
+            const tenthFile = document.getElementById('tenth_marksheet');
+            const hasExistingTenth = document.querySelector('input[name="existing_tenth_marksheet"]') && document.querySelector('input[name="existing_tenth_marksheet"]').value;
+            const tenthSuccess = document.getElementById('tenth_marksheet_success');
+            const tenthError = document.getElementById('tenth_marksheet_error');
+            let isTenthValidated = true;
 
+            if (tenthFile && tenthFile.files && tenthFile.files[0]) {
+                if (tenthSuccess.style.display === 'none') {
+                    tenthError.textContent = "Please wait for 10th Marksheet to finish validation/verification.";
+                    tenthError.style.display = 'block';
+                    isTenthValidated = false;
+                }
+            } else if (!hasExistingTenth) {
+                tenthError.textContent = "10th Marksheet is required.";
+                tenthError.style.display = 'block';
+                isTenthValidated = false;
+            }
+
+            // Validate highest qualification marksheet
+            let isHighestValidated = true;
             let isMarksheetOk = true;
             if (qualVal !== IS_10TH) {
                 isMarksheetOk = validateFileSize('marksheet', 'marksheet_error', 'Highest Qualification Marksheet');
+                const highestFile = document.getElementById('marksheet');
+                const hasExistingHighest = document.querySelector('input[name="existing_marksheet"]') && document.querySelector('input[name="existing_marksheet"]').value;
+                const highestSuccess = document.getElementById('marksheet_success');
+                const highestError = document.getElementById('marksheet_error');
+
+                if (highestFile && highestFile.files && highestFile.files[0]) {
+                    if (highestSuccess.style.display === 'none') {
+                        highestError.textContent = "Please wait for Highest Qualification Marksheet to finish validation/verification.";
+                        highestError.style.display = 'block';
+                        isHighestValidated = false;
+                    }
+                } else if (!hasExistingHighest) {
+                    highestError.textContent = "Highest Qualification Marksheet is required.";
+                    highestError.style.display = 'block';
+                    isHighestValidated = false;
+                }
+            }
+
+            // LMS Certificate validation logic
+            const lmsId = document.getElementById('lms_id').value.trim();
+            const lmsFile = document.getElementById('lms_certificate');
+            const hasExistingLms = document.querySelector('input[name="existing_lms_certificate"]') && document.querySelector('input[name="existing_lms_certificate"]').value;
+            const lmsFileNameDisplay = document.getElementById('lms_file_name_display');
+            const lmsError = document.getElementById('lms_certificate_error');
+            let isLmsOk = true;
+
+            if (lmsId) {
+                const fileUploaded = lmsFile && lmsFile.files && lmsFile.files[0];
+                if (!fileUploaded && !hasExistingLms) {
+                    lmsError.textContent = "LMS Certificate is mandatory when LMS ID is entered.";
+                    lmsError.style.display = 'block';
+                    isLmsOk = false;
+                } else if (fileUploaded) {
+                    if (lmsFileNameDisplay.style.display === 'none' || !lmsFileNameDisplay.textContent.includes('✓')) {
+                        lmsError.textContent = "Please wait for LMS Certificate to finish validation/verification.";
+                        lmsError.style.display = 'block';
+                        isLmsOk = false;
+                    }
+                }
+            } else {
+                lmsError.style.display = 'none';
+            }
+
+            // NSEIT Certificate validation logic
+            const nseitId = document.getElementById('nseit_id').value.trim();
+            const nseitFile = document.getElementById('nseit_certificate');
+            const hasExistingNseit = document.querySelector('input[name="existing_nseit_certificate"]') && document.querySelector('input[name="existing_nseit_certificate"]').value;
+            const nseitFileNameDisplay = document.getElementById('nseit_file_name_display');
+            const nseitError = document.getElementById('nseit_certificate_error');
+            let isNseitOk = true;
+
+            if (nseitId) {
+                const fileUploaded = nseitFile && nseitFile.files && nseitFile.files[0];
+                if (!fileUploaded && !hasExistingNseit) {
+                    nseitError.textContent = "NSEIT Certificate is mandatory when NSEIT Certificate Number is entered.";
+                    nseitError.style.display = 'block';
+                    isNseitOk = false;
+                } else if (fileUploaded) {
+                    if (nseitFileNameDisplay.style.display === 'none' || !nseitFileNameDisplay.textContent.includes('✓')) {
+                        nseitError.textContent = "Please wait for NSEIT Certificate to finish validation/verification.";
+                        nseitError.style.display = 'block';
+                        isNseitOk = false;
+                    }
+                }
+            } else {
+                nseitError.style.display = 'none';
+            }
+
+            // Block form submission if verification is currently in progress
+            const isOcrProcessing = 
+                (document.getElementById('lms_ocr_status') && document.getElementById('lms_ocr_status').style.display !== 'none') ||
+                (document.getElementById('nseit_ocr_status') && document.getElementById('nseit_ocr_status').style.display !== 'none') ||
+                (document.getElementById('tenth_marksheet_status') && document.getElementById('tenth_marksheet_status').style.display !== 'none') ||
+                (document.getElementById('marksheet_status') && document.getElementById('marksheet_status').style.display !== 'none');
+            
+            if (isOcrProcessing) {
+                Swal.fire({
+                    title: 'Verification In Progress',
+                    text: 'Please wait for your documents to finish OCR verification and validation before submitting.',
+                    icon: 'info',
+                    confirmButtonColor: '#4f46e5'
+                });
+                e.preventDefault();
+                return;
             }
 
             // 🛡️ CRITICAL SAFETY LAYER: Strips validation requirements immediately before dispatch
@@ -1031,7 +1136,7 @@
 
             const isEmailVerified = document.getElementById('email_verified').value === 'true';
 
-            if (!isDOBValid || !isMobileValid || !isPincodeValid || !isPhotoOk || !isTenthOk || !isMarksheetOk || !isEmailVerified) {
+            if (!isDOBValid || !isMobileValid || !isPincodeValid || !isPhotoOk || !isTenthSizeOk || !isTenthValidated || !isMarksheetOk || !isHighestValidated || !isEmailVerified || !isLmsOk || !isNseitOk) {
                 e.preventDefault();
                 if (!isEmailVerified) {
                     const emailErr = document.getElementById('email_error');
@@ -1041,23 +1146,14 @@
 
                 // Scroll to the first visible error field
                 setTimeout(() => {
-                    const visibleErrors = Array.from(document.querySelectorAll('[id$="_error"], [style*="color: #e53e3e"], [style*="color: rgb(229, 62, 62)"]'))
-                        .filter(el => {
-                            const style = window.getComputedStyle(el);
-                            return style.display !== 'none' && (style.color === 'rgb(229, 62, 62)' || el.textContent.trim().length > 0);
-                        });
-                    if (visibleErrors.length > 0) {
-                        visibleErrors[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        const inputId = visibleErrors[0].id.replace('_error', '');
-                        const inputEl = document.getElementById(inputId);
-                        if (inputEl) inputEl.focus({ preventScroll: true });
-                    }
+                    scrollToFirstError();
                 }, 50);
 
-                console.log("Validation blocked deployment pipeline loop execution context.");
+                console.log("Validation blocked submission.");
             }
         });
     }
+
 
     // Validate mobile number instantly after typing (reaches 10 digits)
     const mobileField = document.getElementById('mobile');
@@ -1255,6 +1351,33 @@
     });
     // -----------------
 
+    function scrollToFirstError() {
+        const errorElements = Array.from(document.querySelectorAll('[id$="_error"], .text-danger, .invalid-feedback, [style*="color: #e53e3e"], [style*="color: rgb(229, 62, 62)"]'));
+        const visibleErrors = errorElements.filter(el => {
+            const style = window.getComputedStyle(el);
+            const isVisible = style.display !== 'none' && style.visibility !== 'hidden' && el.offsetHeight > 0;
+            const hasText = el.textContent.trim().length > 0;
+            return isVisible && hasText;
+        });
+
+        if (visibleErrors.length > 0) {
+            visibleErrors[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Try to focus the associated input field
+            const errorId = visibleErrors[0].id || '';
+            let inputId = errorId.replace('_error', '');
+            if (errorId === 'dob_error') {
+                inputId = 'dob_day';
+            }
+            if (inputId) {
+                const inputEl = document.getElementById(inputId);
+                if (inputEl) inputEl.focus({ preventScroll: true });
+            }
+            return true;
+        }
+        return false;
+    }
+
     // Restore form data if there was a validation error
     function initPage() {
         const serverFormData = JSON.parse(document.getElementById('server-form-data').textContent);
@@ -1308,14 +1431,7 @@
                 if (alert) {
                     alert.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 } else {
-                    const serverErrors = Array.from(document.querySelectorAll('[style*="color: #e53e3e"], [style*="color: rgb(229, 62, 62)"], [id$="_error"]'))
-                        .filter(el => {
-                            const style = window.getComputedStyle(el);
-                            return style.display !== 'none' && el.textContent.trim().length > 0;
-                        });
-                    if (serverErrors.length > 0) {
-                        serverErrors[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
+                    scrollToFirstError();
                 }
             }, 300);
         }
@@ -1328,6 +1444,7 @@
     }
 
     document.querySelector('.register-form').addEventListener('submit', function (e) {
+        if (e.defaultPrevented) return;
         Swal.fire({
             title: 'Submitting Application...',
             text: 'Please wait while we process your request.',

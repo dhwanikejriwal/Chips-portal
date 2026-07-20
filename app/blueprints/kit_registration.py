@@ -62,3 +62,24 @@ def chips_l2_done(kit_id):
         )
     except Exception as e:
         return jsonify({"success": False, "error": f"Gateway error: {str(e)}"}), 500
+
+
+@kit_registration_bp.route("/chips/kit-registration/export-excel", methods=["GET"])
+def export_excel():
+    if not session.get("access_token"):
+        return redirect(url_for("auth.login"))
+    from flask import request
+    ids = request.args.get("ids", "")
+    try:
+        resp = http.get(f"{BACKEND}/export-excel?ids={ids}", headers=_headers(), stream=True)
+        if resp.status_code == 401:
+            return redirect(url_for("auth.logout"))
+        
+        headers = {
+            'Content-Disposition': resp.headers.get('Content-Disposition', 'attachment; filename=export.csv'),
+            'Content-Type': resp.headers.get('Content-Type', 'text/csv'),
+            'Cache-Control': 'no-cache'
+        }
+        return Response(resp.iter_content(chunk_size=1024), status=resp.status_code, headers=headers)
+    except Exception as e:
+        return f"Gateway error: {str(e)}", 500

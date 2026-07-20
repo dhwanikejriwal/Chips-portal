@@ -65,7 +65,13 @@ def extract_text_from_bytes(file_bytes: bytes, content_type: str, lang: str = "e
     try:
         extracted_text = ""
         
-        if content_type == "application/pdf":
+        is_pdf = False
+        if content_type:
+            is_pdf = content_type.lower() == "application/pdf"
+        if not is_pdf and file_bytes:
+            is_pdf = file_bytes.startswith(b"%PDF")
+
+        if is_pdf:
             # Check for Poppler path from env or common Windows locations
             poppler_path = os.getenv("POPPLER_PATH")
             if not poppler_path:
@@ -90,9 +96,28 @@ def extract_text_from_bytes(file_bytes: bytes, content_type: str, lang: str = "e
             image = Image.open(io.BytesIO(file_bytes))
             extracted_text = _do_ocr(image, lang=lang)
             
+        # Debug logger
+        try:
+            with open("ocr_debug.txt", "a", encoding="utf-8") as debug_file:
+                debug_file.write(f"\n--- NEW EXTRACTION ---\n")
+                debug_file.write(f"Content Type: {content_type}\n")
+                debug_file.write(f"Is PDF: {is_pdf}\n")
+                debug_file.write(f"Extracted Length: {len(extracted_text)}\n")
+                debug_file.write(f"Extracted Text Snippet:\n{extracted_text[:1000]}\n")
+        except Exception as logger_err:
+            print("Logger error:", logger_err)
+
         return extracted_text.upper()
     except Exception as e:
         print(f"OCR Extraction Error: {e}")
+        # Debug logger on error
+        try:
+            with open("ocr_debug.txt", "a", encoding="utf-8") as debug_file:
+                debug_file.write(f"\n--- EXTRACTION ERROR ---\n")
+                debug_file.write(f"Content Type: {content_type}\n")
+                debug_file.write(f"Error: {e}\n")
+        except Exception:
+            pass
         return ""
 
 def extract_text_from_file(upload_file: UploadFile) -> str:
@@ -517,8 +542,12 @@ def validate_nseit_certificate(extracted_text: str, operator_name: str, cert_num
         clean_cert = "".join(c for c in str(cert_number).upper() if c.isalnum())
         text_no_space = "".join(c for c in extracted_text.upper() if c.isalnum())
         if clean_cert and clean_cert not in text_no_space:
-            # Fallback to fuzzy match for certificate numbers to handle OCR errors (like 8 vs B, 5 vs S)
-            if fuzz.partial_ratio(clean_cert, text_no_space) < 80:
+            # Fallback to word-based fuzzy match for certificate numbers to handle OCR errors (like 8 vs B, 5 vs S)
+            words = re.findall(r'[A-Z0-9]{4,25}', extracted_text.upper())
+            best_score = 0
+            for w in words:
+                best_score = max(best_score, fuzz.ratio(clean_cert, w))
+            if best_score < 80:
                 return f"Validation Error: Certificate number '{cert_number}' was not found in the uploaded document."
     return None
 

@@ -1,7 +1,6 @@
 // app/static/js/dc_l1_registration.js
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Show dashboard by default
     showL1Dashboard();
 
     const isActionReload = sessionStorage.getItem('dc_action_reloading') === 'true';
@@ -11,7 +10,6 @@ document.addEventListener("DOMContentLoaded", () => {
         sessionStorage.removeItem('dc_l1_search');
         sessionStorage.removeItem('dc_l1_date');
         sessionStorage.removeItem('dc_l1_pending_status');
-        sessionStorage.removeItem('dc_l1_log_status');
     }
 
     if (sessionStorage.getItem('dc_l1_search') !== null) {
@@ -21,8 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (dateInput) dateInput.value = sessionStorage.getItem('dc_l1_date');
         const pendingStatusEl = document.getElementById('pending-status-filter');
         if (pendingStatusEl) pendingStatusEl.value = sessionStorage.getItem('dc_l1_pending_status');
-        const logStatusEl = document.getElementById('log-status-filter');
-        if (logStatusEl) logStatusEl.value = sessionStorage.getItem('dc_l1_log_status');
     } else {
         const searchInput = document.getElementById('l1-search-input');
         if (searchInput) searchInput.value = '';
@@ -30,8 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (dateInput) dateInput.value = 'month';
         const pendingStatusEl = document.getElementById('pending-status-filter');
         if (pendingStatusEl) pendingStatusEl.value = 'all';
-        const logStatusEl = document.getElementById('log-status-filter');
-        if (logStatusEl) logStatusEl.value = 'all';
     }
 
     filterL1Table();
@@ -61,7 +55,6 @@ function filterL1Table() {
     sessionStorage.setItem('dc_l1_search', input ? input.value : '');
     sessionStorage.setItem('dc_l1_date', dateFilter);
     sessionStorage.setItem('dc_l1_pending_status', document.getElementById('pending-status-filter') ? document.getElementById('pending-status-filter').value : 'all');
-    sessionStorage.setItem('dc_l1_log_status', document.getElementById('log-status-filter') ? document.getElementById('log-status-filter').value : 'all');
 
     const now = new Date();
     const y = now.getFullYear();
@@ -71,14 +64,14 @@ function filterL1Table() {
     const todayPrefix = `${y}-${m}-${d}`;
     const monthPrefix = `${y}-${m}`;
 
-    ['pending', 'log'].forEach(sec => {
+    ['allotted', 'pending', 'approved', 'reverted'].forEach(sec => {
         const rows = document.querySelectorAll(`#${sec}-tbody tr[data-status]`);
         let visibleCount = 0;
         const statusFilterEl = document.getElementById(`${sec}-status-filter`);
         const statusFilter = statusFilterEl ? statusFilterEl.value.toUpperCase() : 'ALL';
 
         rows.forEach(row => {
-            const reqCode = (row.getAttribute('data-request-code') || '').toUpperCase();
+            const reqCode = (row.getAttribute('data-request-code') || row.getAttribute('data-request-no') || '').toUpperCase();
             const stationId = (row.getAttribute('data-station-id') || '').toUpperCase();
             const model = (row.getAttribute('data-model') || '').toUpperCase();
             const rowStatus = (row.getAttribute('data-status') || '').toUpperCase();
@@ -115,18 +108,87 @@ function filterL1Table() {
             if (matchQuery && matchStatus && matchDate) {
                 row.style.display = "";
                 visibleCount++;
+                if (row.cells[0]) row.cells[0].innerText = visibleCount;
             } else {
                 row.style.display = "none";
             }
         });
 
-        const tbl = document.getElementById(`${sec}-table`);
         const emg = document.getElementById(`${sec}-empty-msg`);
-        const cnt = document.getElementById(`${sec}-count`);
+        const cnt = document.getElementById(`${sec}-count`) || document.getElementById(`${sec}-count-badge`) || document.getElementById('allotted-count');
 
         if (emg) emg.style.display = (visibleCount === 0) ? 'block' : 'none';
         if (cnt) cnt.textContent = visibleCount;
     });
+
+    // Calculate and update metrics dynamically
+    let metricPending = 0;
+    let metricReapplied = 0;
+    let metricReverted = 0;
+    let metricApproved = 0;
+    let metricAwaiting = 0;
+
+    const allRowsForMetrics = document.querySelectorAll('#allotted-tbody tr[data-status], #pending-tbody tr[data-status], #approved-tbody tr[data-status], #reverted-tbody tr[data-status]');
+    allRowsForMetrics.forEach(row => {
+        const reqCode = (row.getAttribute('data-request-code') || row.getAttribute('data-request-no') || '').toUpperCase();
+        const stationId = (row.getAttribute('data-station-id') || '').toUpperCase();
+        const model = (row.getAttribute('data-model') || '').toUpperCase();
+        const rowStatus = (row.getAttribute('data-status') || '').toUpperCase();
+        const createdDate = row.getAttribute('data-created') || '';
+
+        const matchQuery = !filter ||
+            reqCode.indexOf(filter) > -1 ||
+            stationId.indexOf(filter) > -1 ||
+            model.indexOf(filter) > -1;
+
+        let matchDate = true;
+        if (dateFilter === 'today') {
+            matchDate = createdDate.startsWith(todayPrefix);
+        } else if (dateFilter === 'week') {
+            if (!createdDate) {
+                matchDate = false;
+            } else {
+                const rowDate = new Date(createdDate.replace(' ', 'T'));
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                matchDate = rowDate >= sevenDaysAgo;
+            }
+        } else if (dateFilter === 'month') {
+            if (!createdDate) {
+                matchDate = false;
+            } else {
+                const rowDate = new Date(createdDate.replace(' ', 'T'));
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                matchDate = rowDate >= thirtyDaysAgo;
+            }
+        }
+
+        if (matchQuery && matchDate) {
+            if (rowStatus === 'PENDING') {
+                metricPending++;
+            } else if (rowStatus === 'REAPPLIED') {
+                metricReapplied++;
+            } else if (rowStatus === 'REVERTED') {
+                metricReverted++;
+            } else if (['DONE', 'APPROVED', 'REVIEWED'].includes(rowStatus)) {
+                metricApproved++;
+            } else if (rowStatus === 'AWAITING') {
+                metricAwaiting++;
+            }
+        }
+    });
+
+    const statPendingEl = document.getElementById('stat-pending');
+    if (statPendingEl) statPendingEl.textContent = metricPending;
+    const statReappliedEl = document.getElementById('stat-reapplied');
+    if (statReappliedEl) statReappliedEl.textContent = metricReapplied;
+    const statRevertedEl = document.getElementById('stat-reverted');
+    if (statRevertedEl) statRevertedEl.textContent = metricReverted;
+    const statApprovedEl = document.getElementById('stat-approved');
+    if (statApprovedEl) statApprovedEl.textContent = metricApproved;
+    const statAwaitingEl = document.getElementById('stat-awaiting-l1');
+    if (statAwaitingEl) statAwaitingEl.textContent = metricAwaiting;
+    const statTotalEl = document.getElementById('stat-total');
+    if (statTotalEl) statTotalEl.textContent = metricPending + metricReapplied + metricReverted + metricApproved + metricAwaiting;
 }
 
 function clearAllFilters() {
@@ -582,9 +644,17 @@ window.showL1Details = function (d, activeView) {
                             <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Ultra Viewer ID</div>
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.uv_id}</div>
                         </div>
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01); display: flex; flex-direction: column; gap: 3px;">
                             <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Ultra Viewer Password</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.uv_password}</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
+                                <input type="password" id="dc_uv_password_display" value="${escapeHtml(d.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: #495057; width: 100%; outline: none;" />
+                                <button type="button" onclick="togglePasswordVisibility('dc_uv_password_display', this)" style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #64748b;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

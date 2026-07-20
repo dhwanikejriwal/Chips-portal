@@ -11,8 +11,8 @@
 
 {% from 'partials/request_section.html' import request_section %}
 {% set pending_count = pending_requests | length %}
-{% set approved_count = approved_requests | selectattr('status', 'equalto', 'Approved') | list | length %}
-{% set reverted_count = approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length %}
+{% set approved_count = approved_requests | selectattr('status', 'equalto', 'APPROVED') | list | length + approved_requests | selectattr('status', 'equalto', 'Approved') | list | length %}
+{% set reverted_count = approved_requests | selectattr('status', 'equalto', 'REJECTED') | list | length + approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length %}
 {% set hold_count = hold_requests | length %}
 {% set total_requests = pending_count + approved_count + reverted_count + hold_count %}
 
@@ -34,23 +34,23 @@
     </div>
     <div class="chips-banner-metrics" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ pending_count }}</div>
+            <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ pending_count }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ hold_count }}</div>
+            <div id="metric-hold" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ hold_count }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">On Hold</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ approved_count }}</div>
+            <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ approved_count }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ reverted_count }}</div>
+            <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ reverted_count }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
+            <div id="metric-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
             </div>
         </div>
@@ -70,14 +70,30 @@
         </svg>
         <span>Pending onboarding requests</span>
     </button>
-    <button type="button" class="req-tab" data-tab="log">
+    <button type="button" class="req-tab" data-tab="hold">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round">
-            <path d="M3 3v5h5" />
-            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-            <path d="M12 7v5l3 3" />
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
-        <span>Credentials log history</span>
+        <span>On hold requests</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved onboarding history</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="rejected">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+        </svg>
+        <span>Rejected onboarding history</span>
     </button>
 </div>
 
@@ -125,7 +141,6 @@
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
     {'label': 'Request code'},
-    {'label': 'District'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -151,7 +166,6 @@
         data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}">
         <td>{{ loop.index }}</td>
         <td><strong>{{ req.request_code }}</strong></td>
-        <td>{{ req.district_name }}</td>
         <td>{{ req.name }}</td>
         <td>{{ req.mobile }}</td>
         <td>{{ req.email }}</td>
@@ -183,26 +197,89 @@
     {% endcall %}
 </div><!-- /panel pending -->
 
-<!-- Log History Table Section -->
+<!-- Hold Requests Table Section -->
+{% set hold_controls %}
+<button type="button" onclick="exportBackend('admin-hold-table')" class="rs-export">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="hold">
+    {% call request_section(
+    variant='pending',
+    title='On hold requests',
+    count='–', count_id='hold-count-badge',
+    controls=hold_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-hold-table', body_id='admin-hold-body',
+    empty_id='hold-empty-msg',
+    empty_message='No hold requests') %}
+    {% for req in hold_requests %}
+    <tr id="request-row-{{ req.r_id }}" data-id="{{ req.r_id }}" data-district="{{ req.district_name }}"
+        data-code="{{ req.request_code }}" data-name="{{ req.name }}" data-phone="{{ req.mobile }}"
+        data-email="{{ req.email }}" data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
+        data-aadhaar="{{ req.aadhaar }}" data-address="{{ req.address or '' }}" data-pincode="{{ req.pincode or '' }}"
+        data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}" data-photo="{{ req.photo_upload or '' }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+        data-marksheet="{{ req.marksheet_upload or '' }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-status="{{ req.status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-login-id="{{ req.generated_login_id or '' }}" data-password="{{ req.generated_password_raw or '' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+        data-updated="{{ req.updated_at or req.created_at }}">
+        <td>{{ loop.index }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>
+            <span class="badge" style="background: #f59e0b; color: white;">On Hold</span>
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td>{{ req.updated_at or req.created_at }}</td>
+        <td style="text-align: center;">
+            <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                    onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')">Approve</button>
+                <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                    onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')">Reject</button>
+                <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'), false)">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel hold -->
+
+<!-- Approved History Table Section -->
 {% set approved_controls %}
-<select id="admin-history-status-filter" class="rs-filter" onchange="filterAdminQueues()">
-    <option value="all">All statuses</option>
-    <option value="approved">Approved</option>
-    <option value="rejected">Rejected</option>
-</select>
 <button type="button" onclick="exportBackend('admin-approved-table')" class="rs-export">Export to CSV</button>
 {% endset %}
-<div class="req-tabpanel" data-panel="log">
+<div class="req-tabpanel" data-panel="approved">
     {% call request_section(
     variant='done',
-    title='Credentials log history',
-    count='–', count_id='approved-count',
+    title='Approved onboarding history',
+    count='–', count_id='approved-count-badge',
     controls=approved_controls,
     min_width=1050,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
     {'label': 'Request code'},
-    {'label': 'District'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -213,8 +290,8 @@
     ],
     table_id='admin-approved-table', body_id='admin-approved-body',
     empty_id='approved-empty-msg',
-    empty_message='No log history') %}
-    {% for req in approved_requests %}
+    empty_message='No approved history log found') %}
+    {% for req in approved_requests if (req.status|upper) == 'APPROVED' %}
     <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
         data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
         data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
@@ -229,21 +306,11 @@
         data-updated="{{ req.updated_at or req.created_at }}">
         <td>{{ loop.index }}</td>
         <td><strong>{{ req.request_code }}</strong></td>
-        <td>{{ req.district_name }}</td>
         <td>{{ req.name }}</td>
         <td>{{ req.mobile }}</td>
         <td>{{ req.email }}</td>
         <td>
-            {% set status_upper = req.status | upper %}
-            {% if status_upper == 'APPROVED' %}
             <span class="badge badge-approved">Approved</span>
-            {% elif status_upper == 'REJECTED' %}
-            <span class="badge badge-rejected">Rejected</span>
-            {% else %}
-            <span class="badge" style="background: #e2e8f0; color: #4a5568;">{{ req.status.replace("_", " ") |
-                title }}</span>
-            {% endif %}
-
             {% set has_email_fail = false %}
             {% if req.remarks_history %}
             {% for r in req.remarks_history %}
@@ -252,7 +319,6 @@
             {% endif %}
             {% endfor %}
             {% endif %}
-
             {% if has_email_fail %}
             <div style="margin-top: 4px;">
                 <span class="badge"
@@ -275,17 +341,76 @@
     </tr>
     {% endfor %}
     {% endcall %}
-</div><!-- /panel log -->
+</div><!-- /panel approved -->
+
+<!-- Rejected History Table Section -->
+{% set rejected_controls %}
+<button type="button" onclick="exportBackend('admin-rejected-table')" class="rs-export">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="rejected">
+    {% call request_section(
+    variant='done',
+    title='Rejected onboarding history',
+    count='–', count_id='rejected-count-badge',
+    controls=rejected_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-rejected-table', body_id='admin-rejected-body',
+    empty_id='rejected-empty-msg',
+    empty_message='No rejected history log found') %}
+    {% for req in approved_requests if (req.status|upper) == 'REJECTED' %}
+    <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+        data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+        data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
+        data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+        data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+        data-marksheet="{{ req.marksheet_upload }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-status="{{ req.status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-login-id="{{ req.generated_login_id or '' }}" data-password="{{ req.generated_password_raw or '' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+        data-updated="{{ req.updated_at or req.created_at }}">
+        <td>{{ loop.index }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>
+            <span class="badge badge-rejected">Rejected</span>
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td>{{ req.updated_at or req.created_at }}</td>
+        <td style="text-align: center;">
+            <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel rejected -->
 
 
-<script>
-    function clearAllFilters() {
+<script>    function clearAllFilters() {
         document.getElementById('admin-search-input').value = '';
         document.getElementById('admin-date-filter').value = 'month';
         const pendingFilter = document.getElementById('admin-pending-status-filter');
         if (pendingFilter) pendingFilter.value = 'all';
-        const historyFilter = document.getElementById('admin-history-status-filter');
-        if (historyFilter) historyFilter.value = 'all';
         filterAdminQueues();
     }
 
@@ -298,7 +423,6 @@
             sessionStorage.removeItem('dc_cand_search');
             sessionStorage.removeItem('dc_cand_date');
             sessionStorage.removeItem('dc_cand_pending_status');
-            sessionStorage.removeItem('dc_cand_history_status');
         }
 
         if (sessionStorage.getItem('dc_cand_search') !== null) {
@@ -307,7 +431,6 @@
             if (document.getElementById('admin-pending-status-filter')) {
                 document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('dc_cand_pending_status');
             }
-            document.getElementById('admin-history-status-filter').value = sessionStorage.getItem('dc_cand_history_status');
         } else {
             const searchInput = document.getElementById('admin-search-input');
             if (searchInput) searchInput.value = '';
@@ -315,8 +438,6 @@
             if (document.getElementById('admin-pending-status-filter')) {
                 document.getElementById('admin-pending-status-filter').value = 'all';
             }
-            const historyFilter = document.getElementById('admin-history-status-filter');
-            if (historyFilter) historyFilter.value = 'all';
         }
 
         filterAdminQueues();
@@ -328,13 +449,11 @@
         const district = 'all'; // Always all for DC district pre-scoped queries
         const dateFilter = document.getElementById('admin-date-filter').value;
         const pendingStatusFilter = document.getElementById('admin-pending-status-filter') ? document.getElementById('admin-pending-status-filter').value.toLowerCase() : 'all';
-        const historyStatusFilter = document.getElementById('admin-history-status-filter').value.toLowerCase();
 
         // Save current filter criteria to sessionStorage dynamically
         sessionStorage.setItem('dc_cand_search', document.getElementById('admin-search-input').value);
         sessionStorage.setItem('dc_cand_date', dateFilter);
         sessionStorage.setItem('dc_cand_pending_status', document.getElementById('admin-pending-status-filter') ? document.getElementById('admin-pending-status-filter').value : 'all');
-        sessionStorage.setItem('dc_cand_history_status', document.getElementById('admin-history-status-filter').value);
 
         const now = new Date();
         const yearStr = now.getFullYear().toString();
@@ -350,7 +469,7 @@
         let pendingIndex = 1;
         let pendingCount = 0;
         pendingRows.forEach(row => {
-            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return; // skip "no rows" row
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
 
             const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
             const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
@@ -389,7 +508,6 @@
                 }
             }
 
-
             if (matchesQuery && matchesDistrict && matchesDate && matchesStatus) {
                 row.style.display = '';
                 if (row.cells[0]) {
@@ -401,12 +519,12 @@
             }
         });
 
-        // Filter history log
+        // Filter approved history
         const approvedRows = document.querySelectorAll('#admin-approved-body tr');
         let approvedIndex = 1;
         let approvedCount = 0;
         approvedRows.forEach(row => {
-            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return; // skip "no rows" row
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
 
             const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
             const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
@@ -414,11 +532,9 @@
             const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
             const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
             const rowCreated = row.getAttribute('data-created') || '';
-            const rowStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
 
             const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
             const matchesDistrict = district === 'all' || rowDistrict === district;
-            const matchesHistoryStatus = historyStatusFilter === 'all' || rowStatus === historyStatusFilter;
 
             let matchesDate = true;
             if (dateFilter === 'today') {
@@ -445,8 +561,7 @@
                 }
             }
 
-
-            if (matchesQuery && matchesDistrict && matchesDate && matchesHistoryStatus) {
+            if (matchesQuery && matchesDistrict && matchesDate) {
                 row.style.display = '';
                 if (row.cells[0]) {
                     row.cells[0].innerText = approvedIndex++;
@@ -457,12 +572,65 @@
             }
         });
 
+        // Filter rejected history
+        const rejectedRows = document.querySelectorAll('#admin-rejected-body tr');
+        let rejectedIndex = 1;
+        let rejectedCount = 0;
+        rejectedRows.forEach(row => {
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
+
+            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+            const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
+            const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+            const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
+            const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
+            const rowCreated = row.getAttribute('data-created') || '';
+
+            const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+            const matchesDistrict = district === 'all' || rowDistrict === district;
+
+            let matchesDate = true;
+            if (dateFilter === 'today') {
+                matchesDate = rowCreated.startsWith(todayPrefix);
+            } else if (dateFilter === 'week') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last7Days = new Date(now);
+                    last7Days.setDate(now.getDate() - 7);
+                    last7Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last7Days;
+                }
+            } else if (dateFilter === 'month') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last30Days = new Date(now);
+                    last30Days.setDate(now.getDate() - 30);
+                    last30Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last30Days;
+                }
+            }
+
+            if (matchesQuery && matchesDistrict && matchesDate) {
+                row.style.display = '';
+                if (row.cells[0]) {
+                    row.cells[0].innerText = rejectedIndex++;
+                }
+                rejectedCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
         // Filter hold requests
         const holdRows = document.querySelectorAll('#admin-hold-body tr');
         let holdIndex = 1;
         let holdCount = 0;
         holdRows.forEach(row => {
-            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return; // skip "no rows" row
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
 
             const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
             const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
@@ -512,22 +680,92 @@
 
         const pendingCountEl = document.getElementById('pending-count');
         if (pendingCountEl) pendingCountEl.textContent = pendingCount;
-        const approvedCountEl = document.getElementById('approved-count');
+        const approvedCountEl = document.getElementById('approved-count-badge');
         if (approvedCountEl) approvedCountEl.textContent = approvedCount;
+        const rejectedCountEl = document.getElementById('rejected-count-badge');
+        if (rejectedCountEl) rejectedCountEl.textContent = rejectedCount;
         const holdCountBadgeEl = document.getElementById('hold-count-badge');
         if (holdCountBadgeEl) holdCountBadgeEl.textContent = holdCount;
 
-        const pendingTable = document.getElementById('admin-pending-table');
         const pendingEmptyMsg = document.getElementById('pending-empty-msg');
         if (pendingEmptyMsg) pendingEmptyMsg.style.display = (pendingCount === 0) ? 'block' : 'none';
 
-        const approvedTable = document.getElementById('admin-approved-table');
         const approvedEmptyMsg = document.getElementById('approved-empty-msg');
         if (approvedEmptyMsg) approvedEmptyMsg.style.display = (approvedCount === 0) ? 'block' : 'none';
 
-        const holdTable = document.getElementById('admin-hold-table');
+        const rejectedEmptyMsg = document.getElementById('rejected-empty-msg');
+        if (rejectedEmptyMsg) rejectedEmptyMsg.style.display = (rejectedCount === 0) ? 'block' : 'none';
+
         const holdEmptyMsg = document.getElementById('hold-empty-msg');
         if (holdEmptyMsg) holdEmptyMsg.style.display = (holdCount === 0) ? 'block' : 'none';
+
+        // Calculate and update metrics dynamically
+        let metricPending = 0;
+        let metricHold = 0;
+        let metricApproved = 0;
+        let metricRejected = 0;
+
+        const allRows = document.querySelectorAll('#admin-queue-body tr, #admin-hold-body tr, #admin-approved-body tr, #admin-rejected-body tr');
+        allRows.forEach(row => {
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
+            const name = (row.getAttribute('data-name') || '').toLowerCase();
+            const email = (row.getAttribute('data-email') || '').toLowerCase();
+            const code = (row.getAttribute('data-code') || '').toLowerCase();
+            const phone = (row.getAttribute('data-phone') || '').toLowerCase();
+            const rowCreated = row.getAttribute('data-created') || '';
+            const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+
+            const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+            const matchesDistrict = district === 'all' || (row.getAttribute('data-district') || '').toLowerCase() === district;
+
+            let matchesDate = true;
+            if (dateFilter === 'today') {
+                matchesDate = rowCreated.startsWith(todayPrefix);
+            } else if (dateFilter === 'week') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last7Days = new Date(now);
+                    last7Days.setDate(now.getDate() - 7);
+                    last7Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last7Days;
+                }
+            } else if (dateFilter === 'month') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last30Days = new Date(now);
+                    last30Days.setDate(now.getDate() - 30);
+                    last30Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last30Days;
+                }
+            }
+
+            if (matchesQuery && matchesDistrict && matchesDate) {
+                if (rowStatus === 'pending') {
+                    metricPending++;
+                } else if (rowStatus === 'hold' || rowStatus === 'on_hold' || rowStatus === 'on hold') {
+                    metricHold++;
+                } else if (rowStatus === 'approved') {
+                    metricApproved++;
+                } else if (rowStatus === 'rejected') {
+                    metricRejected++;
+                }
+            }
+        });
+
+        const metricPendingEl = document.getElementById('metric-pending');
+        if (metricPendingEl) metricPendingEl.textContent = metricPending;
+        const metricHoldEl = document.getElementById('metric-hold');
+        if (metricHoldEl) metricHoldEl.textContent = metricHold;
+        const metricApprovedEl = document.getElementById('metric-approved');
+        if (metricApprovedEl) metricApprovedEl.textContent = metricApproved;
+        const metricRejectedEl = document.getElementById('metric-rejected');
+        if (metricRejectedEl) metricRejectedEl.textContent = metricRejected;
+        const metricTotalEl = document.getElementById('metric-total');
+        if (metricTotalEl) metricTotalEl.textContent = metricPending + metricHold + metricApproved + metricRejected;
     }
 
     // Open SweetAlert for Placing requests On Hold

@@ -40,6 +40,19 @@
 
         <div class="form-grid-3x">
             <div class="input-group">
+                <label>New Station ID <span class="required-star">*</span></label>
+                <select name="new_station_id" id="l2-station-id-select" class="form-control-input" required
+                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;"
+                    onchange="onL2StationSelected(this)">
+                    <option value="" disabled selected>Select an L1 Approved Station ID</option>
+                    {% for s in awaiting_l2 %}
+                    <option value="{{ s.station_id }}">{{ s.station_id }}</option>
+                    {% else %}
+                    <option value="" disabled>No L1 Approved Station IDs awaiting L2</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="input-group">
                 <label>Client Software Version <span class="required-star">*</span></label>
                 <input type="text" name="client_version" required placeholder="e.g. 3.3.4.2/120-1"
                     class="form-control-input">
@@ -52,10 +65,6 @@
                     <option value="ECMP">ECMP (In house)</option>
                     <option value="UCL">UCL</option>
                 </select>
-            </div>
-            <div class="input-group">
-                <label>New Station ID <span class="required-star">*</span></label>
-                <input type="text" name="new_station_id" required placeholder="e.g. 11023" class="form-control-input">
             </div>
             <div class="input-group">
                 <label>New Machine ID <span class="required-star">*</span></label>
@@ -103,12 +112,12 @@
 
         <div class="form-grid-3x">
             <div class="input-group">
-                <label>Operator Name</label>
-                <input type="text" name="operator_name" placeholder="Enter Operator Name" class="form-control-input">
+                <label>Operator Name <span class="required-star">*</span></label>
+                <input type="text" name="operator_name" required placeholder="Enter Operator Name" class="form-control-input">
             </div>
             <div class="input-group">
-                <label>Operator ID</label>
-                <input type="text" name="operator_id" placeholder="Enter Operator User ID" class="form-control-input">
+                <label>Operator ID <span class="required-star">*</span></label>
+                <input type="text" name="operator_id" required placeholder="Enter Operator User ID" class="form-control-input">
             </div>
             <div class="input-group">
                 <label>Unique ID</label>
@@ -125,12 +134,12 @@
                 </select>
             </div>
             <div class="input-group">
-                <label>Block</label>
-                <input type="text" name="block" placeholder="Enter Block name" class="form-control-input">
+                <label>Block <span class="required-star">*</span></label>
+                <input type="text" name="block" required placeholder="Enter Block name" class="form-control-input">
             </div>
             <div class="input-group" style="grid-column: span 3;">
-                <label>Address of Govt Premises</label>
-                <textarea name="address_of_govt_premises" placeholder="Specify government premises address details..."
+                <label>Address of Govt Premises <span class="required-star">*</span></label>
+                <textarea name="address_of_govt_premises" required placeholder="Specify government premises address details..."
                     class="form-control-input" style="min-height: 80px; resize: vertical;"></textarea>
             </div>
         </div>
@@ -194,6 +203,12 @@
         const formData = new FormData(this);
         // Re-append district since disabled selects are omitted by default
         formData.append('district_id', "{{ session.get('district_id', 1) }}");
+
+        // Also re-append new_station_id if the select is disabled!
+        const stationSelect = document.getElementById('l2-station-id-select');
+        if (stationSelect && stationSelect.disabled) {
+            formData.append('new_station_id', stationSelect.value);
+        }
 
         fetch(this.action, {
             method: 'POST',
@@ -325,24 +340,14 @@
 
         window.loadL2Draft();
 
-        // Pre-fill the L2 form when arriving from the "Awaiting L2 Registration
-        // (L1 Done)" section via ?station_id=... All values are pulled from the
-        // database (L1 + Station ID stages) — nothing is hardcoded here.
-        const presetStation = new URLSearchParams(window.location.search).get('station_id');
-        if (presetStation) {
-            const stationInput = document.getElementsByName('new_station_id')[0];
-            if (stationInput) {
-                stationInput.value = presetStation;
-                stationInput.setAttribute('readonly', 'readonly');
-                stationInput.style.background = '#f1f5f9';
-                stationInput.style.cursor = 'not-allowed';
-                stationInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
+        // Define onL2StationSelected handler to prefill L2 form
+        window.onL2StationSelected = function (sel) {
+            const stationId = sel.value;
+            if (!stationId) return;
 
-            // Only fields the form actually exposes; skip metadata keys.
             const fillable = ['new_machine_id', 'operator_name', 'operator_id', 'client_version', 'client_type'];
 
-            fetch(`/auth/dc/l2-registration/prefill/${encodeURIComponent(presetStation)}`)
+            fetch(`/auth/dc/l2-registration/prefill/${encodeURIComponent(stationId)}`)
                 .then(res => res.ok ? res.json() : {})
                 .then(data => {
                     if (!data || typeof data !== 'object') return;
@@ -352,11 +357,9 @@
                         const el = document.getElementsByName(key)[0];
                         if (!el) return;
                         if (el.tagName === 'SELECT') {
-                            // Set only if the value matches an available option.
                             const match = Array.from(el.options).find(o => o.value === val);
                             if (match) {
                                 el.value = val;
-                                // Trigger dependent logic (e.g. EA code auto-fill).
                                 el.dispatchEvent(new Event('change', { bubbles: true }));
                             }
                         } else {
@@ -364,10 +367,31 @@
                             el.dispatchEvent(new Event('input', { bubbles: true }));
                         }
                     });
-                    // Persist the pre-filled values into the draft.
                     if (typeof window.saveL2Draft === 'function') window.saveL2Draft();
                 })
-                .catch(() => { /* prefill is best-effort; leave blanks for manual entry */ });
+                .catch(() => { /* prefill is best-effort; leave blanks */ });
+        };
+
+        // Pre-fill the L2 form when arriving from the "Awaiting L2 Registration" section via ?station_id=...
+        const presetStation = new URLSearchParams(window.location.search).get('station_id');
+        if (presetStation) {
+            const stationInput = document.getElementById('l2-station-id-select');
+            if (stationInput) {
+                let optionExists = Array.from(stationInput.options).some(o => o.value === presetStation);
+                if (!optionExists) {
+                    const opt = document.createElement('option');
+                    opt.value = presetStation;
+                    opt.textContent = presetStation;
+                    stationInput.appendChild(opt);
+                }
+                stationInput.value = presetStation;
+                stationInput.disabled = true;
+                stationInput.style.background = '#f1f5f9';
+                stationInput.style.cursor = 'not-allowed';
+                
+                // Trigger prefill
+                window.onL2StationSelected(stationInput);
+            }
         }
     });
 </script>

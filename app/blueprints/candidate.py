@@ -470,6 +470,16 @@ def change_password():
         flash("Unauthorized access. Please log in.", "danger")
         return redirect(url_for("auth.login"))
 
+    r_id = session.get("r_id")
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/candidate/status/{r_id}"
+    status_data = {}
+    try:
+        response = requests.get(backend_url)
+        if response.status_code == 200:
+            status_data = response.json()
+    except Exception:
+        pass
+
     if request.method == "POST":
         current_password = request.form.get("current_password")
         new_password = request.form.get("new_password")
@@ -477,13 +487,13 @@ def change_password():
 
         if new_password != confirm_password:
             flash("New passwords do not match.", "danger")
-            return render_template("candidate/change_password.html")
+            return render_template("candidate/change_password.html", status_data=status_data)
             
         if current_password == new_password:
             flash("New password cannot be the same as your current password.", "danger")
-            return render_template("candidate/change_password.html")
+            return render_template("candidate/change_password.html", status_data=status_data)
 
-        backend_url = f"{current_app.config['BACKEND_API_URL']}/auth/change-password"
+        backend_pw_url = f"{current_app.config['BACKEND_API_URL']}/auth/change-password"
         headers = {"Authorization": f"Bearer {session.get('access_token')}"}
         payload = {
             "current_password": current_password,
@@ -491,7 +501,7 @@ def change_password():
         }
 
         try:
-            response = requests.post(backend_url, json=payload, headers=headers)
+            response = requests.post(backend_pw_url, json=payload, headers=headers)
             if response.status_code == 200:
                 flash("Password updated successfully!", "success")
                 session["has_changed_password"] = True
@@ -502,6 +512,6 @@ def change_password():
         except Exception:
             flash("Error connecting to backend API.", "danger")
 
-    return render_template("candidate/change_password.html")
+    return render_template("candidate/change_password.html", status_data=status_data)
 
 

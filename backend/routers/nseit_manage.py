@@ -97,7 +97,14 @@ def get_nseit_requests(district_code: str | None = None, db: Session = Depends(g
                     if file_timestamp > (approval_timestamp + 5.0):
                         lms_uploaded_post_approval = True
 
+        had_nseit_at_registration = False
+        if any("CANDIDATE ALREADY HAS EXISTING ID" in r.remark for r in remarks):
+            had_nseit_at_registration = True
+        elif c.nseit_id and not c.nseit_id.startswith('NSEIT00') and not nseit_uploaded_post_approval:
+            had_nseit_at_registration = True
+
         result.append({
+            "had_nseit_at_registration": had_nseit_at_registration,
             "nseit_request_id": n.id,
             "r_id": c.id,
             "request_code": c.request_code,
