@@ -30,9 +30,9 @@ def _days_ago(dt_str):
     if not dt_str:
         return 9999
     try:
-        now = datetime.now()
+        now_date = datetime.now().date()
         dt = datetime.fromisoformat(str(dt_str).replace("T", " ")[:19])
-        return max(0, (now - dt).days)
+        return max(0, (now_date - dt.date()).days)
     except Exception:
         return 9999
 
@@ -143,15 +143,34 @@ def dc_dashboard():
     for r in (react_raw if isinstance(react_raw, list) else []):
         if not isinstance(r, dict):
             continue
-        reactivation_requests.append({
-            "district":           r.get("district_name", district_name),
-            "label":              r.get("request_code") or (f"#{r.get('id')}" if r.get("id") else "Batch"),
-            "status":             (r.get("status") or "PENDING").strip().upper(),
-            "submitted_days_ago": _days_ago(r.get("submitted_at")),
-            "created_at":         r.get("submitted_at"),
-            "operator_count":     r.get("operator_count", 0),
-            "revert_reason":      r.get("revert_reason") or r.get("reject_reason") or "",
-        })
+        dist = r.get("district_name", district_name)
+        req_code = r.get("request_code") or (f"#{r.get('id')}" if r.get("id") else "Batch")
+        created = r.get("submitted_at") or r.get("created_at")
+        ops = r.get("operators")
+        if ops and isinstance(ops, list):
+            for op in ops:
+                op_status = (op.get("status") or r.get("status") or "PENDING").strip().upper()
+                reactivation_requests.append({
+                    "id":                 op.get("id") or r.get("id"),
+                    "district":          dist,
+                    "label":             req_code,
+                    "status":            op_status,
+                    "submitted_days_ago": _days_ago(created),
+                    "created_at":         created,
+                    "operator_count":     1,
+                    "revert_reason":      op.get("revert_reason") or r.get("revert_reason") or r.get("reject_reason") or "",
+                })
+        else:
+            reactivation_requests.append({
+                "id":                 r.get("id"),
+                "district":          dist,
+                "label":             req_code,
+                "status":            (r.get("status") or "PENDING").strip().upper(),
+                "submitted_days_ago": _days_ago(created),
+                "created_at":         created,
+                "operator_count":     r.get("operator_count") or 1,
+                "revert_reason":      r.get("revert_reason") or r.get("reject_reason") or "",
+            })
 
     cand_raw = _get(f"/api/selection/candidates?district_code={district_id}", token)
 

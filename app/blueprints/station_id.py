@@ -55,12 +55,32 @@ def dc_list():
                 "assigned_station_id": r.get("assigned_station_id") or r.get("station_id_inserted"),
                 "submitted_at": r.get("submitted_at") or r.get("created_at") or "—",
                 "reviewed_at": r.get("reviewed_at") or r.get("updated_at") or "—",
-                "remarks_history": r.get("remarks_history", [])
+                "remarks_history": r.get("remarks_history") or []
             })
     except Exception:
         requests_list = []
 
-    return render_template("station_id/dc_list.html", requests=requests_list)
+    all_time_metrics = {
+        "pending": 0,
+        "reapplied": 0,
+        "reverted": 0,
+        "allotted": 0,
+    }
+    total_kits = 0
+    for r in requests_list:
+        kits = int(r.get("number_of_kits") or 1)
+        total_kits += kits
+        st = str(r.get("status") or "").lower().strip()
+        if st in ["allotted", "allocated", "approved", "activated"]:
+            all_time_metrics["allotted"] += kits
+        elif st in ["reverted", "reverted_by_chips"]:
+            all_time_metrics["reverted"] += kits
+        elif st in ["reapplied"]:
+            all_time_metrics["reapplied"] += kits
+        else:
+            all_time_metrics["pending"] += kits
+
+    return render_template("station_id/dc_list.html", requests=requests_list, metrics=all_time_metrics, total_requests=total_kits)
 
 
 @station_id_bp.route("/dc/station-id/new", methods=["GET"])
@@ -139,6 +159,7 @@ def chips_list():
     except http.exceptions.ConnectionError:
         requests_list = []
 
+    all_reqs = list(requests_list)
     aging_filter, aging_label = parse_aging_filter(request.args)
     if aging_filter:
         pending_subset = [
@@ -150,6 +171,7 @@ def chips_list():
     return render_template(
         "station_id/chips_list.html",
         requests=requests_list,
+        unfiltered_requests=all_reqs,
         aging_filter=aging_filter,
         aging_label=aging_label,
     )

@@ -136,9 +136,10 @@
 {% block content %}
 {% from 'partials/request_section.html' import request_section %}
 <!-- Jinja2 Metric Calculations -->
-{% set total_requests = requests | length %}
+{% set metric_source = unfiltered_requests if unfiltered_requests is defined else requests %}
+{% set total_requests = metric_source | length %}
 {% set metrics = namespace(pending=0, reverted=0, allotted=0) %}
-{% for r in requests %}
+{% for r in metric_source %}
 {% set st = r.status | upper %}
 {% if st in ['PENDING', 'REAPPLIED'] %}
 {% set metrics.pending = metrics.pending + 1 %}
@@ -223,13 +224,6 @@
         </svg>
         <span data-i18n="section.pending">Pending Station ID requests</span>
     </button>
-    <button type="button" class="sid-tab" data-sid-tab="approved" onclick="switchSidTab('approved')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-            stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-        <span>Approved Station ID log</span>
-    </button>
     <button type="button" class="sid-tab" data-sid-tab="reverted" onclick="switchSidTab('reverted')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">
@@ -238,6 +232,13 @@
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
         <span>Reverted Station ID log</span>
+    </button>
+    <button type="button" class="sid-tab" data-sid-tab="approved" onclick="switchSidTab('approved')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved Station ID log</span>
     </button>
 </div>
 
@@ -277,6 +278,14 @@
         </button>
     </div>
 </div>
+
+{% if aging_filter %}
+{% set pending_filtered = requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED', 'pending', 'reapplied']) | list %}
+<div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+    <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ pending_filtered|length }} found)</span>
+    <a href="/auth/chips/station-id" style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+</div>
+{% endif %}
 
 <!-- ═══════════════ TAB PANEL 1: PENDING ═══════════════ -->
 <div class="sid-tab-panel active" id="sid-panel-pending">
@@ -370,7 +379,76 @@
     {% endcall %}
 </div><!-- /sid-panel-pending -->
 
-<!-- ═══════════════ TAB PANEL 2: APPROVED STATION ID LOG ═══════════════ -->
+<!-- ═══════════════ TAB PANEL 2: REVERTED STATION ID LOG ═══════════════ -->
+<div class="sid-tab-panel" id="sid-panel-reverted">
+
+    {% set reverted_controls %}
+    <button class="rs-export" data-i18n="ui.exportCsv"
+        onclick="exportTableToExcel('reverted-table', 'reverted_station_id_requests.xlsx')">Export to CSV</button>
+    {% endset %}
+    {% call request_section(
+    variant='rejected',
+    title='Reverted Station ID log',
+    count='–', count_id='reverted-count',
+    controls=reverted_controls,
+    min_width=1150,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno', 'key': 'col.sno'},
+    {'label': 'Request ID', 'key': 'col.requestId'},
+    {'label': 'District', 'key': 'col.district'},
+    {'label': 'Model', 'key': 'col.model'},
+    {'label': 'User type', 'key': 'col.userType'},
+    {'label': 'Type of slot', 'key': 'col.slotType'},
+    {'label': 'No. of kits', 'align': 'right', 'key': 'col.noOfKits'},
+    {'label': 'Status', 'key': 'col.status'},
+    {'label': 'Submitted at', 'key': 'col.submittedAt'},
+    {'label': 'Updated at', 'key': 'col.updatedAt'},
+    {'label': 'Action', 'align': 'center', 'key': 'col.action'}
+    ],
+    table_id='reverted-table', body_id='reverted-tbody',
+    empty_id='reverted-empty-msg',
+    empty_message='No reverted requests') %}
+    {% set ns_reverted = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) == 'REVERTED' %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-district="{{ r.district_name or '' }}"
+        data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
+        data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
+        data-status="{{ r.status }}" data-created="{{ r.submitted_at or '' }}">
+        <td>{{ ns_reverted.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td{% if r.district_name %} data-i18n-district="{{ r.district_name }}" {% endif %}>{{ r.district_name or '—' }}
+            </td>
+            <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
+            <td>
+                {% if r.user_type == 'new_user' %}
+                <span data-i18n="value.newUser">New user</span>
+                {% else %}
+                {{ r.user_type | replace('_', ' ') | capitalize }}
+                {% endif %}
+            </td>
+            <td{% if r.slot %} data-i18n-slot="{{ r.slot }}" {% endif %}>{{ (r.slot | title) if r.slot else '—' }}</td>
+                <td><strong>{{ r.number_of_kits }}</strong></td>
+                <td><span class="sid-badge sid-badge-reverted" data-i18n="status.reverted">Reverted</span></td>
+                <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
+                <td>{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
+                <td style="text-align: center;">
+                    <button class="btn-details"
+                        onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <span data-i18n="action.details">Details</span>
+                    </button>
+                </td>
+    </tr>
+    {% set ns_reverted.count = ns_reverted.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div>
+
+<!-- ═══════════════ TAB PANEL 3: APPROVED STATION ID LOG ═══════════════ -->
 <div class="sid-tab-panel" id="sid-panel-approved">
 
     {% set approved_controls %}
@@ -378,7 +456,7 @@
         onclick="exportTableToExcel('approved-table', 'approved_station_id_requests.xlsx')">Export to CSV</button>
     {% endset %}
     {% call request_section(
-    variant='done',
+    variant='approved',
     title='Approved Station ID log',
     count='–', count_id='approved-count',
     controls=approved_controls,
@@ -452,75 +530,6 @@
                 </td>
     </tr>
     {% set ns_approved.count = ns_approved.count + 1 %}
-    {% endfor %}
-    {% endcall %}
-</div>
-
-<!-- ═══════════════ TAB PANEL 3: REVERTED STATION ID LOG ═══════════════ -->
-<div class="sid-tab-panel" id="sid-panel-reverted">
-
-    {% set reverted_controls %}
-    <button class="rs-export" data-i18n="ui.exportCsv"
-        onclick="exportTableToExcel('reverted-table', 'reverted_station_id_requests.xlsx')">Export to CSV</button>
-    {% endset %}
-    {% call request_section(
-    variant='done',
-    title='Reverted Station ID log',
-    count='–', count_id='reverted-count',
-    controls=reverted_controls,
-    min_width=1150,
-    columns=[
-    {'label': 'S.No', 'cls': 'rs-col-sno', 'key': 'col.sno'},
-    {'label': 'Request ID', 'key': 'col.requestId'},
-    {'label': 'District', 'key': 'col.district'},
-    {'label': 'Model', 'key': 'col.model'},
-    {'label': 'User type', 'key': 'col.userType'},
-    {'label': 'Type of slot', 'key': 'col.slotType'},
-    {'label': 'No. of kits', 'align': 'right', 'key': 'col.noOfKits'},
-    {'label': 'Status', 'key': 'col.status'},
-    {'label': 'Submitted at', 'key': 'col.submittedAt'},
-    {'label': 'Updated at', 'key': 'col.updatedAt'},
-    {'label': 'Action', 'align': 'center', 'key': 'col.action'}
-    ],
-    table_id='reverted-table', body_id='reverted-tbody',
-    empty_id='reverted-empty-msg',
-    empty_message='No reverted requests') %}
-    {% set ns_reverted = namespace(count=1) %}
-    {% for r in requests if (r.status|upper) == 'REVERTED' %}
-    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-district="{{ r.district_name or '' }}"
-        data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
-        data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
-        data-status="{{ r.status }}" data-created="{{ r.submitted_at or '' }}">
-        <td>{{ ns_reverted.count }}</td>
-        <td><strong>{{ r.request_no or '—' }}</strong></td>
-        <td{% if r.district_name %} data-i18n-district="{{ r.district_name }}" {% endif %}>{{ r.district_name or '—' }}
-            </td>
-            <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
-            <td>
-                {% if r.user_type == 'new_user' %}
-                <span data-i18n="value.newUser">New user</span>
-                {% else %}
-                {{ r.user_type | replace('_', ' ') | capitalize }}
-                {% endif %}
-            </td>
-            <td{% if r.slot %} data-i18n-slot="{{ r.slot }}" {% endif %}>{{ (r.slot | title) if r.slot else '—' }}</td>
-                <td><strong>{{ r.number_of_kits }}</strong></td>
-                <td><span class="sid-badge sid-badge-reverted" data-i18n="status.reverted">Reverted</span></td>
-                <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
-                <td>{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
-                <td style="text-align: center;">
-                    <button class="btn-details"
-                        onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        <span data-i18n="action.details">Details</span>
-                    </button>
-                </td>
-    </tr>
-    {% set ns_reverted.count = ns_reverted.count + 1 %}
     {% endfor %}
     {% endcall %}
 </div>
@@ -815,14 +824,7 @@
                 }
             });
 
-            const statPendingEl = document.getElementById('stat-pending');
-            if (statPendingEl) statPendingEl.textContent = metricPending;
-            const statRevertedEl = document.getElementById('stat-reverted');
-            if (statRevertedEl) statRevertedEl.textContent = metricReverted;
-            const statApprovedEl = document.getElementById('stat-approved');
-            if (statApprovedEl) statApprovedEl.textContent = metricAllotted;
-            const statTotalEl = document.getElementById('stat-total');
-            if (statTotalEl) statTotalEl.textContent = metricPending + metricReverted + metricAllotted;
+            // Metric cards display all-time counts irrespective of active filters
         };
 
         // Kept for existing callers (init + window export).

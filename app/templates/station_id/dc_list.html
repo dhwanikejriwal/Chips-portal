@@ -95,13 +95,6 @@
         </svg>
         <span>Pending Station ID requests</span>
     </button>
-    <button type="button" class="req-tab" data-tab="approved">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-            stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-        <span>Approved Station ID log</span>
-    </button>
     <button type="button" class="req-tab" data-tab="reverted">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">
@@ -110,6 +103,13 @@
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
         <span>Reverted Station ID log</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved Station ID log</span>
     </button>
 </div>
 
@@ -153,7 +153,7 @@
 {% endset %}
 <div class="req-tabpanel active" data-panel="pending">
     {% call request_section(
-    variant='progress',
+    variant='pending',
     title='Pending Station ID requests',
     count='–', count_id='pending-count',
     controls=pending_controls,
@@ -180,7 +180,7 @@
         data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
         data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
         data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
-        data-remarks='{{ r.remarks_history | tojson | safe }}'>
+        data-remarks='{{ (r.remarks_history | default([])) | tojson | safe }}'>
         <td>{{ ns_p.count }}</td>
         <td><strong>{{ r.request_no }}</strong></td>
         <td>{{ r.district_name }}</td>
@@ -217,93 +217,13 @@
 </div><!-- /panel pending -->
 
 <!-- Approved History Section -->
-{% set approved_controls %}
-<button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_station_id_history.csv')">Export to CSV</button>
-{% endset %}
-<div class="req-tabpanel" data-panel="approved">
-    {% call request_section(
-    variant='done',
-    title='Approved Station ID log',
-    count='–', count_id='approved-count-badge',
-    controls=approved_controls,
-    min_width=1150,
-    columns=[
-    {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request ID'},
-    {'label': 'District'},
-    {'label': 'Model'},
-    {'label': 'User type'},
-    {'label': 'Type of slot'},
-    {'label': 'No. of kits', 'align': 'right'},
-    {'label': 'Status'},
-    {'label': 'Assigned ID'},
-    {'label': 'Submitted at'},
-    {'label': 'Updated at'},
-    {'label': 'Action', 'align': 'center'}
-    ],
-    table_id='approved-table', body_id='approved-tbody',
-    empty_id='approved-empty-msg',
-    empty_message='No approved request logs found.') %}
-    {% set ns_a = namespace(count=1) %}
-    {% for r in requests if (r.status|upper) in ['ALLOTTED'] %}
-    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
-        data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
-        data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
-        data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
-        data-assigned-station-id="{{ r.assigned_station_id or '' }}"
-        data-remarks='{{ r.remarks_history | tojson | safe }}'>
-        <td>{{ ns_a.count }}</td>
-        <td>
-            <strong>{{ r.request_no }}</strong>
-        </td>
-        <td>{{ r.district_name }}</td>
-        <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
-        <td>{{ r.user_type | replace('_', ' ') | capitalize }}</td>
-        <td>{{ (r.slot | title) if r.slot else '—' }}</td>
-        <td><strong>{{ r.number_of_kits }}</strong></td>
-        <td><span class="sid-badge sid-badge-allotted">Allotted</span></td>
-        <td>
-            {% if r.assigned_station_id %}
-            {% set ids_list = r.assigned_station_id.split(',') %}
-            {% if ids_list | length > 3 %}
-            <strong style="color:#16a34a;">{{ ids_list[:3] | join(',') }}...</strong>
-            <a href="javascript:void(0)"
-                style="color: #0F7A50; font-size: 12px; font-weight: 600; text-decoration: underline; margin-left: 5px;"
-                onclick="showAllStationIds('{{ r.assigned_station_id }}')">See All</a>
-            {% else %}
-            <strong style="color:#16a34a;">{{ r.assigned_station_id }}</strong>
-            {% endif %}
-            {% else %}
-            <strong style="color:#16a34a;">—</strong>
-            {% endif %}
-        </td>
-        <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
-        <td>{{ r.reviewed_at[:16] if r.reviewed_at and r.reviewed_at != '—' else '—' }}</td>
-        <td style="text-align: center;">
-            <div style="display:flex; gap:6px; justify-content:center;">
-                <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2.5">
-                        <circle cx="11" cy="11" r="8" />
-                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    Details
-                </button>
-            </div>
-        </td>
-    </tr>
-    {% set ns_a.count = ns_a.count + 1 %}
-    {% endfor %}
-    {% endcall %}
-</div><!-- /panel approved -->
-
 <!-- Reverted History Section -->
 {% set reverted_controls %}
 <button class="rs-export" onclick="exportTableToExcel('reverted-table', 'reverted_station_id_history.csv')">Export to CSV</button>
 {% endset %}
 <div class="req-tabpanel" data-panel="reverted">
     {% call request_section(
-    variant='done',
+    variant='rejected',
     title='Reverted Station ID log',
     count='–', count_id='reverted-count-badge',
     controls=reverted_controls,
@@ -332,7 +252,7 @@
         data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
         data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
         data-assigned-station-id="{{ r.assigned_station_id or '' }}"
-        data-remarks='{{ r.remarks_history | tojson | safe }}'>
+        data-remarks='{{ (r.remarks_history | default([])) | tojson | safe }}'>
         <td>{{ ns_r.count }}</td>
         <td>
             <strong>{{ r.request_no }}</strong>
@@ -377,6 +297,87 @@
     {% endfor %}
     {% endcall %}
 </div><!-- /panel reverted -->
+
+<!-- Approved Section -->
+{% set approved_controls %}
+<button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_station_id_history.csv')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="approved">
+    {% call request_section(
+    variant='approved',
+    title='Approved Station ID log',
+    count='–', count_id='approved-count-badge',
+    controls=approved_controls,
+    min_width=1150,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Model'},
+    {'label': 'User type'},
+    {'label': 'Type of slot'},
+    {'label': 'No. of kits', 'align': 'right'},
+    {'label': 'Status'},
+    {'label': 'Assigned ID'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='approved-table', body_id='approved-tbody',
+    empty_id='approved-empty-msg',
+    empty_message='No approved request logs found.') %}
+    {% set ns_a = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) in ['ALLOTTED'] %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
+        data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
+        data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
+        data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+        data-assigned-station-id="{{ r.assigned_station_id or '' }}"
+        data-remarks='{{ (r.remarks_history | default([])) | tojson | safe }}'>
+        <td>{{ ns_a.count }}</td>
+        <td>
+            <strong>{{ r.request_no }}</strong>
+        </td>
+        <td>{{ r.district_name }}</td>
+        <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
+        <td>{{ r.user_type | replace('_', ' ') | capitalize }}</td>
+        <td>{{ (r.slot | title) if r.slot else '—' }}</td>
+        <td><strong>{{ r.number_of_kits }}</strong></td>
+        <td><span class="sid-badge sid-badge-allotted">Allotted</span></td>
+        <td>
+            {% if r.assigned_station_id %}
+            {% set ids_list = r.assigned_station_id.split(',') %}
+            {% if ids_list | length > 3 %}
+            <strong style="color:#16a34a;">{{ ids_list[:3] | join(',') }}...</strong>
+            <a href="javascript:void(0)"
+                style="color: #0F7A50; font-size: 12px; font-weight: 600; text-decoration: underline; margin-left: 5px;"
+                onclick="showAllStationIds('{{ r.assigned_station_id }}')">See All</a>
+            {% else %}
+            <strong style="color:#16a34a;">{{ r.assigned_station_id }}</strong>
+            {% endif %}
+            {% else %}
+            <strong style="color:#16a34a;">—</strong>
+            {% endif %}
+        </td>
+        <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
+        <td>{{ r.reviewed_at[:16] if r.reviewed_at and r.reviewed_at != '—' else '—' }}</td>
+        <td style="text-align: center;">
+            <div style="display:flex; gap:6px; justify-content:center;">
+                <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns_a.count = ns_a.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel approved -->
 
 
 <script>
@@ -881,16 +882,7 @@
                 }
             });
 
-            const statPendingEl = document.getElementById('stat-pending');
-            if (statPendingEl) statPendingEl.textContent = metricPending;
-            const statReappliedEl = document.getElementById('stat-reapplied');
-            if (statReappliedEl) statReappliedEl.textContent = metricReapplied;
-            const statRevertedEl = document.getElementById('stat-reverted');
-            if (statRevertedEl) statRevertedEl.textContent = metricReverted;
-            const statApprovedEl = document.getElementById('stat-approved');
-            if (statApprovedEl) statApprovedEl.textContent = metricAllotted;
-            const statTotalEl = document.getElementById('stat-total');
-            if (statTotalEl) statTotalEl.textContent = metricPending + metricReapplied + metricReverted + metricAllotted;
+            // Metric cards display all-time counts irrespective of active filters
         };
 
         window.clearAllFilters = function () {

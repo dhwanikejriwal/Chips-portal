@@ -262,13 +262,6 @@
             </svg>
             <span>Pending L1 registration requests</span>
         </button>
-        <button type="button" class="req-tab" data-tab="approved">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <span>Approved L1 log</span>
-        </button>
         <button type="button" class="req-tab" data-tab="reverted">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                 stroke-linejoin="round">
@@ -277,6 +270,13 @@
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
             <span>Reverted L1 log</span>
+        </button>
+        <button type="button" class="req-tab" data-tab="approved">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Approved L1 log</span>
         </button>
     </div>
 
@@ -320,7 +320,7 @@
     <!-- Awaiting L1 Section: Station IDs allotted but L1 not filled yet -->
     <div class="req-tabpanel active" data-panel="awaiting">
         {% call request_section(
-        variant='pending',
+        variant='progress',
         title='Awaiting L1 registration (Station ID allotted)',
         count=allotted_stations|length, count_id='allotted-count',
         columns=[
@@ -365,7 +365,7 @@
     {% endset %}
     <div class="req-tabpanel" data-panel="pending">
         {% call request_section(
-        variant='progress',
+        variant='pending',
         title='Pending L1 registration requests',
         count='–', count_id='pending-count',
         controls=pending_controls,
@@ -424,68 +424,13 @@
         {% endcall %}
     </div><!-- /panel pending -->
 
-    <!-- Approved History Section -->
-    {% set approved_controls %}
-    <button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_history')">Export to CSV</button>
-    {% endset %}
-    <div class="req-tabpanel" data-panel="approved">
-        {% call request_section(
-        variant='done',
-        title='Approved L1 log',
-        count='–', count_id='approved-count-badge',
-        controls=approved_controls,
-        columns=[
-        {'label': 'S.No', 'cls': 'rs-col-sno'},
-        {'label': 'Request ID'},
-        {'label': 'Station ID'},
-        {'label': 'Model'},
-        {'label': 'Status'},
-        {'label': 'Submitted at'},
-        {'label': 'Updated at'},
-        {'label': 'Actions', 'align': 'center'}
-        ],
-        table_id='approved-table', body_id='approved-tbody',
-        empty_id='approved-empty-msg',
-        empty_message='No approved request logs found.') %}
-        {% set ns_a = namespace(count=1) %}
-        {% for req in requests if (req.status|upper) in ['DONE', 'APPROVED', 'REVIEWED'] %}
-        <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}"
-            data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
-            <td>{{ ns_a.count }}</td>
-            <td><strong>{{ req.request_code }}</strong></td>
-            <td>{{ req.station_id }}</td>
-            <td>{{ req.model_type }}</td>
-            <td>
-                <span class="badge badge-approved">Done</span>
-            </td>
-            <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
-            <td>{{ req.updated_at|string|truncate(19, True, '') if req.updated_at else
-                (req.reviewed_at|string|truncate(19, True, '') if req.reviewed_at else '—') }}</td>
-            <td style="text-align: center;">
-                <div style="display:flex; gap:6px; justify-content:center;">
-                    <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        Details
-                    </button>
-                </div>
-            </td>
-        </tr>
-        {% set ns_a.count = ns_a.count + 1 %}
-        {% endfor %}
-        {% endcall %}
-    </div><!-- /panel approved -->
-
     <!-- Reverted History Section -->
     {% set reverted_controls %}
     <button class="rs-export" onclick="exportTableToExcel('reverted-table', 'reverted_history')">Export to CSV</button>
     {% endset %}
     <div class="req-tabpanel" data-panel="reverted">
         {% call request_section(
-        variant='done',
+        variant='rejected',
         title='Reverted L1 log',
         count='–', count_id='reverted-count-badge',
         controls=reverted_controls,
@@ -533,6 +478,61 @@
         {% endfor %}
         {% endcall %}
     </div><!-- /panel reverted -->
+
+    <!-- Approved History Section -->
+    {% set approved_controls %}
+    <button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_history')">Export to CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="approved">
+        {% call request_section(
+        variant='approved',
+        title='Approved L1 log',
+        count='–', count_id='approved-count-badge',
+        controls=approved_controls,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'Station ID'},
+        {'label': 'Model'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Actions', 'align': 'center'}
+        ],
+        table_id='approved-table', body_id='approved-tbody',
+        empty_id='approved-empty-msg',
+        empty_message='No approved request logs found.') %}
+        {% set ns_a = namespace(count=1) %}
+        {% for req in requests if (req.status|upper) in ['DONE', 'APPROVED', 'REVIEWED'] %}
+        <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}"
+            data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
+            <td>{{ ns_a.count }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.station_id }}</td>
+            <td>{{ req.model_type }}</td>
+            <td>
+                <span class="badge badge-approved">Done</span>
+            </td>
+            <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
+            <td>{{ req.updated_at|string|truncate(19, True, '') if req.updated_at else
+                (req.reviewed_at|string|truncate(19, True, '') if req.reviewed_at else '—') }}</td>
+            <td style="text-align: center;">
+                <div style="display:flex; gap:6px; justify-content:center;">
+                    <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Details
+                    </button>
+                </div>
+            </td>
+        </tr>
+        {% set ns_a.count = ns_a.count + 1 %}
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel approved -->
 
 </div>
 

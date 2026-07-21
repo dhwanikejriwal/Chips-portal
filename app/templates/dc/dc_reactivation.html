@@ -60,46 +60,86 @@
                 New Request
             </button>
         </div>
+        {% set ns_m = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0) %}
+        {% set metric_source = requests_history if requests_history is defined and requests_history else requests %}
+        {% if metric_source %}
+          {% for req in metric_source %}
+            {% if req.operators and req.operators|length > 0 %}
+              {% for op in req.operators %}
+                {% set s = (op.status or req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+                {% set ns_m.total = ns_m.total + 1 %}
+                {% if 'UIDAI' in s and 'REJECT' not in s %}
+                  {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
+                {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+                  {% set ns_m.approved = ns_m.approved + 1 %}
+                {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+                  {% set ns_m.rejected = ns_m.rejected + 1 %}
+                {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+                  {% set ns_m.reverted = ns_m.reverted + 1 %}
+                {% elif s in ['REAPPLIED'] %}
+                  {% set ns_m.reapplied = ns_m.reapplied + 1 %}
+                {% else %}
+                  {% set ns_m.pending = ns_m.pending + 1 %}
+                {% endif %}
+              {% endfor %}
+            {% else %}
+              {% set s = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+              {% set cnt = req.operator_count or 1 %}
+              {% set ns_m.total = ns_m.total + cnt %}
+              {% if 'UIDAI' in s and 'REJECT' not in s %}
+                {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + cnt %}
+              {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+                {% set ns_m.approved = ns_m.approved + cnt %}
+              {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+                {% set ns_m.rejected = ns_m.rejected + cnt %}
+              {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+                {% set ns_m.reverted = ns_m.reverted + cnt %}
+              {% elif s in ['REAPPLIED'] %}
+                {% set ns_m.reapplied = ns_m.reapplied + cnt %}
+              {% else %}
+                {% set ns_m.pending = ns_m.pending + cnt %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
         <div class="chips-banner-metrics" style="width: 100%;">
             <div class="chips-metric-card">
-                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                    metrics.pending }}</div>
+                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.pending }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-reapplied" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.reapplied }}</div>
+                    {{ ns_m.reapplied }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-sent-to-uidai"
-                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                    metrics.sent_to_uidai }}</div>
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.sent_to_uidai }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.reverted }}</div>
+                    {{ ns_m.reverted }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.rejected }}</div>
+                    {{ ns_m.rejected }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.approved }}</div>
+                    {{ ns_m.approved }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-total-requests"
-                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.total }}
                 </div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
                     Requests</div>
@@ -391,7 +431,7 @@
                                     <tr style="background-color: #f8fafc; color: #334155;">
                                         <th style="padding: 10px; border: 1px solid #cbd5e1;">S.No</th>
                                         <th style="padding: 10px; border: 1px solid #cbd5e1;">Role</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Name as
+                                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">Name as
                                             per
                                             Aadhaar</th>
                                         <th style="padding: 10px; border: 1px solid #cbd5e1;">Registrar Code</th>
@@ -401,7 +441,7 @@
                                         </th>
                                         <th style="padding: 10px; border: 1px solid #cbd5e1;">LMS Certificate ID</th>
                                         <th style="padding: 10px; border: 1px solid #cbd5e1;">Mobile</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Primary
+                                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">Primary
                                             E-MAIL
                                             ID</th>
                                         <th style="padding: 10px; border: 1px solid #cbd5e1;">Aadhaar Number</th>
@@ -764,7 +804,7 @@
             <button type="button" class="rs-export" onclick="exportApprovedOperatorsCSV()">Export to CSV</button>
             {% endset %}
             {% call request_section(
-            variant='done',
+            variant='approved',
             title='All approved operators',
             count=(activated_operators|length if activated_operators else 0), count_id='flat-approved-count',
             controls=flat_controls,

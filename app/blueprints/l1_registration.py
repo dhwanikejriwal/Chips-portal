@@ -6,7 +6,7 @@ from app.utils.aging import parse_aging_filter, filter_by_aging
 l1_bp = Blueprint("l1_registration", __name__)
 
 # Statuses that are NOT part of the pending queue for aging purposes
-_L1_NON_PENDING = {"reviewed", "approved", "reverted"}
+_L1_NON_PENDING = {"reviewed", "approved", "reverted", "done"}
 
 @l1_bp.route("/dc/l1-registration")
 def dc_l1_portal():
@@ -55,10 +55,32 @@ def dc_l1_portal():
     except Exception:
         allotted_stations = []
 
+    pending_cnt = 0
+    reapplied_cnt = 0
+    reverted_cnt = 0
+    approved_cnt = 0
+    total_cnt = len(requests_data)
+
+    for r in requests_data:
+        st = str(r.get("status") or "").lower().strip()
+        if st in ["approved", "reviewed", "l1_done", "done"]:
+            approved_cnt += 1
+        elif st in ["reverted", "reverted_by_chips"]:
+            reverted_cnt += 1
+        elif st in ["reapplied"]:
+            reapplied_cnt += 1
+        else:
+            pending_cnt += 1
+
     return render_template(
         "dc/dc_l1_registration.html",
         requests=requests_data,
         allotted_stations=allotted_stations,
+        pending_count=pending_cnt,
+        reapplied_count=reapplied_cnt,
+        reverted_count=reverted_cnt,
+        approved_count=approved_cnt,
+        total_requests=total_cnt,
     )
 
 
@@ -92,6 +114,7 @@ def chips_l1_portal():
     except Exception:
         requests_data = []
 
+    all_reqs = list(requests_data)
     aging_filter, aging_label = parse_aging_filter(request.args)
     if aging_filter:
         pending_subset = [
@@ -103,6 +126,7 @@ def chips_l1_portal():
     return render_template(
         "chips/chips_l1_registration.html",
         requests=requests_data,
+        unfiltered_requests=all_reqs,
         aging_filter=aging_filter,
         aging_label=aging_label,
     )

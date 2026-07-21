@@ -2,7 +2,7 @@
 import requests
 from flask import Blueprint, render_template, redirect, url_for, request, session, flash, current_app, Response
 from datetime import datetime, date
-
+from app.utils.aging import parse_aging_filter, filter_by_aging
 nseit_manage_bp = Blueprint("nseit_manage", __name__)
 
 def _headers():
@@ -34,12 +34,20 @@ def dc_nseit():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
+    all_pending = list(pending_requests)
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
+        
     return render_template(
         "dc/dc_nseit.html",
         pending_requests=pending_requests,
         processed_requests=processed_requests,
         sent_to_chips_requests=sent_to_chips_requests,
-        approved_requests=processed_requests
+        approved_requests=processed_requests,
+        all_pending_requests=all_pending,
+        aging_filter=aging_filter,
+        aging_label=aging_label
     )
 
 @nseit_manage_bp.route("/chips/nseit")
@@ -67,6 +75,7 @@ def chips_nseit():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
+    all_pending = list(pending_requests)
     aging_filter = request.args.get('aging')
     aging_label = ""
     if aging_filter in ['0-3', '4-7', '8-15', '15plus']:
@@ -112,6 +121,7 @@ def chips_nseit():
         pending_requests=pending_requests,
         processed_requests=processed_requests,
         approved_requests=processed_requests,
+        all_pending_requests=all_pending,
         aging_filter=aging_filter,
         aging_label=aging_label
     )

@@ -1,5 +1,6 @@
 import requests
 from flask import Blueprint, render_template, redirect, url_for, request, session, flash, current_app, Response
+from app.utils.aging import parse_aging_filter, filter_by_aging
 
 selection_bp = Blueprint("selection", __name__)
 
@@ -19,6 +20,7 @@ def dc_candidate_requests():
     backend_url = f"{current_app.config['BACKEND_API_URL']}/selection/candidates"
     pending_requests = []
     approved_requests = []
+    hold_requests = []
     try:
         response = requests.get(backend_url, params={"district_code": session.get("district_id")}, headers=_headers())
         if response.status_code == 401:
@@ -34,11 +36,19 @@ def dc_candidate_requests():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
+    all_pending = list(pending_requests)
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
+
     return render_template(
         "dc/dc_candidate_requests.html",
         pending_requests=pending_requests,
         approved_requests=approved_requests,
-        hold_requests=hold_requests
+        hold_requests=hold_requests,
+        all_pending_requests=all_pending,
+        aging_filter=aging_filter,
+        aging_label=aging_label
     )
 
 

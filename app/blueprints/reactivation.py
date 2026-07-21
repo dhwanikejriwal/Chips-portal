@@ -86,17 +86,78 @@ def view_reactivation_dashboard():
                     ] if isinstance(req.get("operators"), list) else [],
                     "timeline_logs": req.get("timeline_logs", [])
                 })
-        else:
-            print(f"WARNING: Unexpected data type from FastAPI backend: {type(raw_history)}")
-            requests_history = []
+        full_history = list(requests_history)
+
+        all_time_metrics = {
+            "pending": 0,
+            "reapplied": 0,
+            "sent_to_uidai": 0,
+            "reverted": 0,
+            "rejected": 0,
+            "approved": 0,
+        }
+        for r in full_history:
+            if not isinstance(r, dict):
+                continue
+            ops = r.get("operators")
+            if ops and isinstance(ops, list) and len(ops) > 0:
+                for op in ops:
+                    st = str(op.get("status") or r.get("status") or "PENDING").upper().replace("_", " ").strip()
+                    if "UIDAI" in st and "REJECT" not in st:
+                        all_time_metrics["sent_to_uidai"] += 1
+                    elif st in ["APPROVED", "REVIEWED", "ACTIVATED", "ACTIVE", "ASSIGNED"]:
+                        all_time_metrics["approved"] += 1
+                    elif st in ["REVERTED", "REVERT BACK", "REVERTED BY CHIPS"]:
+                        all_time_metrics["reverted"] += 1
+                    elif st in ["REJECTED", "UIDAI REJECTED", "REJECTED BY UIDAI"] or "REJECT" in st:
+                        all_time_metrics["rejected"] += 1
+                    elif st in ["REAPPLIED"]:
+                        all_time_metrics["reapplied"] += 1
+                    else:
+                        all_time_metrics["pending"] += 1
+            else:
+                op_cnt = int(r.get("operator_count") or 1)
+                st = str(r.get("status") or "PENDING").upper().replace("_", " ").strip()
+                if "UIDAI" in st and "REJECT" not in st:
+                    all_time_metrics["sent_to_uidai"] += op_cnt
+                elif st in ["APPROVED", "REVIEWED", "ACTIVATED", "ACTIVE", "ASSIGNED"]:
+                    all_time_metrics["approved"] += op_cnt
+                elif st in ["REVERTED", "REVERT BACK", "REVERTED BY CHIPS"]:
+                    all_time_metrics["reverted"] += op_cnt
+                elif st in ["REJECTED", "UIDAI REJECTED", "REJECTED BY UIDAI"] or "REJECT" in st:
+                    all_time_metrics["rejected"] += op_cnt
+                elif st in ["REAPPLIED"]:
+                    all_time_metrics["reapplied"] += op_cnt
+                else:
+                    all_time_metrics["pending"] += op_cnt
+
+        total_requests = (
+            all_time_metrics["pending"] +
+            all_time_metrics["reapplied"] +
+            all_time_metrics["sent_to_uidai"] +
+            all_time_metrics["reverted"] +
+            all_time_metrics["rejected"] +
+            all_time_metrics["approved"]
+        )
 
     except Exception as e:
         print(f"❌ CRITICAL BLUEPRINT DIAGNOSTIC LOOP ERROR: {str(e)}")
         requests_history = []
+        full_history = []
+        all_time_metrics = {"pending": 0, "reapplied": 0, "sent_to_uidai": 0, "reverted": 0, "rejected": 0, "approved": 0}
+        total_requests = 0
 
     aging_filter, aging_label = parse_aging_filter(request.args)
     if aging_filter:
-        pending_subset = [r for r in requests_history if r.get("status") == "PENDING"]
+        pending_subset = []
+        for r in requests_history:
+            ops = r.get("operators", [])
+            if ops:
+                if any(str(op.get("status") or "").upper().replace("_", " ").strip() in ["PENDING", "REAPPLIED"] for op in ops):
+                    pending_subset.append(r)
+            else:
+                if str(r.get("status") or "").upper().replace("_", " ").strip() in ["PENDING", "REAPPLIED"]:
+                    pending_subset.append(r)
         requests_history = filter_by_aging(pending_subset, aging_filter, "created_at")
 
     # Extract flattened activated operators list
@@ -116,18 +177,18 @@ def view_reactivation_dashboard():
             status_lower = str(op.get("status", "")).lower()
             if status_lower in ["active", "activated", "reviewed", "approved"]:
                 activated_operators.append(op_flat)
-                
-    with open("debug_all_operators.txt", "w") as f:
-        f.write(str(all_operators))
-        
+
     # 🌟 CONNECTED: Resolves correct structural template path targets
     template_path = "chips/chips_reactivation.html" if "/chips" in request.path else "dc/dc_reactivation.html"
     return render_template(
         template_path,
         requests=requests_history,
-        requests_history=requests_history,
+        requests_history=full_history,
+        full_history=full_history,
         activated_operators=activated_operators,
         all_operators=all_operators,
+        metrics=all_time_metrics,
+        total_requests=total_requests,
         aging_filter=aging_filter,
         aging_label=aging_label
     )

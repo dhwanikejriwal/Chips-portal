@@ -95,9 +95,10 @@
 {% from 'partials/request_section.html' import request_section %}
 
 <!-- Jinja2 Metric Calculations -->
-{% set total_requests = requests | length %}
+{% set metric_source = unfiltered_requests if unfiltered_requests is defined else requests %}
+{% set total_requests = metric_source | length %}
 {% set metrics = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0) %}
-{% for r in requests %}
+{% for r in metric_source %}
     {% set st = r.status | upper %}
     {% if st == 'PENDING' %}
         {% set metrics.pending = metrics.pending + 1 %}
@@ -184,13 +185,6 @@
         </svg>
         <span>Sent to UIDAI log</span>
     </button>
-    <button type="button" class="req-tab" data-tab="approved">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-            stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-        <span>Approved log</span>
-    </button>
     <button type="button" class="req-tab" data-tab="reverted">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">
@@ -199,6 +193,13 @@
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
         <span>Reverted/Rejected log</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved log</span>
     </button>
 </div>
 
@@ -251,6 +252,13 @@
     </div>
 </div>
 <!-- ============================= -->
+
+{% if aging_filter %}
+<div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+    <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ requests|length }} found)</span>
+    <a href="/auth/chips/operator-activation" style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+</div>
+{% endif %}
 
 
 {% set pending_controls %}
@@ -349,7 +357,7 @@
 {% endset %}
 <div class="req-tabpanel" data-panel="uidai">
     {% call request_section(
-    variant='progress',
+    variant='uidai',
     title='Sent to UIDAI log',
     count='–', count_id='uidai-count',
     controls=uidai_controls,
@@ -419,73 +427,6 @@
 <!-- ═══════════════════════════════════════════════════════
                  SECTION 3 — CREDENTIALS LOG HISTORY
             ═══════════════════════════════════════════════════════ -->
-{% set approved_controls %}
-<button class="rs-export" onclick="exportSection('approved')">Export to CSV</button>
-{% endset %}
-<div class="req-tabpanel" data-panel="approved">
-    {% call request_section(
-    variant='done',
-    title='Approved log',
-    count='–', count_id='creds-count',
-    controls=approved_controls,
-    min_width=1200,
-    columns=[
-    {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request ID'},
-    {'label': 'District'},
-    {'label': 'Operator name'},
-    {'label': 'Mobile'},
-    {'label': 'Email ID'},
-    {'label': 'EA code'},
-    {'label': 'User code'},
-    {'label': 'Status'},
-    {'label': 'Submitted at'},
-    {'label': 'Updated at'},
-    {'label': 'Action', 'align': 'center'}
-    ],
-    table_id='approved-requests-table', body_id='approved-table-body',
-    empty_id='approved-empty-msg',
-    empty_message='No approved logs found.') %}
-    {% set ns2 = namespace(count=1) %}
-    {% for r in requests if (r.status|upper) in ['APPROVED', 'UIDAI_APPROVED', 'APPROVED_LEGACY'] %}
-    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
-        data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
-        data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
-        data-user-code="{{ r.user_code or '' }}" data-status="{{ r.status }}"
-        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
-        <td>{{ ns2.count }}</td>
-        <td><strong>{{ r.request_no or '—' }}</strong></td>
-        <td>{{ r.district_name or '—' }}</td>
-        <td>{{ r.operator_name }}</td>
-        <td>{{ r.operator_mobile }}</td>
-        <td>{{ r.primary_email or '—' }}</td>
-        <td>{{ r.ea_code or '—' }}</td>
-        <td>{{ r.user_code or '—' }}</td>
-        <td>
-            <span class="sid-badge sid-badge-approved">Approved</span>
-        </td>
-        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
-        <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% elif r.submitted_at %}{{ r.submitted_at[:16] }}{%
-            else %}—{% endif %}</td>
-        <td>
-            <div class="action-group" style="justify-content: center;">
-                <button type="button" class="btn-details"
-                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2.5">
-                        <circle cx="11" cy="11" r="8" />
-                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    Details
-                </button>
-            </div>
-        </td>
-    </tr>
-    {% set ns2.count = ns2.count + 1 %}
-    {% endfor %}
-    {% endcall %}
-</div>
-
 {% set reverted_controls %}
 <select id="reverted-status-filter" class="rs-filter" onchange="filterAllTables()">
     <option value="all">All statuses</option>
@@ -496,7 +437,7 @@
 {% endset %}
 <div class="req-tabpanel" data-panel="reverted">
     {% call request_section(
-    variant='done',
+    variant='rejected',
     title='Reverted/Rejected log',
     count='–', count_id='reverted-count',
     controls=reverted_controls,
@@ -558,6 +499,76 @@
         </td>
     </tr>
     {% set ns4.count = ns4.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+                 SECTION 3 — CREDENTIALS LOG HISTORY
+            ═══════════════════════════════════════════════════════ -->
+{% set approved_controls %}
+<button class="rs-export" onclick="exportSection('approved')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="approved">
+    {% call request_section(
+    variant='approved',
+    title='Approved log',
+    count='–', count_id='creds-count',
+    controls=approved_controls,
+    min_width=1200,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Operator name'},
+    {'label': 'Mobile'},
+    {'label': 'Email ID'},
+    {'label': 'EA code'},
+    {'label': 'User code'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='approved-requests-table', body_id='approved-table-body',
+    empty_id='approved-empty-msg',
+    empty_message='No approved logs found.') %}
+    {% set ns2 = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) in ['APPROVED', 'UIDAI_APPROVED', 'APPROVED_LEGACY'] %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-name="{{ r.operator_name }}"
+        data-mobile="{{ r.operator_mobile }}" data-district="{{ r.district_name or 'Raipur' }}"
+        data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
+        data-user-code="{{ r.user_code or '' }}" data-status="{{ r.status }}"
+        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
+        <td>{{ ns2.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td>{{ r.district_name or '—' }}</td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_mobile }}</td>
+        <td>{{ r.primary_email or '—' }}</td>
+        <td>{{ r.ea_code or '—' }}</td>
+        <td>{{ r.user_code or '—' }}</td>
+        <td>
+            <span class="sid-badge sid-badge-approved">Approved</span>
+        </td>
+        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+        <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% elif r.submitted_at %}{{ r.submitted_at[:16] }}{%
+            else %}—{% endif %}</td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-details"
+                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns2.count = ns2.count + 1 %}
     {% endfor %}
     {% endcall %}
 </div>
@@ -754,20 +765,7 @@
             }
         });
 
-        const metricPendingEl = document.getElementById('metric-pending');
-        if (metricPendingEl) metricPendingEl.textContent = metricPending;
-        const metricReappliedEl = document.getElementById('metric-reapplied');
-        if (metricReappliedEl) metricReappliedEl.textContent = metricReapplied;
-        const metricSentToUidaiEl = document.getElementById('metric-sent-to-uidai');
-        if (metricSentToUidaiEl) metricSentToUidaiEl.textContent = metricSentToUidai;
-        const metricRevertedEl = document.getElementById('metric-reverted');
-        if (metricRevertedEl) metricRevertedEl.textContent = metricReverted;
-        const metricRejectedEl = document.getElementById('metric-rejected');
-        if (metricRejectedEl) metricRejectedEl.textContent = metricRejected;
-        const metricApprovedEl = document.getElementById('metric-approved');
-        if (metricApprovedEl) metricApprovedEl.textContent = metricApproved;
-        const metricTotalEl = document.getElementById('metric-total');
-        if (metricTotalEl) metricTotalEl.textContent = metricPending + metricReapplied + metricSentToUidai + metricReverted + metricRejected + metricApproved;
+        // Metric cards display all-time counts irrespective of active filters
     }
 
     // 🌟 FIXED: Gathers ALL row references from DOM context list to avoid truncation drops

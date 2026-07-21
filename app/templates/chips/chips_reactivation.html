@@ -114,8 +114,8 @@
         gap: 4px;
         padding: 5px 12px;
         background: #fff;
-        color: var(--rail-pending, #D85A30);
-        border: 1.5px solid var(--rail-pending, #D85A30);
+        color: #DC2626;
+        border: 1.5px solid #DC2626;
         border-radius: 7px;
         font-size: 12px;
         font-weight: 700;
@@ -126,7 +126,7 @@
     }
 
     .btn-revert:hover {
-        background: #FBE9E2;
+        background: #FEE2E2;
         opacity: 1;
     }
 
@@ -320,27 +320,48 @@
 {% from 'partials/request_section.html' import request_section %}
 <div style="background-color: var(--app-bg);">
     <!-- Jinja2 Metric Calculations -->
-    {% set metrics = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0)
-    %}
-    {% for req in requests %}
-    {% for op in req.operators %}
-    {% set status_upper = op.status|upper %}
-    {% set metrics.total = metrics.total + 1 %}
-    {% if status_upper == 'REAPPLIED' %}
-    {% set metrics.reapplied = metrics.reapplied + 1 %}
-    {% elif status_upper == 'PENDING' %}
-    {% set metrics.pending = metrics.pending + 1 %}
-    {% elif 'UIDAI' in status_upper %}
-    {% set metrics.sent_to_uidai = metrics.sent_to_uidai + 1 %}
-    {% elif status_upper in ['REVERTED', 'REVERT BACK'] %}
-    {% set metrics.reverted = metrics.reverted + 1 %}
-    {% elif status_upper == 'REJECTED' %}
-    {% set metrics.rejected = metrics.rejected + 1 %}
-    {% elif status_upper in ['APPROVED', 'REVIEWED', 'ASSIGNED', 'ACTIVE', 'ACTIVATED'] %}
-    {% set metrics.approved = metrics.approved + 1 %}
+    {% set ns_m = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0) %}
+    {% set metric_source = full_history if full_history is defined and full_history else (requests_history if requests_history is defined and requests_history else requests) %}
+    {% if metric_source %}
+      {% for req in metric_source %}
+        {% if req.operators and req.operators|length > 0 %}
+          {% for op in req.operators %}
+            {% set s = (op.status or req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+            {% set ns_m.total = ns_m.total + 1 %}
+            {% if 'UIDAI' in s and 'REJECT' not in s %}
+              {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
+            {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+              {% set ns_m.approved = ns_m.approved + 1 %}
+            {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+              {% set ns_m.rejected = ns_m.rejected + 1 %}
+            {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+              {% set ns_m.reverted = ns_m.reverted + 1 %}
+            {% elif s in ['REAPPLIED'] %}
+              {% set ns_m.reapplied = ns_m.reapplied + 1 %}
+            {% else %}
+              {% set ns_m.pending = ns_m.pending + 1 %}
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          {% set s = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+          {% set cnt = req.operator_count or 1 %}
+          {% set ns_m.total = ns_m.total + cnt %}
+          {% if 'UIDAI' in s and 'REJECT' not in s %}
+            {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + cnt %}
+          {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+            {% set ns_m.approved = ns_m.approved + cnt %}
+          {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+            {% set ns_m.rejected = ns_m.rejected + cnt %}
+          {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+            {% set ns_m.reverted = ns_m.reverted + cnt %}
+          {% elif s in ['REAPPLIED'] %}
+            {% set ns_m.reapplied = ns_m.reapplied + cnt %}
+          {% else %}
+            {% set ns_m.pending = ns_m.pending + cnt %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
     {% endif %}
-    {% endfor %}
-    {% endfor %}
 
     <!-- Reactivation Control Panel Banner -->
     <div class="chips-header-banner" style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
@@ -367,50 +388,44 @@
         <div class="chips-banner-metrics"
             style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
             <div class="chips-metric-card">
-                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                    metrics.pending
-                    }}</div>
+                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.pending }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-reapplied" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{
-                    metrics.reapplied }}</div>
+                    {{ ns_m.reapplied }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-sent-to-uidai"
-                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                    metrics.sent_to_uidai }}</div>
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.sent_to_uidai }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to
                     UIDAI</div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.reverted
-                    }}</div>
+                    {{ ns_m.reverted }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.rejected
-                    }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by UIDAI
+                    {{ ns_m.rejected }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by
+                    UIDAI
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.approved
-                    }}</div>
+                    {{ ns_m.approved }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-total-requests"
-                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metrics.total }}
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.total }}
                 </div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
                     Requests</div>
@@ -449,13 +464,6 @@
                 </svg>
                 <span>Sent to UIDAI queue</span>
             </button>
-            <button type="button" class="req-tab" data-tab="approved">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span>Approved log</span>
-            </button>
             <button type="button" class="req-tab" data-tab="reverted">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                     stroke-linejoin="round">
@@ -464,6 +472,13 @@
                     <line x1="12" y1="16" x2="12.01" y2="16"></line>
                 </svg>
                 <span>Reverted/Rejected log</span>
+            </button>
+            <button type="button" class="req-tab" data-tab="approved">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Approved log</span>
             </button>
         </div>
 
@@ -555,7 +570,7 @@
                         style="background: var(--action, #378ADD); color: white; border: 1px solid var(--action, #378ADD); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Send
                         All</button>
                     <button type="button" onclick="processBatchRevertModal('{{ req.request_code }}')"
-                        style="background: var(--rail-pending, #D85A30); color: white; border: 1px solid var(--rail-pending, #D85A30); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Revert
+                        style="background: #DC2626; color: white; border: 1px solid #DC2626; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Revert
                         All</button>
                     {% endset %}
                     {% call request_section(
@@ -640,7 +655,7 @@
             onclick="exportTableToCSV('admin-uidai-table', 'uidai_reactivation_operators.csv')">Export to CSV</button>
         {% endset %}
         {% call request_section(
-        variant='progress',
+        variant='uidai',
         title='Sent to UIDAI queue',
         count='–', count_id='uidai-count',
         controls=uidai_controls,
@@ -694,65 +709,6 @@
         {% endcall %}
     </div><!-- /panel uidai -->
 
-    <!-- ── REACTIVATION LOG HISTORY (flat operator table) ── -->
-    {% set approved_controls %}
-    <button class="rs-export"
-        onclick="exportTableToCSV('admin-approved-table', 'reactivation_approved_logs.csv')">Export to
-        CSV</button>
-    {% endset %}
-    <div class="req-tabpanel" data-panel="approved">
-        {% call request_section(
-        variant='done',
-        title='Approved log',
-        count='–', count_id='approved-count',
-        controls=approved_controls,
-        min_width=1050,
-        columns=[
-        {'label': 'S.No', 'cls': 'rs-col-sno'},
-        {'label': 'Request ID'},
-        {'label': 'District'},
-        {'label': 'Operator name'},
-        {'label': 'Mobile'},
-        {'label': 'Email'},
-        {'label': 'Status'},
-        {'label': 'Action', 'align': 'center'}
-        ],
-        table_id='admin-approved-table', body_id='approved-tbody',
-        empty_id='approved-empty-msg', empty_message='No approved requests') %}
-        {% set approved_ns = namespace(i=1) %}
-        {% for req in requests %}
-        {% for op in req.operators %}
-        {% set op_status_upper = op.status|upper %}
-        {% if op_status_upper == 'APPROVED' %}
-        <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
-            data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
-            data-status="APPROVED" data-district="{{ req.district_name }}"
-            data-code="{{ req.request_code }}" data-created="{{ req.created_at }}"
-            data-training-date="{{ req.training_date }}">
-            <td>{{ approved_ns.i }}</td>
-            <td><strong>{{ req.request_code }}</strong></td>
-            <td>{{ req.district_name }}</td>
-            <td>{{ op.operator_name }}</td>
-            <td>{{ op.operator_mobile }}</td>
-            <td>{{ op.email_id or '—' }}</td>
-            <td>
-                <span class="badge badge-approved">Approved</span>
-            </td>
-            <td style="text-align: center;">
-                <div class="action-group"
-                    style="gap: 5px; display: flex; align-items: center; justify-content: center;">
-                    <button type="button" class="btn-details"
-                        onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">Details</button>
-                </div>
-            </td>
-        </tr>
-        {% set approved_ns.i = approved_ns.i + 1 %}
-        {% endif %}
-        {% endfor %}
-        {% endfor %}
-        {% endcall %}
-    </div>
-
     {% set reverted_controls %}
     <select id="admin-reverted-status-filter" onchange="filterAdminQueues()" class="rs-filter">
         <option value="all">All statuses</option>
@@ -765,7 +721,7 @@
     {% endset %}
     <div class="req-tabpanel" data-panel="reverted">
         {% call request_section(
-        variant='done',
+        variant='rejected',
         title='Reverted/Rejected log',
         count='–', count_id='reverted-count',
         controls=reverted_controls,
@@ -814,6 +770,64 @@
             </td>
         </tr>
         {% set reverted_ns.i = reverted_ns.i + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% endcall %}
+    </div>
+
+    <!-- ── REACTIVATION LOG HISTORY (flat operator table) ── -->
+    {% set approved_controls %}
+    <button class="rs-export"
+        onclick="exportTableToCSV('admin-approved-table', 'reactivation_approved_logs.csv')">Export to
+        CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="approved">
+        {% call request_section(
+        variant='approved',
+        title='Approved log',
+        count='–', count_id='approved-count',
+        controls=approved_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'District'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email'},
+        {'label': 'Status'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='admin-approved-table', body_id='approved-tbody',
+        empty_id='approved-empty-msg', empty_message='No approved requests') %}
+        {% set approved_ns = namespace(i=1) %}
+        {% for req in requests %}
+        {% for op in req.operators %}
+        {% set op_status_upper = op.status|upper %}
+        {% if op_status_upper == 'APPROVED' %}
+        <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+            data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
+            data-status="APPROVED" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+            data-created="{{ req.created_at }}" data-training-date="{{ req.training_date }}">
+            <td>{{ approved_ns.i }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.district_name }}</td>
+            <td>{{ op.operator_name }}</td>
+            <td>{{ op.operator_mobile }}</td>
+            <td>{{ op.email_id or '—' }}</td>
+            <td>
+                <span class="badge badge-approved">Approved</span>
+            </td>
+            <td style="text-align: center;">
+                <div class="action-group"
+                    style="gap: 5px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" class="btn-details"
+                        onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">Details</button>
+                </div>
+            </td>
+        </tr>
+        {% set approved_ns.i = approved_ns.i + 1 %}
         {% endif %}
         {% endfor %}
         {% endfor %}
@@ -1001,27 +1015,7 @@
         const revertedEmptyMsg = document.getElementById('reverted-empty-msg');
         if (revertedEmptyMsg) revertedEmptyMsg.style.display = (totalRevertedOperators === 0) ? 'block' : 'none';
 
-        // Update dashboard banner metric cards dynamically
-        const metricPending = document.getElementById('metric-pending');
-        if (metricPending) metricPending.textContent = opPendingCount;
-
-        const metricReapplied = document.getElementById('metric-reapplied');
-        if (metricReapplied) metricReapplied.textContent = opReappliedCount;
-
-        const metricSentToUidai = document.getElementById('metric-sent-to-uidai');
-        if (metricSentToUidai) metricSentToUidai.textContent = opSentToUidaiCount;
-
-        const metricReverted = document.getElementById('metric-reverted');
-        if (metricReverted) metricReverted.textContent = opRevertedCount;
-
-        const metricRejected = document.getElementById('metric-rejected');
-        if (metricRejected) metricRejected.textContent = opRejectedCount;
-
-        const metricApproved = document.getElementById('metric-approved');
-        if (metricApproved) metricApproved.textContent = opApprovedCount;
-
-        const metricTotal = document.getElementById('metric-total-requests');
-        if (metricTotal) metricTotal.textContent = opPendingCount + opReappliedCount + opSentToUidaiCount + opRevertedCount + opRejectedCount + opApprovedCount;
+        // Metric cards display all-time counts irrespective of active filters
     }
 
     function checkDateFilterMatches(dateStr, filterVal, now) {

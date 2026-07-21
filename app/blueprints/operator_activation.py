@@ -360,6 +360,7 @@ def chips_all_requests():
     except requests.exceptions.ConnectionError:
         requests_list = []
 
+    all_reqs = list(requests_list)
     aging_filter, aging_label = parse_aging_filter(request.args)
     if aging_filter:
         pending_subset = [
@@ -371,6 +372,7 @@ def chips_all_requests():
     return render_template(
         "operator_activation/chips_list.html",
         requests=requests_list,
+        unfiltered_requests=all_reqs,
         aging_filter=aging_filter,
         aging_label=aging_label,
     )

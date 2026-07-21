@@ -10,7 +10,8 @@
 {% block content %}
 
 {% from 'partials/request_section.html' import request_section %}
-{% set pending_count = pending_requests | length %}
+{% set pending_list = all_pending_requests if all_pending_requests is defined else pending_requests %}
+{% set pending_count = pending_list | length %}
 {% set approved_count = approved_requests | selectattr('status', 'equalto', 'APPROVED') | list | length + approved_requests | selectattr('status', 'equalto', 'Approved') | list | length %}
 {% set reverted_count = approved_requests | selectattr('status', 'equalto', 'REJECTED') | list | length + approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length %}
 {% set hold_count = hold_requests | length %}
@@ -79,13 +80,6 @@
         </svg>
         <span>On hold requests</span>
     </button>
-    <button type="button" class="req-tab" data-tab="approved">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-            stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-        <span>Approved onboarding history</span>
-    </button>
     <button type="button" class="req-tab" data-tab="rejected">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">
@@ -94,6 +88,13 @@
             <line x1="9" y1="9" x2="15" y2="15"></line>
         </svg>
         <span>Rejected onboarding history</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved onboarding history</span>
     </button>
 </div>
 
@@ -126,6 +127,15 @@
         </button>
     </div>
 </div>
+
+{% if aging_filter %}
+<div class="aging-filter-notice"
+    style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-top: 10px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+    <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ pending_requests|length }} found)</span>
+    <a href="{{ url_for('selection.dc_candidate_requests') }}"
+        style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+</div>
+{% endif %}
 
 <!-- Pending Queue Table Section -->
 {% set pending_controls %}
@@ -267,12 +277,74 @@
 </div><!-- /panel hold -->
 
 <!-- Approved History Table Section -->
+<!-- Rejected History Table Section -->
+{% set rejected_controls %}
+<button type="button" onclick="exportBackend('admin-rejected-table')" class="rs-export">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="rejected">
+    {% call request_section(
+    variant='rejected',
+    title='Rejected onboarding history',
+    count='–', count_id='rejected-count-badge',
+    controls=rejected_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-rejected-table', body_id='admin-rejected-body',
+    empty_id='rejected-empty-msg',
+    empty_message='No rejected history log found') %}
+    {% for req in approved_requests if (req.status|upper) == 'REJECTED' %}
+    <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+        data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+        data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
+        data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+        data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+        data-marksheet="{{ req.marksheet_upload }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-status="{{ req.status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-login-id="{{ req.generated_login_id or '' }}" data-password="{{ req.generated_password_raw or '' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+        data-updated="{{ req.updated_at or req.created_at }}">
+        <td>{{ loop.index }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>
+            <span class="badge badge-rejected">Rejected</span>
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td>{{ req.updated_at or req.created_at }}</td>
+        <td style="text-align: center;">
+            <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel rejected -->
+
 {% set approved_controls %}
 <button type="button" onclick="exportBackend('admin-approved-table')" class="rs-export">Export to CSV</button>
 {% endset %}
 <div class="req-tabpanel" data-panel="approved">
     {% call request_section(
-    variant='done',
+    variant='approved',
     title='Approved onboarding history',
     count='–', count_id='approved-count-badge',
     controls=approved_controls,
@@ -342,68 +414,6 @@
     {% endfor %}
     {% endcall %}
 </div><!-- /panel approved -->
-
-<!-- Rejected History Table Section -->
-{% set rejected_controls %}
-<button type="button" onclick="exportBackend('admin-rejected-table')" class="rs-export">Export to CSV</button>
-{% endset %}
-<div class="req-tabpanel" data-panel="rejected">
-    {% call request_section(
-    variant='done',
-    title='Rejected onboarding history',
-    count='–', count_id='rejected-count-badge',
-    controls=rejected_controls,
-    min_width=1050,
-    columns=[
-    {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request code'},
-    {'label': 'Candidate name'},
-    {'label': 'Mobile no'},
-    {'label': 'Email ID'},
-    {'label': 'Status'},
-    {'label': 'Submitted at'},
-    {'label': 'Updated at'},
-    {'label': 'Action', 'align': 'center'}
-    ],
-    table_id='admin-rejected-table', body_id='admin-rejected-body',
-    empty_id='rejected-empty-msg',
-    empty_message='No rejected history log found') %}
-    {% for req in approved_requests if (req.status|upper) == 'REJECTED' %}
-    <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
-        data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
-        data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
-        data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
-        data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
-        data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
-        data-marksheet="{{ req.marksheet_upload }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
-        data-status="{{ req.status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
-        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
-        data-login-id="{{ req.generated_login_id or '' }}" data-password="{{ req.generated_password_raw or '' }}"
-        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
-        data-updated="{{ req.updated_at or req.created_at }}">
-        <td>{{ loop.index }}</td>
-        <td><strong>{{ req.request_code }}</strong></td>
-        <td>{{ req.name }}</td>
-        <td>{{ req.mobile }}</td>
-        <td>{{ req.email }}</td>
-        <td>
-            <span class="badge badge-rejected">Rejected</span>
-        </td>
-        <td>{{ req.created_at }}</td>
-        <td>{{ req.updated_at or req.created_at }}</td>
-        <td style="text-align: center;">
-            <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                Details
-            </button>
-        </td>
-    </tr>
-    {% endfor %}
-    {% endcall %}
-</div><!-- /panel rejected -->
 
 
 <script>    function clearAllFilters() {
@@ -756,16 +766,7 @@
             }
         });
 
-        const metricPendingEl = document.getElementById('metric-pending');
-        if (metricPendingEl) metricPendingEl.textContent = metricPending;
-        const metricHoldEl = document.getElementById('metric-hold');
-        if (metricHoldEl) metricHoldEl.textContent = metricHold;
-        const metricApprovedEl = document.getElementById('metric-approved');
-        if (metricApprovedEl) metricApprovedEl.textContent = metricApproved;
-        const metricRejectedEl = document.getElementById('metric-rejected');
-        if (metricRejectedEl) metricRejectedEl.textContent = metricRejected;
-        const metricTotalEl = document.getElementById('metric-total');
-        if (metricTotalEl) metricTotalEl.textContent = metricPending + metricHold + metricApproved + metricRejected;
+        // Metric cards display all-time counts irrespective of active filters
     }
 
     // Open SweetAlert for Placing requests On Hold

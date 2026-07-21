@@ -95,6 +95,9 @@
 {% block content %}
 {% from 'partials/request_section.html' import request_section %}
 
+<!-- Jinja2 Metric Calculations -->
+{% set metric_source = unfiltered_requests if unfiltered_requests is defined else requests %}
+
 <!-- Standardized L2 Registration Dashboard Banner -->
 <div class="chips-header-banner" style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
     <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
@@ -114,34 +117,34 @@
     <div class="chips-banner-metrics" style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
         <div class="chips-metric-card">
             <div id="stat-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED']) | list | length }}</div>
+                metric_source | selectattr('status', 'in', ['PENDING', 'REAPPLIED']) | list | length }}</div>
 
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
             </div>
         </div>
         <div class="chips-metric-card">
             <div id="stat-sent-to-uidai" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                requests | selectattr('status', 'equalto', 'SENT_TO_UIDAI') | list | length }}</div>
+                metric_source | selectattr('status', 'equalto', 'SENT_TO_UIDAI') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
             </div>
         </div>
         <div class="chips-metric-card">
             <div id="stat-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                requests | selectattr('status', 'equalto', 'REVERTED') | list | length }}</div>
+                metric_source | selectattr('status', 'equalto', 'REVERTED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
         <div class="chips-metric-card">
             <div id="stat-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                requests | selectattr('status', 'equalto', 'REJECTED') | list | length }}</div>
+                metric_source | selectattr('status', 'equalto', 'REJECTED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by UIDAI</div>
         </div>
         <div class="chips-metric-card">
             <div id="stat-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                requests | selectattr('status', 'equalto', 'APPROVED') | list | length }}</div>
+                metric_source | selectattr('status', 'equalto', 'APPROVED') | list | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">L2 Done</div>
         </div>
         <div class="chips-metric-card">
-            <div id="stat-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ requests | length }}</div>
+            <div id="stat-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metric_source | length }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested Kits</div>
         </div>
     </div>
@@ -167,13 +170,6 @@
         </svg>
         <span>Sent to UIDAI queue</span>
     </button>
-    <button type="button" class="req-tab" data-tab="approved">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-            stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-        <span>Approved log</span>
-    </button>
     <button type="button" class="req-tab" data-tab="reverted">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">
@@ -182,6 +178,13 @@
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
         <span>Reverted/Rejected log</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved log</span>
     </button>
 </div>
 
@@ -232,6 +235,14 @@
         </button>
     </div>
 </div>
+
+{% if aging_filter %}
+{% set pending_filtered = requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED', 'pending', 'reapplied']) | list %}
+<div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+    <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ pending_filtered|length }} found)</span>
+    <a href="/auth/chips/l2-registration" style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+</div>
+{% endif %}
 
 {% set pending_controls %}
 <select id="pending-status-filter" class="rs-filter" onchange="filterAllTables()">
@@ -332,7 +343,7 @@
 {% endset %}
 <div class="req-tabpanel" data-panel="uidai">
     {% call request_section(
-    variant='progress',
+    variant='uidai',
     title='Sent to UIDAI queue',
     count='–', count_id='uidai-count',
     controls=uidai_controls,
@@ -403,76 +414,6 @@
 </div><!-- /panel uidai -->
 
 
-<!-- ═══════════════════════════════════════════════════════
-                 SECTION 3 — PROCESSED LOG HISTORY
-            ═══════════════════════════════════════════════════════ -->
-{% set approved_controls %}
-<button class="rs-export" onclick="exportSection('approved')">Export to CSV</button>
-{% endset %}
-<div class="req-tabpanel" data-panel="approved">
-    {% call request_section(
-    variant='done',
-    title='Approved log',
-    count='–', count_id='creds-count',
-    controls=approved_controls,
-    min_width=1200,
-    columns=[
-    {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request ID'},
-    {'label': 'District'},
-    {'label': 'Operator name'},
-    {'label': 'Operator ID'},
-    {'label': 'New station ID'},
-    {'label': 'Client version'},
-    {'label': 'Client type'},
-    {'label': 'Status'},
-    {'label': 'Submitted at'},
-    {'label': 'Updated at'},
-    {'label': 'Action', 'align': 'center'}
-    ],
-    table_id='approved-requests-table', body_id='approved-table-body',
-    empty_id='approved-empty-msg',
-    empty_message='No approved logs found.') %}
-    {% set ns_creds = namespace(count=1) %}
-    {% for r in requests if (r.status|upper) == 'APPROVED' %}
-    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-operator-name="{{ r.operator_name }}"
-        data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
-        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}"
-        data-district="{{ r.district_name or 'Raipur' }}" data-status="{{ r.status }}"
-        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
-        <td>{{ ns_creds.count }}</td>
-        <td><strong>{{ r.request_no or '—' }}</strong></td>
-        <td>{{ r.district_name or '—' }}</td>
-        <td>{{ r.operator_name }}</td>
-        <td>{{ r.operator_id }}</td>
-        <td><strong>{{ r.new_station_id }}</strong></td>
-        <td>{{ r.client_version }}</td>
-        <td>{{ r.client_type }}</td>
-        <td>
-            <span class="sid-badge sid-badge-approved">Approved</span>
-        </td>
-        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
-        <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% elif r.submitted_at %}{{ r.submitted_at[:16] }}{%
-            else %}—{% endif %}</td>
-        <td>
-            <div class="action-group" style="justify-content: center;">
-                <button type="button" class="btn-details"
-                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2.5">
-                        <circle cx="11" cy="11" r="8" />
-                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    Details
-                </button>
-            </div>
-        </td>
-    </tr>
-    {% set ns_creds.count = ns_creds.count + 1 %}
-    {% endfor %}
-    {% endcall %}
-</div>
-
 {% set reverted_controls %}
 <select id="reverted-status-filter" class="rs-filter" onchange="filterAllTables()">
     <option value="all">All statuses</option>
@@ -483,7 +424,7 @@
 {% endset %}
 <div class="req-tabpanel" data-panel="reverted">
     {% call request_section(
-    variant='done',
+    variant='rejected',
     title='Reverted/Rejected log',
     count='–', count_id='reverted-count',
     controls=reverted_controls,
@@ -545,6 +486,76 @@
         </td>
     </tr>
     {% set ns_reverted.count = ns_reverted.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+                 SECTION 3 — PROCESSED LOG HISTORY
+            ═══════════════════════════════════════════════════════ -->
+{% set approved_controls %}
+<button class="rs-export" onclick="exportSection('approved')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="approved">
+    {% call request_section(
+    variant='approved',
+    title='Approved log',
+    count='–', count_id='creds-count',
+    controls=approved_controls,
+    min_width=1200,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Operator name'},
+    {'label': 'Operator ID'},
+    {'label': 'New station ID'},
+    {'label': 'Client version'},
+    {'label': 'Client type'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='approved-requests-table', body_id='approved-table-body',
+    empty_id='approved-empty-msg',
+    empty_message='No approved logs found.') %}
+    {% set ns_creds = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) == 'APPROVED' %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-operator-name="{{ r.operator_name }}"
+        data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
+        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}"
+        data-district="{{ r.district_name or 'Raipur' }}" data-status="{{ r.status }}"
+        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
+        <td>{{ ns_creds.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td>{{ r.district_name or '—' }}</td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_id }}</td>
+        <td><strong>{{ r.new_station_id }}</strong></td>
+        <td>{{ r.client_version }}</td>
+        <td>{{ r.client_type }}</td>
+        <td>
+            <span class="sid-badge sid-badge-approved">Approved</span>
+        </td>
+        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+        <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% elif r.submitted_at %}{{ r.submitted_at[:16] }}{%
+            else %}—{% endif %}</td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-details"
+                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns_creds.count = ns_creds.count + 1 %}
     {% endfor %}
     {% endcall %}
 </div>
@@ -712,18 +723,7 @@
             }
         });
 
-        const statPendingEl = document.getElementById('stat-pending');
-        if (statPendingEl) statPendingEl.textContent = metricPending;
-        const statSentToUidaiEl = document.getElementById('stat-sent-to-uidai');
-        if (statSentToUidaiEl) statSentToUidaiEl.textContent = metricSentToUidai;
-        const statRevertedEl = document.getElementById('stat-reverted');
-        if (statRevertedEl) statRevertedEl.textContent = metricReverted;
-        const statRejectedEl = document.getElementById('stat-rejected');
-        if (statRejectedEl) statRejectedEl.textContent = metricRejected;
-        const statApprovedEl = document.getElementById('stat-approved');
-        if (statApprovedEl) statApprovedEl.textContent = metricApproved;
-        const statTotalEl = document.getElementById('stat-total');
-        if (statTotalEl) statTotalEl.textContent = metricPending + metricSentToUidai + metricReverted + metricRejected + metricApproved;
+        // Metric cards display all-time counts irrespective of active filters
     }
 
     // 🌟 FIXED: Gathers ALL row references loaded into DOM arrays, bypassing client visual filters

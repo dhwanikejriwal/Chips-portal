@@ -122,13 +122,6 @@
             </svg>
             <span>Sent to UIDAI log</span>
         </button>
-        <button type="button" class="req-tab" data-tab="approved">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <span>Approved Activation log</span>
-        </button>
         <button type="button" class="req-tab" data-tab="reverted">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                 stroke-linejoin="round">
@@ -137,6 +130,13 @@
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
             <span>Reverted/Rejected Activation log</span>
+        </button>
+        <button type="button" class="req-tab" data-tab="approved">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Approved Activation log</span>
         </button>
     </div>
 
@@ -254,7 +254,7 @@
     {% endset %}
     <div class="req-tabpanel" data-panel="uidai">
         {% call request_section(
-        variant='progress',
+        variant='uidai',
         title='Sent to UIDAI queue',
         count='–', count_id='uidai-count-badge',
         controls=uidai_controls,
@@ -310,69 +310,6 @@
         {% endcall %}
     </div><!-- /panel uidai -->
 
-    <!-- Approved History Section -->
-    {% set approved_controls %}
-    <button class="rs-export" onclick="exportTableToCSV('approved-requests-table', 'approved_history.csv')">Export to CSV</button>
-    {% endset %}
-    <div class="req-tabpanel" data-panel="approved">
-        {% call request_section(
-        variant='done',
-        title='Approved Activation log',
-        count='–', count_id='approved-count-badge',
-        controls=approved_controls,
-        min_width=1050,
-        columns=[
-        {'label': 'S.No', 'cls': 'rs-col-sno'},
-        {'label': 'Request ID'},
-        {'label': 'Operator name'},
-        {'label': 'Mobile'},
-        {'label': 'Email ID'},
-        {'label': 'EA code'},
-        {'label': 'User code'},
-        {'label': 'Status'},
-        {'label': 'Submitted at'},
-        {'label': 'Updated at'},
-        {'label': 'Action', 'align': 'center'}
-        ],
-        table_id='approved-requests-table', body_id='approved-table-body',
-        empty_id='approved-empty-msg',
-        empty_message='No approved request history records found.') %}
-        {% for r in requests if (r.status|upper) in ['APPROVED', 'UIDAI_APPROVED', 'APPROVED_LEGACY'] %}
-        <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
-            data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
-            data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
-            data-user-code="{{ r.user_code or '' }}" data-district="{{ r.district_name or 'Raipur' }}"
-            data-aadhaar="{{ r.operator_aadhaar or '' }}" data-pan="{{ r.operator_pan or '' }}"
-            data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
-            data-remarks='{{ r.remarks_history | tojson | safe }}'>
-
-            <td>{{ loop.index }}</td>
-            <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
-            <td>{{ r.operator_name }}</td>
-            <td>{{ r.operator_mobile }}</td>
-            <td>{{ r.primary_email or '—' }}</td>
-            <td>{{ r.ea_code or '—' }}</td>
-            <td>{{ r.user_code or '—' }}</td>
-            <td>
-                <span class="sid-badge sid-badge-approved">Approved</span>
-            </td>
-            <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
-            <td>{{ r.reviewed_at if r.reviewed_at else (r.updated_at if r.updated_at else '—') }}</td>
-            <td style="text-align: center;">
-                <button class="btn-details" onclick="openActivationDetailsModal(this.closest('tr'))">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2.5">
-                        <circle cx="11" cy="11" r="8" />
-                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    Details
-                </button>
-            </td>
-        </tr>
-        {% endfor %}
-        {% endcall %}
-    </div><!-- /panel approved -->
-
     <!-- Reverted History Section -->
     {% set reverted_controls %}
     <select id="reverted-status-filter" class="rs-filter" onchange="filterAllTables()">
@@ -384,7 +321,7 @@
     {% endset %}
     <div class="req-tabpanel" data-panel="reverted">
         {% call request_section(
-        variant='done',
+        variant='rejected',
         title='Reverted/Rejected Activation log',
         count='–', count_id='reverted-count-badge',
         controls=reverted_controls,
@@ -444,6 +381,69 @@
         {% endfor %}
         {% endcall %}
     </div><!-- /panel reverted -->
+
+    <!-- Approved History Section -->
+    {% set approved_controls %}
+    <button class="rs-export" onclick="exportTableToCSV('approved-requests-table', 'approved_history.csv')">Export to CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="approved">
+        {% call request_section(
+        variant='approved',
+        title='Approved Activation log',
+        count='–', count_id='approved-count-badge',
+        controls=approved_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email ID'},
+        {'label': 'EA code'},
+        {'label': 'User code'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='approved-requests-table', body_id='approved-table-body',
+        empty_id='approved-empty-msg',
+        empty_message='No approved request history records found.') %}
+        {% for r in requests if (r.status|upper) in ['APPROVED', 'UIDAI_APPROVED', 'APPROVED_LEGACY'] %}
+        <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
+            data-name="{{ r.operator_name }}" data-mobile="{{ r.operator_mobile }}"
+            data-email="{{ r.primary_email or '' }}" data-ea-code="{{ r.ea_code or '' }}"
+            data-user-code="{{ r.user_code or '' }}" data-district="{{ r.district_name or 'Raipur' }}"
+            data-aadhaar="{{ r.operator_aadhaar or '' }}" data-pan="{{ r.operator_pan or '' }}"
+            data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+            data-remarks='{{ r.remarks_history | tojson | safe }}'>
+
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
+            <td>{{ r.operator_name }}</td>
+            <td>{{ r.operator_mobile }}</td>
+            <td>{{ r.primary_email or '—' }}</td>
+            <td>{{ r.ea_code or '—' }}</td>
+            <td>{{ r.user_code or '—' }}</td>
+            <td>
+                <span class="sid-badge sid-badge-approved">Approved</span>
+            </td>
+            <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
+            <td>{{ r.reviewed_at if r.reviewed_at else (r.updated_at if r.updated_at else '—') }}</td>
+            <td style="text-align: center;">
+                <button class="btn-details" onclick="openActivationDetailsModal(this.closest('tr'))">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel approved -->
         <div id="approved-empty-msg" class="empty-state" style="display: none;">
 
             <div class="empty-state-icon"><i class="fas fa-check-circle" style="color: #10b981;"></i></div>
@@ -691,20 +691,7 @@
             }
         });
 
-        const metricPendingEl = document.getElementById('metric-pending');
-        if (metricPendingEl) metricPendingEl.textContent = metricPending;
-        const metricReappliedEl = document.getElementById('metric-reapplied');
-        if (metricReappliedEl) metricReappliedEl.textContent = metricReapplied;
-        const metricSentToUidaiEl = document.getElementById('metric-sent-to-uidai');
-        if (metricSentToUidaiEl) metricSentToUidaiEl.textContent = metricSentToUidai;
-        const metricRevertedEl = document.getElementById('metric-reverted');
-        if (metricRevertedEl) metricRevertedEl.textContent = metricReverted;
-        const metricRejectedEl = document.getElementById('metric-rejected');
-        if (metricRejectedEl) metricRejectedEl.textContent = metricRejected;
-        const metricApprovedEl = document.getElementById('metric-approved');
-        if (metricApprovedEl) metricApprovedEl.textContent = metricApproved;
-        const metricTotalEl = document.getElementById('metric-total');
-        if (metricTotalEl) metricTotalEl.textContent = metricPending + metricReapplied + metricSentToUidai + metricReverted + metricRejected + metricApproved;
+        // Metric cards display all-time counts irrespective of active filters
     }
 
     window.clearAllFilters = function () {

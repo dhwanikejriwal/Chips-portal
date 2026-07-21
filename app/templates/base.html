@@ -171,14 +171,76 @@
                         savedTab = (path.indexOf('/operator-activation') !== -1 || path.indexOf('/l2-registration') !== -1 || path.indexOf('/chips/reactivation') !== -1) ? 'uidai' : (path.indexOf('/dc/reactivation') !== -1 ? 'batches' : 'sent_to_chips');
                     } else if (status === 'approved') {
                         savedTab = 'approved';
-                    } else if (status === 'rejected') {
+                    } else if (status === 'rejected' || status === 'uidai_rejected' || status === 'rejected_by_uidai') {
                         savedTab = path.indexOf('/candidate-requests') !== -1 ? 'rejected' : (path.indexOf('/reactivation') !== -1 ? 'batches' : 'reverted');
-                    } else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'hold' || status === 'on_hold') {
+                    } else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'reverted_rejected' || status === 'hold' || status === 'on_hold') {
                         savedTab = path.indexOf('/reactivation') !== -1 ? 'batches' : (path.indexOf('/candidate-requests') !== -1 ? 'hold' : 'reverted');
                     }
 
                     if (savedTab) {
                         sessionStorage.setItem('active_tab_' + path, savedTab);
+                    }
+                }
+
+                var aging = params.get('aging');
+                if (aging) {
+                    if (path.indexOf('/dc/reactivation') !== -1) {
+                        savedTab = 'batches';
+                    } else if (path.indexOf('/dc/l1-registration') !== -1 || path.indexOf('/dc/l2-registration') !== -1) {
+                        savedTab = 'awaiting';
+                    } else {
+                        savedTab = 'pending';
+                    }
+                    sessionStorage.setItem('active_tab_' + path, savedTab);
+
+                    // Force all date dropdowns to 'all' to prevent filtering out older requests
+                    var dateFilterIds = ['admin-date-filter', 'global-date', 'sid-date', 'sid-date-filter', 'dc-date-filter'];
+                    dateFilterIds.forEach(function(id) {
+                        var el = document.getElementById(id);
+                        if (el) {
+                            el.value = 'all';
+                        }
+                    });
+
+                    // Clear any saved search filters and reset date filter to 'all' so matching rows aren't hidden
+                    if (path.indexOf('/chips/lms') !== -1) {
+                        sessionStorage.setItem('chips_lms_search', '');
+                        sessionStorage.setItem('chips_lms_date', 'all');
+                        sessionStorage.setItem('chips_lms_district', 'all');
+                        sessionStorage.setItem('chips_lms_pending_status', 'all');
+                        sessionStorage.setItem('chips_action_reloading', 'true');
+                    } else if (path.indexOf('/chips/nseit') !== -1) {
+                        sessionStorage.setItem('chips_nseit_search', '');
+                        sessionStorage.setItem('chips_nseit_date', 'all');
+                        sessionStorage.setItem('chips_nseit_district', 'all');
+                        sessionStorage.setItem('chips_nseit_pending_status', 'all');
+                        sessionStorage.setItem('chips_action_reloading', 'true');
+                    } else if (path.indexOf('/chips/reactivation') !== -1) {
+                        sessionStorage.setItem('chips_react_search', '');
+                        sessionStorage.setItem('chips_react_date', 'all');
+                        sessionStorage.setItem('chips_react_district', 'all');
+                        sessionStorage.setItem('chips_react_pending_status', 'all');
+                        sessionStorage.setItem('chips_react_reverted_status', 'all');
+                        sessionStorage.setItem('chips_action_reloading', 'true');
+                    } else if (path.indexOf('/dc/lms') !== -1) {
+                        sessionStorage.setItem('dc_lms_search', '');
+                        sessionStorage.setItem('dc_lms_date', 'all');
+                        sessionStorage.setItem('dc_lms_pending_status', 'all');
+                        sessionStorage.setItem('dc_lms_chips_status', 'all');
+                        sessionStorage.setItem('dc_lms_reverted_status', 'all');
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                    } else if (path.indexOf('/dc/nseit') !== -1) {
+                        sessionStorage.setItem('dc_nseit_search', '');
+                        sessionStorage.setItem('dc_nseit_date', 'all');
+                        sessionStorage.setItem('dc_nseit_pending_status', 'all');
+                        sessionStorage.setItem('dc_nseit_chips_status', 'all');
+                        sessionStorage.setItem('dc_nseit_reverted_status', 'all');
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                    } else if (path.indexOf('/dc/candidate-requests') !== -1) {
+                        sessionStorage.setItem('dc_cand_search', '');
+                        sessionStorage.setItem('dc_cand_date', 'all');
+                        sessionStorage.setItem('dc_cand_pending_status', 'all');
+                        sessionStorage.setItem('dc_action_reloading', 'true');
                     }
                 }
 
@@ -188,6 +250,7 @@
                 if (savedTab) {
                     var activeTabBtn = document.querySelector('.req-tab[data-tab="' + savedTab + '"]');
                     if (activeTabBtn) {
+                        activeTabBtn.click();
                         var strip = activeTabBtn.closest('.req-tabs');
                         if (strip) {
                             strip.querySelectorAll('.req-tab').forEach(function (t) {
@@ -197,6 +260,21 @@
                         document.querySelectorAll('.req-tabpanel').forEach(function (p) {
                             p.classList.toggle('active', p.getAttribute('data-panel') === savedTab);
                         });
+                    }
+                }
+
+                if (status && (status === 'reverted' || status === 'rejected' || status === 'reverted_rejected' || status === 'reverted_by_chips')) {
+                    var filterSelect = document.getElementById('filter-status') || document.getElementById('reverted-status-filter');
+                    if (filterSelect) {
+                        if (status === 'rejected') {
+                            filterSelect.value = 'REJECTED';
+                        } else if (status === 'reverted') {
+                            filterSelect.value = 'REVERTED';
+                        } else {
+                            filterSelect.value = 'all';
+                        }
+                        if (window.applyHistoryPanelFiltersPipeline) window.applyHistoryPanelFiltersPipeline();
+                        if (window.filterAllTables) window.filterAllTables();
                     }
                 }
             }

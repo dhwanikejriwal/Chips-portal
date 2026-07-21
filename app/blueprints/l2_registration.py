@@ -42,8 +42,30 @@ def dc_list():
     except requests.exceptions.ConnectionError:
         awaiting_l2 = []
 
-    requests_list.sort(key=lambda x: x.get("updated_at") or x.get("completed_at") or x.get("reviewed_at") or x.get("submitted_at") or "", reverse=True)
-    return render_template("l2_registration/dc_list.html", requests=requests_list, awaiting_l2=awaiting_l2)
+    all_time_metrics = {
+        "pending": 0,
+        "awaiting_l2": len(awaiting_l2),
+        "sent_to_uidai": 0,
+        "reverted": 0,
+        "rejected": 0,
+        "approved": 0,
+    }
+    for r in requests_list:
+        st = str(r.get("status") or "").upper().strip()
+        if "UIDAI" in st and st != "REJECTED":
+            all_time_metrics["sent_to_uidai"] += 1
+        elif st in ["APPROVED", "REVIEWED", "ACTIVATED", "L2_DONE", "DONE"]:
+            all_time_metrics["approved"] += 1
+        elif st in ["REVERTED", "REVERTED_BY_CHIPS"]:
+            all_time_metrics["reverted"] += 1
+        elif st in ["REJECTED"]:
+            all_time_metrics["rejected"] += 1
+        else:
+            all_time_metrics["pending"] += 1
+
+    total_requests = len(requests_list)
+
+    return render_template("l2_registration/dc_list.html", requests=requests_list, awaiting_l2=awaiting_l2, metrics=all_time_metrics, total_requests=total_requests)
 
 
 @l2_registration_bp.route("/dc/l2-registration/new", methods=["GET", "POST"])
@@ -179,6 +201,7 @@ def chips_list():
     except requests.exceptions.ConnectionError:
         requests_list = []
         
+    all_reqs = list(requests_list)
     aging_filter, aging_label = parse_aging_filter(request.args)
     if aging_filter:
         pending_subset = [
@@ -190,6 +213,7 @@ def chips_list():
     return render_template(
         "l2_registration/chips_list.html",
         requests=requests_list,
+        unfiltered_requests=all_reqs,
         aging_filter=aging_filter,
         aging_label=aging_label,
     )

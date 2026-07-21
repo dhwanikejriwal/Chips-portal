@@ -34,12 +34,20 @@ def dc_lms():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
+    all_pending = list(pending_requests)
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
+        
     return render_template(
         "dc/dc_lms.html",
         pending_requests=pending_requests,
         processed_requests=processed_requests,
         sent_to_chips_requests=sent_to_chips_requests,
-        approved_requests=processed_requests
+        approved_requests=processed_requests,
+        all_pending_requests=all_pending,
+        aging_filter=aging_filter,
+        aging_label=aging_label
     )
 
 @lms_manage_bp.route("/chips/lms")
@@ -67,6 +75,7 @@ def chips_lms():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
+    all_pending = list(pending_requests)
     aging_filter, aging_label = parse_aging_filter(request.args)
     if aging_filter:
         pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
@@ -76,6 +85,7 @@ def chips_lms():
         pending_requests=pending_requests,
         processed_requests=processed_requests,
         approved_requests=processed_requests,
+        all_pending_requests=all_pending,
         aging_filter=aging_filter,
         aging_label=aging_label
     )

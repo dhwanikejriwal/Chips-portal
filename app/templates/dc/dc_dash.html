@@ -443,10 +443,10 @@ endblock %}
     };
     const activationStatus = (status) => {
         const s = (status || '').toString().trim().toLowerCase();
-        if (['approved', 'reviewed', 'activated'].includes(s)) return { label: 'Approved' };
+        if (['approved', 'reviewed', 'activated', 'assigned', 'uidai_approved'].includes(s)) return { label: 'Approved' };
         if (['sent_to_uidai', 'sent to uidai'].includes(s)) return { label: 'Sent to UIDAI' };
-        if (['reverted', 'reverted_by_chips'].includes(s)) return { label: 'Reverted' };
-        if (s === 'rejected') return { label: 'Rejected' };
+        if (['reverted', 'reverted_by_chips', 'reverted by chips'].includes(s)) return { label: 'Reverted' };
+        if (['rejected', 'uidai_rejected', 'rejected_by_uidai'].includes(s)) return { label: 'Rejected' };
         return { label: 'Pending' };
     };
     const stationStatus = (status) => {
@@ -640,7 +640,10 @@ endblock %}
 
     // ── Reverted-by-CHiPS report (replaces the aging report on Operator/Kit tabs) ──
     const RevertedRequestsReport = ({ items, targetUrl }) => {
-        const go = () => window.location.href = `${targetUrl}?status=reverted_rejected`;
+        const go = (st) => {
+            const statusParam = (st && (st.toLowerCase().includes('reject') || st.toLowerCase() === 'rejected')) ? 'rejected' : 'reverted';
+            window.location.href = `${targetUrl}?status=${statusParam}`;
+        };
         return (
             <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs flex flex-col gap-5 hover:shadow-md hover:border-slate-300/80 transition-all duration-300">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -651,7 +654,7 @@ endblock %}
                             <p className="text-[10px] text-slate-400 font-medium mt-0.5">Requests returned for correction — action required</p>
                         </div>
                     </div>
-                    <span className="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-100/50 px-2 py-0.5 rounded-md">{items.length} Item{items.length === 1 ? '' : 's'}</span>
+                    <span className="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-100/50 px-2 py-0.5 rounded-md cursor-pointer" onClick={() => go('reverted')}>{items.length} Item{items.length === 1 ? '' : 's'}</span>
                 </div>
 
                 {items.length === 0 ? (
@@ -665,7 +668,7 @@ endblock %}
                         {items.map((it, i) => {
                             const rejected = it._ui === 'Rejected';
                             return (
-                                <div key={i} onClick={go}
+                                <div key={i} onClick={() => go(it._ui)}
                                     className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-white hover:border-slate-300/70 cursor-pointer transition-all duration-200">
                                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${rejected ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
                                         <i className={`fa-solid ${rejected ? 'fa-circle-xmark' : 'fa-rotate-left'} text-sm`}></i>
@@ -724,14 +727,14 @@ endblock %}
             } else if (isOperatorDashboard) {
                 const c = { Total: 0, Pending: 0, SentToUidai: 0, Reverted: 0, Rejected: 0, Approved: 0 };
                 rows.forEach(x => {
-                    const w = tab.weightByOps ? (x.operator_count || 0) : 1;
+                    const w = tab.weightByOps ? ((x.operator_count != null && x.operator_count > 0) ? x.operator_count : 1) : 1;
                     c.Total += w;
                     const status = (x.status || '').toString().trim().toLowerCase();
-                    if (status === 'pending' || status === 'reapplied') c.Pending += w;
+                    if (status === 'pending' || status === 'reapplied' || status === 'sent_to_chips' || status === 'forwarded') c.Pending += w;
                     else if (status === 'sent_to_uidai' || status === 'sent to uidai') c.SentToUidai += w;
                     else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'reverted by chips') c.Reverted += w;
-                    else if (status === 'rejected') c.Rejected += w;
-                    else if (['approved', 'reviewed', 'activated'].includes(status)) c.Approved += w;
+                    else if (status === 'rejected' || status === 'uidai_rejected' || status === 'rejected_by_uidai') c.Rejected += w;
+                    else if (['approved', 'reviewed', 'activated', 'assigned', 'uidai_approved'].includes(status)) c.Approved += w;
                     else c.Pending += w;
                 });
                 return c;

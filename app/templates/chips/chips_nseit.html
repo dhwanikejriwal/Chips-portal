@@ -11,9 +11,10 @@
 {% block content %}
 {% from 'partials/request_section.html' import request_section %}
 <!-- Jinja2 Metric Calculations -->
-{% set total_requests = pending_requests|length + processed_requests|length %}
+{% set pending_list = all_pending_requests if all_pending_requests is defined else pending_requests %}
+{% set total_requests = pending_list|length + processed_requests|length %}
 {% set metrics = namespace(pending=0, approved=0, reverted=0) %}
-{% set metrics.pending = pending_requests|length %}
+{% set metrics.pending = pending_list|length %}
 {% for req in processed_requests %}
 {% set status_upper = req.nseit_status|upper %}
 {% if status_upper == 'APPROVED' %}
@@ -83,13 +84,6 @@
                 </svg>
                 <span>Pending NSEIT verification requests</span>
             </button>
-            <button type="button" class="req-tab" data-tab="approved">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                <span>Approved NSEIT log</span>
-            </button>
             <button type="button" class="req-tab" data-tab="reverted">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                     stroke-linejoin="round">
@@ -98,6 +92,13 @@
                     <line x1="12" y1="16" x2="12.01" y2="16"></line>
                 </svg>
                 <span>Reverted NSEIT log</span>
+            </button>
+            <button type="button" class="req-tab" data-tab="approved">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Approved NSEIT log</span>
             </button>
         </div>
         <!-- Unified Filter Controls -->
@@ -146,15 +147,9 @@
         </div>
 
         {% if aging_filter %}
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-            <span style="font-size:12px; color:#64748b;">Active filter:</span>
-            <span style="display:inline-flex; align-items:center; gap:6px;
-        background:#EFF6FF; color:#1D4ED8; border:1px solid #BFDBFE;
-        border-radius:20px; padding:4px 12px; font-size:13px; font-weight:500;">
-                Aging: {{ aging_label }}
-                <a href="{{ request.path }}" style="color:#1D4ED8; text-decoration:none; font-weight:700; 
-                  margin-left:2px;">×</a>
-            </span>
+        <div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+            <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ pending_requests|length }} found)</span>
+            <a href="/auth/chips/nseit" style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
         </div>
         {% endif %}
 
@@ -254,75 +249,6 @@
 
             {% endcall %}
 </div><!-- /panel pending <!-- Log History Table Section -->
-{% set approved_controls %}
-<button class="rs-export"
-    onclick="exportTableToExcel('admin-approved-table', 'nseit_approved_log.xlsx')">Export to CSV</button>
-{% endset %}
-<div class="req-tabpanel" data-panel="approved">
-    {% call request_section(
-    variant='done',
-    title='Approved NSEIT log',
-    count='–', count_id='approved-count',
-    controls=approved_controls,
-    min_width=1050,
-    columns=[
-    {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request code'},
-    {'label': 'District'},
-    {'label': 'Candidate name'},
-    {'label': 'Mobile no'},
-    {'label': 'Email ID'},
-    {'label': 'Status'},
-    {'label': 'Submitted at'},
-    {'label': 'Updated at'},
-    {'label': 'Action', 'align': 'center'}
-    ],
-    table_id='admin-approved-table', body_id='admin-approved-body',
-    empty_id='approved-empty-msg',
-    empty_message='No approved log history') %}
-    {% for req in processed_requests if (req.nseit_status|upper) == 'APPROVED' %}
-    <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
-        data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
-        data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
-        data-lms-id="{{ req.lms_id or '' }}" data-nseit-id="{{ req.nseit_certificate_id or '' }}"
-        data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-address="{{ req.address or '' }}"
-        data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
-        data-photo="{{ req.photo_upload or '' }}" data-marksheet="{{ req.marksheet_upload }}"
-        data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
-        data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
-        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
-        data-status="{{ req.nseit_status.replace('_', ' ') | title }}"
-        data-had-nseit-at-registration="{{ 'true' if req.had_nseit_at_registration else 'false' }}"
-        data-nseit-uploaded-post-approval="{{ 'true' if req.nseit_uploaded_post_approval else 'false' }}"
-        data-updated="{{ req.updated_at or req.created_at }}"
-        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
-        data-updated="{{ req.updated_at or req.created_at }}" style="border-bottom: 1px solid #edf2f7;">
-        <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
-        <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ req.request_code }}</strong></td>
-        <td style="padding: 12px 15px; font-size: 14px;">{{ req.district_name }}</td>
-        <td style="padding: 12px 15px; font-size: 14px;">{{ req.name }}</td>
-        <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
-        <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
-        <td style="padding: 12px 15px; font-size: 14px;">
-            <span class="badge badge-approved"
-                style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>
-        </td>
-        <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
-        <td style="padding: 12px 15px; font-size: 14px;">{{ req.updated_at or req.created_at }}</td>
-        <td style="padding: 12px 15px; text-align: center;">
-            <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                Details
-            </button>
-        </td>
-    </tr>
-    {% endfor %}
-    {% endcall %}
-</div>
-
 <!-- Reverted History Table Section -->
 {% set reverted_controls %}
 <button class="rs-export"
@@ -330,7 +256,7 @@
 {% endset %}
 <div class="req-tabpanel" data-panel="reverted">
     {% call request_section(
-    variant='done',
+    variant='rejected',
     title='Reverted NSEIT log',
     count='–', count_id='reverted-count',
     controls=reverted_controls,
@@ -382,6 +308,75 @@
             <span class="badge badge-reverted"
                 style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted</span>
             {% endif %}
+        </td>
+        <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
+        <td style="padding: 12px 15px; font-size: 14px;">{{ req.updated_at or req.created_at }}</td>
+        <td style="padding: 12px 15px; text-align: center;">
+            <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div>
+
+{% set approved_controls %}
+<button class="rs-export"
+    onclick="exportTableToExcel('admin-approved-table', 'nseit_approved_log.xlsx')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="approved">
+    {% call request_section(
+    variant='approved',
+    title='Approved NSEIT log',
+    count='–', count_id='approved-count',
+    controls=approved_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'District'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-approved-table', body_id='admin-approved-body',
+    empty_id='approved-empty-msg',
+    empty_message='No approved log history') %}
+    {% for req in processed_requests if (req.nseit_status|upper) == 'APPROVED' %}
+    <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+        data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+        data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-nseit-id="{{ req.nseit_certificate_id or '' }}"
+        data-exam-unique-code="{{ req.exam_unique_code or '' }}" data-address="{{ req.address or '' }}"
+        data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+        data-photo="{{ req.photo_upload or '' }}" data-marksheet="{{ req.marksheet_upload }}"
+        data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-status="{{ req.nseit_status.replace('_', ' ') | title }}"
+        data-had-nseit-at-registration="{{ 'true' if req.had_nseit_at_registration else 'false' }}"
+        data-nseit-uploaded-post-approval="{{ 'true' if req.nseit_uploaded_post_approval else 'false' }}"
+        data-updated="{{ req.updated_at or req.created_at }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+        data-updated="{{ req.updated_at or req.created_at }}" style="border-bottom: 1px solid #edf2f7;">
+        <td style="padding: 12px 15px; font-size: 14px;">{{ loop.index }}</td>
+        <td style="padding: 12px 15px; font-size: 14px;"><strong>{{ req.request_code }}</strong></td>
+        <td style="padding: 12px 15px; font-size: 14px;">{{ req.district_name }}</td>
+        <td style="padding: 12px 15px; font-size: 14px;">{{ req.name }}</td>
+        <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
+        <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
+        <td style="padding: 12px 15px; font-size: 14px;">
+            <span class="badge badge-approved"
+                style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>
         </td>
         <td style="padding: 12px 15px; font-size: 14px;">{{ req.created_at }}</td>
         <td style="padding: 12px 15px; font-size: 14px;">{{ req.updated_at or req.created_at }}</td>
@@ -585,14 +580,7 @@
             }
         });
 
-        const metricPendingEl = document.getElementById('metric-pending');
-        if (metricPendingEl) metricPendingEl.textContent = metricPending;
-        const metricRevertedEl = document.getElementById('metric-reverted');
-        if (metricRevertedEl) metricRevertedEl.textContent = metricReverted;
-        const metricApprovedEl = document.getElementById('metric-approved');
-        if (metricApprovedEl) metricApprovedEl.textContent = metricApproved;
-        const metricTotalEl = document.getElementById('metric-total');
-        if (metricTotalEl) metricTotalEl.textContent = metricPending + metricReverted + metricApproved;
+        // Metric cards display all-time counts irrespective of active filters
     }
 
     function checkDateMatch(dateStr, filterVal) {

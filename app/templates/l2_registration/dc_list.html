@@ -39,7 +39,7 @@
     <div class="chips-banner-metrics" style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
         <div class="chips-metric-card">
             <div id="stat-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED']) | list | length }}</div>
+                metrics.pending if metrics else (requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED', 'pending', 'reapplied']) | list | length) }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
             </div>
         </div>
@@ -51,28 +51,28 @@
         </div>
         <div class="chips-metric-card">
             <div id="stat-sent-to-uidai" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                requests | selectattr('status', 'equalto', 'SENT_TO_UIDAI') | list | length }}</div>
+                metrics.sent_to_uidai if metrics else (requests | selectattr('status', 'in', ['SENT_TO_UIDAI', 'sent_to_uidai']) | list | length) }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
             </div>
         </div>
         <div class="chips-metric-card">
             <div id="stat-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                requests | selectattr('status', 'equalto', 'REVERTED') | list | length }}</div>
+                metrics.reverted if metrics else (requests | selectattr('status', 'in', ['REVERTED', 'reverted', 'reverted_by_chips']) | list | length) }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
         <div class="chips-metric-card">
             <div id="stat-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                requests | selectattr('status', 'equalto', 'REJECTED') | list | length }}</div>
+                metrics.rejected if metrics else (requests | selectattr('status', 'in', ['REJECTED', 'rejected']) | list | length) }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by UIDAI</div>
         </div>
         <div class="chips-metric-card">
             <div id="stat-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                requests | selectattr('status', 'equalto', 'APPROVED') | list | length }}</div>
+                metrics.approved if metrics else (requests | selectattr('status', 'in', ['APPROVED', 'approved', 'reviewed', 'l2_done']) | list | length) }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">L2 Done</div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{
-                requests | length }}</div>
+                total_requests if total_requests is defined else (requests | length) }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested Kits</div>
         </div>
     </div>
@@ -108,13 +108,6 @@
         </svg>
         <span>Sent to UIDAI log</span>
     </button>
-    <button type="button" class="req-tab" data-tab="approved">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-            stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-        <span>Approved L2 log</span>
-    </button>
     <button type="button" class="req-tab" data-tab="reverted">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">
@@ -123,6 +116,13 @@
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
         <span>Reverted/Rejected L2 log</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved L2 log</span>
     </button>
 </div>
 
@@ -166,7 +166,7 @@
 <!-- Awaiting L2 Section: Stations whose L1 is Done but L2 not filled yet -->
 <div class="req-tabpanel active" data-panel="awaiting">
     {% call request_section(
-    variant='pending',
+    variant='progress',
     title='Awaiting L2 registration (L1 done)',
     count=awaiting_l2|length, count_id='awaiting-l2-count',
     table_id='awaiting-l2-table', body_id='awaiting-l2-tbody',
@@ -204,7 +204,7 @@
 
 <div class="req-tabpanel" data-panel="pending">
     {% call request_section(
-    variant='progress',
+    variant='pending',
     title='Pending L2 registration queue',
     count='–', count_id='pending-count',
     controls=pending_controls,
@@ -280,7 +280,7 @@
 {% endset %}
 <div class="req-tabpanel" data-panel="uidai">
     {% call request_section(
-    variant='progress',
+    variant='uidai',
     title='Sent to UIDAI queue',
     count='–', count_id='uidai-count-badge',
     controls=uidai_controls,
@@ -341,82 +341,13 @@
     {% endcall %}
 </div><!-- /panel uidai -->
 
-<!-- Approved History Section -->
-{% set approved_controls %}
-<button class="rs-export" onclick="exportFilteredL2('credentials')">Export to CSV</button>
-{% endset %}
-<div class="req-tabpanel" data-panel="approved">
-    {% call request_section(
-    variant='done',
-    title='Approved L2 log',
-    count='–', count_id='approved-count-badge',
-    controls=approved_controls,
-    min_width=1050,
-    columns=[
-    {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request ID'},
-    {'label': 'Operator name'},
-    {'label': 'Operator ID'},
-    {'label': 'New station ID'},
-    {'label': 'Client version'},
-    {'label': 'Client type'},
-    {'label': 'Status'},
-    {'label': 'Submitted at'},
-    {'label': 'Updated at'},
-    {'label': 'Action', 'align': 'center'}
-    ],
-    table_id='approved-requests-table', body_id='approved-table-body',
-    empty_id='approved-empty-msg',
-    empty_message='No approved request history records found.') %}
-    {% set ns_approved = namespace(count=1) %}
-    {% for r in requests if (r.status|upper) == 'APPROVED' %}
-    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
-        data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
-        data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
-        data-new-station-id="{{ r.new_station_id }}" data-new-machine-id="{{ r.new_machine_id }}"
-        data-ea-code="{{ r.ea_code }}" data-reg-code="{{ r.reg_code }}"
-        data-old-station-id="{{ r.old_station_id or '' }}" data-old-machine-id="{{ r.old_machine_id or '' }}"
-        data-reason-for-l2-registration="{{ r.reason_for_l2_registration or '' }}"
-        data-tech-center-remarks="{{ r.tech_center_remarks or '' }}" data-unique-id="{{ r.unique_id }}"
-        data-block="{{ r.block }}" data-address-of-govt-premises="{{ r.address_of_govt_premises }}"
-        data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
-        data-district="{{ r.district_name or 'Raipur' }}" data-remarks='{{ r.remarks_history | tojson | safe }}'>
-
-        <td>{{ ns_approved.count }}</td>
-        <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
-        <td>{{ r.operator_name }}</td>
-        <td>{{ r.operator_id }}</td>
-        <td><strong>{{ r.new_station_id }}</strong></td>
-        <td>{{ r.client_version }}</td>
-        <td>{{ r.client_type }}</td>
-        <td>
-            <span class="sid-badge sid-badge-approved">Approved</span>
-        </td>
-        <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
-        <td>{{ r.updated_at if r.updated_at else (r.completed_at if r.completed_at else (r.reviewed_at if
-            r.reviewed_at else '—')) }}</td>
-        <td style="text-align: center;">
-            <button class="btn-details" onclick="openL2DetailsModal(this.closest('tr'))">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                Details
-            </button>
-        </td>
-    </tr>
-    {% set ns_approved.count = ns_approved.count + 1 %}
-    {% endfor %}
-    {% endcall %}
-</div><!-- /panel approved -->
-
 <!-- Reverted History Section -->
 {% set reverted_controls %}
 <button class="rs-export" onclick="exportFilteredL2('reverted')">Export to CSV</button>
 {% endset %}
 <div class="req-tabpanel" data-panel="reverted">
     {% call request_section(
-    variant='done',
+    variant='rejected',
     title='Reverted/Rejected L2 log',
     count='–', count_id='reverted-count-badge',
     controls=reverted_controls,
@@ -480,6 +411,75 @@
     {% endfor %}
     {% endcall %}
 </div><!-- /panel reverted -->
+
+<!-- Approved History Section -->
+{% set approved_controls %}
+<button class="rs-export" onclick="exportFilteredL2('credentials')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="approved">
+    {% call request_section(
+    variant='approved',
+    title='Approved L2 log',
+    count='–', count_id='approved-count-badge',
+    controls=approved_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'Operator name'},
+    {'label': 'Operator ID'},
+    {'label': 'New station ID'},
+    {'label': 'Client version'},
+    {'label': 'Client type'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='approved-requests-table', body_id='approved-table-body',
+    empty_id='approved-empty-msg',
+    empty_message='No approved request history records found.') %}
+    {% set ns_approved = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) == 'APPROVED' %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
+        data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
+        data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
+        data-new-station-id="{{ r.new_station_id }}" data-new-machine-id="{{ r.new_machine_id }}"
+        data-ea-code="{{ r.ea_code }}" data-reg-code="{{ r.reg_code }}"
+        data-old-station-id="{{ r.old_station_id or '' }}" data-old-machine-id="{{ r.old_machine_id or '' }}"
+        data-reason-for-l2-registration="{{ r.reason_for_l2_registration or '' }}"
+        data-tech-center-remarks="{{ r.tech_center_remarks or '' }}" data-unique-id="{{ r.unique_id }}"
+        data-block="{{ r.block }}" data-address-of-govt-premises="{{ r.address_of_govt_premises }}"
+        data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+        data-district="{{ r.district_name or 'Raipur' }}" data-remarks='{{ r.remarks_history | tojson | safe }}'>
+
+        <td>{{ ns_approved.count }}</td>
+        <td><strong>{{ r.request_no if r.request_no else '—' }}</strong></td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_id }}</td>
+        <td><strong>{{ r.new_station_id }}</strong></td>
+        <td>{{ r.client_version }}</td>
+        <td>{{ r.client_type }}</td>
+        <td>
+            <span class="sid-badge sid-badge-approved">Approved</span>
+        </td>
+        <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
+        <td>{{ r.updated_at if r.updated_at else (r.completed_at if r.completed_at else (r.reviewed_at if
+            r.reviewed_at else '—')) }}</td>
+        <td style="text-align: center;">
+            <button class="btn-details" onclick="openL2DetailsModal(this.closest('tr'))">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% set ns_approved.count = ns_approved.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel approved -->
 
 <script>
 
@@ -641,20 +641,7 @@
             }
         });
 
-        const statPendingEl = document.getElementById('stat-pending');
-        if (statPendingEl) statPendingEl.textContent = metricPending;
-        const statSentToUidaiEl = document.getElementById('stat-sent-to-uidai');
-        if (statSentToUidaiEl) statSentToUidaiEl.textContent = metricSentToUidai;
-        const statRevertedEl = document.getElementById('stat-reverted');
-        if (statRevertedEl) statRevertedEl.textContent = metricReverted;
-        const statRejectedEl = document.getElementById('stat-rejected');
-        if (statRejectedEl) statRejectedEl.textContent = metricRejected;
-        const statApprovedEl = document.getElementById('stat-approved');
-        if (statApprovedEl) statApprovedEl.textContent = metricApproved;
-        const statAwaitingEl = document.getElementById('stat-awaiting-l2');
-        if (statAwaitingEl) statAwaitingEl.textContent = metricAwaiting;
-        const statTotalEl = document.getElementById('stat-total');
-        if (statTotalEl) statTotalEl.textContent = metricPending + metricSentToUidai + metricReverted + metricRejected + metricApproved + metricAwaiting;
+        // Metric cards display all-time counts irrespective of active filters
     }
 
     function clearAllFilters() {

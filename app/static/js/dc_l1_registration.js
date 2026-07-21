@@ -177,18 +177,7 @@ function filterL1Table() {
         }
     });
 
-    const statPendingEl = document.getElementById('stat-pending');
-    if (statPendingEl) statPendingEl.textContent = metricPending;
-    const statReappliedEl = document.getElementById('stat-reapplied');
-    if (statReappliedEl) statReappliedEl.textContent = metricReapplied;
-    const statRevertedEl = document.getElementById('stat-reverted');
-    if (statRevertedEl) statRevertedEl.textContent = metricReverted;
-    const statApprovedEl = document.getElementById('stat-approved');
-    if (statApprovedEl) statApprovedEl.textContent = metricApproved;
-    const statAwaitingEl = document.getElementById('stat-awaiting-l1');
-    if (statAwaitingEl) statAwaitingEl.textContent = metricAwaiting;
-    const statTotalEl = document.getElementById('stat-total');
-    if (statTotalEl) statTotalEl.textContent = metricPending + metricReapplied + metricReverted + metricApproved + metricAwaiting;
+    // Metric cards display all-time counts irrespective of active filters
 }
 
 function clearAllFilters() {

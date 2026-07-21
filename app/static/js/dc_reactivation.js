@@ -39,7 +39,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const navEntries = performance.getEntriesByType("navigation");
     const isReload = navEntries.length > 0 && navEntries[0].type === "reload";
 
-    if (isReload) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const qStatus = urlParams.get("status");
+
+    if (isReload && !qStatus) {
         const searchOperatorInput = document.getElementById("filter-search-operator");
         if (searchOperatorInput) searchOperatorInput.value = "";
 
@@ -48,6 +51,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const datePeriodInput = document.getElementById("filter-date-period");
         if (datePeriodInput) datePeriodInput.value = "month";
+    }
+
+    if (qStatus) {
+        const st = qStatus.toUpperCase().trim();
+        const statusInput = document.getElementById("filter-status");
+        if (statusInput) {
+            if (st === "REVERTED_REJECTED") {
+                statusInput.value = "ALL";
+            } else if (st === "REVERTED" || st === "REVERTED_CHIPS" || st === "REVERTED_BY_CHIPS") {
+                statusInput.value = "REVERTED";
+            } else if (st === "REJECTED") {
+                statusInput.value = "REJECTED";
+            } else if (st === "PENDING") {
+                statusInput.value = "PENDING";
+            } else if (st === "APPROVED") {
+                statusInput.value = "APPROVED";
+            } else if (st === "SENT_TO_UIDAI" || st === "UIDAI") {
+                statusInput.value = "SENT_TO_UIDAI";
+            }
+        }
     }
 
     // 4. Initialize counts by running the filter pipeline
@@ -1685,24 +1708,7 @@ window.applyHistoryPanelFiltersPipeline = function () {
         flatApprovedEmptyMsg.style.display = (visibleApproved === 0) ? "block" : "none";
     }
 
-    // Dynamically update dashboard metric cards
-    const pendingEl = document.getElementById('metric-pending');
-    const reappliedEl = document.getElementById('metric-reapplied');
-    const sentToUidaiEl = document.getElementById('metric-sent-to-uidai');
-    const revertedEl = document.getElementById('metric-reverted');
-    const rejectedEl = document.getElementById('metric-rejected');
-    const approvedEl = document.getElementById('metric-approved');
-    const totalEl = document.getElementById('metric-total-requests');
-
-    const totalAllStatuses = opPendingCount + opReappliedCount + opSentToUidaiCount + opRevertedCount + opRejectedCount + opApprovedCount;
-
-    if (pendingEl) pendingEl.textContent = opPendingCount;
-    if (reappliedEl) reappliedEl.textContent = opReappliedCount;
-    if (sentToUidaiEl) sentToUidaiEl.textContent = opSentToUidaiCount;
-    if (revertedEl) revertedEl.textContent = opRevertedCount;
-    if (rejectedEl) rejectedEl.textContent = opRejectedCount;
-    if (approvedEl) approvedEl.textContent = opApprovedCount;
-    if (totalEl) totalEl.textContent = totalAllStatuses;
+    // Metric cards display all-time counts irrespective of active filters
 }
 
 window.resetHistoryPanelFilters = function () {
