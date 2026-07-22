@@ -280,7 +280,7 @@
     {% for r in requests if (r.status|upper) in ['PENDING', 'REAPPLIED'] %}
     <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-operator-name="{{ r.operator_name }}"
         data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
-        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}"
+        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}" data-old-station-id="{{ r.old_station_id or '' }}"
         data-district="{{ r.district_name or 'Raipur' }}"
         data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}" data-status="{{ r.status }}">
         <td>{{ ns_pending.count }}</td>
@@ -367,7 +367,7 @@
     {% for r in requests if (r.status|upper) == 'SENT_TO_UIDAI' %}
     <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-operator-name="{{ r.operator_name }}"
         data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
-        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}"
+        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}" data-old-station-id="{{ r.old_station_id or '' }}"
         data-district="{{ r.district_name or 'Raipur' }}"
         data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}" data-status="{{ r.status }}">
         <td>{{ ns_uidai.count }}</td>
@@ -450,7 +450,7 @@
     {% for r in requests if (r.status|upper) in ['REJECTED', 'REVERTED'] %}
     <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-operator-name="{{ r.operator_name }}"
         data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
-        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}"
+        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}" data-old-station-id="{{ r.old_station_id or '' }}"
         data-district="{{ r.district_name or 'Raipur' }}" data-status="{{ r.status }}"
         data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
         <td>{{ ns_reverted.count }}</td>
@@ -524,7 +524,7 @@
     {% for r in requests if (r.status|upper) == 'APPROVED' %}
     <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-operator-name="{{ r.operator_name }}"
         data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
-        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}"
+        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}" data-old-station-id="{{ r.old_station_id or '' }}"
         data-district="{{ r.district_name or 'Raipur' }}" data-status="{{ r.status }}"
         data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
         <td>{{ ns_creds.count }}</td>
@@ -628,13 +628,14 @@
                 const opId = (row.getAttribute('data-operator-id') || '').toLowerCase();
                 const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
                 const stationId = (row.getAttribute('data-new-station-id') || '').toLowerCase();
+                const oldStationId = (row.getAttribute('data-old-station-id') || '').toLowerCase();
                 const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
                 const clientVer = (row.getAttribute('data-client-version') || '').toLowerCase();
                 const clientType = (row.getAttribute('data-client-type') || '').toLowerCase();
                 const created = row.getAttribute('data-created') || '';
                 const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
 
-                const matchQuery = !q || name.includes(q) || opId.includes(q) || reqNo.includes(q) || stationId.includes(q) || dist.includes(q) || clientVer.includes(q) || clientType.includes(q);
+                const matchQuery = !q || name.includes(q) || opId.includes(q) || reqNo.includes(q) || stationId.includes(q) || oldStationId.includes(q) || dist.includes(q) || clientVer.includes(q) || clientType.includes(q);
                 const matchDistrict = selectedDistrict === 'all' || dist === selectedDistrict.toLowerCase();
                 const matchStatus = sec.sf === 'all' || rowStatus === sec.sf;
 
@@ -683,13 +684,14 @@
             const opId = (row.getAttribute('data-operator-id') || '').toLowerCase();
             const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
             const stationId = (row.getAttribute('data-new-station-id') || '').toLowerCase();
+            const oldStationId = (row.getAttribute('data-old-station-id') || '').toLowerCase();
             const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
             const clientVer = (row.getAttribute('data-client-version') || '').toLowerCase();
             const clientType = (row.getAttribute('data-client-type') || '').toLowerCase();
             const created = row.getAttribute('data-created') || '';
             const rowStatus = (row.getAttribute('data-status') || '').toUpperCase();
 
-            const matchQuery = !q || name.includes(q) || opId.includes(q) || reqNo.includes(q) || stationId.includes(q) || dist.includes(q) || clientVer.includes(q) || clientType.includes(q);
+            const matchQuery = !q || name.includes(q) || opId.includes(q) || reqNo.includes(q) || stationId.includes(q) || oldStationId.includes(q) || dist.includes(q) || clientVer.includes(q) || clientType.includes(q);
             const matchDistrict = selectedDistrict === 'all' || dist === selectedDistrict.toLowerCase();
 
             let matchDate = true;

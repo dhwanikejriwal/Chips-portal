@@ -298,8 +298,7 @@
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: var(--rail-pending);
-        box-shadow: 0 0 0 2px var(--surface-header);
+        background: #EF4444;
         pointer-events: none;
     }
 
@@ -450,11 +449,11 @@
     /* Logout: the least-used action in the portal, so it only gets red text
        once it's tucked inside the menu — never in the always-visible bar. */
     .user-menu-item.is-danger {
-        color: var(--rail-pending);
+        color: #dc2626;
     }
 
     .user-menu-item.is-danger i {
-        color: var(--rail-pending);
+        color: #dc2626;
     }
 
     /* ---- Responsive ----
@@ -1225,7 +1224,8 @@
         const BACKEND_API_URL = "{{ config['BACKEND_API_URL'] }}";
         const ACCESS_TOKEN = "{{ session.get('access_token') }}";
         const USER_ROLE = "{{ session.get('role') }}";
-        const isChips = USER_ROLE === 'Admin';
+        const roleLower = (USER_ROLE || '').trim().toLowerCase();
+        const isChips = roleLower === 'admin';
 
         const dropdown = document.getElementById('notification-dropdown');
         const bellBtn = document.getElementById('notification-bell-btn');
@@ -1247,26 +1247,26 @@
         let isTypeListExpanded = false;
 
         const TYPE_URLS = {
-            'L1': '/chips/l1-requests',
-            'L2': '/chips/l2-requests',
-            'station_id': '/chips/station-id-requests',
-            'operator_activation': '/chips/activation-requests',
-            'operator_reactivation': '/chips/reactivation-requests',
-            'LMS': '/chips/lms-requests',
-            'NSEIT': '/chips/nseit-requests'
+            'l1': '/auth/chips/l1-registration',
+            'l2': '/auth/chips/l2-registration',
+            'station_id': '/auth/chips/station-id',
+            'operator_activation': '/auth/chips/operator-activation',
+            'operator_reactivation': '/auth/chips/reactivation',
+            'lms': '/auth/chips/lms',
+            'nseit': '/auth/chips/nseit'
         };
 
-        if (USER_ROLE === 'dc' || USER_ROLE === 'edm') {
-            TYPE_URLS['L1'] = '/dc/l1-requests';
-            TYPE_URLS['L2'] = '/dc/l2-requests';
-            TYPE_URLS['station_id'] = '/dc/station-id-requests';
-            TYPE_URLS['operator_activation'] = '/dc/activation-requests';
-            TYPE_URLS['operator_reactivation'] = '/dc/reactivation-requests';
-            TYPE_URLS['LMS'] = '/candidate-requests';
-            TYPE_URLS['NSEIT'] = '/candidate-requests';
+        if (roleLower === 'dc' || roleLower === 'edm') {
+            TYPE_URLS['l1'] = '/auth/dc/l1-registration';
+            TYPE_URLS['l2'] = '/auth/dc/l2-registration/list';
+            TYPE_URLS['station_id'] = '/auth/dc/station-id/list';
+            TYPE_URLS['operator_activation'] = '/auth/dc/operator-activation/list';
+            TYPE_URLS['operator_reactivation'] = '/auth/dc/reactivation';
+            TYPE_URLS['lms'] = '/auth/dc/candidate-requests';
+            TYPE_URLS['nseit'] = '/auth/dc/candidate-requests';
         }
 
-        const REVERT_REJECT_TYPES = ['L1', 'L2', 'station_id', 'operator_activation', 'operator_reactivation'];
+        const REVERT_REJECT_TYPES = ['l1', 'l2', 'station_id', 'operator_activation', 'operator_reactivation'];
 
         function renderTypeList(data) {
             typeList.innerHTML = '';

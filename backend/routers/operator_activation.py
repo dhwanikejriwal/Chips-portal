@@ -104,13 +104,13 @@ def search_eligible_candidates(q: str, db: Session = Depends(get_db)):
         is_eligible = c.is_existing_operator or bool(c.nseit_id)
         
         if not is_eligible:
-            nseit_req = db.query(NSEITRequest).filter(NSEITRequest.r_id == c.r_id).first()
+            nseit_req = db.query(NSEITRequest).filter(NSEITRequest.request_id == c.id).first()
             if nseit_req and nseit_req.status_id in [StatusEnum.APPROVED.value, StatusEnum.SKIPPED.value]:
                 is_eligible = True
                 
         if is_eligible:
             results.append({
-                "id": c.r_id,
+                "id": c.id,
                 "name": c.name,
                 "mobile": c.mobile,
                 "email": c.email,

@@ -9,7 +9,7 @@ from backend.database import SessionLocal
 from backend.models import MasterUserRole, District, UserLogin, MasterStatus, UserProfile
 from backend.models.base import StatusEnum
 
-CSV_PATH = "LGD - Local Government Directory, Government of India.csv"
+CSV_PATH = "useful_files/LGD - Local Government Directory, Government of India.csv"
 
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
@@ -271,7 +271,7 @@ def seed_database():
         print("Default users (Admin, DCs, EDMs) verified/seeded. Login credentials verified and updated.")
 
         # 4. Parse and Seed Resource Contacts from CSV (EDM, DC, MTO, ADC)
-        resource_csv = "Aadhaar Dist Resources - updated (2).xlsx - All (1).csv"
+        resource_csv = "useful_files/Aadhaar Dist Resources - updated (2).xlsx - All (1).csv"
         if os.path.exists(resource_csv):
             print(f"Reading resources and profiles from '{resource_csv}'...")
             with open(resource_csv, mode='r', encoding='utf-8') as f:

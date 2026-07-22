@@ -9,7 +9,7 @@ from backend.models.district import District
 
 
 def run():
-    df = pd.read_excel("station_id_master.xlsx")
+    df = pd.read_excel("useful_files/station_id_master.xlsx")
     db = SessionLocal()
     try:
         valid_codes = {c for (c,) in db.query(District.district_code).all()}

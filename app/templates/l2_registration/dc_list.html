@@ -527,13 +527,14 @@
                 const opId = (row.getAttribute('data-operator-id') || '').toLowerCase();
                 const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
                 const stationId = (row.getAttribute('data-new-station-id') || '').toLowerCase();
+                const oldStationId = (row.getAttribute('data-old-station-id') || '').toLowerCase();
                 const machineId = (row.getAttribute('data-new-machine-id') || '').toLowerCase();
                 const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
                 const createdDate = row.getAttribute('data-created') || '';
                 const clientVersion = (row.getAttribute('data-client-version') || '').toLowerCase();
                 const clientType = (row.getAttribute('data-client-type') || '').toLowerCase();
 
-                const matchQuery = !searchQuery || name.includes(searchQuery) || opId.includes(searchQuery) || reqNo.includes(searchQuery) || stationId.includes(searchQuery) || machineId.includes(searchQuery) || clientVersion.includes(searchQuery) || clientType.includes(searchQuery);
+                const matchQuery = !searchQuery || name.includes(searchQuery) || opId.includes(searchQuery) || reqNo.includes(searchQuery) || stationId.includes(searchQuery) || oldStationId.includes(searchQuery) || machineId.includes(searchQuery) || clientVersion.includes(searchQuery) || clientType.includes(searchQuery);
 
                 let matchStatus = true;
                 if (statusFilter !== 'all') {
@@ -595,13 +596,14 @@
             const opId = (row.getAttribute('data-operator-id') || '').toLowerCase();
             const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
             const stationId = (row.getAttribute('data-new-station-id') || '').toLowerCase();
+            const oldStationId = (row.getAttribute('data-old-station-id') || '').toLowerCase();
             const machineId = (row.getAttribute('data-new-machine-id') || '').toLowerCase();
             const rowStatus = (row.getAttribute('data-status') || '').toUpperCase();
             const createdDate = row.getAttribute('data-created') || '';
             const clientVersion = (row.getAttribute('data-client-version') || '').toLowerCase();
             const clientType = (row.getAttribute('data-client-type') || '').toLowerCase();
 
-            const matchQuery = !searchQuery || name.includes(searchQuery) || opId.includes(searchQuery) || reqNo.includes(searchQuery) || stationId.includes(searchQuery) || machineId.includes(searchQuery) || clientVersion.includes(searchQuery) || clientType.includes(searchQuery);
+            const matchQuery = !searchQuery || name.includes(searchQuery) || opId.includes(searchQuery) || reqNo.includes(searchQuery) || stationId.includes(searchQuery) || oldStationId.includes(searchQuery) || machineId.includes(searchQuery) || clientVersion.includes(searchQuery) || clientType.includes(searchQuery);
 
             let matchDate = true;
             if (dateFilter === 'today') {
@@ -759,7 +761,8 @@
     }
 
     window.showL2Details = function (d, activeView) {
-        const isRevertable = ((d.status || '').toLowerCase().replace(/ /g, '_') === 'reverted' || (d.status || '').toLowerCase().replace(/ /g, '_') === 'rejected');
+        const normStatus = (d.status || '').trim().toLowerCase();
+        const isRevertable = ['reverted', 'rejected', 'reverted by chips', 'reverted_by_chips'].includes(normStatus);
         const isRejected = ((d.status || '').toLowerCase().replace(/ /g, '_') === 'rejected');
         const alertTitle = isRejected ? 'Action Required — Request Rejected' : 'Action Required — Request Reverted';
         const reasonHeader = isRejected ? 'REJECT REASON / REMARKS' : 'REVERT REASON / REMARKS';

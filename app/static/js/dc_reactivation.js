@@ -1213,7 +1213,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
     const cardEl = document.querySelector(`[data-request-id="${requestCode}"]`);
     const submittedAt = cardEl ? cardEl.getAttribute('data-created') || '—' : '—';
     const statusUpper = (op.status || '').toUpperCase().trim();
-    const isRevertable = (statusUpper === 'REVERTED' || statusUpper === 'REVERT BACK');
+    const isRevertable = ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS', 'REVERTED_BY_CHIPS'].includes(statusUpper);
     const isRejected = (statusUpper === 'REJECTED');
 
     if (activeView === 'details') {

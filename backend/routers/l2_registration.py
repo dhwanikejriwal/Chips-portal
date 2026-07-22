@@ -82,7 +82,7 @@ def submit_l2_request(
     ).first()
 
     if station_req:
-        new_req.request_no = f"{station_req.request_no}-{new_station_id.strip()}"
+        new_req.request_no = f"{station_req.request_no}{new_station_id.strip()}"
     else:
         last_req = db.query(L2RegistrationRequest).filter(
             L2RegistrationRequest.request_no.isnot(None),

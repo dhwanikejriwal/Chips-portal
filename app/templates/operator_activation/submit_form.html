@@ -164,7 +164,7 @@
                 <div
                     style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
                     <h2 class="container-sub-title"
-                        style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; margin: 0;">
+                        style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; margin: 0; border-bottom: none; padding-bottom: 0;">
                         2. OPERATOR'S WORK & CERTIFICATION DETAILS
                     </h2>
                     <button type="button" class="oa-btn"
@@ -232,6 +232,7 @@
                             style="display: none; color: #0284c7; font-size: 11px; font-weight: 600; margin-top: 4px;">
                             Please verify that the auto-filled ID is correct.
                         </span>
+                        <div id="nseit-autofill-status" style="margin-top: 4px; font-size: 12px; font-weight: 600; font-family: 'Inter', sans-serif;"></div>
                     </div>
                     <div class="input-group">
                         <label>NSEIT Certificate Issue Date <span class="required-star">*</span></label>
@@ -458,6 +459,63 @@
 </form>
 
 <script>
+    window.uploadedFiles = window.uploadedFiles || {};
+    window.isAutofilling = false;
+
+    let revalidateTimeouts = {};
+    window.triggerRevalidation = function (inputName) {
+        clearTimeout(revalidateTimeouts[inputName]);
+
+        const input = document.querySelector(`input[name="${inputName}"]`);
+        if (!input) return;
+
+        // Clear error message UI immediately
+        const parent = input.closest('.oa-doc-card');
+        if (parent) {
+            parent.querySelectorAll('.ocr-validation-msg, .oa-field-error').forEach(el => el.remove());
+        }
+
+        revalidateTimeouts[inputName] = setTimeout(() => {
+            const file = window.uploadedFiles[inputName];
+            
+            // Check if the relevant Step 1 fields are filled
+            let fieldsFilled = true;
+            if (inputName === 'nseit_certificate') {
+                const certNoEl = document.getElementById('nseit_certificate_number');
+                const certDateEl = document.getElementById('nseit_certification_date');
+                const certNo = certNoEl ? certNoEl.value.trim() : '';
+                const certDate = certDateEl ? certDateEl.value.trim() : '';
+                if (!certNo || !certDate) fieldsFilled = false;
+            } else if (inputName === 'aadhaar_photo') {
+                const nameEl = document.getElementById('name_as_per_aadhaar');
+                const aadhaarEl = document.getElementById('operator_aadhaar');
+                const name = nameEl ? nameEl.value.trim() : '';
+                const aadhaar = aadhaarEl ? aadhaarEl.value.trim() : '';
+                if (!name || !aadhaar) fieldsFilled = false;
+            } else if (inputName === 'pan_card') {
+                const nameEl = document.getElementById('name_as_per_aadhaar');
+                const panEl = document.getElementById('operator_pan');
+                const name = nameEl ? nameEl.value.trim() : '';
+                const pan = panEl ? panEl.value.trim() : '';
+                if (!name || !pan) fieldsFilled = false;
+            }
+
+            if (file && fieldsFilled) {
+                try {
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    input.files = dt.files;
+                    performOcrValidation(input);
+                } catch (e) {
+                    console.warn("Re-validation auto-fill failed", e);
+                }
+            } else {
+                input.dataset.isValid = '';
+                window.checkFormValidity();
+            }
+        }, 800);
+    };
+
     window.nextStep = function () {
         const step1Panel = document.getElementById('step-1-panel');
         const step2Panel = document.getElementById('step-2-panel');
@@ -1139,9 +1197,16 @@
                     const file = this.files[0];
                     if (!file) {
                         this.dataset.isValid = 'false';
+                        if (window.uploadedFiles) {
+                            delete window.uploadedFiles[this.name];
+                        }
                         window.checkFormValidity();
                         return;
                     }
+
+                    // Save to global uploadedFiles cache
+                    window.uploadedFiles = window.uploadedFiles || {};
+                    window.uploadedFiles[this.name] = file;
 
                     const name = this.name;
                     const maxMB = name === 'excel_sheet' ? 5 : 2;
@@ -1167,7 +1232,9 @@
                     }
 
                     // Perform OCR validation
-                    performOcrValidation(this);
+                    if (!window.isAutofilling) {
+                        performOcrValidation(this);
+                    }
                 }
             });
         });
@@ -1198,6 +1265,33 @@
             nseitInput.addEventListener('input', () => {
                 const autofillNote = document.getElementById('nseit-autofill-note');
                 if (autofillNote) autofillNote.style.display = 'none';
+                window.triggerRevalidation('nseit_certificate');
+            });
+        }
+        const nseitDateEl = document.getElementById('nseit_certification_date');
+        if (nseitDateEl) {
+            nseitDateEl.addEventListener('change', () => {
+                window.triggerRevalidation('nseit_certificate');
+            });
+        }
+        const nameEl = document.getElementById('name_as_per_aadhaar');
+        if (nameEl) {
+            nameEl.addEventListener('input', () => {
+                window.triggerRevalidation('aadhaar_photo');
+                window.triggerRevalidation('pan_card');
+                window.triggerRevalidation('nseit_certificate');
+            });
+        }
+        const aadhaarEl = document.getElementById('operator_aadhaar');
+        if (aadhaarEl) {
+            aadhaarEl.addEventListener('input', () => {
+                window.triggerRevalidation('aadhaar_photo');
+            });
+        }
+        const panEl = document.getElementById('operator_pan');
+        if (panEl) {
+            panEl.addEventListener('input', () => {
+                window.triggerRevalidation('pan_card');
             });
         }
         window.checkFormValidity();
@@ -1314,8 +1408,13 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        // Automatically copy this file to the main form's document grid
-        // so the user doesn't have to upload it twice!
+        // Save to global uploadedFiles cache
+        window.uploadedFiles = window.uploadedFiles || {};
+        window.uploadedFiles['nseit_certificate'] = file;
+
+        // Set the autofilling flag to prevent race condition validation
+        window.isAutofilling = true;
+
         const mainNseitInput = document.querySelector('input[name="nseit_certificate"]');
         if (mainNseitInput) {
             try {
@@ -1345,16 +1444,12 @@
             }
         }
 
-        // Show spinner/alert
-        Swal.fire({
-            title: 'Reading Certificate...',
-            html: 'Extracting details using AI, please wait...',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
+        // Show inline loading text instead of SweetAlert popup
+        const statusEl = document.getElementById('nseit-autofill-status');
+        if (statusEl) {
+            statusEl.style.color = '#3b82f6';
+            statusEl.innerText = 'Validating document authenticity...';
+        }
 
         const formData = new FormData();
         formData.append('nseit_certificate', file);
@@ -1378,13 +1473,13 @@
                     if (data.match_type === 'database') {
                         // Found a matching candidate in DB! Fill everything.
                         selectCandidate(data.candidate);
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Match Found!',
-                            text: 'Candidate details have been completely auto-filled.',
-                            timer: 2500,
-                            showConfirmButton: false
-                        });
+                        if (statusEl) {
+                            statusEl.style.color = '#10b981';
+                            statusEl.innerText = '✓ Certificate read successfully and details auto-filled.';
+                            setTimeout(() => {
+                                if (statusEl.innerText.startsWith('✓')) statusEl.innerText = '';
+                            }, 4000);
+                        }
                     } else if (data.match_type === 'parsed_only') {
                         // Fill what we found
                         let filled = false;
@@ -1408,43 +1503,60 @@
 
                         if (typeof autoFillUserCode === 'function') autoFillUserCode();
 
-                        if (filled) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Auto-filled successfully!',
-                                showConfirmButton: false,
-                                timer: 1500
-                            });
-                        } else {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: 'No Details Found',
-                                text: 'We could not extract useful text from this document. Please enter manually.',
-                            });
+                        if (statusEl) {
+                            if (filled) {
+                                statusEl.style.color = '#10b981';
+                                statusEl.innerText = '✓ Certificate read successfully and details auto-filled.';
+                                setTimeout(() => {
+                                    if (statusEl.innerText.startsWith('✓')) statusEl.innerText = '';
+                                }, 4000);
+                            } else {
+                                statusEl.style.color = '#ef4444';
+                                statusEl.innerText = '✗ No details could be extracted from this certificate. Please enter manually.';
+                            }
                         }
                     }
+                    
+                    // Fields are now filled! Perform OCR validation on the main document input.
+                    window.isAutofilling = false;
+                    if (mainNseitInput) {
+                        performOcrValidation(mainNseitInput);
+                    }
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Extraction Failed',
-                        text: data.message || 'Could not parse the certificate.'
-                    });
+                    window.isAutofilling = false;
+                    if (statusEl) {
+                        statusEl.style.color = '#ef4444';
+                        statusEl.innerText = `✗ Extraction Failed: ${data.message || 'Could not parse the certificate.'}`;
+                    }
+                    if (mainNseitInput) {
+                        mainNseitInput.value = '';
+                        mainNseitInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 }
             } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Upload Failed',
-                    text: 'An error occurred on the server.'
-                });
+                window.isAutofilling = false;
+                if (statusEl) {
+                    statusEl.style.color = '#ef4444';
+                    statusEl.innerText = '✗ Upload Failed: An error occurred on the server.';
+                }
+                if (mainNseitInput) {
+                    mainNseitInput.value = '';
+                    mainNseitInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
             }
         } catch (e) {
+            window.isAutofilling = false;
             console.error("Upload error", e);
-            Swal.fire({
-                icon: 'error',
-                title: 'Network Error',
-                text: 'Could not connect to the server.'
-            });
+            if (statusEl) {
+                statusEl.style.color = '#ef4444';
+                statusEl.innerText = '✗ Network Error: Could not connect to the server.';
+            }
+            if (mainNseitInput) {
+                mainNseitInput.value = '';
+                mainNseitInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
         } finally {
+            window.isAutofilling = false;
             // Reset file input so same file can be uploaded again if needed
             event.target.value = '';
         }

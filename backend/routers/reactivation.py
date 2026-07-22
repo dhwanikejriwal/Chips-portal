@@ -99,8 +99,8 @@ async def submit_operator_reactivation(
 ):
     try:
         user_role_str = get_user_role_str(current_user)
-        if user_role_str != "dc": 
-            raise HTTPException(status_code=403, detail="Access Denied. Only DC can submit requests.")
+        if user_role_str not in ["dc", "edm"]: 
+            raise HTTPException(status_code=403, detail="Access Denied. Only DC/EDM can submit requests.")
         if not current_user.district_id: 
             raise HTTPException(status_code=400, detail="Missing user district layout configuration mapping.")
 

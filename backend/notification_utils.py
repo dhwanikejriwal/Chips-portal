@@ -155,11 +155,16 @@ def _compute_dc_snapshot(district_id, baseline_at, db):
             q = q.filter(Candidate.district == district_id)
         n = 0
         for r in q.all():
+            status_str = str(r.status or "").strip().lower()
+            # If the DC has already acted on it (e.g., forwarded/rejected), hide it.
+            if status_str not in ("pending", "reapplied"):
+                continue
+
             created = make_naive(r.created_at)
             if created and created > baseline_at:
                 n += 1
                 continue
-            if str(r.status or "").strip().lower() == "reapplied":
+            if status_str == "reapplied":
                 updated = make_naive(r.updated_at)
                 if updated and updated > baseline_at:
                     n += 1
@@ -195,44 +200,34 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
     if admin_type == "dc_admin":
         return _compute_dc_snapshot(district_id, baseline_at, db)
 
-    dc_district_id = district_id if admin_type == "dc_admin" else None
+    chips_actionable = {"pending", "reapplied"}
 
     reg_activation_dates = []
     credentials_exams_dates = []
     type_counts = {}
 
     l1_query = db.query(L1RegistrationRequest).filter(L1RegistrationRequest.created_at > baseline_at)
-    if dc_district_id:
-        l1_query = l1_query.filter(L1RegistrationRequest.district_id == dc_district_id)
-    l1_dates = [make_naive(r.created_at) for r in l1_query.all()]
+    l1_dates = [make_naive(r.created_at) for r in l1_query.all() if str(r.status or "").strip().lower() in chips_actionable]
     reg_activation_dates += l1_dates
     type_counts["l1"] = len(l1_dates)
 
     l2_query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.submitted_at > baseline_at)
-    if dc_district_id:
-        l2_query = l2_query.filter(L2RegistrationRequest.district_id == dc_district_id)
-    l2_dates = [make_naive(r.submitted_at) for r in l2_query.all()]
+    l2_dates = [make_naive(r.submitted_at) for r in l2_query.all() if str(r.status or "").strip().lower() in chips_actionable]
     reg_activation_dates += l2_dates
     type_counts["l2"] = len(l2_dates)
 
     station_query = db.query(StationIDRequest).filter(StationIDRequest.submitted_at > baseline_at)
-    if dc_district_id:
-        station_query = station_query.filter(StationIDRequest.district_id == dc_district_id)
-    station_dates = [make_naive(r.submitted_at) for r in station_query.all()]
+    station_dates = [make_naive(r.submitted_at) for r in station_query.all() if str(r.status or "").strip().lower() in chips_actionable]
     reg_activation_dates += station_dates
     type_counts["station_id"] = len(station_dates)
 
     act_query = db.query(OperatorActivationRequest).filter(OperatorActivationRequest.submitted_at > baseline_at)
-    if dc_district_id:
-        act_query = act_query.filter(OperatorActivationRequest.district_id == dc_district_id)
-    act_dates = [make_naive(r.submitted_at) for r in act_query.all()]
+    act_dates = [make_naive(r.submitted_at) for r in act_query.all() if str(r.status or "").strip().lower() in chips_actionable]
     reg_activation_dates += act_dates
     type_counts["operator_activation"] = len(act_dates)
 
     react_query = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.created_at > baseline_at)
-    if dc_district_id:
-        react_query = react_query.filter(OperatorReactivationRequest.district_id == dc_district_id)
-    react_dates = [make_naive(r.created_at) for r in react_query.all()]
+    react_dates = [make_naive(r.created_at) for r in react_query.all() if str(r.status or "").strip().lower() in chips_actionable]
     reg_activation_dates += react_dates
     type_counts["operator_reactivation"] = len(react_dates)
 
@@ -253,7 +248,7 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
             .select_from(LMS)
             .join(lms_forward_sub, LMS.id == lms_forward_sub.c.lms_id)
             .join(Candidate, LMS.request_id == Candidate.id)
-            .filter(LMS.status.in_(FORWARDED_STATUSES), lms_forward_sub.c.forwarded_at > baseline_at)
+            .filter(LMS.status_id.in_([to_code(s) for s in FORWARDED_STATUSES]), lms_forward_sub.c.forwarded_at > baseline_at)
         )
         lms_dates = [make_naive(row[0]) for row in lms_query.all()]
         credentials_exams_dates += lms_dates
@@ -270,7 +265,7 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
             .select_from(NSEITRequest)
             .join(nseit_forward_sub, NSEITRequest.id == nseit_forward_sub.c.nseit_id)
             .join(Candidate, NSEITRequest.request_id == Candidate.id)
-            .filter(NSEITRequest.status.in_(FORWARDED_STATUSES), nseit_forward_sub.c.forwarded_at > baseline_at)
+            .filter(NSEITRequest.status_id.in_([to_code(s) for s in FORWARDED_STATUSES]), nseit_forward_sub.c.forwarded_at > baseline_at)
         )
         nseit_dates = [make_naive(row[0]) for row in nseit_query.all()]
         credentials_exams_dates += nseit_dates
@@ -279,15 +274,15 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
         # For a DC admin, the candidate's own submission is what lands in
         # their queue — created_at is the right cutoff.
         lms_query = db.query(LMS).join(Candidate, LMS.request_id == Candidate.id).filter(LMS.created_at > baseline_at)
-        if dc_district_id:
-            lms_query = lms_query.filter(Candidate.district == dc_district_id)
+        if district_id:
+            lms_query = lms_query.filter(Candidate.district == district_id)
         lms_dates = [make_naive(r.created_at) for r in lms_query.all()]
         credentials_exams_dates += lms_dates
         type_counts["lms"] = len(lms_dates)
 
         nseit_query = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id).filter(NSEITRequest.created_at > baseline_at)
-        if dc_district_id:
-            nseit_query = nseit_query.filter(Candidate.district == dc_district_id)
+        if district_id:
+            nseit_query = nseit_query.filter(Candidate.district == district_id)
         nseit_dates = [make_naive(r.created_at) for r in nseit_query.all()]
         credentials_exams_dates += nseit_dates
         type_counts["nseit"] = len(nseit_dates)

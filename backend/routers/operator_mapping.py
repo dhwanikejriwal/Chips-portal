@@ -25,8 +25,8 @@ def get_mapping_options(
     current_user: UserLogin = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Returns unmapped operators and available station IDs for the DC."""
-    if current_user.role.role != "DC":
-        raise HTTPException(status_code=403, detail="Only DCs can fetch these options.")
+    if current_user.role.role not in ["DC", "EDM"]:
+        raise HTTPException(status_code=403, detail="Only DC/EDM can fetch these options.")
         
     # Get all active station IDs approved for this DC's district
     approved_stations = db.query(StationIDRequest).filter(
@@ -81,8 +81,8 @@ def create_mapping(
     db: Session = Depends(get_db),
     current_user: UserLogin = Depends(get_current_user)
 ):
-    if current_user.role.role != "DC":
-        raise HTTPException(status_code=403, detail="Only DCs can map operators.")
+    if current_user.role.role not in ["DC", "EDM"]:
+        raise HTTPException(status_code=403, detail="Only DC/EDM can map operators.")
 
     # Find the operator
     operator = db.query(Operator).filter(
@@ -121,8 +121,8 @@ def list_mappings(
     db: Session = Depends(get_db),
     current_user: UserLogin = Depends(get_current_user)
 ) -> List[Dict[str, Any]]:
-    if current_user.role.role != "DC":
-        raise HTTPException(status_code=403, detail="Only DCs can view mappings.")
+    if current_user.role.role not in ["DC", "EDM"]:
+        raise HTTPException(status_code=403, detail="Only DC/EDM can view mappings.")
 
     # Fetch operators that are mapped to a station via OperatorOnboarding
     mappings = db.query(OperatorOnboarding).join(Operator).filter(
@@ -151,8 +151,8 @@ def delete_mapping(
     db: Session = Depends(get_db),
     current_user: UserLogin = Depends(get_current_user)
 ):
-    if current_user.role.role != "DC":
-        raise HTTPException(status_code=403, detail="Only DCs can delete mappings.")
+    if current_user.role.role not in ["DC", "EDM"]:
+        raise HTTPException(status_code=403, detail="Only DC/EDM can delete mappings.")
 
     operator = db.query(Operator).filter(
         Operator.id == operator_id,

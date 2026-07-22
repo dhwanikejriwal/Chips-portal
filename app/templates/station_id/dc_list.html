@@ -148,7 +148,7 @@
     <option value="pending">Pending</option>
     <option value="reapplied">Reapplied</option>
 </select>
-<button class="rs-export" onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.csv')">Export to
+<button class="rs-export" onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.csv', true, true)">Export to
     CSV</button>
 {% endset %}
 <div class="req-tabpanel active" data-panel="pending">
@@ -164,8 +164,6 @@
     {'label': 'District'},
     {'label': 'Model'},
     {'label': 'User type'},
-    {'label': 'Type of slot'},
-    {'label': 'No. of kits', 'align': 'right'},
     {'label': 'Status'},
     {'label': 'Submitted at'},
     {'label': 'Updated at'},
@@ -188,8 +186,6 @@
         <td>
             {{ r.user_type | replace('_', ' ') | capitalize }}
         </td>
-        <td>{{ (r.slot | title) if r.slot else '—' }}</td>
-        <td><strong>{{ r.number_of_kits }}</strong></td>
         <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">{{ r.status |
                 replace('_', ' ') | title }}</span></td>
         <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
@@ -219,7 +215,7 @@
 <!-- Approved History Section -->
 <!-- Reverted History Section -->
 {% set reverted_controls %}
-<button class="rs-export" onclick="exportTableToExcel('reverted-table', 'reverted_station_id_history.csv')">Export to CSV</button>
+<button class="rs-export" onclick="exportTableToExcel('reverted-table', 'reverted_station_id_history.csv', false, true, true)">Export to CSV</button>
 {% endset %}
 <div class="req-tabpanel" data-panel="reverted">
     {% call request_section(
@@ -234,10 +230,8 @@
     {'label': 'District'},
     {'label': 'Model'},
     {'label': 'User type'},
-    {'label': 'Type of slot'},
     {'label': 'No. of kits', 'align': 'right'},
     {'label': 'Status'},
-    {'label': 'Assigned ID'},
     {'label': 'Submitted at'},
     {'label': 'Updated at'},
     {'label': 'Action', 'align': 'center'}
@@ -260,24 +254,8 @@
         <td>{{ r.district_name }}</td>
         <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
         <td>{{ r.user_type | replace('_', ' ') | capitalize }}</td>
-        <td>{{ (r.slot | title) if r.slot else '—' }}</td>
         <td><strong>{{ r.number_of_kits }}</strong></td>
         <td><span class="sid-badge sid-badge-reverted">Reverted</span></td>
-        <td>
-            {% if r.assigned_station_id %}
-            {% set ids_list = r.assigned_station_id.split(',') %}
-            {% if ids_list | length > 3 %}
-            <strong style="color:#16a34a;">{{ ids_list[:3] | join(',') }}...</strong>
-            <a href="javascript:void(0)"
-                style="color: #0F7A50; font-size: 12px; font-weight: 600; text-decoration: underline; margin-left: 5px;"
-                onclick="showAllStationIds('{{ r.assigned_station_id }}')">See All</a>
-            {% else %}
-            <strong style="color:#16a34a;">{{ r.assigned_station_id }}</strong>
-            {% endif %}
-            {% else %}
-            <strong style="color:#16a34a;">—</strong>
-            {% endif %}
-        </td>
         <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
         <td>{{ r.reviewed_at[:16] if r.reviewed_at and r.reviewed_at != '—' else '—' }}</td>
         <td style="text-align: center;">
@@ -300,7 +278,7 @@
 
 <!-- Approved Section -->
 {% set approved_controls %}
-<button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_station_id_history.csv')">Export to CSV</button>
+<button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_station_id_history.csv', true)">Export to CSV</button>
 {% endset %}
 <div class="req-tabpanel" data-panel="approved">
     {% call request_section(
@@ -316,7 +294,6 @@
     {'label': 'Model'},
     {'label': 'User type'},
     {'label': 'Type of slot'},
-    {'label': 'No. of kits', 'align': 'right'},
     {'label': 'Status'},
     {'label': 'Assigned ID'},
     {'label': 'Submitted at'},
@@ -342,7 +319,6 @@
         <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
         <td>{{ r.user_type | replace('_', ' ') | capitalize }}</td>
         <td>{{ (r.slot | title) if r.slot else '—' }}</td>
-        <td><strong>{{ r.number_of_kits }}</strong></td>
         <td><span class="sid-badge sid-badge-allotted">Allotted</span></td>
         <td>
             {% if r.assigned_station_id %}
@@ -477,7 +453,8 @@
 
     // Details/Reapply modal popup
     window.showStationIdDetails = function (d, activeView) {
-        const isReverted = (d.status || '').toLowerCase().replace(/ /g, '_') === 'reverted';
+        const normStatus = (d.status || '').trim().toLowerCase();
+        const isReverted = ['reverted', 'rejected', 'reverted by chips', 'reverted_by_chips'].includes(normStatus);
 
         const statusBadge = getStatusBadgeHtml(d.status);
 
@@ -796,8 +773,9 @@
 
                     const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
                     const customReason = (row.getAttribute('data-custom-reason') || '').toLowerCase();
+                    const stationId = (row.getAttribute('data-assigned-station-id') || '').toLowerCase();
 
-                    const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || customReason.includes(q);
+                    const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || customReason.includes(q) || stationId.includes(q);
                     const matchStatus = (sf === 'all') || (status === sf);
 
                     let matchDate = true;
@@ -845,8 +823,9 @@
                 const created = row.getAttribute('data-created') || '';
                 const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
                 const customReason = (row.getAttribute('data-custom-reason') || '').toLowerCase();
+                const stationId = (row.getAttribute('data-assigned-station-id') || '').toLowerCase();
 
-                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || customReason.includes(q);
+                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || customReason.includes(q) || stationId.includes(q);
 
                 let matchDate = true;
                 if (df === 'today') {
@@ -893,13 +872,13 @@
             filterAllTables();
         };
 
-        function sortLogTable(tbodyId) {
+        function sortLogTable(tbodyId, dateCellIndex) {
             const tbody = document.getElementById(tbodyId);
             if (!tbody) return;
             const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
             rows.sort((a, b) => {
-                const dateA = a.cells[10].innerText.trim();
-                const dateB = b.cells[10].innerText.trim();
+                const dateA = a.cells[dateCellIndex] ? a.cells[dateCellIndex].innerText.trim() : '—';
+                const dateB = b.cells[dateCellIndex] ? b.cells[dateCellIndex].innerText.trim() : '—';
                 if (dateA === '—' && dateB === '—') return 0;
                 if (dateA === '—') return 1;
                 if (dateB === '—') return -1;
@@ -907,14 +886,14 @@
             });
             rows.forEach(row => tbody.appendChild(row));
         }
-        sortLogTable('approved-tbody');
-        sortLogTable('reverted-tbody');
+        sortLogTable('approved-tbody', 9);
+        sortLogTable('reverted-tbody', 8);
 
         window.filterAllTables();
     });
 
     // Export helper function to fetch Excel stream from backend
-    function exportTableToExcel(tableID, filename = 'export.xlsx') {
+    function exportTableToExcel(tableID, filename = 'export.xlsx', excludeKits = false, excludeSlot = false, excludeAssignedId = false) {
         const table = document.getElementById(tableID);
         if (!table) return;
 
@@ -932,7 +911,17 @@
             return;
         }
 
-        window.location.href = `/auth/station-id/export?ids=${ids.join(',')}`;
+        let url = `/auth/station-id/export?ids=${ids.join(',')}`;
+        if (excludeKits) {
+            url += `&exclude_kits=true`;
+        }
+        if (excludeSlot) {
+            url += `&exclude_slot=true`;
+        }
+        if (excludeAssignedId) {
+            url += `&exclude_assigned_id=true`;
+        }
+        window.location.href = url;
 
     }
     function showAllStationIds(idsStr) {

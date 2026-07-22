@@ -28,8 +28,8 @@ def get_onboarding_options(
     current_user: UserLogin = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Returns Station IDs that have L2 done AND have a mapped operator pending onboarding."""
-    if current_user.role.role != "DC":
-        raise HTTPException(status_code=403, detail="Only DCs can fetch these options.")
+    if current_user.role.role not in ["DC", "EDM"]:
+        raise HTTPException(status_code=403, detail="Only DC/EDM can fetch these options.")
         
     # Get all Station IDs whose L2 is done for the current user's district
     l2_requests = db.query(L2RegistrationRequest).filter(
@@ -48,12 +48,20 @@ def get_onboarding_options(
     ).all()
 
     mapped_station_ids = [m.station_id for m in pending_mappings]
-    
+
     # Combine L2 stations and explicitly mapped stations
     station_ids = list(set(approved_l2_stations + mapped_station_ids))
 
+    # Find onboarding records that are already fully onboarded (Completed)
+    completed_mappings = db.query(OperatorOnboarding).filter(
+        OperatorOnboarding.onboarding_status == "Completed"
+    ).all()
+    completed_station_ids = set(c.station_id for c in completed_mappings)
+
+    available_station_ids = [s for s in station_ids if s not in completed_station_ids]
+
     return {
-        "station_ids": station_ids
+        "station_ids": list(set(available_station_ids))
     }
 
 @router.post("")
@@ -62,8 +70,8 @@ def confirm_onboarding(
     db: Session = Depends(get_db),
     current_user: UserLogin = Depends(get_current_user)
 ):
-    if current_user.role.role != "DC":
-        raise HTTPException(status_code=403, detail="Only DCs can onboard operators.")
+    if current_user.role.role not in ["DC", "EDM"]:
+        raise HTTPException(status_code=403, detail="Only DC/EDM can onboard operators.")
 
     # Find the pending mapping
     mapping = db.query(OperatorOnboarding).join(Operator).filter(

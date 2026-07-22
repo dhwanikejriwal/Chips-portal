@@ -297,7 +297,7 @@
         <option value="reapplied" data-i18n="status.reapplied">Reapplied</option>
     </select>
     <button class="rs-export" data-i18n="ui.exportCsv"
-        onclick="exportTableToExcel('admin-pending-table', 'pending_station_id_requests.csv')">Export to CSV</button>
+        onclick="exportTableToExcel('admin-pending-table', 'pending_station_id_requests.csv', false, true)">Export to CSV</button>
     {% endset %}
     {% call request_section(
     variant='pending',
@@ -311,7 +311,6 @@
     {'label': 'District', 'key': 'col.district'},
     {'label': 'Model', 'key': 'col.model'},
     {'label': 'User type', 'key': 'col.userType'},
-    {'label': 'Type of slot', 'key': 'col.slotType'},
     {'label': 'No. of kits', 'align': 'right', 'key': 'col.noOfKits'},
     {'label': 'Status', 'key': 'col.status'},
     {'label': 'Submitted at', 'key': 'col.submittedAt'},
@@ -339,7 +338,6 @@
                 {{ r.user_type | replace('_', ' ') | capitalize }}
                 {% endif %}
             </td>
-            <td{% if r.slot %} data-i18n-slot="{{ r.slot }}" {% endif %}>{{ (r.slot | title) if r.slot else '—' }}</td>
                 <td><strong>{{ r.number_of_kits }}</strong></td>
                 <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}"
                         data-i18n="status.{{ r.status | lower | replace(' ', '_') }}">{{ r.status | replace('_', ' ') |
@@ -384,7 +382,7 @@
 
     {% set reverted_controls %}
     <button class="rs-export" data-i18n="ui.exportCsv"
-        onclick="exportTableToExcel('reverted-table', 'reverted_station_id_requests.xlsx')">Export to CSV</button>
+        onclick="exportTableToExcel('reverted-table', 'reverted_station_id_requests.xlsx', false, true)">Export to CSV</button>
     {% endset %}
     {% call request_section(
     variant='rejected',
@@ -398,7 +396,6 @@
     {'label': 'District', 'key': 'col.district'},
     {'label': 'Model', 'key': 'col.model'},
     {'label': 'User type', 'key': 'col.userType'},
-    {'label': 'Type of slot', 'key': 'col.slotType'},
     {'label': 'No. of kits', 'align': 'right', 'key': 'col.noOfKits'},
     {'label': 'Status', 'key': 'col.status'},
     {'label': 'Submitted at', 'key': 'col.submittedAt'},
@@ -426,7 +423,6 @@
                 {{ r.user_type | replace('_', ' ') | capitalize }}
                 {% endif %}
             </td>
-            <td{% if r.slot %} data-i18n-slot="{{ r.slot }}" {% endif %}>{{ (r.slot | title) if r.slot else '—' }}</td>
                 <td><strong>{{ r.number_of_kits }}</strong></td>
                 <td><span class="sid-badge sid-badge-reverted" data-i18n="status.reverted">Reverted</span></td>
                 <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
@@ -453,7 +449,7 @@
 
     {% set approved_controls %}
     <button class="rs-export" data-i18n="ui.exportCsv"
-        onclick="exportTableToExcel('approved-table', 'approved_station_id_requests.xlsx')">Export to CSV</button>
+        onclick="exportTableToExcel('approved-table', 'approved_station_id_requests.xlsx', true)">Export to CSV</button>
     {% endset %}
     {% call request_section(
     variant='approved',
@@ -468,7 +464,6 @@
     {'label': 'Model', 'key': 'col.model'},
     {'label': 'User type', 'key': 'col.userType'},
     {'label': 'Type of slot', 'key': 'col.slotType'},
-    {'label': 'No. of kits', 'align': 'right', 'key': 'col.noOfKits'},
     {'label': 'Station ID assigned', 'key': 'col.stationIdAssigned'},
     {'label': 'Status', 'key': 'col.status'},
     {'label': 'Submitted at', 'key': 'col.submittedAt'},
@@ -498,7 +493,6 @@
                 {% endif %}
             </td>
             <td{% if r.slot %} data-i18n-slot="{{ r.slot }}" {% endif %}>{{ (r.slot | title) if r.slot else '—' }}</td>
-                <td><strong>{{ r.number_of_kits }}</strong></td>
                 <td>
                     {% if r.station_id_inserted %}
                     {% set ids_list = r.station_id_inserted.split(',') %}
@@ -725,8 +719,9 @@
                 const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
                 const created = row.getAttribute('data-created') || '';
                 const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
+                const stationId = (row.getAttribute('data-station-id') || '').toLowerCase();
 
-                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
+                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || stationId.includes(q);
                 const matchStatus = (sf === 'all') || (status === sf);
                 const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
                 const matchDate = sidDateMatch(created, df, now);
@@ -757,8 +752,9 @@
                 const model = (row.getAttribute('data-model') || '').toLowerCase();
                 const created = row.getAttribute('data-created') || '';
                 const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
+                const stationId = (row.getAttribute('data-station-id') || '').toLowerCase();
 
-                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
+                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || stationId.includes(q);
                 const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
                 const matchDate = sidDateMatch(created, df, now);
 
@@ -777,8 +773,9 @@
                 const model = (row.getAttribute('data-model') || '').toLowerCase();
                 const created = row.getAttribute('data-created') || '';
                 const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
+                const stationId = (row.getAttribute('data-station-id') || '').toLowerCase();
 
-                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
+                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || stationId.includes(q);
                 const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
                 const matchDate = sidDateMatch(created, df, now);
 
@@ -808,8 +805,9 @@
                 const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
                 const created = row.getAttribute('data-created') || '';
                 const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
+                const stationId = (row.getAttribute('data-station-id') || '').toLowerCase();
 
-                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q);
+                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || stationId.includes(q);
                 const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
                 const matchDate = sidDateMatch(created, df, now);
 
@@ -1289,7 +1287,7 @@
         }
 
         // Export helper function to fetch Excel stream from backend
-        function exportTableToExcel(tableID, filename = 'export.csv') {
+        function exportTableToExcel(tableID, filename = 'export.csv', excludeKits = false, excludeSlot = false) {
             const ids = [];
             let selector = '#pending-tbody tr';
             if (tableID === 'approved-table') {
@@ -1309,7 +1307,14 @@
                 return;
             }
 
-            window.location.href = `/auth/station-id/export?ids=${ids.join(',')}`;
+            let url = `/auth/station-id/export?ids=${ids.join(',')}`;
+            if (excludeKits) {
+                url += `&exclude_kits=true`;
+            }
+            if (excludeSlot) {
+                url += `&exclude_slot=true`;
+            }
+            window.location.href = url;
         }
 
         function showAllStationIds(idsStr) {

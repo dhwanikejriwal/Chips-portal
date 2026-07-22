@@ -292,8 +292,18 @@ def export_station_id_proxy():
     if not session.get("access_token"):
         return "Unauthorized", 401
     ids = request.args.get("ids", "")
+    exclude_kits = request.args.get("exclude_kits", "")
+    exclude_slot = request.args.get("exclude_slot", "")
+    exclude_assigned_id = request.args.get("exclude_assigned_id", "")
     try:
-        response = http.get(f"{BACKEND}/export-excel", params={"ids": ids}, headers=_headers(), stream=True)
+        params = {"ids": ids}
+        if exclude_kits:
+            params["exclude_kits"] = exclude_kits
+        if exclude_slot:
+            params["exclude_slot"] = exclude_slot
+        if exclude_assigned_id:
+            params["exclude_assigned_id"] = exclude_assigned_id
+        response = http.get(f"{BACKEND}/export-excel", params=params, headers=_headers(), stream=True)
         if response.status_code == 200:
             from flask import Response as FlaskResponse
             return FlaskResponse(

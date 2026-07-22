@@ -67,8 +67,8 @@ async def submit_l1_registration(
 ):
     try:
         user_role_str = get_user_role_str(current_user)
-        if user_role_str != "dc": 
-            raise HTTPException(status_code=403, detail="Access Denied. Only DC can submit requests.")
+        if user_role_str not in ["dc", "edm"]: 
+            raise HTTPException(status_code=403, detail="Access Denied. Only DC/EDM can submit requests.")
         if not current_user.district_id: 
             raise HTTPException(status_code=400, detail="Missing user district layout configuration mapping.")
 
@@ -79,7 +79,7 @@ async def submit_l1_registration(
         ).first()
 
         if station_req:
-            req_code = f"{station_req.request_no}-{station_id.strip()}"
+            req_code = f"{station_req.request_no}{station_id.strip()}"
         else:
             district = db.query(District).filter(District.district_code == current_user.district_id).first()
             district_name = district.district_name if district else "Unknown"

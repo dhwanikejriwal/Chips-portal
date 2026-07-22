@@ -473,7 +473,7 @@ def reapply_station_request(
     return {"message": "Request reapplied successfully.", "request_id": r.id}
 
 @router.get("/export-excel")
-def export_station_id_excel(ids: str = None, db: Session = Depends(get_db)):
+def export_station_id_excel(ids: str = None, exclude_kits: bool = False, exclude_slot: bool = False, exclude_assigned_id: bool = False, db: Session = Depends(get_db)):
     query = db.query(StationIDRequest).join(District, StationIDRequest.district_id == District.district_code)
     
     if ids:
@@ -526,6 +526,13 @@ def export_station_id_excel(ids: str = None, db: Session = Depends(get_db)):
         "submitted_at": "Submission Timestamp",
         "reviewed_at": "Review  Timestamp"
     }
+
+    if exclude_kits:
+        column_mappings.pop("number_of_kits", None)
+    if exclude_slot:
+        column_mappings.pop("slot", None)
+    if exclude_assigned_id:
+        column_mappings.pop("station_id_inserted", None)
 
     return generate_csv_export(export_data, column_mappings, "station_id_complete_report")
 

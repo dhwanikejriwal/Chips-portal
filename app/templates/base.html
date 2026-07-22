@@ -81,6 +81,12 @@
             }
         }
 
+        .row-highlight-fade-out {
+            background: transparent !important;
+            box-shadow: none !important;
+            transition: background 1s ease-out, box-shadow 1s ease-out !important;
+        }
+
 
     </style>
     <!-- Tab Session Enforcer -->
@@ -377,16 +383,30 @@
             function applyHighlights() {
                 var candidates = document.querySelectorAll('[data-created], [data-updated]');
                 var firstMatch = null;
+                var highlightedElements = [];
                 candidates.forEach(function (el) {
                     var raw = el.getAttribute('data-updated') || el.getAttribute('data-created');
                     if (!raw) return;
                     var ts = new Date(raw.replace(' ', 'T'));
                     if (isNaN(ts.getTime()) || ts <= cutoff) return;
                     el.classList.add('row-highlight-new');
+                    highlightedElements.push(el);
                     if (!firstMatch) firstMatch = el;
                 });
                 if (firstMatch) {
                     firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                // Remove highlight after 5 seconds
+                if (highlightedElements.length > 0) {
+                    setTimeout(function() {
+                        highlightedElements.forEach(function(el) {
+                            el.classList.add('row-highlight-fade-out');
+                            setTimeout(function() {
+                                el.classList.remove('row-highlight-new', 'row-highlight-fade-out');
+                            }, 1000); // Wait for fade out transition
+                        });
+                    }, 5000);
                 }
             }
 
@@ -395,6 +415,17 @@
             window.addEventListener('load', function () {
                 setTimeout(applyHighlights, 300);
             });
+
+            // Clean up the URL so that refreshing the page doesn't re-trigger the highlight
+            if (window.history.replaceState) {
+                var newUrl = window.location.pathname;
+                params.delete('highlight_since');
+                var qs = params.toString();
+                if (qs) {
+                    newUrl += '?' + qs;
+                }
+                window.history.replaceState({ path: newUrl }, '', newUrl);
+            }
         })();
     </script>
 

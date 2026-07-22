@@ -445,7 +445,8 @@ window.showL1Details = function (d, activeView) {
             .replace(/'/g, "&#039;");
     };
 
-    const isReverted = d.status === 'REVERTED';
+    const normStatus = (d.status || '').trim().toUpperCase();
+    const isReverted = ['REVERTED', 'REJECTED', 'REVERTED BY CHIPS', 'REVERTED_BY_CHIPS'].includes(normStatus);
 
     if (activeView === 'details') {
         let htmlContent = '';
