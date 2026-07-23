@@ -34,6 +34,8 @@ from backend.models.otp_verification import OtpVerification
 from backend.models.aadhaar_district_resources import AadhaarDistrictResource
 from backend.models.admin_login_logs import AdminLoginLog
 from backend.models.station_id_master import StationIDMaster
+from backend.models.operator_station_mapping import OperatorStationMapping
+from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
 
 __all__ = [
     "Base",

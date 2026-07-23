@@ -5,6 +5,71 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    function sortTableByTotalPending() {
+        let activePane = document.querySelector('.tab-pane[style*="display: block"]');
+        let table = activePane ? activePane.querySelector('table') : document.querySelector('#previewBody table');
+        if (!table) return;
+        
+        let thead = table.querySelector('thead');
+        let tbody = table.querySelector('tbody');
+        if (!thead || !tbody) return;
+        
+        let headers = Array.from(thead.querySelectorAll('th'));
+        let targetIdx = headers.findIndex(th => {
+            let txt = th.innerText.trim().toLowerCase();
+            return txt.includes('total pending') || txt.includes('pending total');
+        });
+        
+        if (targetIdx === -1) {
+            targetIdx = headers.length - 1; // fallback to last column
+        }
+        
+        let rows = Array.from(tbody.querySelectorAll('tr'));
+        let isDesc = table.dataset.sortDir === 'desc';
+        let direction = isDesc ? 1 : -1;
+        table.dataset.sortDir = isDesc ? 'asc' : 'desc';
+        
+        rows.sort((a, b) => {
+            let valA = parseFloat(a.cells[targetIdx].innerText.replace(/,/g, '')) || 0;
+            let valB = parseFloat(b.cells[targetIdx].innerText.replace(/,/g, '')) || 0;
+            return (valA - valB) * direction;
+        });
+        
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    function filterCustomPreviewTable() {
+        const filterVal = document.getElementById('custom-preview-district-filter').value.toLowerCase();
+        const panes = document.querySelectorAll('.tab-pane');
+        panes.forEach(pane => {
+            const rows = pane.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                let match = false;
+                if (!filterVal) {
+                    match = true;
+                } else {
+                    const cells = Array.from(row.querySelectorAll('td'));
+                    // District is usually column 1 if S.No is column 0, but we can just check if any cell matches the district name
+                    const text = row.innerText.toLowerCase();
+                    if (text.includes(filterVal)) match = true;
+                }
+                row.style.display = match ? '' : 'none';
+            });
+            
+            // Re-number S.No for visible rows
+            let idx = 1;
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const firstCell = row.querySelector('td');
+                    if (firstCell && !isNaN(parseInt(firstCell.innerText))) {
+                        firstCell.innerText = idx++;
+                    }
+                }
+            });
+        });
+    }
+</script>
 <style>
     /* Main Navigation Pills */
     .nav-pills {
@@ -92,43 +157,76 @@
     }
     .btn-preview:hover { background-color: #dbeafe; }
     
-    /* List View for System Reports */
+    /* Grid View for System Reports (Cards) */
     .system-report-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 16px;
     }
     .list-item {
         background: white;
         border: 1px solid #e2e8f0;
         border-radius: 8px;
-        padding: 16px 20px;
+        padding: 20px;
         display: flex;
+        flex-direction: column;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         transition: all 0.2s;
+        height: 100%;
     }
     .list-item:hover {
         border-color: #cbd5e1;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        transform: translateY(-2px);
     }
-    .list-item-content h3 { margin: 0 0 4px 0; font-size: 16px; color: #1e293b; }
-    .list-item-content p { margin: 0; font-size: 13px; color: #64748b; }
+    .list-item-content { margin-bottom: 20px; }
+    .list-item-content h3 { margin: 0 0 8px 0; font-size: 16px; color: #1e293b; font-weight: 600; }
+    .list-item-content p { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+    
+    .list-item-actions {
+        display: flex; gap: 10px; width: 100%; margin-top: auto;
+    }
+    .list-item-actions button, .list-item-actions a {
+        flex: 1; justify-content: center;
+    }
+    
+    /* List View Overrides */
+    .view-toggle-btn {
+        background: transparent; border: none; padding: 6px; border-radius: 6px; color: #94a3b8; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+    }
+    .view-toggle-btn:hover { background: #f1f5f9; color: #475569; }
+    .view-toggle-btn.active { background: #eff6ff; color: #3b82f6; }
+    
+    .system-report-list.list-view {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .system-report-list.list-view .list-item {
+        flex-direction: row;
+        align-items: center;
+        padding: 16px 20px;
+        height: auto;
+    }
+    .system-report-list.list-view .list-item-content { margin-bottom: 0; margin-right: 20px; flex: 1; }
+    .system-report-list.list-view .list-item-actions { width: auto; margin-top: 0; }
     
     /* Modal Styles */
     .preview-modal {
-        display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100vw; height: 100vh;
+        display: none; position: absolute; z-index: 40; left: 0; top: 0; right: 0; bottom: 0; width: 100%; height: 100%; min-height: calc(100vh - 120px);
         background-color: #fff; justify-content: center; align-items: center;
     }
     .preview-modal-content {
-        background-color: #fff; border-radius: 0; width: 100vw; height: 100vh; max-width: none; max-height: none;
+        background-color: #fff; border-radius: 0; width: 100%; height: 100%; min-height: calc(100vh - 120px); max-width: none; max-height: none;
         display: flex; flex-direction: column; overflow: hidden; box-shadow: none;
     }
     .preview-header {
-        padding: 16px 32px; background: #ffffff; border-bottom: 1px solid #e2e8f0;
+        padding: 4px 16px; background: #ffffff; border-bottom: 1px solid #e2e8f0;
         display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        position: relative; z-index: 1000;
     }
-    .preview-header h3 { margin: 0; font-size: 20px; color: #1e293b; display: flex; align-items: center; gap: 12px; }
+    .preview-header h3 { margin: 0; font-size: 16px; color: #1e293b; display: flex; align-items: center; gap: 12px; }
     .back-btn { 
         display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;
         background: #f1f5f9; border: none; border-radius: 8px; cursor: pointer; color: #475569;
@@ -138,7 +236,7 @@
     
     .preview-body { padding: 0; overflow: auto; flex-grow: 1; background: #f8fafc; }
     .preview-footer {
-        padding: 16px 32px; background: #ffffff; border-top: 1px solid #e2e8f0;
+        padding: 4px 16px; background: #ffffff; border-top: 1px solid #e2e8f0;
         display: flex; justify-content: flex-end; gap: 12px; box-shadow: 0 -2px 4px rgba(0,0,0,0.02);
     }
     
@@ -151,7 +249,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid" style="position: relative; min-height: calc(100vh - 120px);">
     <div class="chips-header-banner">
         <div style="display: flex; align-items: center; gap: 15px;">
             <div style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
@@ -175,60 +273,135 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 System Request Reports
             </div>
+            {% if not is_dc %}
             <div class="pill" onclick="switchMainSection('custom-datasets', this)">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 Custom Dataset Uploads
             </div>
+            {% endif %}
         </div>
 
         <!-- Section 1: System Request Reports -->
         <div id="system-requests" class="report-section active">
-            <div style="margin-bottom: 20px;">
-                <h2 style="margin: 0 0 5px 0; font-size: 20px; color: #1e293b;">Automated System Reports</h2>
-                <p style="margin: 0; color: #64748b; font-size: 14px;">View or download predefined reports generated directly from the portal's database.</p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
+                <div>
+                    <h2 style="margin: 0 0 5px 0; font-size: 20px; color: #1e293b;">Automated System Reports</h2>
+                    <p style="margin: 0; color: #64748b; font-size: 14px;">View or download predefined reports generated directly from the portal's database.</p>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    
+                    <div style="display: flex; gap: 4px; background: white; padding: 4px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <button class="view-toggle-btn active" id="btn-grid-view" onclick="toggleViewMode('grid')" title="Grid View">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                        </button>
+                        <button class="view-toggle-btn" id="btn-list-view" onclick="toggleViewMode('list')" title="List View">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                        </button>
+                    </div>
+                </div>
             </div>
             
-            <div class="system-report-list">
+            <div id="system-reports-container" class="system-report-list">
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <h3>Kit Tracker</h3>
+                        <p>Complete master dataset containing station, laptop, operator, and onboarding details.</p>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn-preview" onclick="openSystemPreviewModal('kit_tracker', 'Kit Tracker')">
+                            Preview
+                        </button>
+                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/kit_tracker/download" data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/kit_tracker/download" id="download-link-kit_tracker" class="btn-download system-download-link">
+                            Download
+                        </a>
+                    </div>
+                </div>
+
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <h3>District Wise Kit Count</h3>
+                        <p>Aggregate counts of machine deployments, L1/L2 status, and operator statuses per district.</p>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn-preview" onclick="openSystemPreviewModal('district_wise_kit_count', 'District Wise Kit Count')">
+                            Preview
+                        </button>
+                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/district_wise_kit_count/download" data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/district_wise_kit_count/download" id="download-link-district_wise_kit_count" class="btn-download system-download-link">
+                            Download
+                        </a>
+                    </div>
+                </div>
+
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <h3>Operator List</h3>
+                        <p>List of all operators with status details, mapped kits, and certificates.</p>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn-preview" onclick="openSystemPreviewModal('operator_list', 'Operator List')">
+                            Preview
+                        </button>
+                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/operator_list/download" data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/operator_list/download" id="download-link-operator_list" class="btn-download system-download-link">
+                            Download
+                        </a>
+                    </div>
+                </div>
+
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <h3>L1 Pending List</h3>
+                        <p>Detailed list of all kits pending L1 registration, including LWE district flags.</p>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn-preview" onclick="openSystemPreviewModal('l1_pending_list', 'L1 Pending List')">
+                            Preview
+                        </button>
+                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/l1_pending_list/download" data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/l1_pending_list/download" id="download-link-l1_pending_list" class="btn-download system-download-link">
+                            Download
+                        </a>
+                    </div>
+                </div>
+
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <h3>L2 Pending List</h3>
+                        <p>Detailed list of all kits pending L2 registration, including LWE district flags.</p>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn-preview" onclick="openSystemPreviewModal('l2_pending_list', 'L2 Pending List')">
+                            Preview
+                        </button>
+                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/l2_pending_list/download" data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/l2_pending_list/download" id="download-link-l2_pending_list" class="btn-download system-download-link">
+                            Download
+                        </a>
+                    </div>
+                </div>
+
+                <div class="list-item">
+                    <div class="list-item-content">
+                        <h3>Onboard Pending List</h3>
+                        <p>List of operators with completed kits but pending onboarding.</p>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn-preview" onclick="openSystemPreviewModal('onboard_pending_list', 'Onboard Pending List')">
+                            Preview
+                        </button>
+                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/onboard_pending_list/download" data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/onboard_pending_list/download" id="download-link-onboard_pending_list" class="btn-download system-download-link">
+                            Download
+                        </a>
+                    </div>
+                </div>
+
                 <div class="list-item">
                     <div class="list-item-content">
                         <h3>Candidate Request Summary</h3>
                         <p>Summary of all candidate LMS, NSEIT, and Registration requests grouped by District and Status.</p>
                     </div>
-                    <div style="display: flex; gap: 10px;">
+                    <div class="list-item-actions">
                         <button class="btn-preview" onclick="openSystemPreviewModal('candidate_summary', 'Candidate Request Summary')">
                             Preview
                         </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/candidate_summary/download" class="btn-download">
-                            Download
-                        </a>
-                    </div>
-                </div>
-                
-                <div class="list-item">
-                    <div class="list-item-content">
-                        <h3>Operator Onboarding Status</h3>
-                        <p>Breakdown of all active, pending, and suspended operators across the state.</p>
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn-preview" onclick="openSystemPreviewModal('operator_onboarding_status', 'Operator Onboarding Status')">
-                            Preview
-                        </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/operator_onboarding_status/download" class="btn-download">
-                            Download
-                        </a>
-                    </div>
-                </div>
-
-                <div class="list-item">
-                    <div class="list-item-content">
-                        <h3>Station Kit Allocation Log</h3>
-                        <p>Hardware allocation, Station ID generation, and multi-level approval history logs.</p>
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn-preview" onclick="openSystemPreviewModal('station_kit_log', 'Station Kit Allocation Log')">
-                            Preview
-                        </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/station_kit_log/download" class="btn-download">
+                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/candidate_summary/download" data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/candidate_summary/download" id="download-link-candidate_summary" class="btn-download system-download-link">
                             Download
                         </a>
                     </div>
@@ -236,6 +409,7 @@
             </div>
         </div>
 
+        {% if not is_dc %}
         <!-- Section 2: Custom Dataset Uploads -->
         <div id="custom-datasets" class="report-section">
             <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
@@ -246,67 +420,104 @@
                 </div>
 
                 <div id="history-tab" class="tab-content active">
-                    <h2 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: #1e293b;">Past Uploaded Dataset Reports</h2>
-                    {% if history %}
-                    <div style="overflow-x: auto;">
-                        <table class="history-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Report Type</th>
-                                    <th>Filename</th>
-                                    <th>Generated On</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for report in history %}
-                                <tr>
-                                    <td>{{ loop.index }}</td>
-                                    <td>
-                                        {% if report.report_type == 'mbu_district_wise' %}
-                                            <span style="background: #e0f2fe; color: #0284c7; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap;">MBU District Wise</span>
-                                        {% else %}
-                                            {{ report.report_type }}
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ report.filename }}</td>
-                                    <td>{{ report.created_at.split('T')[0] if 'T' in report.created_at else report.created_at }}</td>
-                                    <td>
-                                        <div style="display: flex; gap: 8px;">
-                                            <button class="btn-preview" onclick="openPreviewModal('{{ report.id }}', '{{ report.filename }}')">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                                    <circle cx="12" cy="12" r="3"></circle>
-                                                </svg>
-                                                Preview
-                                            </button>
-                                            <a href="{{ url_for('report.download', report_id=report.id) }}" class="btn-download">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                                    <polyline points="7 10 12 15 17 10"></polyline>
-                                                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                                                </svg>
-                                                Download
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <div id="history-main-view">
+                        <h2 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: #1e293b;">Past Uploaded Dataset Reports</h2>
+                        {% if history %}
+                        <div class="system-report-list">
+                            {% for group in history|groupby('report_type') %}
+                            {% set group_id = group.grouper %}
+                            <div class="list-item" onclick="openHistoryDetail('{{ group_id }}', '{{ group.grouper | replace('_', ' ') | title }}')" style="cursor: pointer; padding: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <h3 style="margin: 0; color: #0f172a; font-size: 16px;">{{ group.grouper | replace('_', ' ') | title }}</h3>
+                                    <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;">{{ group.list | length }} Reports Available</p>
+                                </div>
+                                <div style="background: #f1f5f9; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #3b82f6;">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12 5 19 12 12 19"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div style="text-align: center; padding: 40px 20px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: #94a3b8; margin-bottom: 10px;">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="3" y1="9" x2="21" y2="9"></line>
+                                <line x1="9" y1="21" x2="9" y2="9"></line>
+                            </svg>
+                            <h3 style="margin: 0 0 5px 0; color: #475569; font-size: 16px;">No reports generated yet</h3>
+                            <p style="margin: 0; color: #64748b; font-size: 14px;">Switch to the 'Generate New Report' tab to create your first report.</p>
+                        </div>
+                        {% endif %}
                     </div>
-                    {% else %}
-                    <div style="text-align: center; padding: 40px 20px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: #94a3b8; margin-bottom: 10px;">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="3" y1="9" x2="21" y2="9"></line>
-                            <line x1="9" y1="21" x2="9" y2="9"></line>
-                        </svg>
-                        <h3 style="margin: 0 0 5px 0; color: #475569; font-size: 16px;">No reports generated yet</h3>
-                        <p style="margin: 0; color: #64748b; font-size: 14px;">Switch to the 'Generate New Report' tab to create your first report.</p>
+                    
+                    <div id="history-detail-view" style="display: none;">
+                        <button onclick="closeHistoryDetail()" style="background: none; border: none; color: #475569; font-weight: 500; font-size: 14px; display: flex; align-items: center; cursor: pointer; padding: 0; margin-bottom: 20px; transition: color 0.2s;" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#475569'">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                            Back to Reports
+                        </button>
+                        
+                        <div style="background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; overflow: hidden;">
+                            <div style="padding: 20px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                                <h2 id="detail-title" style="margin: 0; font-size: 18px; color: #1e293b;"></h2>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <label for="history-district-filter" style="font-size: 14px; font-weight: 500; color: #475569;">Filter by District:</label>
+                                    <select id="history-district-filter" onchange="filterHistoryTable()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; font-size: 14px; background: white;">
+                                        <option value="all">All Districts</option>
+                                        {% for dist in districts %}
+                                        <option value="{{ dist.district_name }}">{{ dist.district_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            {% for group in history|groupby('report_type') %}
+                            <div id="detail-list-{{ group.grouper }}" class="detail-list-container" style="display: none; padding: 0;">
+                                <table class="preview-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                                    <thead>
+                                        <tr>
+                                            <th style="background: #f8fafc; padding: 12px 20px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Generation Date</th>
+                                            <th style="background: #f8fafc; padding: 12px 20px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">District</th>
+                                            <th style="background: #f8fafc; padding: 12px 20px; text-align: right; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for report in group.list %}
+                                        <tr id="report-row-{{ report.id }}" style="background: white; border-bottom: 1px solid #f1f5f9; transition: background 0.2s;">
+                                            <td style="padding: 16px 20px; color: #334155; font-weight: 500;">
+                                                {{ report.created_at.split('T')[0] if 'T' in report.created_at else report.created_at }}
+                                                {% if 'T' in report.created_at %}
+                                                    <span style="color: #94a3b8; font-size: 12px; margin-left: 6px;">{{ report.created_at.split('T')[1][:5] }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td style="padding: 16px 20px; color: #64748b;">
+                                                {% if report.district %}
+                                                    <span style="background: #eff6ff; color: #2563eb; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">{{ report.district }}</span>
+                                                {% else %}
+                                                    <span style="color: #94a3b8; font-size: 13px;">All Districts</span>
+                                                {% endif %}
+                                            </td>
+                                            <td style="padding: 16px 20px; text-align: right;">
+                                                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                                                    <button class="btn-preview" style="padding: 6px 14px; font-size: 13px; font-weight: 600; background: #f1f5f9; color: #475569; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="openPreviewModal('{{ report.id }}', '{{ report.filename }}')" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                                                        Preview
+                                                    </button>
+                                                    <a href="{{ url_for('report.download', report_id=report.id) }}" class="btn-download" style="padding: 6px 14px; font-size: 13px; font-weight: 600; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; transition: all 0.2s; display: inline-block;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                                        Download
+                                                    </a>
+                                                <button class="btn-delete" style="padding: 6px 14px; font-size: 13px; font-weight: 600; background: #fee2e2; color: #ef4444; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="deleteReport({{ report.id }})" onmouseover="this.style.background=\'#fecaca\'" onmouseout="this.style.background=\'#fee2e2\'">Delete</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
-                    {% endif %}
                 </div>
 
                 <div id="generate-tab" class="tab-content">
@@ -314,12 +525,24 @@
                     <form id="generateForm" style="max-width: 500px;">
                         <div style="margin-bottom: 20px;">
                             <label for="report_type" style="display: block; font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px;">Select Processing Type</label>
-                            <select id="report_type" name="report_type" class="filter-input" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: white;" required>
+                            <select id="report_type" name="report_type" class="filter-input" style="width: 100%; height: 45px; padding: 0 12px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: white;" required>
                                 <option value="" disabled selected>-- Select a processing logic --</option>
                                 <option value="mbu_district_wise">MBU Report (District Wise)</option>
+                                <option value="18_plus_pendency">18 Plus Pendency</option>
+                                <option value="cenetarian_district_report">Cenetarian District Report</option>
                             </select>
                         </div>
                         
+                        <div style="margin-bottom: 20px;">
+                            <label for="custom-district-filter" style="display: block; font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px;">Filter by District (Optional)</label>
+                            <select id="custom-district-filter" name="district" class="filter-input" style="width: 100%; height: 45px; padding: 0 12px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: white;">
+                                <option value="">All Districts</option>
+                                {% for dist in districts %}
+                                <option value="{{ dist.district_name }}">{{ dist.district_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
                         <div style="margin-bottom: 30px;">
                             <label for="file" style="display: block; font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px;">Upload Raw Dataset (CSV/Excel)</label>
                             <input type="file" id="file" name="file" accept=".csv, .xlsx, .xls" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px dashed #cbd5e1; background: #f8fafc;" required>
@@ -337,33 +560,47 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
-    </div>
-</div>
-
-<!-- Preview Modal -->
-<div id="previewModal" class="preview-modal">
-    <div class="preview-modal-content">
-        <div class="preview-header">
-            <h3>
-                <button class="back-btn" onclick="closePreviewModal()" title="Back to Reports">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                </button>
-                Report Preview 
-                <span id="previewTitle" style="font-weight: 500; font-size: 14px; color: #64748b; margin-left: 10px; background: #f1f5f9; padding: 4px 10px; border-radius: 12px;"></span>
-            </h3>
-        </div>
-        <div class="preview-body" id="previewBody">
-            <div style="padding: 40px; text-align: center; color: #64748b;">
-                <p>Loading preview...</p>
+        <!-- Preview Modal -->
+        <div id="previewModal" class="preview-modal">
+            <div class="preview-modal-content">
+                <div class="preview-header" style="display: flex; justify-content: space-between; align-items: center; padding-right: 20px;">
+                    <h3 style="margin: 0; display: flex; align-items: center;">
+                        <button class="back-btn" onclick="closePreviewModal()" title="Back to Reports" style="margin-right: 10px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                        </button>
+                        Report Preview 
+                        <span id="previewTitle" style="font-weight: 500; font-size: 14px; color: #64748b; margin-left: 10px; background: #f1f5f9; padding: 4px 10px; border-radius: 12px;"></span>
+                    </h3>
+                    <div id="modal-district-container" style="display: none; align-items: center; gap: 8px; position: relative; z-index: 1001;">
+                        <input type="text" id="modal-station-search" placeholder="Station ID..." oninput="applyModalFilters()" onkeydown="if(event.key==='Enter') applyModalFilters()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; width: 130px; background: white; color: #1e293b; position: relative; z-index: 1002;">
+                        <input type="text" id="modal-operator-search" placeholder="Operator Name..." oninput="applyModalFilters()" onkeydown="if(event.key==='Enter') applyModalFilters()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; width: 140px; background: white; color: #1e293b; position: relative; z-index: 1002;">
+                        <select id="modal-district-filter" class="form-control" onchange="onModalDistrictChange()" style="width: 140px; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; color: #334155; outline: none; background: white; cursor: pointer; position: relative; z-index: 1002;">
+                            <option value="">All Districts</option>
+                            {% for dist in districts %}
+                            <option value="{{ dist.district_name }}">{{ dist.district_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" onclick="applyModalFilters()" style="padding: 6px 14px; border: none; border-radius: 6px; background: #2563eb; color: white; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s; position: relative; z-index: 1002;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            Search
+                        </button>
+                    </div>
+                </div>
+                <div class="preview-body" id="previewBody">
+                    <div style="padding: 40px; text-align: center; color: #64748b;">
+                        <p>Loading preview...</p>
+                    </div>
+                </div>
+                <div class="preview-footer">
+                    <button class="btn-generate-sys" style="width: auto; padding: 8px 16px; background: white; border: 1px solid #cbd5e1; color: #475569;" onclick="closePreviewModal()">Back</button>
+                    <a id="modalDownloadBtn" href="#" class="btn-download" style="padding: 8px 16px;">Download Excel</a>
+                </div>
             </div>
         </div>
-        <div class="preview-footer">
-            <button class="btn-generate-sys" style="width: auto; padding: 8px 16px; background: white; border: 1px solid #cbd5e1; color: #475569;" onclick="closePreviewModal()">Back</button>
-            <a id="modalDownloadBtn" href="#" class="btn-download" style="padding: 8px 16px;">Download Excel</a>
-        </div>
+
     </div>
-</div>
 
 <script>
     // Main Section Navigation
@@ -400,30 +637,196 @@
         });
     }
     
+    
+        function openHistoryDetail(groupId, title) {
+        document.getElementById('history-main-view').style.display = 'none';
+        document.getElementById('history-detail-view').style.display = 'block';
+        document.getElementById('detail-title').innerText = title + " History";
+        
+        document.querySelectorAll('.detail-list-container').forEach(c => c.style.display = 'none');
+        document.getElementById('detail-list-' + groupId).style.display = 'block';
+        
+        document.getElementById('history-district-filter').value = 'all';
+        filterHistoryTable();
+    }
+    
+    function filterHistoryTable() {
+        const filterValue = document.getElementById('history-district-filter').value.toLowerCase();
+        const activeContainer = Array.from(document.querySelectorAll('.detail-list-container')).find(c => c.style.display === 'block');
+        
+        if (activeContainer) {
+            const rows = activeContainer.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const districtText = row.cells[1].innerText.trim().toLowerCase();
+                if (filterValue === 'all') {
+                    row.style.display = '';
+                } else {
+                    if (districtText === filterValue || districtText.includes(filterValue)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+    }
+    
+    function closeHistoryDetail() {
+        document.getElementById('history-main-view').style.display = 'block';
+        document.getElementById('history-detail-view').style.display = 'none';
+    }
+
+    let currentPreviewMode = 'system';
+    let currentIsLwe = false;
+    
+    function onModalDistrictChange() {
+        if (currentPreviewMode === 'system') {
+            fetchSystemPreview(currentIsLwe);
+        } else {
+            applyModalFilters();
+        }
+    }
+
+    const isDc = {{ 'true' if is_dc else 'false' }};
+    const userDistrict = "{{ user_district }}";
+
+    let currentSystemReport = null;
+    let currentSystemTitle = null;
+
     async function openSystemPreviewModal(reportName, friendlyTitle) {
+        currentPreviewMode = 'system';
+        currentSystemReport = reportName;
+        currentSystemTitle = friendlyTitle;
         document.getElementById('previewModal').style.display = 'flex';
         document.getElementById('previewTitle').innerText = friendlyTitle;
-        document.getElementById('modalDownloadBtn').href = `{{ config['BACKEND_API_URL'] }}/reports/system/${reportName}/download`;
-        document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center;"><svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #3b82f6; margin-bottom: 10px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><p style="color: #64748b;">Generating report...</p></div>';
+        
+        const distContainer = document.getElementById('modal-district-container');
+        const distFilter = document.getElementById('modal-district-filter');
+        distContainer.style.display = 'flex';
+        
+        if (isDc && userDistrict) {
+            if (distFilter) {
+                distFilter.value = userDistrict;
+                distFilter.style.display = 'none';
+            }
+        } else {
+            if (distFilter) {
+                distFilter.style.display = '';
+                distFilter.value = '';
+            }
+        }
+
+        if (document.getElementById('modal-station-search')) document.getElementById('modal-station-search').value = '';
+        if (document.getElementById('modal-operator-search')) document.getElementById('modal-operator-search').value = '';
         
         history.pushState({ modalOpen: true }, "", "#preview");
         
+        // Fetch Combined by default
+        await fetchSystemPreview(false);
+    }
+    
+    function getDistrictParam() {
+        if (isDc && userDistrict) {
+            return `&district=${encodeURIComponent(userDistrict)}`;
+        }
+        const d = document.getElementById('modal-district-filter');
+        return (d && d.value) ? `&district=${encodeURIComponent(d.value)}` : '';
+    }
+
+    function ensureSNoColumn(container) {
+        if (!container) return;
+        const tables = container.querySelectorAll('table');
+        tables.forEach(table => {
+            const thead = table.querySelector('thead tr');
+            const tbody = table.querySelector('tbody');
+            if (!thead || !tbody) return;
+            
+            const firstHeader = thead.querySelector('th');
+            if (!firstHeader) return;
+            
+            const headerText = firstHeader.innerText.trim().toLowerCase();
+            if (headerText === 's.no' || headerText === 's.no.' || headerText === 'sr.no.' || headerText === 'sr no.' || headerText === 'sr no') {
+                return; // Already has S.No column
+            }
+            
+            // Add S.No header
+            const th = document.createElement('th');
+            th.innerText = 'S.No';
+            th.style.background = '#f8fafc';
+            th.style.padding = '12px 20px';
+            th.style.textAlign = 'left';
+            th.style.fontSize = '12px';
+            th.style.fontWeight = '600';
+            th.style.color = '#64748b';
+            th.style.textTransform = 'uppercase';
+            th.style.borderBottom = '1px solid #e2e8f0';
+            thead.insertBefore(th, firstHeader);
+            
+            // Add S.No cell for each row
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach((row, idx) => {
+                const td = document.createElement('td');
+                td.innerText = idx + 1;
+                td.style.padding = '16px 20px';
+                td.style.color = '#334155';
+                td.style.fontWeight = '500';
+                row.insertBefore(td, row.firstChild);
+            });
+        });
+    }
+
+    async function fetchSystemPreview(isLwe) {
+        currentIsLwe = isLwe;
+        const tabsContainerHtml = `
+            <div style="display: flex; gap: 8px; padding: 16px 20px; background: white; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 20; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="fetchSystemPreview(false)" style="padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; ${!isLwe ? 'background: #2563eb; color: white;' : 'background: #f1f5f9; color: #475569;'}">Combined</button>
+                <button onclick="fetchSystemPreview(true)" style="padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; ${isLwe ? 'background: #2563eb; color: white;' : 'background: #f1f5f9; color: #475569;'}">LWE</button>
+                </div>
+                <button onclick="sortTableByTotalPending()" style="padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: #475569; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"></path></svg> Sort by Requests</button>
+            </div>
+        `;
+        
+        const distParam = getDistrictParam();
+        document.getElementById('modalDownloadBtn').href = `{{ config['BACKEND_API_URL'] }}/reports/system/${currentSystemReport}/download?lwe=${isLwe ? 'true' : 'false'}${distParam}`;
+        document.getElementById('previewBody').innerHTML = tabsContainerHtml + '<div style="padding: 40px; text-align: center;"><svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #3b82f6; margin-bottom: 10px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><p style="color: #64748b;">Generating report...</p></div>';
+        
         try {
-            const response = await fetch(`{{ config['BACKEND_API_URL'] }}/reports/system/${reportName}/preview`);
+            const response = await fetch(`{{ config['BACKEND_API_URL'] }}/reports/system/${currentSystemReport}/preview?lwe=${isLwe ? 'true' : 'false'}${distParam}`);
             if (response.ok) {
                 const data = await response.json();
-                document.getElementById('previewBody').innerHTML = data.html;
+                document.getElementById('previewBody').innerHTML = tabsContainerHtml + `<div style="overflow-x: auto;">${data.html}</div>`;
+                ensureSNoColumn(document.getElementById('previewBody'));
+                applyModalFilters();
             } else {
-                document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load preview.</p></div>';
+                document.getElementById('previewBody').innerHTML = tabsContainerHtml + '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load preview.</p></div>';
             }
         } catch (err) {
-            document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p></div>';
+            document.getElementById('previewBody').innerHTML = tabsContainerHtml + '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p></div>';
         }
     }
     
     async function openPreviewModal(reportId, filename) {
+        currentPreviewMode = 'custom';
         document.getElementById('previewModal').style.display = 'flex';
         document.getElementById('previewTitle').innerText = filename;
+        document.getElementById('modal-district-container').style.display = 'flex';
+        
+        const distFilter = document.getElementById('modal-district-filter');
+        if (isDc && userDistrict) {
+            if (distFilter) {
+                distFilter.value = userDistrict;
+                distFilter.style.display = 'none';
+            }
+        } else {
+            if (distFilter) {
+                distFilter.style.display = '';
+                distFilter.value = '';
+            }
+        }
+
+        if (document.getElementById('modal-station-search')) document.getElementById('modal-station-search').value = '';
+        if (document.getElementById('modal-operator-search')) document.getElementById('modal-operator-search').value = '';
         document.getElementById('modalDownloadBtn').href = `{{ url_for('report.download', report_id=0) }}`.replace('0', reportId);
         document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center;"><svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #3b82f6; margin-bottom: 10px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><p style="color: #64748b;">Loading preview...</p></div>';
         
@@ -433,29 +836,89 @@
             const response = await fetch(`{{ config['BACKEND_API_URL'] }}/reports/preview/${reportId}`);
             if (response.ok) {
                 const data = await response.json();
-                if (data.multi_sheet) {
-                    let tabsHtml = '<div style="display: flex; gap: 8px; padding: 16px 20px; background: white; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 20;">';
-                    let contentHtml = '<div>';
-                    
+                let tabsHtml = '<div style="display: flex; gap: 8px; padding: 16px 20px; background: white; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 20; justify-content: space-between; align-items: center;">';
+                tabsHtml += '<div style="display: flex; gap: 8px;">';
+                let contentHtml = '<div>';
+                
+                if (data.multi_sheet && data.html_sheets) {
                     let i = 0;
                     for (const [sheetName, html] of Object.entries(data.html_sheets)) {
                         tabsHtml += `<button class="tab-btn" onclick="showTab(${i})" style="padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; ${i===0 ? 'background: #2563eb; color: white;' : 'background: #f1f5f9; color: #475569;'}">${sheetName}</button>`;
-                        contentHtml += `<div class="tab-pane" style="display: ${i===0 ? 'block' : 'none'}; padding: 20px;">${html}</div>`;
+                        contentHtml += `<div class="tab-pane" style="display: ${i===0 ? 'block' : 'none'}; padding: 20px; overflow-x: auto;">${html}</div>`;
                         i++;
                     }
-                    tabsHtml += '</div>';
-                    contentHtml += '</div>';
-                    
-                    document.getElementById('previewBody').innerHTML = tabsHtml + contentHtml;
                 } else {
-                    document.getElementById('previewBody').innerHTML = `<div style="overflow-x: auto;">${data.html}</div>`;
+                    tabsHtml += `<button class="tab-btn" style="padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; background: #2563eb; color: white;">Combined</button>`;
+                    contentHtml += `<div class="tab-pane" style="display: block; padding: 20px; overflow-x: auto;">${data.html}</div>`;
                 }
+                
+                tabsHtml += '</div>';
+                tabsHtml += `<button onclick="sortTableByTotalPending()" style="padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: #475569; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"></path></svg> Sort by Requests</button>`;
+                tabsHtml += '</div>';
+                
+                document.getElementById('previewBody').innerHTML = tabsHtml + contentHtml + '</div>';
+                ensureSNoColumn(document.getElementById('previewBody'));
+                applyModalFilters();
             } else {
                 document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load preview.</p></div>';
             }
         } catch (err) {
             document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p></div>';
         }
+    }
+
+    function applyModalFilters() {
+        const districtVal = (document.getElementById('modal-district-filter')?.value || '').toLowerCase().trim();
+        const stationVal = (document.getElementById('modal-station-search')?.value || '').toLowerCase().trim();
+        const operatorVal = (document.getElementById('modal-operator-search')?.value || '').toLowerCase().trim();
+        
+        const modalBody = document.getElementById('previewBody');
+        if (!modalBody) return;
+        
+        const tables = modalBody.querySelectorAll('table');
+        tables.forEach(table => {
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.forEach(row => {
+                let show = true;
+                const rowText = row.innerText.toLowerCase();
+                
+                // District filter check (only if not DC)
+                if (districtVal && !isDc) {
+                    if (!rowText.includes(districtVal)) show = false;
+                }
+                
+                // Station ID filter check
+                if (show && stationVal) {
+                    if (!rowText.includes(stationVal)) show = false;
+                }
+                
+                // Operator Name filter check
+                if (show && operatorVal) {
+                    if (!rowText.includes(operatorVal)) show = false;
+                }
+                
+                row.style.display = show ? '' : 'none';
+            });
+            
+            // Re-number S.No for visible rows
+            let visibleIdx = 1;
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const firstCell = row.querySelector('td');
+                    if (firstCell && !isNaN(parseInt(firstCell.innerText.trim()))) {
+                        firstCell.innerText = visibleIdx++;
+                    }
+                }
+            });
+        });
+    }
+
+    function filterCustomPreviewTable() {
+        applyModalFilters();
     }
     
     window.addEventListener('popstate', function(event) {
@@ -469,6 +932,9 @@
         if (window.location.hash === "#preview") {
             history.back();
         }
+        if (needsReload && !fromHistory) {
+            window.location.reload();
+        }
     }
     
     // Close modal when clicking outside
@@ -479,6 +945,7 @@
         }
     }
     
+    let needsReload = false;
     async function generateReport(action) {
         const fileInput = document.getElementById('file');
         const typeInput = document.getElementById('report_type');
@@ -492,6 +959,11 @@
         formData.append('file', fileInput.files[0]);
         formData.append('report_type', typeInput.value);
         
+        const districtSelect = document.getElementById('custom-district-filter');
+        if (districtSelect && districtSelect.value) {
+            formData.append('district', districtSelect.value);
+        }
+        
         Swal.fire({
             title: 'Generating Report...',
             text: 'Please wait while we process the dataset.',
@@ -504,31 +976,150 @@
                 method: 'POST',
                 body: formData
             });
+            const data = await response.json();
             
             if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
+                if (action === 'preview') {
                     Swal.close();
-                    if (action === 'preview') {
-                        openPreviewModal(data.report_id, data.filename);
-                    } else {
-                        window.location.href = `/reports/download/${data.report_id}`;
-                    }
+                    needsReload = true;
+                    openPreviewModal(data.report_id, data.filename);
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Generation Failed', text: data.error || 'Unknown error' });
+                    Swal.fire({ icon: 'success', title: 'Success!', text: 'Report generated successfully.' });
+                    window.location.href = "{{ url_for('report.download', report_id=0) }}".replace('0', data.report_id);
                 }
             } else {
-                let errorMsg = 'Failed to communicate with server.';
-                try {
-                    const errData = await response.json();
-                    errorMsg = errData.detail || errData.error || errorMsg;
-                } catch(e) {}
-                Swal.fire({ icon: 'error', title: 'Generation Failed', text: errorMsg });
+                Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'Failed to generate report.' });
             }
         } catch (err) {
-            console.error(err);
-            Swal.fire({ icon: 'error', title: 'Error', text: 'Something went wrong.' });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Connection failed.' });
         }
+    }
+    
+    async function deleteReport(reportId) {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This report will be permanently deleted.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Delete'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch(`{{ config['BACKEND_API_URL'] }}/reports/${reportId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        Swal.fire('Deleted!', 'Report deleted successfully.', 'success').then(() => {
+                            const row = document.getElementById('report-row-' + reportId);
+                            if (row) row.remove();
+                        });
+                    } else {
+                        const data = await response.json();
+                        Swal.fire('Error', data.detail || 'Could not delete report.', 'error');
+                    }
+                } catch (err) {
+                    Swal.fire('Error', 'Connection failed.', 'error');
+                }
+            }
+        });
+    }
+    
+    function toggleViewMode(mode) {
+        const container = document.getElementById('system-reports-container');
+        const gridBtn = document.getElementById('btn-grid-view');
+        const listBtn = document.getElementById('btn-list-view');
+        
+        if (mode === 'list') {
+            container.classList.add('list-view');
+            listBtn.classList.add('active');
+            gridBtn.classList.remove('active');
+            localStorage.setItem('reportViewMode', 'list');
+        } else {
+            container.classList.remove('list-view');
+            gridBtn.classList.add('active');
+            listBtn.classList.remove('active');
+            localStorage.setItem('reportViewMode', 'grid');
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        if (localStorage.getItem('reportViewMode') === 'list') {
+            toggleViewMode('list');
+        }
+        if (isDc && userDistrict) {
+            document.querySelectorAll('.system-download-link').forEach(link => {
+                const baseUrl = link.getAttribute('data-base-url') || link.href;
+                link.href = `${baseUrl}?district=${encodeURIComponent(userDistrict)}`;
+            });
+        }
+    });
+
+    function sortTableByTotalPending() {
+        let activePane = document.querySelector('.tab-pane[style*="display: block"]');
+        let table = activePane ? activePane.querySelector('table') : document.querySelector('#previewBody table');
+        if (!table) return;
+        
+        let thead = table.querySelector('thead');
+        let tbody = table.querySelector('tbody');
+        if (!thead || !tbody) return;
+        
+        let headers = Array.from(thead.querySelectorAll('th'));
+        let targetIdx = headers.findIndex(th => {
+            let txt = th.innerText.trim().toLowerCase();
+            return txt.includes('total pending') || txt.includes('pending total');
+        });
+        
+        if (targetIdx === -1) {
+            targetIdx = headers.length - 1; // fallback to last column
+        }
+        
+        let rows = Array.from(tbody.querySelectorAll('tr'));
+        let isDesc = table.dataset.sortDir === 'desc';
+        let direction = isDesc ? 1 : -1;
+        table.dataset.sortDir = isDesc ? 'asc' : 'desc';
+        
+        rows.sort((a, b) => {
+            let valA = parseFloat(a.cells[targetIdx].innerText.replace(/,/g, '')) || 0;
+            let valB = parseFloat(b.cells[targetIdx].innerText.replace(/,/g, '')) || 0;
+            return (valA - valB) * direction;
+        });
+        
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    function filterCustomPreviewTable() {
+        const distEl = document.getElementById('modal-district-filter');
+        const filterVal = (distEl && distEl.value) ? distEl.value.toLowerCase() : '';
+        const panes = document.querySelectorAll('.tab-pane');
+        panes.forEach(pane => {
+            const rows = pane.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                let match = false;
+                if (!filterVal) {
+                    match = true;
+                } else {
+                    const cells = Array.from(row.querySelectorAll('td'));
+                    // District is usually column 1 if S.No is column 0, but we can just check if any cell matches the district name
+                    const text = row.innerText.toLowerCase();
+                    if (text.includes(filterVal)) match = true;
+                }
+                row.style.display = match ? '' : 'none';
+            });
+            
+            // Re-number S.No for visible rows
+            let idx = 1;
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const firstCell = row.querySelector('td');
+                    if (firstCell && !isNaN(parseInt(firstCell.innerText))) {
+                        firstCell.innerText = idx++;
+                    }
+                }
+            });
+        });
     }
 </script>
 {% endblock %}

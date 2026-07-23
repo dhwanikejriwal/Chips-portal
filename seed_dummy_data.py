@@ -535,11 +535,11 @@ def _seed_station_pipeline(db: Session, dc_map: dict, admin_user: UserLogin):
         db.flush()
 
         # L1 Remarks
-        db.add(L1RegistrationRemarkHistory(request_code=req_no, remark="L1 Registration request submitted.", action="SUBMITTED", user_role="dc", timestamp=t[2]))
+        db.add(L1RegistrationRemarkHistory(request_id=l1_req.id, remark="L1 Registration request submitted.", action="SUBMITTED", user_role="dc", timestamp=t[2]))
         if l1_status == "APPROVED":
-            db.add(L1RegistrationRemarkHistory(request_code=req_no, remark="L1 credentials verified and approved.", action="APPROVED", user_role="chips_admin", timestamp=t[3]))
+            db.add(L1RegistrationRemarkHistory(request_id=l1_req.id, remark="L1 credentials verified and approved.", action="APPROVED", user_role="chips_admin", timestamp=t[3]))
         elif l1_status == "REVERTED":
-            db.add(L1RegistrationRemarkHistory(request_code=req_no, remark="Machine ID mismatch. Reverting.", action="REVERTED", user_role="chips_admin", timestamp=t[3]))
+            db.add(L1RegistrationRemarkHistory(request_id=l1_req.id, remark="Machine ID mismatch. Reverting.", action="REVERTED", user_role="chips_admin", timestamp=t[3]))
 
         if l1_status != "APPROVED":
             continue
@@ -572,8 +572,6 @@ def _seed_station_pipeline(db: Session, dc_map: dict, admin_user: UserLogin):
             status=l2_status,
             uidai_remarks="UIDAI reviewed." if l2_status in ["approved", "sent_to_uidai"] else None,
             submitted_at=t[4],
-            reviewed_at=t[5] if l2_status in ["approved", "sent_to_uidai", "reverted"] else None,
-            reviewed_by=admin_user.id if l2_status in ["approved", "sent_to_uidai", "reverted"] else None,
         )
         db.add(l2_req)
         db.flush()
@@ -623,15 +621,15 @@ def _seed_reactivations(db: Session, dc_map: dict, admin_user: UserLogin):
         db.flush()
 
         # Remarks
-        db.add(ReactivationRemarkHistory(request_code=req_code, remark_history="Reactivation batch request submitted.", sender_role="DC", timestamp=req.created_at))
+        db.add(ReactivationRemarkHistory(request_id=req.id, remark_history="Reactivation batch request submitted.", sender_role="DC", timestamp=req.created_at))
         if status in ["REVIEWED", "SENT_TO_UIDAI"]:
-            db.add(ReactivationRemarkHistory(request_code=req_code, remark_history="Reactivation batch verified.", sender_role="CHIPS_ADMIN", timestamp=req.updated_at))
+            db.add(ReactivationRemarkHistory(request_id=req.id, remark_history="Reactivation batch verified.", sender_role="CHIPS_ADMIN", timestamp=req.updated_at))
 
         # Operators in the batch
         for j in range(op_count):
             op_name = _rand_name()
             db.add(ReactivationOperator(
-                request_code=req_code,
+                request_id=req.id,
                 role=random.choice(OPERATOR_ROLES),
                 operator_name=op_name,
                 registrar_code="REG123",
@@ -649,7 +647,7 @@ def _seed_reactivations(db: Session, dc_map: dict, admin_user: UserLogin):
 
         # Docs
         db.add(ReactivationDocument(
-            request_code=req_code,
+            request_id=req.id,
             doc_type="training_photo",
             path=f"/storage/reactivation_docs/{req_code}/training_photo.jpg",
             original_filename="training_photo.jpg",

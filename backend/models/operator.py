@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Date
 from backend.models.base import Base, get_ist_time
 
 class Operator(Base):
@@ -18,6 +18,10 @@ class Operator(Base):
     nseit_certification_date = Column(DateTime, nullable=True)
     nseit_certificate_expiry_date = Column(DateTime, nullable=True)
     pincode = Column(String(10), nullable=True)
+    inactive_reason = Column(String(255), nullable=True)
+    inactive_date = Column(Date, nullable=True)
+    security_deposit_status = Column(String(50), nullable=True)
+    security_deposit_date = Column(Date, nullable=True)
     
     # Status can be 'Active', 'Inactive', 'Suspended'
     status = Column(String(50), nullable=False, default="Inactive")

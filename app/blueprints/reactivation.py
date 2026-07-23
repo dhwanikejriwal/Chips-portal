@@ -76,7 +76,6 @@ def view_reactivation_dashboard():
                     "operator_count": int(req.get("operator_count", 0)),
                     "training_date": str(req.get("training_date", "")),
                     "status": status_str,
-                    # 🌟 CONNECTED: Maps fallback parameter chains safely to prevent template metrics runtime drops
                     "created_at": str(req.get("timestamp") or req.get("created_at") or req.get("submitted_at") or "—")[:19],
                     "updated_at": str(req.get("updated_at") or "—")[:19],
                     "revert_reason": str(req.get("reject_reason") or req.get("revert_reason") or "None"),
@@ -119,8 +118,7 @@ def view_reactivation_dashboard():
                 
     with open("debug_all_operators.txt", "w") as f:
         f.write(str(all_operators))
-        
-    # 🌟 CONNECTED: Resolves correct structural template path targets
+
     template_path = "chips/chips_reactivation.html" if "/chips" in request.path else "dc/dc_reactivation.html"
     return render_template(
         template_path,

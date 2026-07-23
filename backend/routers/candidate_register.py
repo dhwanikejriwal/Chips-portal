@@ -66,7 +66,7 @@ def get_districts(all_districts: bool = False, db: Session = Depends(get_db)):
         dc_users = db.query(UserLogin).join(MasterUserRole).filter(
             MasterUserRole.role == "DC",
             UserLogin.district_id.isnot(None),
-            UserLogin.is_active == 1
+            UserLogin.is_active == True
         ).options(joinedload(UserLogin.profile)).all()
         
         dc_lookup = {}

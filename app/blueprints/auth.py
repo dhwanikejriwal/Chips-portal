@@ -28,6 +28,7 @@ def login():
                 session["district_id"] = data["district_id"]
                 session["district_name"] = data.get("district_name", "")
                 session["user_id"] = data.get("user_id")
+                session["has_changed_password"] = data.get("has_changed_password", 1)
                 
                 # Redirect based on user role
                 if data["role"] == "Admin":
@@ -101,6 +102,46 @@ def verify_reset_otp():
 def session_has_changed_password():
     session["has_changed_password"] = 1
     return {"success": True}
+
+
+@auth_bp.route("/change-password", methods=["GET", "POST"])
+def change_password():
+    if not session.get("access_token"):
+        flash("Please log in first.", "danger")
+        return redirect(url_for("auth.login"))
+    if session.get("role") not in ["Admin", "DC", "EDM"]:
+        return redirect(url_for("auth.login"))
+
+    if request.method == "POST":
+        current_password = request.form.get("current_password", "")
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if new_password != confirm_password:
+            flash("New password and confirm password do not match.", "danger")
+            return render_template("auth/change_password.html")
+
+        backend_url = f"{current_app.config['BACKEND_API_URL']}/auth/change-password"
+        try:
+            response = requests.post(
+                backend_url,
+                json={"current_password": current_password, "new_password": new_password},
+                headers={"Authorization": f"Bearer {session['access_token']}"}
+            )
+            data = response.json()
+            if response.status_code == 200:
+                session["has_changed_password"] = 1
+                flash("Password changed successfully!", "success")
+                role = session.get("role")
+                if role == "Admin":
+                    return redirect(url_for("dashboard.chips_dashboard"))
+                return redirect(url_for("dashboard.dc_dashboard"))
+            else:
+                flash(data.get("detail", "Failed to change password."), "danger")
+        except requests.exceptions.RequestException:
+            flash("Error connecting to backend API server.", "danger")
+
+    return render_template("auth/change_password.html")
 
 # =========================================================================
 # 🌟 CENTRALIZED SECURE DATA EXPORT TUNNEL ROUTE

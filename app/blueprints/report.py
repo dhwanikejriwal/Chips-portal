@@ -5,24 +5,35 @@ report_bp = Blueprint('report', __name__)
 
 @report_bp.route('/reports', methods=['GET'])
 def index():
-    if session.get('role') not in ['Admin', 'chips_admin']:
+    role = session.get('role')
+    if not role or role not in ['Admin', 'chips_admin', 'DC', 'EDM']:
         flash('Unauthorized access.', 'error')
         return redirect(url_for('auth.login'))
         
     history = []
+    districts = []
     try:
         backend_url = f"{current_app.config['BACKEND_API_URL']}/reports/history"
         response = requests.get(backend_url, timeout=5)
         if response.status_code == 200:
             history = response.json()
+            
+        districts_url = f"{current_app.config['BACKEND_API_URL']}/candidate_register/districts?all_districts=true"
+        dist_response = requests.get(districts_url, timeout=5)
+        if dist_response.status_code == 200:
+            districts = dist_response.json()
     except Exception as e:
-        print(f"Error fetching report history: {e}")
+        print(f"Error fetching report data: {e}")
         
-    return render_template('report/upload.html', history=history)
+    user_district = session.get('district_name') or session.get('district_id') or ''
+    is_dc = role in ['DC', 'EDM']
+        
+    return render_template('report/upload.html', history=history, districts=districts, user_role=role, user_district=user_district, is_dc=is_dc)
 
 @report_bp.route('/reports/download/<int:report_id>', methods=['GET'])
 def download(report_id):
-    if session.get('role') not in ['Admin', 'chips_admin']:
+    role = session.get('role')
+    if not role or role not in ['Admin', 'chips_admin', 'DC', 'EDM']:
         flash('Unauthorized access.', 'error')
         return redirect(url_for('auth.login'))
         
