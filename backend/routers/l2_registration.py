@@ -148,6 +148,12 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
         clean_status = str(r.status or "PENDING").strip().upper()
 
         
+        revert_reason = ""
+        for rm in reversed(r.remarks):
+            if rm.status_after_id in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]:
+                revert_reason = rm.remark
+                break
+
         result.append({
             "id": r.id,
             "request_no": r.request_no,
@@ -170,7 +176,8 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
             "status": clean_status,
             "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
             "updated_at": remarks_history[-1]["created_at"] if remarks_history else (str(r.submitted_at)[:16] if r.submitted_at else ""),
-            "remarks_history": remarks_history
+            "remarks_history": remarks_history,
+            "revert_reason": revert_reason
         })
 
     # Sort descending by latest action

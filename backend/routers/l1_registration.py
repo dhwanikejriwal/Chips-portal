@@ -142,6 +142,12 @@ async def get_l1_requests(
     compiled_list = []
     for req in requests:
         dist_name = req.district.district_name if req.district else "Raipur"
+        revert_reason = ""
+        for rm in reversed(req.remarks):
+            if rm.action == "REVERTED":
+                revert_reason = rm.remark
+                break
+
         compiled_list.append({
             "id": req.id,
             "request_code": req.request_code,
@@ -152,8 +158,8 @@ async def get_l1_requests(
             "reviewed_at": str(req.reviewed_at)[:19] if hasattr(req, 'reviewed_at') and req.reviewed_at else None,
             "submitted_at": str(req.created_at)[:19] if req.created_at else "",
             "updated_at": str(req.updated_at)[:19] if hasattr(req, 'updated_at') and req.updated_at else (str(req.created_at)[:19] if req.created_at else ""),
-            "district_name": dist_name
-
+            "district_name": dist_name,
+            "revert_reason": revert_reason
         })
     return compiled_list
 

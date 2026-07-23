@@ -150,6 +150,12 @@ def get_dc_station_requests(dc_id: int, db: Session = Depends(get_db)):
         clean_status = str(r.status or "sent_to_chips").strip().lower()
 
         
+        revert_reason = ""
+        for rm in reversed(r.remarks):
+            if rm.status_after_id in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]:
+                revert_reason = rm.remark
+                break
+
         compiled_list.append({
             "id": r.id,
             "request_no": r.request_no if r.request_no else f"SID-REQ-{r.id}",
@@ -167,7 +173,8 @@ def get_dc_station_requests(dc_id: int, db: Session = Depends(get_db)):
             "updated_at": str(r.remarks[-1].created_at)[:16] if r.remarks else (str(r.reviewed_at)[:16] if r.reviewed_at else (str(r.submitted_at)[:16] if r.submitted_at else "")),
 
             "assigned_station_id": r.station_id_inserted if r.station_id_inserted else "",
-            "remarks_history": _remarks_list(r.remarks)
+            "remarks_history": _remarks_list(r.remarks),
+            "revert_reason": revert_reason
         })
     return compiled_list
 

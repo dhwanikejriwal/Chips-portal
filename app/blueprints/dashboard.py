@@ -158,7 +158,7 @@ def dc_dashboard():
                     "submitted_days_ago": _days_ago(created),
                     "created_at":         created,
                     "operator_count":     1,
-                    "revert_reason":      op.get("revert_reason") or r.get("revert_reason") or r.get("reject_reason") or "",
+                    "revert_reason":      op.get("revert_reason") or op.get("reject_reason") or r.get("revert_reason") or r.get("reject_reason") or "",
                 })
         else:
             reactivation_requests.append({

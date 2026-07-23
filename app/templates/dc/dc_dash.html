@@ -5,11 +5,11 @@ endblock %}
 
 {% block extra_css %}
 <!-- React, ReactDOM, and Babel Standalone for the redesigned dashboard -->
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="{{ url_for('static', filename='js/react.production.min.js') }}" crossorigin></script>
+<script src="{{ url_for('static', filename='js/react-dom.production.min.js') }}" crossorigin></script>
+<script src="{{ url_for('static', filename='js/babel.min.js') }}"></script>
 <!-- Tailwind CSS CDN with preflight disabled so the site's own styles survive -->
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="{{ url_for('static', filename='js/tailwind.min.js') }}"></script>
 <script>
     tailwind.config = { corePlugins: { preflight: false } };
 </script>
@@ -674,11 +674,23 @@ endblock %}
                                         <i className={`fa-solid ${rejected ? 'fa-circle-xmark' : 'fa-rotate-left'} text-sm`}></i>
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-[13px] font-bold text-slate-800 truncate">
-                                            {it.label}{it.operator_count ? <span className="font-medium text-slate-400"> · {it.operator_count} operator{it.operator_count === 1 ? '' : 's'}</span> : null}
+                                        <div className="text-[13px] font-bold text-slate-800 truncate" title={it.revert_reason ? it.revert_reason : it.label}>
+                                            {it.revert_reason ? it.revert_reason : it.label}
                                         </div>
                                         <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                                            {it.revert_reason ? it.revert_reason : `Submitted ${it.submitted_days_ago} day${it.submitted_days_ago === 1 ? '' : 's'} ago`}
+                                            {it.revert_reason ? (
+                                                <span>
+                                                    {it.label}
+                                                    {it.operator_count ? ` · ${it.operator_count} operator${it.operator_count === 1 ? '' : 's'}` : ''}
+                                                    {` · Submitted ${it.submitted_days_ago} day${it.submitted_days_ago === 1 ? '' : 's'} ago`}
+                                                </span>
+                                            ) : (
+                                                <span>
+                                                    {it.label}
+                                                    {it.operator_count ? ` · ${it.operator_count} operator${it.operator_count === 1 ? '' : 's'}` : ''}
+                                                    {` · Submitted ${it.submitted_days_ago} day${it.submitted_days_ago === 1 ? '' : 's'} ago`}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                     <span className={`text-[10px] font-bold px-2 py-1 rounded-md flex-shrink-0 ${rejected ? 'text-rose-600 bg-rose-50 border border-rose-100' : 'text-amber-700 bg-amber-50 border border-amber-100'}`}>{it._ui}</span>

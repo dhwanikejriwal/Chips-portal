@@ -510,6 +510,12 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
         clean_status = str(r.status or "PENDING").strip().upper()
 
 
+        revert_reason = ""
+        for rm in reversed(r.remarks):
+            if rm.status_after_id in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value, StatusEnum.REVERTED_BY_CHIPS.value]:
+                revert_reason = rm.remark
+                break
+
         result.append(
             {
                 "id": r.id,
@@ -527,6 +533,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
                 "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
                 "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
                 "remarks_history": remarks_history,
+                "revert_reason": revert_reason,
             }
         )
 
