@@ -238,7 +238,43 @@ def registration_settings():
     if "access_token" not in session or session.get("role") != "Admin":
         flash("Unauthorized access. Please log in.", "danger")
         return redirect(url_for("auth.login"))
-    return render_template("chips/registration_settings.html")
+    token = session.get("access_token")
+    res = _get("/dashboard/districts/settings", token)
+    districts = res.get("districts", []) if isinstance(res, dict) else []
+    return render_template("chips/registration_settings.html", districts=districts)
+
+@dashboard_bp.route("/chips/registration-settings/update", methods=["POST"])
+def update_district_setting():
+    if "access_token" not in session or session.get("role") != "Admin":
+        return jsonify({"success": False, "detail": "Unauthorized access"}), 403
+    token = session.get("access_token")
+    data = flask_request.get_json() or {}
+    code = data.get("district_code")
+    if not code:
+        return jsonify({"success": False, "detail": "district_code is required"}), 400
+    try:
+        resp = requests.put(
+            f"{FASTAPI_BASE}/dashboard/districts/{code}/settings",
+            json=data,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            timeout=8
+        )
+        if resp.status_code == 200:
+            try:
+                res_json = resp.json()
+                msg = res_json.get("message", "Settings updated successfully")
+            except Exception:
+                msg = "Settings updated successfully"
+            return jsonify({"success": True, "message": msg})
+        else:
+            try:
+                err_json = resp.json()
+                detail = err_json.get("detail") or err_json.get("message") or "Update failed"
+            except Exception:
+                detail = f"Server returned error code {resp.status_code}"
+            return jsonify({"success": False, "detail": str(detail)}), resp.status_code
+    except Exception as e:
+        return jsonify({"success": False, "detail": str(e)}), 500
 
 @dashboard_bp.route("/chips/dashboard")
 def chips_dashboard():

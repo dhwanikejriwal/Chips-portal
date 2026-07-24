@@ -349,8 +349,16 @@
                             display.style.display = 'block';
                         }
                         if (viewLink) {
-                            viewLink.href = URL.createObjectURL(file);
+                            const fileUrl = URL.createObjectURL(file);
+                            const actualType = file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'image');
+                            viewLink.href = fileUrl;
                             viewLink.style.display = 'inline-flex';
+                            viewLink.onclick = (e) => {
+                                e.preventDefault();
+                                if (typeof window.previewDocument === 'function') {
+                                    window.previewDocument(fileUrl, actualType, 'Certificate Preview');
+                                }
+                            };
                         }
                         if (confirmBtn) {
                             confirmBtn.disabled = false;

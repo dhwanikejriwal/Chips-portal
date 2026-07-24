@@ -8,15 +8,45 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 
 <style>
+    .table-responsive-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-top: 15px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+    }
+
+    html[data-theme="dark"] .table-responsive-container {
+        border-color: var(--border-subtle, #232c4c) !important;
+        background: var(--surface-card, #161d38) !important;
+    }
+
     .settings-table {
         width: 100%;
+        min-width: 680px;
         border-collapse: collapse;
-        margin-top: 20px;
-        background: #fff;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        border-radius: 8px;
-        overflow: hidden;
+        margin-top: 0;
     }
+
+    @media (max-width: 768px) {
+        .settings-search-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+        }
+
+        .settings-search-bar input,
+        .settings-search-bar select,
+        .settings-search-bar button {
+            max-width: 100% !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+    }
+
+    /* ── DARK THEME OVERRIDES ── */
 
     .settings-table th,
     .settings-table td {
@@ -198,7 +228,7 @@
     </div>
 </div>
 
-<div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center;">
+<div class="settings-search-bar" style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center;">
     <input type="text" id="districtSearch" onkeyup="filterDistricts()" placeholder="Search by district name..."
         style="flex: 1; max-width: 300px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
     <select id="statusFilter" onchange="filterDistricts()"
@@ -208,7 +238,7 @@
         <option value="closed">Closed</option>
     </select>
     <button type="button" class="btn-clear-filters" onclick="clearFilters()"
-        style="padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background: white; color: #475569; transition: background 0.15s, color 0.15s;"
+        style="padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: white; color: #475569; transition: background 0.15s, color 0.15s;"
         onmouseover="this.style.background='#f1f5f9'; this.style.color='#1e293b';" onmouseout="this.style.background='white'; this.style.color='#475569';">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round">
@@ -219,84 +249,98 @@
     </button>
 </div>
 
-<table class="settings-table">
-    <thead>
-        <tr>
-            <th style="width: 25%">District</th>
-            <th style="width: 15%; text-align: center;">Registration Open</th>
-            <th style="width: 25%">Start Date (Optional)</th>
-            <th style="width: 25%">End Date (Optional)</th>
-            <th style="width: 10%; text-align: center;">Action</th>
-        </tr>
-    </thead>
-    <tbody id="districts-tbody">
-        <tr>
-            <td colspan="5" style="text-align: center; padding: 20px;">Loading districts...</td>
-        </tr>
-    </tbody>
-</table>
-
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-        fetchDistricts();
-    });
-
-    async function fetchDistricts() {
-        try {
-            const baseUrl = "{{ config.BACKEND_API_URL }}".replace(/\/api\/?$/, "");
-            const response = await fetch(`${baseUrl}/dashboard/districts/settings`);
-            if (!response.ok) throw new Error("Failed to fetch settings");
-            const data = await response.json();
-            renderTable(data.districts);
-        } catch (err) {
-            Swal.fire("Error", err.message, "error");
-        }
-    }
-
-    function renderTable(districts) {
-        const tbody = document.getElementById("districts-tbody");
-        tbody.innerHTML = "";
-
-        districts.forEach(d => {
-            const tr = document.createElement("tr");
-            tr.className = "district-row";
-            tr.setAttribute("data-name", d.district_name.toLowerCase());
-            tr.setAttribute("data-status", d.registration_open ? "open" : "closed");
-            tr.innerHTML = `
-                <td><strong>${d.district_name}</strong></td>
+<div class="table-responsive-container">
+    <table class="settings-table">
+        <thead>
+            <tr>
+                <th style="width: 22%">District</th>
+                <th style="width: 18%; text-align: center;">Registration Open</th>
+                <th style="width: 25%">Start Date (Optional)</th>
+                <th style="width: 25%">End Date (Optional)</th>
+                <th style="width: 10%; text-align: center;">Action</th>
+            </tr>
+        </thead>
+        <tbody id="districts-tbody">
+            {% for d in districts %}
+            <tr class="district-row" id="row_{{ d.district_code }}"
+                data-name="{{ d.district_name|lower }}"
+                data-status="{{ 'open' if d.registration_open else 'closed' }}"
+                data-saved-open="{{ 'true' if d.registration_open else 'false' }}"
+                data-saved-start="{{ d.registration_start_date or '' }}"
+                data-saved-end="{{ d.registration_end_date or '' }}">
+                <td><strong>{{ d.district_name }}</strong></td>
                 <td style="text-align: center;">
                     <label class="switch">
-                        <input type="checkbox" id="open_${d.district_code}" ${d.registration_open ? 'checked' : ''} onchange="enableSave('${d.district_code}')">
+                        <input type="checkbox" id="open_{{ d.district_code }}" autocomplete="off" {{ 'checked' if d.registration_open else '' }} onchange="checkRowModified('{{ d.district_code }}')">
                         <span class="slider"></span>
                     </label>
                 </td>
                 <td>
-                    <input type="text" class="date-input" id="start_${d.district_code}" value="${d.registration_start_date || ''}" placeholder="Select start date">
+                    <input type="text" class="date-input" id="start_{{ d.district_code }}" autocomplete="off" value="{{ d.registration_start_date or '' }}" placeholder="Select start date">
                 </td>
                 <td>
-                    <input type="text" class="date-input" id="end_${d.district_code}" value="${d.registration_end_date || ''}" placeholder="Select end date">
+                    <input type="text" class="date-input" id="end_{{ d.district_code }}" autocomplete="off" value="{{ d.registration_end_date or '' }}" placeholder="Select end date">
                 </td>
                 <td style="text-align: center;">
-                    <button class="save-btn" id="btn_${d.district_code}" disabled onclick="saveSettings('${d.district_code}')">Save</button>
+                    <button class="save-btn" id="btn_{{ d.district_code }}" disabled onclick="saveSettings('{{ d.district_code }}')">Save</button>
                 </td>
-            `;
-            tbody.appendChild(tr);
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 20px;">No district settings found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
-            flatpickr(`#start_${d.district_code}`, {
-                enableTime: true,
-                dateFormat: "Y-m-d H:i",
-                onChange: () => enableSave(d.district_code)
-            });
-            flatpickr(`#end_${d.district_code}`, {
-                enableTime: true,
-                dateFormat: "Y-m-d H:i",
-                onChange: () => enableSave(d.district_code)
-            });
-        });
+<script>
+    function normalizeDateStr(str) {
+        if (!str) return "";
+        let s = String(str).trim().replace("T", " ");
+        if (s.length >= 16) {
+            return s.substring(0, 16);
+        }
+        return s;
     }
 
-    function enableSave(code) {
-        document.getElementById(`btn_${code}`).disabled = false;
+    document.addEventListener("DOMContentLoaded", () => {
+        initFlatpickr();
+        document.querySelectorAll(".district-row").forEach(tr => {
+            const code = tr.id.replace("row_", "");
+            checkRowModified(code);
+        });
+    });
+
+    function checkRowModified(code) {
+        const tr = document.getElementById(`row_${code}`);
+        const btn = document.getElementById(`btn_${code}`);
+        if (!tr || !btn) return;
+
+        const savedOpen = tr.getAttribute('data-saved-open') === 'true';
+        const savedStart = normalizeDateStr(tr.getAttribute('data-saved-start'));
+        const savedEnd = normalizeDateStr(tr.getAttribute('data-saved-end'));
+
+        const currentOpen = document.getElementById(`open_${code}`).checked;
+        const currentStart = normalizeDateStr(document.getElementById(`start_${code}`)?.value);
+        const currentEnd = normalizeDateStr(document.getElementById(`end_${code}`)?.value);
+
+        const isModified = (currentOpen !== savedOpen) || (currentStart !== savedStart) || (currentEnd !== savedEnd);
+        btn.disabled = !isModified;
+    }
+
+    function initFlatpickr() {
+        document.querySelectorAll(".date-input").forEach(el => {
+            const id = el.id;
+            const code = id.replace(/^(start_|end_)/, "");
+            flatpickr(el, {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                onChange: () => checkRowModified(code)
+            });
+            el.addEventListener('input', () => checkRowModified(code));
+            el.addEventListener('change', () => checkRowModified(code));
+        });
     }
 
     function filterDistricts() {
@@ -327,6 +371,7 @@
 
     async function saveSettings(code) {
         const btn = document.getElementById(`btn_${code}`);
+        if (!btn) return;
         btn.disabled = true;
         btn.innerText = "Saving...";
 
@@ -338,15 +383,21 @@
         };
 
         try {
-            const baseUrl = "{{ config.BACKEND_API_URL }}".replace(/\/api\/?$/, "");
-            const response = await fetch(`${baseUrl}/dashboard/districts/${code}/settings`, {
-                method: "PUT",
+            const response = await fetch("{{ url_for('dashboard.update_district_setting') }}", {
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
 
-            const data = await response.json();
-            if (response.ok) {
+            const text = await response.text();
+            let data = {};
+            try {
+                data = JSON.parse(text);
+            } catch (parseErr) {
+                data = { success: false, detail: `HTTP ${response.status}: Unexpected response format.` };
+            }
+
+            if (response.ok && (data.success || data.message)) {
                 Swal.fire({
                     title: "Success",
                     text: "Settings updated successfully!",
@@ -355,15 +406,20 @@
                     showConfirmButton: false
                 });
                 btn.innerText = "Save";
-                btn.disabled = false;
 
-                const tr = btn.closest("tr");
+                const tr = document.getElementById(`row_${code}`);
                 if (tr) {
                     tr.setAttribute("data-status", payload.registration_open ? "open" : "closed");
+                    tr.setAttribute("data-saved-open", payload.registration_open ? "true" : "false");
+                    tr.setAttribute("data-saved-start", normalizeDateStr(payload.registration_start_date));
+                    tr.setAttribute("data-saved-end", normalizeDateStr(payload.registration_end_date));
                     filterDistricts();
                 }
+                btn.disabled = true;
             } else {
-                throw new Error(data.detail || data.error || "Failed to update");
+                btn.disabled = false;
+                btn.innerText = "Save";
+                throw new Error(data.detail || data.error || data.message || "Failed to update settings");
             }
         } catch (err) {
             Swal.fire("Error", err.message, "error");

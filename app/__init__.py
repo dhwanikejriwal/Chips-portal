@@ -103,6 +103,12 @@ def create_app():
         from flask import send_from_directory
         return send_from_directory(os.path.join(app.root_path, '..', 'uploads', 'candidate'), filename)
 
+    @app.route('/uploads/temp/<path:filename>')
+    def temp_uploads(filename):
+        import os
+        from flask import send_from_directory
+        return send_from_directory(os.path.join(app.root_path, '..', 'uploads', 'temp'), filename)
+
     # Multi-language support configuration context processor
     @app.context_processor
     def inject_language_toggle():

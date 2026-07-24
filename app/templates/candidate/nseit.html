@@ -435,8 +435,17 @@
                     }
                     const viewLink = document.getElementById(type === 'lms' ? 'lms_view_cert_link' : 'nseit_view_cert_link');
                     if (viewLink) {
-                        viewLink.href = URL.createObjectURL(file);
+                        const fileUrl = URL.createObjectURL(file);
+                        const actualType = file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'image');
+                        const titleName = type === 'lms' ? 'LMS Certificate' : 'NSEIT Certificate';
+                        viewLink.href = fileUrl;
                         viewLink.style.display = 'inline-flex';
+                        viewLink.onclick = (e) => {
+                            e.preventDefault();
+                            if (typeof window.previewDocument === 'function') {
+                                window.previewDocument(fileUrl, actualType, titleName);
+                            }
+                        };
                     }
                 } else {
                     if (errorDiv) {

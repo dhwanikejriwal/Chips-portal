@@ -235,7 +235,7 @@
 
                         <!-- Operational District -->
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label for="district" class="form-label">Operational District *</label>
+                            <label for="district" class="form-label">District *</label>
                             <select id="district" name="district" class="form-input"
                                 style="pointer-events: none; background-color: #f1f5f9; cursor: not-allowed;"
                                 tabindex="-1" required>
@@ -255,7 +255,8 @@
                         <textarea id="remark" name="remark" class="form-textarea" required
                             placeholder="Provide details about your corrections..."></textarea>
                     </div>
-                    {% elif status_data.lms_id and status_data.lms_id != 'None' and (status_data.lms_status|upper) not in
+                    {% elif status_data.lms_id and status_data.lms_id != 'None' and (status_data.lms_status|upper) not
+                    in
                     ['PENDING', 'REAPPLIED', 'FORWARDED', 'FORWARDED_AGAIN', 'APPROVED'] %}
                     <div class="form-group">
                         <label for="remark" class="form-label">Reason for requesting LMS Training again *</label>
@@ -447,8 +448,16 @@
                     }
                     const viewLink = document.getElementById('lms_view_cert_link');
                     if (viewLink) {
-                        viewLink.href = URL.createObjectURL(file);
+                        const fileUrl = URL.createObjectURL(file);
+                        const actualType = file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'image');
+                        viewLink.href = fileUrl;
                         viewLink.style.display = 'inline-flex';
+                        viewLink.onclick = (e) => {
+                            e.preventDefault();
+                            if (typeof window.previewDocument === 'function') {
+                                window.previewDocument(fileUrl, actualType, 'LMS Certificate');
+                            }
+                        };
                     }
                 } else {
                     if (errorDiv) {

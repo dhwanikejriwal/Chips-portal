@@ -577,6 +577,21 @@
             width: 28px !important;
             height: 28px !important;
         }
+
+        .header-actions {
+            gap: 6px !important;
+        }
+
+        .header-btn-home-button,
+        .header-btn-login-button {
+            padding: 6px 8px !important;
+            border-radius: 8px !important;
+            gap: 0 !important;
+        }
+
+        .header-btn-text {
+            display: none !important;
+        }
     }
 
     @media (max-width: 400px) {
@@ -983,12 +998,14 @@
     </div>
 
     {% macro lang_toggle() %}
-    <div id="lang-toggle" class="lang-toggle" role="group" aria-label="Switch language"
+    {% if config.ENABLE_LANGUAGE_TOGGLE %}
+    <div id="lang-toggle" class="lang-toggle notranslate" translate="no" role="group" aria-label="Switch language"
         title="भाषा बदलें / Switch language">
         <i class="ti ti-world lang-globe" aria-hidden="true"></i>
-        <button type="button" class="lang-seg" data-lang="en" aria-pressed="false">EN</button>
-        <button type="button" class="lang-seg" data-lang="hi" lang="hi" aria-pressed="false">हिं</button>
+        <button type="button" class="lang-seg notranslate" translate="no" data-lang="en" aria-pressed="false">EN</button>
+        <button type="button" class="lang-seg notranslate" translate="no" data-lang="hi" lang="hi" aria-pressed="false">हिं</button>
     </div>
+    {% endif %}
     {% endmacro %}
 
     {% macro theme_toggle() %}
@@ -1187,18 +1204,18 @@
     <div class="header-actions">
         {{ lang_toggle() }}
         {{ theme_toggle() }}
-        <a href="/" class="header-btn-home-button">
-            <i class="ti ti-home" style="font-size:16px;"></i>Home
+        <a href="/" class="header-btn-home-button" title="Home">
+            <i class="ti ti-home" style="font-size:16px;"></i><span class="header-btn-text">Home</span>
         </a>
-        <a href="{{ url_for('auth.login') }}" class="header-btn-login-button">
-            <i class="ti ti-lock" style="font-size:16px;"></i>DC/CHIPS Login
+        <a href="{{ url_for('auth.login') }}" class="header-btn-login-button" title="DC/CHIPS Login">
+            <i class="ti ti-user-circle" style="font-size:18px;"></i><span class="header-btn-text">DC/CHIPS Login</span>
         </a>
     </div>
     {% endif %}
 </header>
 
 <script>
-    /* Language toggle: delegates to the global i18n runtime (static/js/i18n.js,
+    /* Language toggle: delegates to the global i18n runtime (static/i18n/i18n.js,
        loaded in base.html <head>). Clicking a segment persists the choice
        (localStorage "lang"), sets <html lang> and re-renders every data-i18n*
        node. The active segment is kept in sync via the "langchange" event so
@@ -1335,7 +1352,15 @@
 {% if session.get('access_token') and session.get('role') != 'Candidate' %}
 <script>
     (function () {
-        const BACKEND_API_URL = "{{ config['BACKEND_API_URL'] }}";
+        let rawBackendUrl = "{{ config['BACKEND_API_URL'] }}";
+        try {
+            const u = new URL(rawBackendUrl);
+            if (u.hostname === "127.0.0.1" || u.hostname === "localhost") {
+                u.hostname = window.location.hostname;
+            }
+            rawBackendUrl = u.toString().replace(/\/$/, "");
+        } catch (e) {}
+        const BACKEND_API_URL = rawBackendUrl;
         const ACCESS_TOKEN = "{{ session.get('access_token') }}";
         const USER_ROLE = "{{ session.get('role') }}";
         const roleLower = (USER_ROLE || '').trim().toLowerCase();

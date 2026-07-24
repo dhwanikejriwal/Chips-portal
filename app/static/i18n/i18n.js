@@ -108,24 +108,8 @@
 
     /* ---- Protect raw database table cells & status badges ---- */
     function excludeDatabaseTables(root) {
-        root = root || document.body || document.documentElement;
-        if (!root || current !== 'hi') return;
-        var tds = root.querySelectorAll ? root.querySelectorAll('td') : [];
-        for (var k = 0; k < tds.length; k++) {
-            var el = tds[k];
-            var isActionButton = el.querySelector('button, a.btn, input[type="button"], input[type="submit"]');
-            var isStatusBadge = el.querySelector('[class*="badge"], [class*="status"]');
-
-            if (isStatusBadge || (!isActionButton)) {
-                el.classList.add('notranslate');
-                el.setAttribute('translate', 'no');
-                var children = el.querySelectorAll('*');
-                for (var i = 0; i < children.length; i++) {
-                    children[i].classList.add('notranslate');
-                    children[i].setAttribute('translate', 'no');
-                }
-            }
-        }
+        // Kept empty to allow Google Translate to translate full page content naturally
+        return;
     }
 
     /* ---- auto: text nodes -------------------------------------------------- */
@@ -160,17 +144,6 @@
             var m = base.match(/^(\s*)[\s\S]*?(\s*)$/);
             var next = current === 'hi' ? (m[1] + v + m[2]) : (m[1] + base.trim() + m[2]);
             if (n.nodeValue !== next) n.nodeValue = next;
-
-            var p = n.parentNode;
-            if (p && p.nodeType === 1) {
-                if (current === 'hi') {
-                    p.classList.add('notranslate');
-                    p.setAttribute('translate', 'no');
-                } else {
-                    p.classList.remove('notranslate');
-                    p.removeAttribute('translate');
-                }
-            }
         }
     }
 
@@ -193,13 +166,6 @@
                 if (store[attr] === undefined) store[attr] = base;
                 var targetVal = current === 'hi' ? v : base;
                 if (el.getAttribute(attr) !== targetVal) el.setAttribute(attr, targetVal);
-                if (current === 'hi') {
-                    el.classList.add('notranslate');
-                    el.setAttribute('translate', 'no');
-                } else {
-                    el.classList.remove('notranslate');
-                    el.removeAttribute('translate');
-                }
             });
         });
     }
@@ -218,13 +184,6 @@
             var v = lookup(el.getAttribute('data-i18n'));
             if (v !== null) {
                 if (el.textContent !== v) el.textContent = v;
-                if (current === 'hi') {
-                    el.classList.add('notranslate');
-                    el.setAttribute('translate', 'no');
-                } else {
-                    el.classList.remove('notranslate');
-                    el.removeAttribute('translate');
-                }
             }
         });
 
@@ -232,13 +191,6 @@
             var v = lookup(el.getAttribute('data-i18n-placeholder'));
             if (v !== null) {
                 if (el.getAttribute('placeholder') !== v) el.setAttribute('placeholder', v);
-                if (current === 'hi') {
-                    el.classList.add('notranslate');
-                    el.setAttribute('translate', 'no');
-                } else {
-                    el.classList.remove('notranslate');
-                    el.removeAttribute('translate');
-                }
             }
         });
 
@@ -246,13 +198,6 @@
             var v = lookup(el.getAttribute('data-i18n-title'));
             if (v !== null) {
                 if (el.getAttribute('title') !== v) el.setAttribute('title', v);
-                if (current === 'hi') {
-                    el.classList.add('notranslate');
-                    el.setAttribute('translate', 'no');
-                } else {
-                    el.classList.remove('notranslate');
-                    el.removeAttribute('translate');
-                }
             }
         });
 
@@ -260,13 +205,6 @@
             var v = districtName(el.getAttribute('data-i18n-district'));
             if (v) {
                 if (el.textContent !== v) el.textContent = v;
-                if (current === 'hi') {
-                    el.classList.add('notranslate');
-                    el.setAttribute('translate', 'no');
-                } else {
-                    el.classList.remove('notranslate');
-                    el.removeAttribute('translate');
-                }
             }
         });
 
@@ -275,13 +213,6 @@
             if (!raw || !/slot/i.test(raw)) return;
             var v = current === 'hi' ? raw.replace(/slots?/i, t('value.slotSuffix')) : raw;
             if (el.textContent !== v) el.textContent = v;
-            if (current === 'hi') {
-                el.classList.add('notranslate');
-                el.setAttribute('translate', 'no');
-            } else {
-                el.classList.remove('notranslate');
-                el.removeAttribute('translate');
-            }
         });
     }
 

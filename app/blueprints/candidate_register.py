@@ -18,11 +18,11 @@ def save_upload(file_obj, upload_folder):
         return "TOO_LARGE"
     filename = secure_filename(file_obj.filename)
     if not os.path.exists(upload_folder):
-        os.makedirs(upload_folder)
+        os.makedirs(upload_folder, exist_ok=True)
     filepath = os.path.join(upload_folder, filename)
     with open(filepath, "wb") as f:
         f.write(content)
-    return f"/static/uploads/{filename}"
+    return f"/uploads/temp/{filename}"
 
 
 def get_backend_error(response, fallback="Failed to register candidate."):
@@ -115,7 +115,7 @@ def register():
         pincode = request.form.get("pincode")
         is_existing_operator = request.form.get("is_existing_operator") == "yes"
 
-        upload_folder = os.path.join(current_app.root_path, "static", "uploads")
+        upload_folder = os.path.join(current_app.root_path, "..", "uploads", "temp")
         form_data = dict(request.form)
         existing_photo = form_data.get('existing_photo')
         existing_tenth = form_data.get('existing_tenth_marksheet')
@@ -226,6 +226,9 @@ def register():
             global_field_errors['nseit_certificate'] = "NSEIT Certificate is required when NSEIT Certificate Number is provided."
 
         if global_field_errors:
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                from flask import jsonify
+                return jsonify({"success": False, "field_errors": global_field_errors, "error": "Validation failed. Please check form entries."}), 400
             return render_template("user/register.html", field_errors=global_field_errors, form_data=form_data, districts=districts)
 
         # ── 3. SEND CLEAN PAYLOAD TO FASTAPI BACKEND ──
@@ -270,10 +273,13 @@ def register():
                 def move_file(temp_path):
                     if not temp_path: return None
                     filename = temp_path.split("/")[-1]
-                    old_full_path = os.path.join(current_app.root_path, "static", "uploads", filename)
+                    old_full_path = os.path.join(current_app.root_path, "..", "uploads", "temp", filename)
+                    if not os.path.exists(old_full_path):
+                        old_full_path = os.path.join(current_app.root_path, "static", "uploads", filename)
                     new_full_path = os.path.join(final_dir, filename)
                     if os.path.exists(old_full_path):
                         shutil.move(old_full_path, new_full_path)
+                        print(f"[File Mover] Successfully moved {filename} from temp to {final_dir} (removed from temp)")
                     return f"/candidate_uploads/{dist_name}/{request_code}/{filename}"
                 
                 final_photo = move_file(photo_path)
@@ -298,11 +304,22 @@ def register():
                     db.close()
                 
                 session["reg_success_code"] = request_code
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    from flask import jsonify
+                    return jsonify({"success": True, "redirect_url": url_for("candidate_register.register_success")})
                 return redirect(url_for("candidate_register.register_success"))
             else:
-                flash(get_backend_error(reg_response), "danger")
+                err_msg = get_backend_error(reg_response)
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    from flask import jsonify
+                    return jsonify({"success": False, "error": err_msg}), 400
+                flash(err_msg, "danger")
         except requests.exceptions.RequestException:
-            flash("Error connecting to backend API server for registration.", "danger")
+            err_msg = "Error connecting to backend API server for registration."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                from flask import jsonify
+                return jsonify({"success": False, "error": err_msg}), 500
+            flash(err_msg, "danger")
 
     return render_template("user/register.html", districts=districts)
 
@@ -548,12 +565,35 @@ def ocr_extract_id():
         if extracted_id:
             # Clean special characters but keep casing and alphanumeric chars
             extracted_id = re.sub(r"[^a-zA-Z0-9]", "", extracted_id)
-            return jsonify({"success": True, "id": extracted_id})
+            saved_path = None
+            try:
+                upload_folder = os.path.join(current_app.root_path, "..", "uploads", "temp")
+                file.seek(0)
+                saved_path = save_upload(file, upload_folder)
+            except Exception:
+                pass
+            return jsonify({"success": True, "id": extracted_id, "file_path": saved_path if saved_path != "TOO_LARGE" else None})
         else:
             return jsonify({"success": False, "error": "Could not find a valid ID in the document , please check the quality of document"})
             
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@candidate_register_bp.route("/upload-temp-file", methods=["POST"])
+def upload_temp_file():
+    from flask import jsonify, request, current_app
+    import os
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify({"success": False, "error": "No file provided."}), 400
+    upload_folder = os.path.join(current_app.root_path, "..", "uploads", "temp")
+    saved_path = save_upload(file, upload_folder)
+    if saved_path == "TOO_LARGE":
+        return jsonify({"success": False, "error": "File size exceeds 1 MB limit."}), 400
+    if not saved_path:
+        return jsonify({"success": False, "error": "Failed to save file."}), 500
+    return jsonify({"success": True, "file_path": saved_path})
 
 
 @candidate_register_bp.route("/ocr/validate-marksheet", methods=["POST"])
@@ -626,7 +666,17 @@ def ocr_validate_marksheet():
             f.write(f"name={name}\ndob={dob}\nqualification={qualification}\n")
             
         validate_marksheet(text_content, name, dob, qualification)
-        return jsonify({"success": True})
+        
+        saved_path = None
+        try:
+            upload_folder = os.path.join(current_app.root_path, "..", "uploads", "temp")
+            from werkzeug.datastructures import FileStorage
+            f_obj = FileStorage(stream=io.BytesIO(file_bytes), filename=file.filename, content_type=file.content_type)
+            saved_path = save_upload(f_obj, upload_folder)
+        except Exception as se:
+            print("Error saving temp marksheet:", se)
+            
+        return jsonify({"success": True, "file_path": saved_path if saved_path != "TOO_LARGE" else None})
         
     except ValueError as ve:
         err_msg = str(ve)

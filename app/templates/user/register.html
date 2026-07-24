@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/user/candidate_reg.css') }}">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
     /* Ensure clean visibility transitions for document containers */
     .visible-upload-group {
@@ -68,11 +69,11 @@
 
                 <div class="form-group">
                     <label class="form-label">Date of Birth *</label>
-                    <div style="display: flex; gap: 8px;">
-                        <select id="dob_day" class="form-input" style="flex: 1;" required>
+                    <div class="dob-select-container" style="display: flex; gap: 6px;">
+                        <select id="dob_day" class="form-input" style="flex: 1; padding-left: 8px; padding-right: 4px;" required>
                             <option value="" disabled selected>Day</option>
                         </select>
-                        <select id="dob_month" class="form-input" style="flex: 1.5;" required>
+                        <select id="dob_month" class="form-input" style="flex: 1.5; padding-left: 8px; padding-right: 4px;" required>
                             <option value="" disabled selected>Month</option>
                             <option value="01">January</option>
                             <option value="02">February</option>
@@ -87,7 +88,7 @@
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <select id="dob_year" class="form-input" style="flex: 1.2;" required>
+                        <select id="dob_year" class="form-input" style="flex: 1.2; padding-left: 8px; padding-right: 4px;" required>
                             <option value="" disabled selected>Year</option>
                         </select>
                     </div>
@@ -474,25 +475,31 @@
         tenthSection.className = "form-group full-width hidden-upload-group";
         marksheetInput.removeAttribute('required');
         tenthInput.removeAttribute('required');
+        marksheetInput.disabled = true;
+        tenthInput.disabled = true;
 
         if (!qual) return;
 
         if (qual === IS_10TH) {
             // 🌟 10th Only Path: Render only tenth_marksheet visible to the viewport layout
             tenthSection.className = "form-group full-width visible-upload-group";
+            tenthInput.disabled = false;
             tenthInput.setAttribute('required', 'required');
             const extTenth = document.querySelector('input[name="existing_tenth_marksheet"]');
             if (extTenth && extTenth.value) tenthInput.removeAttribute('required');
 
             marksheetInput.value = '';
+            marksheetInput.disabled = true;
         } else {
             // 🌟 Higher Degree Path: Require both elements cleanly without focus overlapping errors
             tenthSection.className = "form-group full-width visible-upload-group";
+            tenthInput.disabled = false;
             tenthInput.setAttribute('required', 'required');
             const extTenth = document.querySelector('input[name="existing_tenth_marksheet"]');
             if (extTenth && extTenth.value) tenthInput.removeAttribute('required');
 
             marksheetSection.className = "form-group full-width visible-upload-group";
+            marksheetInput.disabled = false;
             marksheetInput.setAttribute('required', 'required');
             const extMarksheet = document.querySelector('input[name="existing_marksheet"]');
             if (extMarksheet && extMarksheet.value) marksheetInput.removeAttribute('required');
@@ -516,22 +523,9 @@
     }
 
     function previewFile(url, fileType, fileName) {
-        let htmlContent = '';
-        const isPdf = fileType.includes('pdf') || url.toLowerCase().endsWith('.pdf');
-
-        if (isPdf) {
-            htmlContent = `<iframe src="${url}" style="width: 100%; height: 500px; border: none; border-radius: 8px;"></iframe>`;
-        } else {
-            htmlContent = `<img src="${url}" style="max-width: 100%; max-height: 500px; object-fit: contain; border-radius: 8px;" />`;
+        if (typeof window.previewDocument === 'function') {
+            window.previewDocument(url, fileType, fileName);
         }
-
-        Swal.fire({
-            title: fileName,
-            html: htmlContent,
-            width: '80%',
-            showCloseButton: true,
-            showConfirmButton: false
-        });
     }
 
     function performOCR(file, type, targetInputId, statusId) {
@@ -562,6 +556,19 @@
                 if (data.success && data.id) {
                     const input = document.getElementById(targetInputId);
                     input.value = data.id;
+
+                    if (data.file_path) {
+                        const hiddenName = type === 'lms' ? 'existing_lms_certificate' : 'existing_nseit_certificate';
+                        let hiddenInput = document.querySelector(`input[name="${hiddenName}"]`);
+                        if (!hiddenInput) {
+                            hiddenInput = document.createElement('input');
+                            hiddenInput.type = 'hidden';
+                            hiddenInput.name = hiddenName;
+                            document.querySelector('.register-form').appendChild(hiddenInput);
+                        }
+                        hiddenInput.value = data.file_path;
+                    }
+
                     // Highlight input temporarily
                     input.style.backgroundColor = '#e0f2fe';
                     input.style.transition = 'background-color 0.5s ease';
@@ -812,6 +819,17 @@
                         successDiv.textContent = `✓ ${type === 'tenth' ? '10th' : ''} Marksheet verified successfully.`;
                         successDiv.style.display = 'block';
                     }
+                    if (data.file_path) {
+                        const hiddenName = type === 'tenth' ? 'existing_tenth_marksheet' : 'existing_marksheet';
+                        let hiddenInput = document.querySelector(`input[name="${hiddenName}"]`);
+                        if (!hiddenInput) {
+                            hiddenInput = document.createElement('input');
+                            hiddenInput.type = 'hidden';
+                            hiddenInput.name = hiddenName;
+                            document.querySelector('.register-form').appendChild(hiddenInput);
+                        }
+                        hiddenInput.value = data.file_path;
+                    }
                 } else {
                     if (errorDiv) {
                         errorDiv.textContent = data.error || "Marksheet verification failed.";
@@ -847,12 +865,43 @@
             return;
         }
         if (this.files[0]) {
-            const name = this.files[0].name;
+            const file = this.files[0];
             document.getElementById('photoText').textContent = 'Click to upload your profile photo';
             if (nameDisplayDiv) {
-                nameDisplayDiv.textContent = '✓ ' + name;
+                nameDisplayDiv.textContent = '⚡ Uploading profile photo...';
                 nameDisplayDiv.style.display = 'block';
+                nameDisplayDiv.style.color = '#4f46e5';
             }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('{{ url_for("candidate_register.upload_temp_file") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.file_path) {
+                    let hiddenPhoto = document.querySelector('input[name="existing_photo"]');
+                    if (!hiddenPhoto) {
+                        hiddenPhoto = document.createElement('input');
+                        hiddenPhoto.type = 'hidden';
+                        hiddenPhoto.name = 'existing_photo';
+                        document.querySelector('.register-form').appendChild(hiddenPhoto);
+                    }
+                    hiddenPhoto.value = data.file_path;
+                    if (nameDisplayDiv) {
+                        nameDisplayDiv.textContent = '✓ ' + file.name;
+                        nameDisplayDiv.style.color = '#10b981';
+                    }
+                } else if (data.error) {
+                    const errDiv = document.getElementById('photo_error');
+                    if (errDiv) { errDiv.textContent = data.error; errDiv.style.display = 'block'; }
+                    if (nameDisplayDiv) nameDisplayDiv.style.display = 'none';
+                }
+            })
+            .catch(err => { console.error(err); });
         } else {
             document.getElementById('photoText').textContent = 'Click to upload your profile photo';
             if (nameDisplayDiv) {
@@ -1444,7 +1493,21 @@
     }
 
     document.querySelector('.register-form').addEventListener('submit', function (e) {
-        if (e.defaultPrevented) return;
+        e.preventDefault();
+
+        // Re-enable all file inputs briefly before collecting FormData so active attached files are included
+        const fileInputs = this.querySelectorAll('input[type="file"]');
+        fileInputs.forEach(input => { input.disabled = false; });
+
+        const formData = new FormData(this);
+
+        // Now disable empty file inputs so unnecessary empty parameters are ignored
+        fileInputs.forEach(input => {
+            if (!input.files || input.files.length === 0) {
+                input.disabled = true;
+            }
+        });
+
         Swal.fire({
             title: 'Submitting Application...',
             text: 'Please wait while we process your request.',
@@ -1452,6 +1515,47 @@
             didOpen: () => {
                 Swal.showLoading();
             }
+        });
+
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(async res => {
+            const data = await res.json().catch(() => null);
+            if (res.ok && data && data.success && data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                fileInputs.forEach(input => { input.disabled = false; });
+                let errorMsg = 'Failed to submit application. Please check form entries.';
+                if (data) {
+                    if (data.field_errors) {
+                        const errs = Object.values(data.field_errors);
+                        errorMsg = errs.join('<br>');
+                    } else if (data.error) {
+                        errorMsg = data.error;
+                    }
+                }
+                Swal.fire({
+                    title: 'Registration Error',
+                    html: errorMsg,
+                    icon: 'error',
+                    confirmButtonColor: '#4f46e5'
+                });
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            fileInputs.forEach(input => { input.disabled = false; });
+            Swal.fire({
+                title: 'Error',
+                text: 'An unexpected error occurred. Please check your form entries and try again.',
+                icon: 'error',
+                confirmButtonColor: '#4f46e5'
+            });
         });
     });
 </script>

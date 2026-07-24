@@ -30,7 +30,7 @@
     <!-- i18n runtime — loaded early (before inline scripts that use window.i18n).
          Sets <html lang> from the persisted choice and translates all
          data-i18n* marked nodes from /static/i18n/{en,hi}.json. -->
-    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+    <script src="{{ url_for('static', filename='i18n/i18n.js') }}"></script>
     <!-- Main Style -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
@@ -44,6 +44,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.min.css">
     <!-- SheetJS CDN for xlsx downloads -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- PDF.js CDN for mobile/desktop responsive PDF rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     {% block extra_css %}{% endblock %}
 
@@ -315,25 +317,87 @@
          only loaded when authenticated). It persists { collapsed, pinned } under
          the "chips.sidebar" localStorage key and owns the #sidebar-toggle click. -->
     <style>
-        /* Flash Alert Timer Animation */
+        /* 🌟 CANDIDATE & SYSTEM FLASH NOTIFICATIONS (MATCHING IMAGE DESIGN SPECIFICATION) */
+        .flash-container {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
         .flash-container .alert,
-        .flash-container .alert-flash {
+        .flash-container .alert-flash,
+        .alert-success,
+        .alert-flash-success {
             position: relative;
             overflow: hidden;
+            padding: 13px 20px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
             margin-bottom: 1rem;
             transition: all 0.5s ease-out;
             transform-origin: top;
+            box-shadow: 0 2px 8px rgba(15, 81, 50, 0.04);
+            letter-spacing: -0.01em;
+            line-height: 1.5;
         }
 
+        /* Light Mode - Success Alert (Exact match to green notification image) */
+        .alert-success,
+        .alert-flash-success,
+        .alert.alert-success {
+            background-color: #d1e7dd !important;
+            color: #0f5132 !important;
+            border: 1px solid #badbcc !important;
+        }
+
+        /* Dark Mode - Success Alert */
+        html[data-theme="dark"] .alert-success,
+        html[data-theme="dark"] .alert-flash-success,
+        html[data-theme="dark"] .alert.alert-success {
+            background-color: #064e3b !important;
+            color: #a7f3d0 !important;
+            border: 1px solid #047857 !important;
+        }
+
+        /* Danger / Error Alert - Light Mode */
+        .alert-danger,
+        .alert-error,
+        .alert-flash-error,
+        .alert.alert-danger {
+            background-color: #f8d7da !important;
+            color: #842029 !important;
+            border: 1px solid #f5c2c7 !important;
+        }
+
+        /* Danger / Error Alert - Dark Mode */
+        html[data-theme="dark"] .alert-danger,
+        html[data-theme="dark"] .alert-error,
+        html[data-theme="dark"] .alert-flash-error,
+        html[data-theme="dark"] .alert.alert-danger {
+            background-color: #450a0a !important;
+            color: #fca5a5 !important;
+            border: 1px solid #991b1b !important;
+        }
+
+        /* Flash Alert Timer Line Animation (Bottom Progress Bar) */
         .flash-container .alert::after,
-        .flash-container .alert-flash::after {
+        .flash-container .alert-flash::after,
+        .alert-success::after,
+        .alert-flash-success::after {
             content: '';
             position: absolute;
             bottom: 0;
             left: 0;
             height: 3px;
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(15, 81, 50, 0.35);
             animation: collapseTimer 3s linear forwards;
+        }
+
+        html[data-theme="dark"] .flash-container .alert::after,
+        html[data-theme="dark"] .flash-container .alert-flash::after,
+        html[data-theme="dark"] .alert-success::after,
+        html[data-theme="dark"] .alert-flash-success::after {
+            background: #34d399;
         }
 
         @keyframes collapseTimer {
@@ -431,7 +495,7 @@
 
 
 
-    {% if ENABLE_LANGUAGE_TOGGLE %}
+    {% if config.ENABLE_LANGUAGE_TOGGLE %}
     <div id="google_translate_element" style="display: none;"></div>
     <style>
         /* Hide all default Google Translate banner, frames, and dropdown widgets */
@@ -493,16 +557,17 @@
 
     <script>
         (function () {
-            // --- Hindi Transliteration for Remarks/Reason fields ---
+            // --- Hindi Transliteration Engine for Mobile & Desktop Remarks/Reason fields ---
             const setupTransliteration = () => {
                 const isRemarksField = (el) => {
                     if (!el) return false;
                     const id = (el.id || '').toLowerCase();
                     const name = (el.name || '').toLowerCase();
                     const ph = (el.placeholder || '').toLowerCase();
-                    return id.includes('remark') || name.includes('remark') || ph.includes('remark') ||
-                        id.includes('reason') || name.includes('reason') || ph.includes('reason') ||
-                        id.includes('टिप्पणी') || ph.includes('टिप्पणी');
+                    const cls = (el.className || '').toLowerCase();
+                    return id.includes('remark') || name.includes('remark') || ph.includes('remark') || cls.includes('remark') ||
+                        id.includes('reason') || name.includes('reason') || ph.includes('reason') || cls.includes('reason') ||
+                        id.includes('टिप्पणी') || ph.includes('टिप्पणी') || ph.includes('कारण');
                 };
 
                 const fetchTransliteration = async (text) => {
@@ -520,38 +585,44 @@
                     return null;
                 };
 
-                const handleInputKey = async (e) => {
-                    const el = e.target;
-                    if (!el || !el.dataset.transliterationEnabled) return;
+                let isProcessing = false;
+                const processTransliteration = async (el) => {
+                    if (!el || !el.dataset.transliterationEnabled || isProcessing) return;
 
-                    if (e.keyCode === 32 || e.keyCode === 13) {
-                        const val = el.value;
-                        const start = el.selectionStart;
+                    const val = el.value;
+                    const cursor = el.selectionStart;
 
-                        const textBeforeCursor = val.substring(0, start);
-                        const match = textBeforeCursor.match(/(\S+)$/);
-                        if (!match) return;
+                    const textBeforeCursor = val.substring(0, cursor);
+                    const match = textBeforeCursor.match(/(\S+)(\s)$/);
+                    if (!match) return;
 
-                        const lastWord = match[1];
-                        if (/[\u0900-\u097F]/.test(lastWord)) return;
+                    const lastWord = match[1];
+                    const whitespace = match[2];
 
-                        e.preventDefault();
+                    if (/[\u0900-\u097F]/.test(lastWord) || !lastWord.trim()) return;
 
-                        const translated = await fetchTransliteration(lastWord);
-                        if (translated) {
-                            const newTextBeforeCursor = textBeforeCursor.substring(0, textBeforeCursor.length - lastWord.length) + translated;
-                            const textAfterCursor = val.substring(start);
-                            el.value = newTextBeforeCursor + textAfterCursor;
-                            el.selectionStart = el.selectionEnd = newTextBeforeCursor.length;
-                        }
+                    isProcessing = true;
+                    const translated = await fetchTransliteration(lastWord);
+                    if (translated) {
+                        const prefix = textBeforeCursor.substring(0, textBeforeCursor.length - (lastWord.length + whitespace.length));
+                        const suffix = val.substring(cursor);
 
-                        const currentStart = el.selectionStart;
-                        const currentVal = el.value;
-                        const suffix = e.keyCode === 32 ? ' ' : '\n';
-                        el.value = currentVal.substring(0, currentStart) + suffix + currentVal.substring(currentStart);
-                        el.selectionStart = el.selectionEnd = currentStart + 1;
+                        el.value = prefix + translated + whitespace + suffix;
+                        const newCursor = (prefix + translated + whitespace).length;
+                        el.selectionStart = el.selectionEnd = newCursor;
 
                         el.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    isProcessing = false;
+                };
+
+                const handleInputEvent = (e) => {
+                    processTransliteration(e.target);
+                };
+
+                const handleKeyDownEvent = (e) => {
+                    if (e.keyCode === 32 || e.keyCode === 13) {
+                        setTimeout(() => processTransliteration(e.target), 10);
                     }
                 };
 
@@ -562,16 +633,22 @@
                     const container = document.createElement('div');
                     container.className = 'transliteration-toggle-container notranslate';
                     container.setAttribute('translate', 'no');
-                    container.style.cssText = 'display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 12px; font-weight: 500; color: #4b5563; user-select: none;';
+                    container.style.cssText = 'display: flex; align-items: center; gap: 6px; margin: 8px 0; font-size: 13px; font-weight: 500; color: #374151; user-select: none;';
 
                     const chk = document.createElement('input');
                     chk.type = 'checkbox';
                     chk.className = 'transliteration-chk';
-                    chk.style.cssText = 'cursor: pointer; width: 14px; height: 14px; margin: 0;';
+                    chk.style.cssText = 'cursor: pointer; width: 16px; height: 16px; margin: 0; accent-color: #4f46e5;';
 
                     const lbl = document.createElement('label');
                     lbl.textContent = 'Type in Hindi / हिंदी में लिखें';
-                    lbl.style.cssText = 'cursor: pointer; margin: 0;';
+                    lbl.style.cssText = 'cursor: pointer; margin: 0; user-select: none; color: #374151; font-size: 13px;';
+
+                    lbl.onclick = (evt) => {
+                        evt.preventDefault();
+                        chk.checked = !chk.checked;
+                        chk.dispatchEvent(new Event('change'));
+                    };
 
                     container.appendChild(chk);
                     container.appendChild(lbl);
@@ -588,7 +665,18 @@
                         }
                     });
 
-                    el.addEventListener('keydown', handleInputKey);
+                    el.addEventListener('input', handleInputEvent);
+                    el.addEventListener('keyup', handleInputEvent);
+                    el.addEventListener('keydown', handleKeyDownEvent);
+                };
+
+                const scanForRemarksFields = () => {
+                    const elements = document.querySelectorAll('textarea, input[type="text"]');
+                    elements.forEach(el => {
+                        if (isRemarksField(el)) {
+                            injectToggleSwitch(el);
+                        }
+                    });
                 };
 
                 document.addEventListener('focusin', (e) => {
@@ -598,6 +686,13 @@
                         }
                     }
                 });
+
+                const observer = new MutationObserver(() => {
+                    scanForRemarksFields();
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+
+                scanForRemarksFields();
             };
 
             if (document.readyState === 'loading') {
@@ -782,6 +877,233 @@
         });
     </script>
     {% endif %}
+
+    <script>
+        // 🌟 UNIVERSAL DOCUMENT PREVIEW ENGINE (PDF.js CANVAS VIEW FOR ALL DEVICES)
+        window.previewDocument = function (url, fileType, fileName) {
+            if (!url) return;
+
+            const name = fileName || 'Document Preview';
+            const fType = (fileType || '').toLowerCase();
+            const urlLower = url.toLowerCase();
+            
+            const isImage = fType.includes('image') || fType.includes('png') || fType.includes('jpg') || fType.includes('jpeg') || fType.includes('gif') || fType.includes('webp') || urlLower.endsWith('.png') || urlLower.endsWith('.jpg') || urlLower.endsWith('.jpeg') || urlLower.endsWith('.webp') || urlLower.startsWith('data:image/');
+            const isPdf = !isImage && (fType.includes('pdf') || urlLower.endsWith('.pdf') || urlLower.includes('.pdf'));
+            
+            const downloadFilename = fileName || (isPdf ? 'document.pdf' : 'document.jpg');
+            const isMobile = window.innerWidth < 768;
+
+            let bodyHtml = '';
+
+            if (isPdf) {
+                // 📄 PDF MODE: Render all PDF Pages on HTML5 <canvas> using PDF.js for ALL DEVICES
+                bodyHtml = `
+                    <div id="pdf-canvas-container" style="width: 100%; max-height: 65vh; overflow-y: auto; text-align: center; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-sizing: border-box;">
+                        <div id="pdf-loading-spinner" style="padding: 24px; font-weight: 600; color: #4f46e5; font-size: 14px;">
+                            ⚡ Rendering PDF Preview...
+                        </div>
+                    </div>
+                `;
+            } else {
+                // 🖼️ IMAGE MODE: Render Image Centered
+                bodyHtml = `
+                    <div style="text-align: center; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
+                        <img src="${url}" alt="${name}" style="max-width: 100%; max-height: 65vh; object-fit: contain; border-radius: 6px;" />
+                    </div>
+                `;
+            }
+
+            // 🌟 UNIFIED BUTTON FOOTER FOR ALL DEVICES: Green Download + Purple Close
+            const footerHtml = `
+                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 12px;">
+                    <a href="${url}" target="_blank" download="${downloadFilename}" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 22px; background: #10b981; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600; box-shadow: 0 2px 6px rgba(16,185,129,0.25); transition: background 0.2s ease;">
+                        <i class="ti ti-download" style="font-size: 16px;"></i> Download
+                    </a>
+                    <button type="button" id="btn-modal-close" style="padding: 10px 24px; background: #4f46e5; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(79,70,229,0.25); transition: background 0.2s ease;">
+                        Close
+                    </button>
+                </div>
+            `;
+
+            const renderPdfCanvas = () => {
+                if (isPdf && typeof pdfjsLib !== 'undefined') {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    pdfjsLib.getDocument(url).promise.then(pdf => {
+                        const container = document.getElementById('pdf-canvas-container');
+                        const spinner = document.getElementById('pdf-loading-spinner');
+                        const totalPages = pdf.numPages;
+
+                        if (!container) return;
+
+                        if (spinner) spinner.style.display = 'none';
+
+                        // If multi-page, add a sticky header indicator
+                        if (totalPages > 1) {
+                            const headerBar = document.createElement('div');
+                            headerBar.style.cssText = 'position: sticky; top: -12px; z-index: 20; background: #ffffff; padding: 10px 14px; margin: -12px -12px 14px -12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #334155; display: flex; align-items: center; justify-content: space-between; border-top-left-radius: 12px; border-top-right-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);';
+                            headerBar.innerHTML = `
+                                <span style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 16px;">📄</span> <span style="color: #4f46e5;">Multi-Page Document</span> (${totalPages} Pages)
+                                </span>
+                                <span style="font-size: 12px; font-weight: 600; color: #64748b;">Scroll to view all pages</span>
+                            `;
+                            container.appendChild(headerBar);
+                        }
+
+                        const renderPage = (pageNum) => {
+                            return pdf.getPage(pageNum).then(page => {
+                                const pageWrapper = document.createElement('div');
+                                pageWrapper.style.cssText = 'margin-bottom: 20px; text-align: center; position: relative;';
+
+                                if (totalPages > 1) {
+                                    const pageBadge = document.createElement('div');
+                                    pageBadge.style.cssText = 'display: inline-block; font-size: 11px; font-weight: 700; color: #475569; background: #e2e8f0; padding: 3px 12px; border-radius: 12px; margin-bottom: 8px; font-family: inherit;';
+                                    pageBadge.innerText = `Page ${pageNum} of ${totalPages}`;
+                                    pageWrapper.appendChild(pageBadge);
+                                }
+
+                                const canvas = document.createElement('canvas');
+                                canvas.style.cssText = 'width: 100%; max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); background: #ffffff; display: block; margin: 0 auto;';
+                                pageWrapper.appendChild(canvas);
+                                container.appendChild(pageWrapper);
+
+                                const context = canvas.getContext('2d');
+                                const containerWidth = container.clientWidth ? (container.clientWidth - 32) : 600;
+                                const unscaledViewport = page.getViewport({ scale: 1 });
+                                const scale = Math.min(2.0, (containerWidth > 0 ? containerWidth : 600) / unscaledViewport.width);
+                                const viewport = page.getViewport({ scale: scale > 0.5 ? scale : 1 });
+
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+
+                                const renderContext = {
+                                    canvasContext: context,
+                                    viewport: viewport
+                                };
+                                return page.render(renderContext).promise;
+                            });
+                        };
+
+                        // Sequentially render all pages
+                        let chain = Promise.resolve();
+                        for (let i = 1; i <= totalPages; i++) {
+                            chain = chain.then(() => renderPage(i));
+                        }
+                    }).catch(err => {
+                        console.error('PDF.js render error / Fallback:', err);
+                        const container = document.getElementById('pdf-canvas-container');
+                        if (container) {
+                            container.innerHTML = `<iframe src="${url}" style="width: 100%; height: 60vh; border: none; border-radius: 6px;"></iframe>`;
+                        }
+                    });
+                }
+            };
+
+            // 🌟 IF A SWEETALERT IS ALREADY OPEN (e.g. showSkipModal popup):
+            // Use custom high-z-index overlay so closing preview preserves the parent modal!
+            if (typeof Swal !== 'undefined' && Swal.isVisible()) {
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0';
+                overlay.style.left = '0';
+                overlay.style.width = '100vw';
+                overlay.style.height = '100vh';
+                overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.65)';
+                overlay.style.backdropFilter = 'blur(4px)';
+                overlay.style.display = 'flex';
+                overlay.style.justifyContent = 'center';
+                overlay.style.alignItems = 'center';
+                overlay.style.zIndex = '999999';
+                overlay.style.animation = 'docPreviewOverlaySmoothIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+
+                const modalBox = document.createElement('div');
+                modalBox.style.width = isMobile ? '95%' : '720px';
+                modalBox.style.maxWidth = '95vw';
+                modalBox.style.backgroundColor = '#ffffff';
+                modalBox.style.borderRadius = '16px';
+                modalBox.style.padding = '24px';
+                modalBox.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.35)';
+                modalBox.style.boxSizing = 'border-box';
+                modalBox.style.position = 'relative';
+                modalBox.style.animation = 'docPreviewModalSmoothIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+
+                const closeOverlaySmoothly = () => {
+                    overlay.style.transition = 'opacity 0.2s ease-out';
+                    modalBox.style.animation = 'docPreviewModalSmoothOut 0.2s cubic-bezier(0.4, 0, 1, 1) forwards';
+                    overlay.style.opacity = '0';
+                    setTimeout(() => {
+                        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                    }, 200);
+                };
+
+                const headerBox = document.createElement('div');
+                headerBox.style.display = 'flex';
+                headerBox.style.justifyContent = 'space-between';
+                headerBox.style.alignItems = 'center';
+                headerBox.style.marginBottom = '16px';
+
+                const titleEl = document.createElement('span');
+                titleEl.innerHTML = `<strong style="font-family:inherit; font-size: 18px; color: #0f172a;">${name}</strong>`;
+
+                const closeCross = document.createElement('button');
+                closeCross.type = 'button';
+                closeCross.innerHTML = '✕';
+                closeCross.style.background = 'none';
+                closeCross.style.border = 'none';
+                closeCross.style.fontSize = '20px';
+                closeCross.style.cursor = 'pointer';
+                closeCross.style.color = '#64748b';
+                closeCross.style.padding = '0 4px';
+                closeCross.onclick = closeOverlaySmoothly;
+
+                headerBox.appendChild(titleEl);
+                headerBox.appendChild(closeCross);
+
+                const contentBox = document.createElement('div');
+                contentBox.innerHTML = bodyHtml + footerHtml;
+
+                modalBox.appendChild(headerBox);
+                modalBox.appendChild(contentBox);
+                overlay.appendChild(modalBox);
+
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) closeOverlaySmoothly();
+                };
+
+                document.body.appendChild(overlay);
+
+                const closeBtn = modalBox.querySelector('#btn-modal-close');
+                if (closeBtn) closeBtn.onclick = closeOverlaySmoothly;
+
+                setTimeout(renderPdfCanvas, 50);
+                return;
+            }
+
+            // Standard SweetAlert modal if no prior modal is active
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:700; font-size: 18px; color: #0f172a;">${name}</span>`,
+                html: bodyHtml + footerHtml,
+                width: isMobile ? '95%' : '720px',
+                showConfirmButton: false,
+                showCloseButton: true,
+                focusConfirm: false,
+                showClass: {
+                    popup: 'doc-preview-modal-smooth',
+                    backdrop: 'doc-preview-overlay-smooth'
+                },
+                hideClass: {
+                    popup: 'doc-preview-modal-smooth-out'
+                },
+                didOpen: () => {
+                    const closeBtn = document.getElementById('btn-modal-close');
+                    if (closeBtn) closeBtn.onclick = () => Swal.close();
+                    renderPdfCanvas();
+                }
+            });
+        };
+        // Backwards compatibility alias
+        window.previewFile = window.previewDocument;
+    </script>
 
     {% block extra_js %}{% endblock %}
 </body>
