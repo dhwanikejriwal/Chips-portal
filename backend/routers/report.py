@@ -84,11 +84,19 @@ async def generate_report(
             df = df[keep_cols + matched]
             
         elif report_type == 'mbu_district_wise':
-            desired = ['MBU Pending (Age 5-15)', 'MBU Pending (Age 15 and above)']
+            desired = [
+                'MBU Pending (Age 5-15)', 
+                'MBU Pending (Age 15 and above)',
+                'Status Check to be done',
+                'MBU Not Required',
+                'Total Student'
+            ]
             matched = []
             for d in desired:
                 for c in df.columns:
-                    if str(c).strip().lower() == d.lower():
+                    c_clean = str(c).strip().lower()
+                    d_clean = d.lower()
+                    if c_clean == d_clean or (d_clean == 'total student' and c_clean == 'total students'):
                         matched.append(c)
                         break
             if len(matched) < len(desired):
@@ -274,6 +282,168 @@ def calculate_pending_days(start_date):
 def get_status_name(status_id, statuses_dict):
     return statuses_dict.get(status_id, "Pending")
 
+@router.get("/system/district_wise_kit_count/details/{district_name}")
+def preview_district_station_details(district_name: str, db: Session = Depends(get_db)):
+    try:
+        from backend.models.kit_registration import KitRegistration
+        from backend.models.operator import Operator
+        from backend.models.operator_station_mapping import OperatorStationMapping
+        from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
+        from backend.models.master_status import MasterStatus
+        
+        statuses = {s.id: s.name for s in db.query(MasterStatus).all()}
+        
+        d_kits = db.query(KitRegistration).filter(KitRegistration.district.ilike(district_name)).all()
+        mappings = db.query(OperatorStationMapping).all()
+        operators = db.query(Operator).all()
+        onboardings = db.query(OperatorOnboardingDetail).all()
+        
+        mapping_dict = {m.station_id: m for m in mappings}
+        op_dict = {o.id: o for o in operators}
+        onb_dict = {o.station_id: o for o in onboardings}
+        
+        station_data = []
+        analytics = {
+            "pending_l1": 0,
+            "pending_l2": 0,
+            "pending_sd": 0,
+            "inactive_op": 0,
+            "inactive_st": 0
+        }
+        
+        for i, k in enumerate(d_kits, 1):
+            mapping = mapping_dict.get(k.station_id)
+            op = op_dict.get(mapping.operator_id) if mapping and mapping.operator_id else None
+            onb = onb_dict.get(k.station_id)
+            
+            l1_status = get_status_name(k.l1_status_id, statuses)
+            l2_status = get_status_name(k.l2_status_id, statuses)
+            
+            op_name = op.name if op else ""
+            sd_status = op.security_deposit_status if op else ""
+            op_status = op.status if op else ""
+            st_status = k.station_status or ""
+            onb_status = onb.onboarding_status if onb else ""
+            
+            # Analytics Counting
+            if l1_status.lower() not in ['done', 'yes', 'approved']: analytics["pending_l1"] += 1
+            if l2_status.lower() not in ['done', 'yes', 'approved']: analytics["pending_l2"] += 1
+            if not sd_status or sd_status.lower() not in ['yes', 'camp']: analytics["pending_sd"] += 1
+            if not op_status or op_status.lower() != 'active': analytics["inactive_op"] += 1
+            if not st_status or st_status.lower() != 'active': analytics["inactive_st"] += 1
+            
+            def fmt_st(st):
+                return st.replace('_', ' ').title() if st else ""
+
+            station_data.append({
+                "S.No": i,
+                "Station ID": k.station_id or "Not Allotted",
+                "Operator Name": op_name,
+                "L1 Status": fmt_st(l1_status),
+                "L2 Status": fmt_st(l2_status),
+                "Security Deposit": fmt_st(sd_status),
+                "Station Status": fmt_st(st_status),
+                "Operator Status": fmt_st(op_status),
+                "Onboarding Status": fmt_st(onb_status)
+            })
+            
+        import pandas as pd
+        if not station_data:
+            df = pd.DataFrame(columns=["S.No", "Station ID", "Operator Name", "L1 Status", "L2 Status", "Security Deposit", "Station Status", "Operator Status", "Onboarding Status"])
+        else:
+            df = pd.DataFrame(station_data)
+            
+        html_table = generate_clean_multiindex_html(df)
+        return {"html": html_table, "count": len(d_kits), "analytics": analytics}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch district details: {str(e)}")
+
+@router.get("/system/lms_summary/details/{district_name}")
+def preview_lms_district_details(district_name: str, db: Session = Depends(get_db)):
+    try:
+        from backend.models.lms import LMS
+        from backend.models.candidate import Candidate
+        
+        lms_reqs = db.query(LMS).join(Candidate).filter(Candidate.district == district_name).all()
+        
+        station_data = []
+        analytics = {
+            "total": len(lms_reqs),
+            "approved": 0,
+            "pending": 0,
+            "rejected": 0
+        }
+        
+        for i, r in enumerate(lms_reqs, 1):
+            st = (r.status or "").upper()
+            if st == "APPROVED": analytics["approved"] += 1
+            elif st == "PENDING": analytics["pending"] += 1
+            elif st == "REJECTED": analytics["rejected"] += 1
+            
+            st_display = (r.status or "Pending").replace('_', ' ').title()
+            
+            station_data.append({
+                "S.No": i,
+                "Candidate ID": r.candidate.request_code if r.candidate else "",
+                "Candidate Name": r.candidate.name if r.candidate else "",
+                "Status": st_display,
+                "Submitted At": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else ""
+            })
+            
+        import pandas as pd
+        if not station_data:
+            df = pd.DataFrame(columns=["S.No", "Candidate ID", "Candidate Name", "Status", "Submitted At"])
+        else:
+            df = pd.DataFrame(station_data)
+            
+        html_table = generate_clean_multiindex_html(df)
+        return {"html": html_table, "analytics": analytics}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch LMS details: {str(e)}")
+
+@router.get("/system/nseit_summary/details/{district_name}")
+def preview_nseit_district_details(district_name: str, db: Session = Depends(get_db)):
+    try:
+        from backend.models.nseit import NSEITRequest
+        from backend.models.candidate import Candidate
+        
+        nseit_reqs = db.query(NSEITRequest).join(Candidate).filter(Candidate.district == district_name).all()
+        
+        station_data = []
+        analytics = {
+            "total": len(nseit_reqs),
+            "approved": 0,
+            "pending": 0,
+            "rejected": 0
+        }
+        
+        for i, r in enumerate(nseit_reqs, 1):
+            st = (r.status or "").upper()
+            if st == "APPROVED": analytics["approved"] += 1
+            elif st == "PENDING": analytics["pending"] += 1
+            elif st == "REJECTED": analytics["rejected"] += 1
+            
+            st_display = (r.status or "Pending").replace('_', ' ').title()
+            
+            station_data.append({
+                "S.No": i,
+                "Candidate ID": r.candidate.request_code if r.candidate else "",
+                "Candidate Name": r.candidate.name if r.candidate else "",
+                "Status": st_display,
+                "Submitted At": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else ""
+            })
+            
+        import pandas as pd
+        if not station_data:
+            df = pd.DataFrame(columns=["S.No", "Candidate ID", "Candidate Name", "Status", "Submitted At"])
+        else:
+            df = pd.DataFrame(station_data)
+            
+        html_table = generate_clean_multiindex_html(df)
+        return {"html": html_table, "analytics": analytics}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch NSEIT details: {str(e)}")
+
 def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
     from backend.models.district import District
     from backend.models.candidate import Candidate
@@ -289,27 +459,39 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
     from backend.models.master_status import MasterStatus
     from datetime import date, datetime
     
-    if report_name == "candidate_summary":
+    if report_name == "lms_summary":
         districts = db.query(District).all()
         data = []
         for d in districts:
             lms_reqs = db.query(LMS).join(Candidate).filter(Candidate.district == d.district_code).all()
-            nseit_reqs = db.query(NSEITRequest).join(Candidate).filter(Candidate.district == d.district_code).all()
-            
             data.append({
                 "District Code": d.district_code,
                 "District Name": d.district_name,
                 "Total LMS Requests": len(lms_reqs),
-                "Approved LMS": len([r for r in lms_reqs if r.status == "Approved"]),
-                "Pending LMS": len([r for r in lms_reqs if r.status == "Pending"]),
-                "Rejected LMS": len([r for r in lms_reqs if r.status == "Rejected"]),
-                "Total NSEIT Requests": len(nseit_reqs),
-                "Approved NSEIT": len([r for r in nseit_reqs if r.status == "Approved"]),
-                "Pending NSEIT": len([r for r in nseit_reqs if r.status == "Pending"]),
-                "Rejected NSEIT": len([r for r in nseit_reqs if r.status == "Rejected"]),
+                "Approved LMS": sum(1 for r in lms_reqs if r.status and r.status.upper() == "APPROVED"),
+                "Pending LMS": sum(1 for r in lms_reqs if r.status and r.status.upper() == "PENDING"),
+                "Rejected LMS": sum(1 for r in lms_reqs if r.status and r.status.upper() == "REJECTED")
             })
         if not data:
-            columns = ["District Code", "District Name", "Total LMS Requests", "Approved LMS", "Pending LMS", "Rejected LMS", "Total NSEIT Requests", "Approved NSEIT", "Pending NSEIT", "Rejected NSEIT"]
+            columns = ["District Code", "District Name", "Total LMS Requests", "Approved LMS", "Pending LMS", "Rejected LMS"]
+            return pd.DataFrame(columns=columns)
+        return pd.DataFrame(data)
+
+    elif report_name == "nseit_summary":
+        districts = db.query(District).all()
+        data = []
+        for d in districts:
+            nseit_reqs = db.query(NSEITRequest).join(Candidate).filter(Candidate.district == d.district_code).all()
+            data.append({
+                "District Code": d.district_code,
+                "District Name": d.district_name,
+                "Total NSEIT Requests": len(nseit_reqs),
+                "Approved NSEIT": sum(1 for r in nseit_reqs if r.status and r.status.upper() == "APPROVED"),
+                "Pending NSEIT": sum(1 for r in nseit_reqs if r.status and r.status.upper() == "PENDING"),
+                "Rejected NSEIT": sum(1 for r in nseit_reqs if r.status and r.status.upper() == "REJECTED")
+            })
+        if not data:
+            columns = ["District Code", "District Name", "Total NSEIT Requests", "Approved NSEIT", "Pending NSEIT", "Rejected NSEIT"]
             return pd.DataFrame(columns=columns)
         return pd.DataFrame(data)
         
@@ -769,25 +951,51 @@ def generate_clean_multiindex_html(df, table_class='preview-table'):
   {tbody_html}
 </table>'''
 
+DIVISIONS = {
+    "bilaspur": ["bilaspur", "gaurella-pendra-marwahi", "gaurela-pendra-marwahi", "janjgir-champa", "janjgir", "korba", "mungeli", "raigarh", "sakti", "sarangarh-bilaigarh", "sarangarh"],
+    "raipur": ["baloda bazar-bhatapara", "balodabazar", "baloda bazar", "dhamtari", "gariaband", "gariyaband", "mahasamund", "raipur"],
+    "durg": ["balod", "bemetara", "durg", "kabirdham (kawardha)", "kabirdham", "kawardha", "khairagarh-chhuikhadan-gandai", "khairagarh", "mohla-manpur-ambagarh chowki", "mohla", "rajnandgaon"],
+    "bastar": ["bastar", "bijapur", "dakshin bastar (dantewada)", "dantewada", "uttar bastar (kanker)", "kanker", "kondagaon", "narayanpur", "sukma"],
+    "surguja": ["balrampur-ramanujganj", "balrampur", "jashpur", "koriya", "manendragarh-chirmiri-bharatpur", "manendragarh", "surajpur", "surguja"]
+}
+
+def apply_system_filters(df, lwe: bool, division: Optional[str], district: Optional[str]):
+    dist_col = _get_df_col(df, "District") or _get_df_col(df, "District Name")
+    if district and dist_col:
+        df = df[df[dist_col].astype(str).str.strip().str.lower() == str(district).strip().lower()]
+        
+    if division and dist_col:
+        div_key = division.lower()
+        if div_key in DIVISIONS:
+            allowed = DIVISIONS[div_key]
+            def match_div(d_name):
+                d_name_lower = str(d_name).strip().lower()
+                for a in allowed:
+                    if a in d_name_lower or d_name_lower in a:
+                        return True
+                return False
+            df = df[df[dist_col].apply(match_div)]
+
+    lwe_col = _get_df_col(df, "Is LWE District")
+    if lwe and lwe_col:
+        df = df[df[lwe_col] == "Yes"]
+        
+    if district or division or lwe:
+        df = df.reset_index(drop=True)
+        sno_col = _get_df_col(df, "SR No.") or _get_df_col(df, "S.No")
+        if sno_col:
+            df[sno_col] = range(1, len(df) + 1)
+            
+    if lwe_col:
+        df = df.drop(columns=[lwe_col])
+        
+    return df
+
 @router.get("/system/{report_name}/preview")
-def preview_system_report(report_name: str, lwe: bool = False, district: Optional[str] = None, db: Session = Depends(get_db)):
+def preview_system_report(report_name: str, lwe: bool = False, division: Optional[str] = None, district: Optional[str] = None, db: Session = Depends(get_db)):
     try:
         df = get_system_report_dataframe(report_name, db)
-        dist_col = _get_df_col(df, "District") or _get_df_col(df, "District Name")
-        if district and dist_col:
-            df = df[df[dist_col].astype(str).str.strip().str.lower() == str(district).strip().lower()]
-
-        lwe_col = _get_df_col(df, "Is LWE District")
-        if lwe and lwe_col:
-            df = df[df[lwe_col] == "Yes"]
-            df = df.reset_index(drop=True)
-            sno_col = _get_df_col(df, "SR No.") or _get_df_col(df, "S.No")
-            if sno_col:
-                df[sno_col] = range(1, len(df) + 1)
-                
-        if lwe_col:
-            df = df.drop(columns=[lwe_col])
-            
+        df = apply_system_filters(df, lwe, division, district)
         df = df.fillna("")
         df_preview = df.iloc[::-1].head(200)
         html_table = generate_clean_multiindex_html(df_preview)
@@ -796,24 +1004,10 @@ def preview_system_report(report_name: str, lwe: bool = False, district: Optiona
         raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
 
 @router.get("/system/{report_name}/download")
-def download_system_report(report_name: str, lwe: bool = False, district: Optional[str] = None, db: Session = Depends(get_db)):
+def download_system_report(report_name: str, lwe: bool = False, division: Optional[str] = None, district: Optional[str] = None, db: Session = Depends(get_db)):
     try:
         df = get_system_report_dataframe(report_name, db)
-        dist_col = _get_df_col(df, "District") or _get_df_col(df, "District Name")
-        if district and dist_col:
-            df = df[df[dist_col].astype(str).str.strip().str.lower() == str(district).strip().lower()]
-
-        lwe_col = _get_df_col(df, "Is LWE District")
-        if lwe and lwe_col:
-            df = df[df[lwe_col] == "Yes"]
-            df = df.reset_index(drop=True)
-            sno_col = _get_df_col(df, "SR No.") or _get_df_col(df, "S.No")
-            if sno_col:
-                df[sno_col] = range(1, len(df) + 1)
-                
-        if lwe_col:
-            df = df.drop(columns=[lwe_col])
-            
+        df = apply_system_filters(df, lwe, division, district)
         df = df.fillna("")
         
         output = io.BytesIO()

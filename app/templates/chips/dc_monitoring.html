@@ -10,6 +10,13 @@
 {% endblock %}
 
 {% block content %}
+{% macro format_holding(hours) %}
+  {% if hours >= 24 %}
+    {{ "%.1f"|format(hours / 24) }} Days
+  {% else %}
+    {{ "%.1f"|format(hours) }} Hrs
+  {% endif %}
+{% endmacro %}
 <div class="monitoring-container">
     <!-- Premium KPI Banner -->
     <div class="premium-kpi-banner">
@@ -108,6 +115,11 @@
                 <div class="kpi-value" id="kpi-fastest-perf">-</div>
                 <div class="kpi-sub">Overall best time</div>
             </div>
+            <div class="kpi-card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+                <div class="kpi-title" style="color: rgba(255,255,255,0.9);">MBU Completion</div>
+                <div class="kpi-value" id="kpi-mbu-completion" style="color: white;">0%</div>
+                <div class="kpi-sub" style="color: rgba(255,255,255,0.8);">Mandatory Biometric Update</div>
+            </div>
         </div>
 
         <!-- Chart for Performance -->
@@ -164,13 +176,13 @@
                             <td><strong>{{ d.district_name }}</strong></td>
                             <td style="text-align: right;"><span
                                     class="badge {% if d.cand_holding_hours > 48 %}badge-rejected{% elif d.cand_holding_hours > 24 %}badge-pending{% else %}badge-approved{% endif %}">{{
-                                    d.cand_holding_hours }}</span></td>
+                                    format_holding(d.cand_holding_hours) }}</span></td>
                             <td style="text-align: right;"><span
                                     class="badge {% if d.lms_holding_hours > 48 %}badge-rejected{% elif d.lms_holding_hours > 24 %}badge-pending{% else %}badge-approved{% endif %}">{{
-                                    d.lms_holding_hours }}</span></td>
+                                    format_holding(d.lms_holding_hours) }}</span></td>
                             <td style="text-align: right;"><span
                                     class="badge {% if d.nseit_holding_hours > 48 %}badge-rejected{% elif d.nseit_holding_hours > 24 %}badge-pending{% else %}badge-approved{% endif %}">{{
-                                    d.nseit_holding_hours }}</span></td>
+                                    format_holding(d.nseit_holding_hours) }}</span></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -391,8 +403,8 @@
             <div class="section-header"
                 style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                 <div>
-                    <h2 class="section-title" style="margin-bottom: 0;">DC Performance Scorecard</h2>
-                    <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Ranking of District Coordinators based
+                    <h2 class="section-title" style="margin-bottom: 0;">District Performance Scorecard</h2>
+                    <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Ranking of Districts based
                         on revert rates and holding times.</p>
                 </div>
                 <div class="search-box" style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -416,8 +428,8 @@
                     <thead>
                         <tr>
                             <th>Rank</th>
-                            <th>District Coordinator</th>
                             <th>District</th>
+                            <th>DC</th>
                             <th>Overall Health</th>
                             <th style="text-align: right;">Avg Holding (Hrs)</th>
                             <th style="text-align: right;">Global Revert Rate</th>
@@ -502,6 +514,16 @@
         activePane.style.display = 'block';
     }
 
+    function formatHoldingTime(totalHours) {
+        if (!totalHours) return '0.0 Hrs';
+        const numHours = Number(totalHours);
+        if (numHours >= 24) {
+            return (numHours / 24).toFixed(1) + ' Days';
+        } else {
+            return numHours.toFixed(1) + ' Hrs';
+        }
+    }
+
     function calculateMetrics(filteredData) {
         if (filteredData.length === 0) return;
 
@@ -510,9 +532,9 @@
         const avgLms = filteredData.reduce((sum, d) => sum + d.lms_holding_hours, 0) / (filteredData.length || 1);
         const avgNseit = filteredData.reduce((sum, d) => sum + d.nseit_holding_hours, 0) / (filteredData.length || 1);
 
-        document.getElementById('kpi-avg-cand').textContent = avgCand.toFixed(1) + ' Hrs';
-        document.getElementById('kpi-avg-lms').textContent = avgLms.toFixed(1) + ' Hrs';
-        document.getElementById('kpi-avg-nseit').textContent = avgNseit.toFixed(1) + ' Hrs';
+        document.getElementById('kpi-avg-cand').textContent = formatHoldingTime(avgCand);
+        document.getElementById('kpi-avg-lms').textContent = formatHoldingTime(avgLms);
+        document.getElementById('kpi-avg-nseit').textContent = formatHoldingTime(avgNseit);
 
         let fastestDist = '-';
         let lowestHolding = Infinity;
@@ -533,6 +555,23 @@
                 fastestCard.style.display = 'flex';
             }
         }
+
+        // -- MBU Completion --
+        let mbuStatusCheckSum = 0;
+        let mbuNotRequiredSum = 0;
+        let mbuTotalStudentSum = 0;
+        
+        filteredData.forEach(d => {
+            if (d.mbu_status_check) mbuStatusCheckSum += d.mbu_status_check;
+            if (d.mbu_not_required) mbuNotRequiredSum += d.mbu_not_required;
+            if (d.mbu_total_student) mbuTotalStudentSum += d.mbu_total_student;
+        });
+        
+        let mbuPct = 0;
+        if (mbuTotalStudentSum > 0) {
+            mbuPct = ((mbuStatusCheckSum + mbuNotRequiredSum) / mbuTotalStudentSum) * 100;
+        }
+        document.getElementById('kpi-mbu-completion').textContent = mbuPct.toFixed(1) + '%';
 
         // -- TAB 2: ANALYSIS --
         const totalRevertReqs = filteredData.reduce((sum, d) => sum + d.op_act_total + d.st_id_total + d.l1_total + d.l2_total + d.react_total, 0);
@@ -870,7 +909,8 @@
             const reverts = d.op_act_total + d.st_id_total + d.l1_total + d.l2_total + d.react_total;
             const reverted = (d.op_act_total * d.op_act_revert_pct / 100) + (d.st_id_total * d.st_id_revert_pct / 100) + (d.l1_total * d.l1_revert_pct / 100) + (d.l2_total * d.l2_revert_pct / 100) + (d.react_total * d.react_revert_pct / 100);
             const revertPct = reverts > 0 ? (reverted / reverts * 100).toFixed(1) : '0.0';
-            const avgHolding = ((d.cand_holding_hours + d.lms_holding_hours + d.nseit_holding_hours) / 3).toFixed(1);
+            const avgHoldingRaw = (d.cand_holding_hours + d.lms_holding_hours + d.nseit_holding_hours) / 3;
+            const avgHolding = formatHoldingTime(avgHoldingRaw);
 
             let badgeHtml = '';
             if (d.health_status === 'Excellent') {
@@ -883,8 +923,8 @@
 
             const tr = `<tr>
                 <td><strong>#${idx + 1}</strong></td>
-                <td><strong>${d.dc_name}</strong></td>
-                <td>${d.district_name}</td>
+                <td><strong>${d.district_name}</strong></td>
+                <td>${d.dc_name}</td>
                 <td>${badgeHtml}</td>
                 <td style="text-align: right; font-weight: 600; color: #1e293b;">${avgHolding}</td>
                 <td style="text-align: right; font-weight: 600; color: #1e293b;">${revertPct}%</td>

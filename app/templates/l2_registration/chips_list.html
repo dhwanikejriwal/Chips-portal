@@ -71,6 +71,13 @@
         border-color: #dc2626;
     }
 
+    .delayed-row {
+        background-color: #fee2e2 !important;
+    }
+    .delayed-row:hover {
+        background-color: #fecaca !important;
+    }
+
     .btn-issue {
         display: inline-flex;
         align-items: center;
@@ -1143,6 +1150,23 @@
             });
         }
     }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const now = new Date();
+        document.querySelectorAll('#pending-tbody tr').forEach(row => {
+            const createdAttr = row.getAttribute('data-created');
+            if (createdAttr && createdAttr !== 'None') {
+                const createdDate = new Date(createdAttr.replace(' ', 'T'));
+                if (!isNaN(createdDate)) {
+                    const diffTime = Math.abs(now - createdDate);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        row.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
+    });
 </script>
 
 {% endblock %}

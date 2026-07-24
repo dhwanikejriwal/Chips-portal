@@ -4,6 +4,14 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    .delayed-row {
+        background-color: #fee2e2 !important;
+    }
+    .delayed-row:hover {
+        background-color: #fecaca !important;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -1026,6 +1034,23 @@
             window.location.href = `/auth/dc/l2-registration/new?station_id=${encodeURIComponent(stationId)}`;
         });
     }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const now = new Date();
+        document.querySelectorAll('#pending-tbody tr').forEach(row => {
+            const createdAttr = row.getAttribute('data-created');
+            if (createdAttr && createdAttr !== 'None') {
+                const createdDate = new Date(createdAttr.replace(' ', 'T'));
+                if (!isNaN(createdDate)) {
+                    const diffTime = Math.abs(now - createdDate);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        row.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
+    });
 
 </script>
 {% endblock %}
