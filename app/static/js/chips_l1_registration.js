@@ -259,6 +259,21 @@ window.showL1Details = function (data, activeView) {
                 ${infoCell('Ultra Viewer ID', data.uv_id)}
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01); display: flex; flex-direction: column; gap: 3px;">
                     <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Ultra Viewer Password</div>
+                ${infoCell('Laptop Serial Number', data.laptop_serial_no)}
+                ${infoCell('Laptop Brand', data.laptop_brand)}
+            </div>
+
+            ${sectionHead('Operator Details')}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                ${infoCell('Operator Name', data.operator_name)}
+                ${infoCell('Operator ID', data.operator_id)}
+            </div>
+
+            ${sectionHead('Ultra Viewer Credentials')}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                ${infoCell('Ultra Viewer ID', data.uv_id)}
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Ultra Viewer Password</div>
                     <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
                         <input type="password" id="chips_uv_password_display" value="${escapeHtml(data.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: #495057; width: 100%; outline: none;" />
                         <button type="button" onclick="togglePasswordVisibility('chips_uv_password_display', this)" style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #64748b;">

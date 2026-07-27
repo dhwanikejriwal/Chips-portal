@@ -21,7 +21,7 @@ def get_valid_token():
 def dc_list():
     jwt_token = get_valid_token()
     if not jwt_token:
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
     
     dc_id = session.get("user_id")
     headers = {"Authorization": f"Bearer {jwt_token}"}
@@ -42,6 +42,10 @@ def dc_list():
     except requests.exceptions.ConnectionError:
         awaiting_l2 = []
 
+       # 1. Sort requests newest first (from dhwani)
+    requests_list.sort(key=lambda x: x.get("updated_at") or x.get("completed_at") or x.get("reviewed_at") or x.get("submitted_at") or "", reverse=True)
+
+    # 2. Compute status metrics (from HEAD)
     all_time_metrics = {
         "pending": 0,
         "awaiting_l2": len(awaiting_l2),
@@ -65,14 +69,20 @@ def dc_list():
 
     total_requests = len(requests_list)
 
-    return render_template("l2_registration/dc_list.html", requests=requests_list, awaiting_l2=awaiting_l2, metrics=all_time_metrics, total_requests=total_requests)
+    return render_template(
+        "l2_registration/dc_list.html",
+        requests=requests_list,
+        awaiting_l2=awaiting_l2,
+        metrics=all_time_metrics,
+        total_requests=total_requests
+    )
 
 
 @l2_registration_bp.route("/dc/l2-registration/new", methods=["GET", "POST"])
 def dc_new():
     jwt_token = get_valid_token()
     if not jwt_token:
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
     
     if request.method == "POST":
         # Ensure disabled template dropdown forms fallback safely to active session dictionary values
@@ -190,7 +200,7 @@ def dc_reapply(request_id):
 def chips_list():
     jwt_token = get_valid_token()
     if not jwt_token:
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
         
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
@@ -241,7 +251,7 @@ def chips_detail_json(request_id):
 def chips_send_to_uidai(request_id):
     jwt_token = get_valid_token()
     if not jwt_token:
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
         
     headers = {"Authorization": f"Bearer {jwt_token}"}
     form_data = {
@@ -256,7 +266,7 @@ def chips_send_to_uidai(request_id):
 def chips_uidai_approve(request_id):
     jwt_token = get_valid_token()
     if not jwt_token:
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
         
     headers = {"Authorization": f"Bearer {jwt_token}"}
     form_data = {
@@ -271,7 +281,7 @@ def chips_uidai_approve(request_id):
 def chips_uidai_reject(request_id):
     jwt_token = get_valid_token()
     if not jwt_token:
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
         
     headers = {"Authorization": f"Bearer {jwt_token}"}
     form_data = {
@@ -286,7 +296,7 @@ def chips_uidai_reject(request_id):
 def chips_revert(request_id):
     jwt_token = get_valid_token()
     if not jwt_token:
-        return redirect(url_for("login_view"))
+        return redirect(url_for("auth.login"))
         
     headers = {"Authorization": f"Bearer {jwt_token}"}
     form_data = {

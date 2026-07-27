@@ -63,48 +63,49 @@
         {% set ns_m = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0) %}
         {% set metric_source = requests_history if requests_history is defined and requests_history else requests %}
         {% if metric_source %}
-          {% for req in metric_source %}
-            {% if req.operators and req.operators|length > 0 %}
-              {% for op in req.operators %}
-                {% set s = (op.status or req.status or 'PENDING') | string | upper | replace('_', ' ') %}
-                {% set ns_m.total = ns_m.total + 1 %}
-                {% if 'UIDAI' in s and 'REJECT' not in s %}
-                  {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
-                {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
-                  {% set ns_m.approved = ns_m.approved + 1 %}
-                {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
-                  {% set ns_m.rejected = ns_m.rejected + 1 %}
-                {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
-                  {% set ns_m.reverted = ns_m.reverted + 1 %}
-                {% elif s in ['REAPPLIED'] %}
-                  {% set ns_m.reapplied = ns_m.reapplied + 1 %}
-                {% else %}
-                  {% set ns_m.pending = ns_m.pending + 1 %}
-                {% endif %}
-              {% endfor %}
-            {% else %}
-              {% set s = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
-              {% set cnt = req.operator_count or 1 %}
-              {% set ns_m.total = ns_m.total + cnt %}
-              {% if 'UIDAI' in s and 'REJECT' not in s %}
-                {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + cnt %}
-              {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
-                {% set ns_m.approved = ns_m.approved + cnt %}
-              {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
-                {% set ns_m.rejected = ns_m.rejected + cnt %}
-              {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
-                {% set ns_m.reverted = ns_m.reverted + cnt %}
-              {% elif s in ['REAPPLIED'] %}
-                {% set ns_m.reapplied = ns_m.reapplied + cnt %}
-              {% else %}
-                {% set ns_m.pending = ns_m.pending + cnt %}
-              {% endif %}
-            {% endif %}
-          {% endfor %}
+        {% for req in metric_source %}
+        {% if req.operators and req.operators|length > 0 %}
+        {% for op in req.operators %}
+        {% set s = (op.status or req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+        {% set ns_m.total = ns_m.total + 1 %}
+        {% if 'UIDAI' in s and 'REJECT' not in s %}
+        {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
+        {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+        {% set ns_m.approved = ns_m.approved + 1 %}
+        {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+        {% set ns_m.rejected = ns_m.rejected + 1 %}
+        {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+        {% set ns_m.reverted = ns_m.reverted + 1 %}
+        {% elif s in ['REAPPLIED'] %}
+        {% set ns_m.reapplied = ns_m.reapplied + 1 %}
+        {% else %}
+        {% set ns_m.pending = ns_m.pending + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% else %}
+        {% set s = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+        {% set cnt = req.operator_count or 1 %}
+        {% set ns_m.total = ns_m.total + cnt %}
+        {% if 'UIDAI' in s and 'REJECT' not in s %}
+        {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + cnt %}
+        {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+        {% set ns_m.approved = ns_m.approved + cnt %}
+        {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+        {% set ns_m.rejected = ns_m.rejected + cnt %}
+        {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+        {% set ns_m.reverted = ns_m.reverted + cnt %}
+        {% elif s in ['REAPPLIED'] %}
+        {% set ns_m.reapplied = ns_m.reapplied + cnt %}
+        {% else %}
+        {% set ns_m.pending = ns_m.pending + cnt %}
+        {% endif %}
+        {% endif %}
+        {% endfor %}
         {% endif %}
         <div class="chips-banner-metrics" style="width: 100%;">
             <div class="chips-metric-card">
-                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.pending }}</div>
+                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                    ns_m.pending }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
             </div>
             <div class="chips-metric-card">
@@ -115,7 +116,8 @@
             </div>
             <div class="chips-metric-card">
                 <div id="metric-sent-to-uidai"
-                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.sent_to_uidai }}</div>
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.sent_to_uidai
+                    }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
                 </div>
             </div>
@@ -327,8 +329,8 @@
                             </div>
                             <div class="input-group">
                                 <label>Registrar Code <span class="required-star">*</span></label>
-                                <input type="text" id="op_reg" class="form-control-input oa-readonly-input" value="986" readonly
-                                    style="cursor: not-allowed;">
+                                <input type="text" id="op_reg" class="form-control-input oa-readonly-input" value="986"
+                                    readonly style="cursor: not-allowed;">
                                 <div id="err_op_reg" class="error-msg"
                                     style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
                                 </div>
@@ -443,7 +445,9 @@
                                         <th>Certification Date</th>
                                         <th>Remarks</th>
                                         <th>Model</th>
-                                        <th style="background-color:#ef4444 !important; color:white; text-align:center;">Action</th>
+                                        <th
+                                            style="background-color:#ef4444 !important; color:white; text-align:center;">
+                                            Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="excel-log-body">
@@ -602,7 +606,8 @@
             </div>
         </form>
     </div>
-</div><div id="view-workspace-history-panel">
+</div>
+<div id="view-workspace-history-panel">
     <div class="req-tabs" role="tablist" style="margin-bottom: 15px;">
         <button type="button" class="req-tab active" data-tab="batches">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -676,7 +681,8 @@
                     <span class="rs-count" id="batches-count">–</span>
                 </div>
                 <div class="rs-head-controls">
-                    <button type="button" class="rs-export" onclick="exportReactivationHistoryToExcel()">Export to CSV</button>
+                    <button type="button" class="rs-export" onclick="exportReactivationHistoryToExcel()">Export to
+                        CSV</button>
                 </div>
             </div>
             <!-- Grouped box: batch cards sit as sub-units on a recessed body,
@@ -702,7 +708,8 @@
                     {% endfor %}
                     {% endif %}
                     {% set batch_controls %}
-                    <span class="rs-batch-dates" style="font-size: 12px; color: #64748b; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-right: 4px;">
+                    <span class="rs-batch-dates"
+                        style="font-size: 12px; color: #64748b; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-right: 4px;">
                         <span>Submitted: <strong style="color:#1e293b;">{{ req.created_at or "—" }}</strong></span>
                         <span class="rs-date-sep" style="color: #cbd5e1;">·</span>
                         <span>Updated: <strong style="color:#1e293b;">{{ req.updated_at or "—" }}</strong></span>
@@ -720,10 +727,11 @@
                     {% call request_section(
                     variant=batch_variant,
                     title='Request ID: ' ~ req.request_code,
-                    count=(req.operator_count ~ ' operators in batch' if req.operator_count is not none else '0 operators in batch'),
+                    count=(req.operator_count ~ ' operators in batch' if req.operator_count is not none else '0
+                    operators in batch'),
                     card_classes='history-data-row request-card',
                     card_data={'request-id': req.request_code|upper, 'status': batch_status, 'training-date':
-                    req.training_date, 'created': req.created_at},
+                    req.training_date, 'created': req.created_at or '', 'updated': req.updated_at or ''},
                     controls=batch_controls,
                     min_width=1040,
                     body_id='opContainer-' ~ req.request_code,
@@ -742,6 +750,8 @@
                         data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                         data-mobile="{{ op.operator_mobile }}"
                         data-email="{{ op.email_id | lower | default('', true) }}"
+                        data-created="{{ op.created_at or req.created_at or '' }}"
+                        data-updated="{{ op.updated_at or req.updated_at or '' }}"
                         data-status="{% if 'UIDAI' in op_status_upper %}SENT_TO_UIDAI{% elif op_status_upper in ['REVIEWED', 'APPROVED'] %}APPROVED{% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}REVERTED{% elif op_status_upper in ['REJECTED'] %}REJECTED{% elif op_status_upper in ['REAPPLIED'] %}REAPPLIED{% else %}PENDING{% endif %}">
                         <td>{{ loop.index }}</td>
                         <td>{{ op.operator_name }}</td>
@@ -821,7 +831,8 @@
             {% for op in activated_operators %}
             <tr class="flat-op-row" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                 data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
-                data-request-id="{{ op.request_code | upper }}" data-created="{{ op.submitted_at or op.created_at or '' }}">
+                data-request-id="{{ op.request_code | upper }}"
+                data-created="{{ op.submitted_at or op.created_at or '' }}">
                 <td>{{ loop.index }}</td>
                 <td>{{ op.operator_name }}</td>
                 <td>{{ op.operator_mobile }}</td>
@@ -939,6 +950,29 @@
             }
         }
     }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const now = new Date();
+        document.querySelectorAll('.op-row-item, .history-data-row').forEach(row => {
+            const status = (row.getAttribute('data-status') || '').toUpperCase();
+            if (['PENDING', 'REVERTED', 'REJECTED', 'REAPPLIED'].includes(status)) {
+                let dateAttr = row.getAttribute('data-updated');
+                if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                    dateAttr = row.getAttribute('data-created');
+                }
+                if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                    const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                    if (!isNaN(dateObj)) {
+                        const diffTime = Math.abs(now - dateObj);
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        if (diffDays > 7) {
+                            row.classList.add('delayed-row');
+                        }
+                    }
+                }
+            }
+        });
+    });
 </script>
 <script src="{{ url_for('static', filename='js/dc_reactivation.js') }}?v={{ range(1, 1000000000) | random }}"></script>
 {% endblock %}

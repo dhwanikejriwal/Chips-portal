@@ -198,7 +198,7 @@ def get_awaiting_l2(dc_id: int, db: Session = Depends(get_db)):
 
     # L1 states that count as "done" — kept in sync with the kit tracker.
     L1_DONE_STATES = [
-        StatusEnum.DONE.value,
+        StatusEnum.L1_DONE.value,
         StatusEnum.APPROVED.value,
         StatusEnum.REVIEWED.value,
     ]
@@ -320,7 +320,7 @@ def get_all_requests(db: Session = Depends(get_db)):
         
         # 🌟 UNIFORM SCHEMA FIX: Map strictly to district_name & clean lowercase status keys
         dist_name = r.district.district_name if r.district else "—"
-        clean_status = str(r.status or "PENDING").strip().upper()
+        clean_status = "L2_DONE" if r.status_id in [StatusEnum.L2_DONE.value, StatusEnum.APPROVED.value, 20] else str(r.status or "PENDING").strip().upper()
 
         
         result.append({
@@ -375,7 +375,7 @@ def get_request_details(request_id: int, db: Session = Depends(get_db)):
 
     # 🌟 UNIFORM SCHEMA FIX: Map strictly to district_name & clean lowercase status keys
     dist_name = r.district.district_name if r.district else "—"
-    clean_status = str(r.status or "PENDING").strip().upper()
+    clean_status = "L2_DONE" if r.status_id in [StatusEnum.L2_DONE.value, StatusEnum.APPROVED.value, 20] else str(r.status or "PENDING").strip().upper()
 
 
     return {
@@ -446,7 +446,7 @@ def uidai_approve(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
 
-    r.status_id = StatusEnum.APPROVED.value
+    r.status_id = StatusEnum.L2_DONE.value
 
     r.reviewed_by = reviewed_by
     r.reviewed_at = get_ist_time()
@@ -456,7 +456,7 @@ def uidai_approve(
     remark_text = uidai_remarks.strip() if uidai_remarks and uidai_remarks.strip() else "Request successfully approved by UIDAI."
     remark = L2RegistrationRemark(
         request_id=r.id, author_id=reviewed_by, author_role="chips_admin",
-        remark=remark_text, status_after_id=StatusEnum.APPROVED.value
+        remark=remark_text, status_after_id=StatusEnum.L2_DONE.value
 
     )
     db.add(remark)
@@ -670,7 +670,7 @@ def export_uidai_excel(ids: str = None, db: Session = Depends(get_db)):
 
 @router.get("/export-excel/credentials")
 def export_creds_excel(ids: str = None, db: Session = Depends(get_db)):
-    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status_id.in_([StatusEnum.APPROVED.value, StatusEnum.REJECTED.value, StatusEnum.REVERTED.value]))
+    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status_id.in_([StatusEnum.L2_DONE.value, StatusEnum.APPROVED.value, StatusEnum.REJECTED.value, StatusEnum.REVERTED.value]))
 
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]

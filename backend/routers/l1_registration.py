@@ -153,7 +153,7 @@ async def get_l1_requests(
             "request_code": req.request_code,
             "station_id": req.station_id,
             "model_type": req.model_type,
-            "status": to_name(req.status_id).upper().replace(" ", "_").strip() if hasattr(req, 'status_id') else "PENDING",
+            "status": "L1_DONE" if getattr(req, 'status_id', None) in [StatusEnum.L1_DONE.value, StatusEnum.APPROVED.value] else (to_name(req.status_id).upper().replace(" ", "_").strip() if hasattr(req, 'status_id') else "PENDING"),
             "created_at": str(req.created_at)[:19] if req.created_at else "",
             "reviewed_at": str(req.reviewed_at)[:19] if hasattr(req, 'reviewed_at') and req.reviewed_at else None,
             "submitted_at": str(req.created_at)[:19] if req.created_at else "",
@@ -247,7 +247,7 @@ async def get_l1_request_details(request_code: str, db: Session = Depends(get_db
         "laptop_brand": req.laptop_brand,
         "uv_id": req.uv_id,
         "uv_password": req.uv_password,
-        "status": str(req.status).upper().replace(" ", "_").strip(),
+        "status": "L1_DONE" if getattr(req, 'status_id', None) in [StatusEnum.L1_DONE.value, StatusEnum.APPROVED.value] else (to_name(req.status_id).upper().replace(" ", "_").strip() if hasattr(req, 'status_id') else "PENDING"),
         "revert_reason": latest_revert,
         "remarks": remarks_data,
         "created_at": str(req.created_at)[:19] if req.created_at else "",
@@ -267,7 +267,7 @@ async def perform_l1(
     if not req:
         raise HTTPException(status_code=404, detail="L1 registration request not found")
 
-    req.status_id = StatusEnum.DONE.value
+    req.status_id = StatusEnum.L1_DONE.value
     req.reviewed_by = current_user.id
 
 # --- FRIEND'S UPDATED CODE ---
@@ -307,7 +307,7 @@ async def approve_all_l1(
         return {"success": True, "message": "No pending requests to approve."}
         
     for req in pending_requests:
-        req.status_id = StatusEnum.DONE.value
+        req.status_id = StatusEnum.L1_DONE.value
         req.reviewed_by = current_user.id
         from backend.models.base import get_ist_now
         req.reviewed_at = get_ist_now()

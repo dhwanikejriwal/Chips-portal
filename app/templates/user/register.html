@@ -70,10 +70,12 @@
                 <div class="form-group">
                     <label class="form-label">Date of Birth *</label>
                     <div class="dob-select-container" style="display: flex; gap: 6px;">
-                        <select id="dob_day" class="form-input" style="flex: 1; padding-left: 8px; padding-right: 4px;" required>
+                        <select id="dob_day" class="form-input" style="flex: 1; padding-left: 8px; padding-right: 4px;"
+                            required>
                             <option value="" disabled selected>Day</option>
                         </select>
-                        <select id="dob_month" class="form-input" style="flex: 1.5; padding-left: 8px; padding-right: 4px;" required>
+                        <select id="dob_month" class="form-input"
+                            style="flex: 1.5; padding-left: 8px; padding-right: 4px;" required>
                             <option value="" disabled selected>Month</option>
                             <option value="01">January</option>
                             <option value="02">February</option>
@@ -88,7 +90,8 @@
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <select id="dob_year" class="form-input" style="flex: 1.2; padding-left: 8px; padding-right: 4px;" required>
+                        <select id="dob_year" class="form-input"
+                            style="flex: 1.2; padding-left: 8px; padding-right: 4px;" required>
                             <option value="" disabled selected>Year</option>
                         </select>
                     </div>
@@ -880,28 +883,28 @@
                 method: 'POST',
                 body: formData
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success && data.file_path) {
-                    let hiddenPhoto = document.querySelector('input[name="existing_photo"]');
-                    if (!hiddenPhoto) {
-                        hiddenPhoto = document.createElement('input');
-                        hiddenPhoto.type = 'hidden';
-                        hiddenPhoto.name = 'existing_photo';
-                        document.querySelector('.register-form').appendChild(hiddenPhoto);
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.file_path) {
+                        let hiddenPhoto = document.querySelector('input[name="existing_photo"]');
+                        if (!hiddenPhoto) {
+                            hiddenPhoto = document.createElement('input');
+                            hiddenPhoto.type = 'hidden';
+                            hiddenPhoto.name = 'existing_photo';
+                            document.querySelector('.register-form').appendChild(hiddenPhoto);
+                        }
+                        hiddenPhoto.value = data.file_path;
+                        if (nameDisplayDiv) {
+                            nameDisplayDiv.textContent = '✓ ' + file.name;
+                            nameDisplayDiv.style.color = '#10b981';
+                        }
+                    } else if (data.error) {
+                        const errDiv = document.getElementById('photo_error');
+                        if (errDiv) { errDiv.textContent = data.error; errDiv.style.display = 'block'; }
+                        if (nameDisplayDiv) nameDisplayDiv.style.display = 'none';
                     }
-                    hiddenPhoto.value = data.file_path;
-                    if (nameDisplayDiv) {
-                        nameDisplayDiv.textContent = '✓ ' + file.name;
-                        nameDisplayDiv.style.color = '#10b981';
-                    }
-                } else if (data.error) {
-                    const errDiv = document.getElementById('photo_error');
-                    if (errDiv) { errDiv.textContent = data.error; errDiv.style.display = 'block'; }
-                    if (nameDisplayDiv) nameDisplayDiv.style.display = 'none';
-                }
-            })
-            .catch(err => { console.error(err); });
+                })
+                .catch(err => { console.error(err); });
         } else {
             document.getElementById('photoText').textContent = 'Click to upload your profile photo';
             if (nameDisplayDiv) {
@@ -1063,10 +1066,10 @@
             const isPincodeValid = pincodeVal.length === 6 && pincodeVal.startsWith('49');
 
             const isPhotoOk = validateFileSize('photo', 'photo_error', 'Profile photo');
-            
+
             // Validate 10th marksheet size
             const isTenthSizeOk = validateFileSize('tenth_marksheet', 'tenth_marksheet_error', '10th marksheet');
-            
+
             // Check if 10th marksheet is validated successfully (if new file is uploaded)
             const tenthFile = document.getElementById('tenth_marksheet');
             const hasExistingTenth = document.querySelector('input[name="existing_tenth_marksheet"]') && document.querySelector('input[name="existing_tenth_marksheet"]').value;
@@ -1160,12 +1163,12 @@
             }
 
             // Block form submission if verification is currently in progress
-            const isOcrProcessing = 
+            const isOcrProcessing =
                 (document.getElementById('lms_ocr_status') && document.getElementById('lms_ocr_status').style.display !== 'none') ||
                 (document.getElementById('nseit_ocr_status') && document.getElementById('nseit_ocr_status').style.display !== 'none') ||
                 (document.getElementById('tenth_marksheet_status') && document.getElementById('tenth_marksheet_status').style.display !== 'none') ||
                 (document.getElementById('marksheet_status') && document.getElementById('marksheet_status').style.display !== 'none');
-            
+
             if (isOcrProcessing) {
                 Swal.fire({
                     title: 'Verification In Progress',
@@ -1411,7 +1414,7 @@
 
         if (visibleErrors.length > 0) {
             visibleErrors[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
+
             // Try to focus the associated input field
             const errorId = visibleErrors[0].id || '';
             let inputId = errorId.replace('_error', '');
@@ -1524,39 +1527,39 @@
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(async res => {
-            const data = await res.json().catch(() => null);
-            if (res.ok && data && data.success && data.redirect_url) {
-                window.location.href = data.redirect_url;
-            } else {
-                fileInputs.forEach(input => { input.disabled = false; });
-                let errorMsg = 'Failed to submit application. Please check form entries.';
-                if (data) {
-                    if (data.field_errors) {
-                        const errs = Object.values(data.field_errors);
-                        errorMsg = errs.join('<br>');
-                    } else if (data.error) {
-                        errorMsg = data.error;
+            .then(async res => {
+                const data = await res.json().catch(() => null);
+                if (res.ok && data && data.success && data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    fileInputs.forEach(input => { input.disabled = false; });
+                    let errorMsg = 'Failed to submit application. Please check form entries.';
+                    if (data) {
+                        if (data.field_errors) {
+                            const errs = Object.values(data.field_errors);
+                            errorMsg = errs.join('<br>');
+                        } else if (data.error) {
+                            errorMsg = data.error;
+                        }
                     }
+                    Swal.fire({
+                        title: 'Registration Error',
+                        html: errorMsg,
+                        icon: 'error',
+                        confirmButtonColor: '#4f46e5'
+                    });
                 }
+            })
+            .catch(err => {
+                console.error(err);
+                fileInputs.forEach(input => { input.disabled = false; });
                 Swal.fire({
-                    title: 'Registration Error',
-                    html: errorMsg,
+                    title: 'Error',
+                    text: 'An unexpected error occurred. Please check your form entries and try again.',
                     icon: 'error',
                     confirmButtonColor: '#4f46e5'
                 });
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            fileInputs.forEach(input => { input.disabled = false; });
-            Swal.fire({
-                title: 'Error',
-                text: 'An unexpected error occurred. Please check your form entries and try again.',
-                icon: 'error',
-                confirmButtonColor: '#4f46e5'
             });
-        });
     });
 </script>
 {% endblock %}

@@ -1498,6 +1498,24 @@ window.applyHistoryPanelFiltersPipeline = function () {
 
                 const matchesOpStatus = (statusValue === "ALL") || (opStatus === cleanStatusFilter);
 
+                // Highlight delayed/aged > 7 days pending, reverted, rejected, reapplied items
+                if (['PENDING', 'REVERTED', 'REJECTED', 'REAPPLIED'].includes(opStatus)) {
+                    let dateAttr = opRow.getAttribute('data-updated') || row.getAttribute('data-updated');
+                    if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                        dateAttr = opRow.getAttribute('data-created') || row.getAttribute('data-created');
+                    }
+                    if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                        const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                        if (!isNaN(dateObj)) {
+                            const diffTime = Math.abs(now - dateObj);
+                            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                            if (diffDays > 7) {
+                                opRow.classList.add('delayed-row');
+                            }
+                        }
+                    }
+                }
+
                 if (matchesSearch && matchesOpStatus) {
                     opRow.style.display = "";
                     visibleOpsCount++;
@@ -1543,10 +1561,10 @@ window.applyHistoryPanelFiltersPipeline = function () {
         const reqId = (row.getAttribute("data-request-id") || "").toLowerCase();
         const rowCreated = row.getAttribute("data-created") || "";
 
-        const matchSearch = !searchQuery || 
-            opName.includes(searchQuery) || 
-            opMobile.includes(searchQuery) || 
-            opEmail.includes(searchQuery) || 
+        const matchSearch = !searchQuery ||
+            opName.includes(searchQuery) ||
+            opMobile.includes(searchQuery) ||
+            opEmail.includes(searchQuery) ||
             reqId.includes(searchQuery);
 
         const matchStatus = (statusValue === "ALL") || (statusValue === "APPROVED");

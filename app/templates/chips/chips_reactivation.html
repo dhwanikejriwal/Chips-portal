@@ -321,46 +321,47 @@
 <div style="background-color: var(--app-bg);">
     <!-- Jinja2 Metric Calculations -->
     {% set ns_m = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0) %}
-    {% set metric_source = full_history if full_history is defined and full_history else (requests_history if requests_history is defined and requests_history else requests) %}
+    {% set metric_source = full_history if full_history is defined and full_history else (requests_history if
+    requests_history is defined and requests_history else requests) %}
     {% if metric_source %}
-      {% for req in metric_source %}
-        {% if req.operators and req.operators|length > 0 %}
-          {% for op in req.operators %}
-            {% set s = (op.status or req.status or 'PENDING') | string | upper | replace('_', ' ') %}
-            {% set ns_m.total = ns_m.total + 1 %}
-            {% if 'UIDAI' in s and 'REJECT' not in s %}
-              {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
-            {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
-              {% set ns_m.approved = ns_m.approved + 1 %}
-            {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
-              {% set ns_m.rejected = ns_m.rejected + 1 %}
-            {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
-              {% set ns_m.reverted = ns_m.reverted + 1 %}
-            {% elif s in ['REAPPLIED'] %}
-              {% set ns_m.reapplied = ns_m.reapplied + 1 %}
-            {% else %}
-              {% set ns_m.pending = ns_m.pending + 1 %}
-            {% endif %}
-          {% endfor %}
-        {% else %}
-          {% set s = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
-          {% set cnt = req.operator_count or 1 %}
-          {% set ns_m.total = ns_m.total + cnt %}
-          {% if 'UIDAI' in s and 'REJECT' not in s %}
-            {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + cnt %}
-          {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
-            {% set ns_m.approved = ns_m.approved + cnt %}
-          {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
-            {% set ns_m.rejected = ns_m.rejected + cnt %}
-          {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
-            {% set ns_m.reverted = ns_m.reverted + cnt %}
-          {% elif s in ['REAPPLIED'] %}
-            {% set ns_m.reapplied = ns_m.reapplied + cnt %}
-          {% else %}
-            {% set ns_m.pending = ns_m.pending + cnt %}
-          {% endif %}
-        {% endif %}
-      {% endfor %}
+    {% for req in metric_source %}
+    {% if req.operators and req.operators|length > 0 %}
+    {% for op in req.operators %}
+    {% set s = (op.status or req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+    {% set ns_m.total = ns_m.total + 1 %}
+    {% if 'UIDAI' in s and 'REJECT' not in s %}
+    {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
+    {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+    {% set ns_m.approved = ns_m.approved + 1 %}
+    {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+    {% set ns_m.rejected = ns_m.rejected + 1 %}
+    {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+    {% set ns_m.reverted = ns_m.reverted + 1 %}
+    {% elif s in ['REAPPLIED'] %}
+    {% set ns_m.reapplied = ns_m.reapplied + 1 %}
+    {% else %}
+    {% set ns_m.pending = ns_m.pending + 1 %}
+    {% endif %}
+    {% endfor %}
+    {% else %}
+    {% set s = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+    {% set cnt = req.operator_count or 1 %}
+    {% set ns_m.total = ns_m.total + cnt %}
+    {% if 'UIDAI' in s and 'REJECT' not in s %}
+    {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + cnt %}
+    {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+    {% set ns_m.approved = ns_m.approved + cnt %}
+    {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+    {% set ns_m.rejected = ns_m.rejected + cnt %}
+    {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+    {% set ns_m.reverted = ns_m.reverted + cnt %}
+    {% elif s in ['REAPPLIED'] %}
+    {% set ns_m.reapplied = ns_m.reapplied + cnt %}
+    {% else %}
+    {% set ns_m.pending = ns_m.pending + cnt %}
+    {% endif %}
+    {% endif %}
+    {% endfor %}
     {% endif %}
 
     <!-- Reactivation Control Panel Banner -->
@@ -388,7 +389,8 @@
         <div class="chips-banner-metrics"
             style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
             <div class="chips-metric-card">
-                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.pending }}</div>
+                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                    ns_m.pending }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending
                 </div>
             </div>
@@ -400,7 +402,8 @@
             </div>
             <div class="chips-metric-card">
                 <div id="metric-sent-to-uidai"
-                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.sent_to_uidai }}</div>
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.sent_to_uidai
+                    }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to
                     UIDAI</div>
             </div>
@@ -533,7 +536,7 @@
                 <div class="rs-group-head">
                     <span class="rs-rail" aria-hidden="true"></span>
                     <h3 class="rs-title">Pending reactivation requests</h3>
-                    <span class="rs-count" id="pending-count">–</span>
+                    <span class="rs-count" id="pending-count">{{ ns_m.pending + ns_m.reapplied }}</span>
                     <div class="rs-head-controls" style="margin-left: auto;">
                         <select id="admin-pending-status-filter" onchange="filterAdminQueues()" class="rs-filter">
                             <option value="all">All statuses</option>
@@ -558,10 +561,13 @@
                     {% endfor %}
                     {% if has_pending_op.val %}
                     {% set batch_controls %}
-                    <span class="rs-batch-dates" style="font-size: 12px; color: var(--text-secondary); display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-right: 4px;">
-                        <span>Submitted: <strong style="color:var(--text-primary);">{{ req.created_at or "—" }}</strong></span>
+                    <span class="rs-batch-dates"
+                        style="font-size: 12px; color: var(--text-secondary); display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-right: 4px;">
+                        <span>Submitted: <strong style="color:var(--text-primary);">{{ req.created_at or "—"
+                                }}</strong></span>
                         <span class="rs-date-sep" style="color: var(--border-strong);">·</span>
-                        <span>Updated: <strong style="color:var(--text-primary);">{{ req.updated_at or "—" }}</strong></span>
+                        <span>Updated: <strong style="color:var(--text-primary);">{{ req.updated_at or "—"
+                                }}</strong></span>
                     </span>
                     <button type="button" onclick="viewBatchDocuments('{{ req.request_code }}')"
                         style="background: var(--surface-input); color: var(--text-primary); border: 1px solid var(--border-strong); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">View
@@ -576,10 +582,11 @@
                     {% call request_section(
                     variant='pending',
                     title='Request ID: ' ~ req.request_code,
-                    count=(req.operators|length ~ ' operators in batch' if req.operators is defined and req.operators else '0 operators in batch'),
+                    count=(req.operators|length ~ ' operators in batch' if req.operators is defined and req.operators
+                    else '0 operators in batch'),
                     card_classes='pending-card request-card',
                     card_data={'request-id': req.request_code|upper, 'code': req.request_code|upper, 'district':
-                    req.district_name|lower, 'created': req.created_at, 'status': req.status, 'training-date':
+                    req.district_name|lower, 'created': req.created_at, 'updated': req.updated_at, 'status': req.status, 'training-date':
                     req.training_date},
                     controls=batch_controls,
                     min_width=1040,
@@ -657,7 +664,7 @@
         {% call request_section(
         variant='uidai',
         title='Sent to UIDAI queue',
-        count='–', count_id='uidai-count',
+        count=ns_m.sent_to_uidai, count_id='uidai-count',
         controls=uidai_controls,
         min_width=1050,
         columns=[
@@ -723,7 +730,7 @@
         {% call request_section(
         variant='rejected',
         title='Reverted/Rejected log',
-        count='–', count_id='reverted-count',
+        count=(ns_m.reverted + ns_m.rejected), count_id='reverted-count',
         controls=reverted_controls,
         min_width=1050,
         columns=[
@@ -786,7 +793,7 @@
         {% call request_section(
         variant='approved',
         title='Approved log',
-        count='–', count_id='approved-count',
+        count=ns_m.approved, count_id='approved-count',
         controls=approved_controls,
         min_width=1050,
         columns=[
@@ -2190,33 +2197,33 @@
 
         if (isReload && !isActionReload) {
             clearAllFilters();
-            return;
-        }
-
-        if (!isActionReload) {
-            sessionStorage.removeItem('chips_react_search');
-            sessionStorage.removeItem('chips_react_district');
-            sessionStorage.removeItem('chips_react_date');
-            sessionStorage.removeItem('chips_react_pending_status');
-            sessionStorage.removeItem('chips_react_reverted_status');
-        }
-
-        if (sessionStorage.getItem('chips_react_search') !== null) {
-            document.getElementById('admin-search-input').value = sessionStorage.getItem('chips_react_search');
-            document.getElementById('admin-district-filter').value = sessionStorage.getItem('chips_react_district');
-            document.getElementById('admin-date-filter').value = sessionStorage.getItem('chips_react_date');
-            document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('chips_react_pending_status');
-            if (document.getElementById('admin-reverted-status-filter') && sessionStorage.getItem('chips_react_reverted_status')) {
-                document.getElementById('admin-reverted-status-filter').value = sessionStorage.getItem('chips_react_reverted_status');
-            }
         } else {
-            document.getElementById('admin-search-input').value = '';
-            document.getElementById('admin-district-filter').value = 'all';
-            document.getElementById('admin-date-filter').value = 'month';
-            document.getElementById('admin-pending-status-filter').value = 'all';
-            if (document.getElementById('admin-reverted-status-filter')) {
-                document.getElementById('admin-reverted-status-filter').value = 'all';
+            if (!isActionReload) {
+                sessionStorage.removeItem('chips_react_search');
+                sessionStorage.removeItem('chips_react_district');
+                sessionStorage.removeItem('chips_react_date');
+                sessionStorage.removeItem('chips_react_pending_status');
+                sessionStorage.removeItem('chips_react_reverted_status');
             }
+
+            if (sessionStorage.getItem('chips_react_search') !== null) {
+                document.getElementById('admin-search-input').value = sessionStorage.getItem('chips_react_search');
+                document.getElementById('admin-district-filter').value = sessionStorage.getItem('chips_react_district');
+                document.getElementById('admin-date-filter').value = sessionStorage.getItem('chips_react_date');
+                document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('chips_react_pending_status');
+                if (document.getElementById('admin-reverted-status-filter') && sessionStorage.getItem('chips_react_reverted_status')) {
+                    document.getElementById('admin-reverted-status-filter').value = sessionStorage.getItem('chips_react_reverted_status');
+                }
+            } else {
+                document.getElementById('admin-search-input').value = '';
+                document.getElementById('admin-district-filter').value = 'all';
+                document.getElementById('admin-date-filter').value = 'month';
+                document.getElementById('admin-pending-status-filter').value = 'all';
+                if (document.getElementById('admin-reverted-status-filter')) {
+                    document.getElementById('admin-reverted-status-filter').value = 'all';
+                }
+            }
+            filterAdminQueues();
         }
 
         // ── URL Query Parameters Parsing ────────────────────────────────
@@ -2298,6 +2305,25 @@
                 if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 200);
         }
+
+        // ── Highlight delayed/aged > 7 days pending items ──────────────────────────
+        const now = new Date();
+        document.querySelectorAll('[data-panel="pending"] tr, [data-panel="pending"] .pending-card').forEach(item => {
+            let dateAttr = item.getAttribute('data-updated');
+            if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                dateAttr = item.getAttribute('data-created');
+            }
+            if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                if (!isNaN(dateObj)) {
+                    const diffTime = Math.abs(now - dateObj);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        item.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
     });
 </script>
 {% endblock %}

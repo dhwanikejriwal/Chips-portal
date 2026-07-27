@@ -122,10 +122,6 @@ def submit_station_id_request(
 # 🌟 UNIFORM RELATION-MAPPED DASHBOARD QUEUE ENDPOINTS
 # ───────────────────────────────────────────────────────────────────
 
-# ───────────────────────────────────────────────────────────────────
-# 🌟 UNIFORM SCHEMA-MAPPED DASHBOARD QUEUE ENDPOINTS
-# ───────────────────────────────────────────────────────────────────
-
 @router.get("/dc/{dc_id}")
 def get_dc_station_requests(dc_id: int, db: Session = Depends(get_db)):
     """All Station ID requests for the DC's district (see get_dc_requests note).

@@ -44,6 +44,14 @@
         background: #fee2e2;
         border-color: #dc2626;
     }
+
+    .delayed-row {
+        background-color: #fee2e2 !important;
+    }
+
+    .delayed-row:hover {
+        background-color: #fecaca !important;
+    }
 </style>
 {% endblock %}
 
@@ -136,7 +144,7 @@
             stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
-        <span>Approved log</span>
+        <span>L1 Done log</span>
     </button>
 </div>
 
@@ -196,86 +204,85 @@
 </div>
 {% endif %}
 
-    {% set pending_controls %}
-    <select id="pending-status" class="rs-filter" onchange="filterAllTables()">
-        <option value="all">All statuses</option>
-        <option value="pending">Pending</option>
-        <option value="reapplied">Reapplied</option>
-    </select>
-    <button class="rs-export" onclick="exportSection('pending')">Export to CSV</button>
-    {% endset %}
-    <div class="req-tabpanel active" data-panel="pending">
-        {% call request_section(
-        variant='pending',
-        title='Pending L1 registration requests',
-        count='–', count_id='pending-count',
-        controls=pending_controls,
-        columns=[
-        {'label': 'S.No', 'cls': 'rs-col-sno'},
-        {'label': 'Request ID'},
-        {'label': 'District'},
-        {'label': 'Station ID'},
-        {'label': 'Model'},
-        {'label': 'Status'},
-        {'label': 'Submitted at'},
-        {'label': 'Updated at'},
-        {'label': 'Action', 'align': 'center'}
-        ],
-        table_id='pending-table', body_id='pending-tbody',
-        empty_id='pending-empty-msg',
-        empty_message='No pending L1 registration requests in queue.') %}
-        {% set pending_count = 0 %}
-        {% for req in requests %}
-        {% if (req.status|upper) in ['PENDING', 'REAPPLIED'] %}
-        {% set pending_count = pending_count + 1 %}
-        <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}"
-            data-district="{{ req.district_name or '' }}" data-station-id="{{ req.station_id or '' }}"
-            data-model="{{ req.model_type or '' }}" data-status="{{ req.status | upper }}"
-            data-created="{{ req.created_at or '' }}">
-            <td>{{ pending_count }}</td>
-            <td><strong>{{ req.request_code }}</strong></td>
-            <td>{{ req.district_name }}</td>
-            <td>{{ req.station_id }}</td>
-            <td>{{ req.model_type }}</td>
-            <td>
-                {% if (req.status|upper) == 'REAPPLIED' %}
-                <span class="sid-badge sid-badge-reapplied">Reapplied</span>
-                {% else %}
-                <span class="sid-badge sid-badge-pending">Pending</span>
-                {% endif %}
-            </td>
-            <td>{{ req.created_at|string|truncate(16, True, '') if req.created_at else '—' }}</td>
-            <td>
-                {% if (req.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and req.updated_at and req.updated_at
-                != '—' %}
-                {{ req.updated_at|string|truncate(16, True, '') }}
-                {% else %}
-                —
-                {% endif %}
-            </td>
-            <td>
-                <div class="action-group" style="justify-content: center;">
-                    <button type="button" class="btn-approve" onclick="approveL1Request('{{ req.request_code }}')">
-                        Approve
-                    </button>
-                    <button type="button" class="btn-revert" onclick="revertL1Request('{{ req.request_code }}')">
-                        Revert
-                    </button>
-                    <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        Details
-                    </button>
-                </div>
-            </td>
-        </tr>
-        {% endif %}
-        {% endfor %}
-        {% endcall %}
-    </div><!-- /panel pending -->
+{% set pending_controls %}
+<select id="pending-status" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="pending">Pending</option>
+    <option value="reapplied">Reapplied</option>
+</select>
+<button class="rs-export" onclick="exportSection('pending')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel active" data-panel="pending">
+    {% call request_section(
+    variant='pending',
+    title='Pending L1 registration requests',
+    count='–', count_id='pending-count',
+    controls=pending_controls,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Station ID'},
+    {'label': 'Model'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='pending-table', body_id='pending-tbody',
+    empty_id='pending-empty-msg',
+    empty_message='No pending L1 registration requests in queue.') %}
+    {% set pending_count = 0 %}
+    {% for req in requests %}
+    {% if (req.status|upper) in ['PENDING', 'REAPPLIED'] %}
+    {% set pending_count = pending_count + 1 %}
+    <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}" data-district="{{ req.district_name or '' }}"
+        data-station-id="{{ req.station_id or '' }}" data-model="{{ req.model_type or '' }}"
+        data-status="{{ req.status | upper }}" data-created="{{ req.created_at or '' }}" data-updated="{{ req.updated_at or '' }}">
+        <td>{{ pending_count }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.district_name }}</td>
+        <td>{{ req.station_id }}</td>
+        <td>{{ req.model_type }}</td>
+        <td>
+            {% if (req.status|upper) == 'REAPPLIED' %}
+            <span class="sid-badge sid-badge-reapplied">Reapplied</span>
+            {% else %}
+            <span class="sid-badge sid-badge-pending">Pending</span>
+            {% endif %}
+        </td>
+        <td>{{ req.created_at|string|truncate(16, True, '') if req.created_at else '—' }}</td>
+        <td>
+            {% if (req.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and req.updated_at and req.updated_at
+            != '—' %}
+            {{ req.updated_at|string|truncate(16, True, '') }}
+            {% else %}
+            —
+            {% endif %}
+        </td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-approve" onclick="approveL1Request('{{ req.request_code }}')">
+                    Approve
+                </button>
+                <button type="button" class="btn-revert" onclick="revertL1Request('{{ req.request_code }}')">
+                    Revert
+                </button>
+                <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel pending -->
 
 {% set reverted_controls %}
 <button class="rs-export" onclick="exportSection('reverted')">Export to CSV</button>
@@ -341,7 +348,7 @@
 <div class="req-tabpanel" data-panel="approved">
     {% call request_section(
     variant='approved',
-    title='Approved log',
+    title='L1 Done log',
     count='–', count_id='approved-count',
     controls=approved_controls,
     columns=[
@@ -360,11 +367,11 @@
     empty_message='No approved L1 registration logs found.') %}
     {% set approved_count_loop = 0 %}
     {% for req in requests %}
-    {% if (req.status|upper) not in ['PENDING', 'REAPPLIED'] and (req.status|upper) in ['DONE', 'APPROVED', 'REVIEWED']
+    {% if (req.status|upper) not in ['PENDING', 'REAPPLIED'] and (req.status|upper) in ['DONE', 'L1_DONE', 'L1 DONE', 'APPROVED', 'REVIEWED']
     %}
     {% set approved_count_loop = approved_count_loop + 1 %}
     <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}" data-district="{{ req.district_name or '' }}"
-        data-station-id="{{ req.station_id or '' }}" data-model="{{ req.model_type or '' }}" data-status="DONE"
+        data-station-id="{{ req.station_id or '' }}" data-model="{{ req.model_type or '' }}" data-status="L1_DONE"
         data-created="{{ req.created_at or '' }}">
         <td>{{ approved_count_loop }}</td>
         <td><strong>{{ req.request_code }}</strong></td>
@@ -372,7 +379,7 @@
         <td>{{ req.station_id }}</td>
         <td>{{ req.model_type }}</td>
         <td>
-            <span class="sid-badge sid-badge-done">Done</span>
+            <span class="sid-badge sid-badge-done">L1 Done</span>
         </td>
         <td>{{ req.submitted_at[:16] if req.submitted_at else '—' }}</td>
         <td>{{ req.updated_at[:16] if req.updated_at else '—' }}</td>
@@ -578,7 +585,7 @@
                     metricPending++;
                 } else if (status === 'REVERTED') {
                     metricReverted++;
-                } else if (['DONE', 'APPROVED', 'REVIEWED'].includes(status)) {
+                } else if (['DONE', 'L1_DONE', 'L1 DONE', 'APPROVED', 'REVIEWED'].includes(status)) {
                     metricApproved++;
                 }
             }
@@ -636,6 +643,26 @@
             if (document.getElementById('pending-status')) document.getElementById('pending-status').value = 'all';
         }
         filterAllTables();
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const now = new Date();
+        document.querySelectorAll('#pending-tbody tr').forEach(row => {
+            let dateAttr = row.getAttribute('data-updated');
+            if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                dateAttr = row.getAttribute('data-created');
+            }
+            if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                if (!isNaN(dateObj)) {
+                    const diffTime = Math.abs(now - dateObj);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        row.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
     });
 
     window.addEventListener('load', () => {

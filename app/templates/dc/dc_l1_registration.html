@@ -4,6 +4,15 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    .delayed-row {
+        background-color: #fee2e2 !important;
+    }
+
+    .delayed-row:hover {
+        background-color: #fecaca !important;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -29,7 +38,9 @@
         </button>
     </div>
 
-    <h2 class="page-title" style="font-size: 22px; font-weight: 700; color: var(--text-primary); margin-top: 0; margin-bottom: 20px;">Submit L1
+    <h2 class="page-title"
+        style="font-size: 22px; font-weight: 700; color: var(--text-primary); margin-top: 0; margin-bottom: 20px;">
+        Submit L1
         Registration Request</h2>
 
     <form id="l1RegistrationForm" onsubmit="submitL1Registration(event);">
@@ -203,7 +214,8 @@
                 New Request
             </button>
         </div>
-        <div class="chips-banner-metrics" style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
+        <div class="chips-banner-metrics"
+            style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-pending">{{
                     pending_count }}</div>
@@ -236,7 +248,8 @@
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{
                     total_requests }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested Kits</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
+                    Requested Kits</div>
             </div>
         </div>
     </div>
@@ -276,7 +289,7 @@
                 stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            <span>Approved L1 log</span>
+            <span>L1 Done log</span>
         </button>
     </div>
 
@@ -336,7 +349,8 @@
         empty_message='No allotted Station IDs are awaiting L1 registration.',
         show_empty=(allotted_stations|length == 0)) %}
         {% for s in allotted_stations %}
-        <tr data-status="AWAITING" data-request-no="{{ s.request_no }}" data-station-id="{{ s.station_id }}" data-model="{{ s.model }}" data-created="{{ s.allotted_at }}">
+        <tr data-status="AWAITING" data-request-no="{{ s.request_no }}" data-station-id="{{ s.station_id }}"
+            data-model="{{ s.model }}" data-created="{{ s.allotted_at }}">
             <td>{{ loop.index }}</td>
             <td><strong>{{ s.station_id }}</strong></td>
             <td>{{ s.request_no }}</td>
@@ -486,7 +500,7 @@
     <div class="req-tabpanel" data-panel="approved">
         {% call request_section(
         variant='approved',
-        title='Approved L1 log',
+        title='L1 Done log',
         count='–', count_id='approved-count-badge',
         controls=approved_controls,
         columns=[
@@ -503,7 +517,7 @@
         empty_id='approved-empty-msg',
         empty_message='No approved request logs found.') %}
         {% set ns_a = namespace(count=1) %}
-        {% for req in requests if (req.status|upper) in ['DONE', 'APPROVED', 'REVIEWED'] %}
+        {% for req in requests if (req.status|upper) in ['DONE', 'L1_DONE', 'L1 DONE', 'APPROVED', 'REVIEWED'] %}
         <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}"
             data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
             <td>{{ ns_a.count }}</td>
@@ -511,7 +525,7 @@
             <td>{{ req.station_id }}</td>
             <td>{{ req.model_type }}</td>
             <td>
-                <span class="badge badge-approved">Done</span>
+                <span class="badge badge-approved">L1 Done</span>
             </td>
             <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
             <td>{{ req.updated_at|string|truncate(19, True, '') if req.updated_at else
@@ -596,5 +610,25 @@
         const sel = document.getElementById('l1-station-id-select');
         if (sel) sel.selectedIndex = 0;
     }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const now = new Date();
+        document.querySelectorAll('#pending-tbody tr, #reverted-tbody tr, [data-panel="reverted"] tr').forEach(row => {
+            let dateAttr = row.getAttribute('data-updated');
+            if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                dateAttr = row.getAttribute('data-created');
+            }
+            if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                if (!isNaN(dateObj)) {
+                    const diffTime = Math.abs(now - dateObj);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        row.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
+    });
 </script>
 {% endblock %}

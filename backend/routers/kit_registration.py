@@ -19,10 +19,10 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # ── Status buckets (mapped from the real L1 / L2 request lifecycles) ──────────
 # L1 request is "done" once APPROVED or REVIEWED; pending while PENDING/REAPPLIED.
-L1_DONE_STATES = {StatusEnum.DONE.value, StatusEnum.APPROVED.value, StatusEnum.REVIEWED.value}
+L1_DONE_STATES = {StatusEnum.L1_DONE.value, StatusEnum.APPROVED.value, StatusEnum.REVIEWED.value}
 L1_PENDING_STATES = {StatusEnum.PENDING.value, StatusEnum.REAPPLIED.value}
-# L2 request is "done" once APPROVED; pending while PENDING/REAPPLIED/SENT_TO_UIDAI.
-L2_DONE_STATES = {StatusEnum.APPROVED.value}
+# L2 request is "done" once APPROVED or L2_DONE; pending while PENDING/REAPPLIED/SENT_TO_UIDAI.
+L2_DONE_STATES = {StatusEnum.L2_DONE.value, StatusEnum.APPROVED.value}
 L2_PENDING_STATES = {
     StatusEnum.PENDING.value,
     StatusEnum.REAPPLIED.value,
@@ -79,7 +79,7 @@ def create_kit_rows_for_station_ids(
 
 def _mark_l1_done(kit: KitRegistration):
     """L1 -> Done: stamp date and auto-start L2 as Pending (trigger #3, part 1)."""
-    kit.l1_status_id = StatusEnum.DONE.value
+    kit.l1_status_id = StatusEnum.L1_DONE.value
     kit.l1_done_date = _ist_today()
     if kit.l2_status_id is None:
         kit.l2_status_id = StatusEnum.PENDING.value
@@ -87,7 +87,7 @@ def _mark_l1_done(kit: KitRegistration):
 
 def _mark_l2_done(kit: KitRegistration):
     """L2 -> Done: stamp completion date (trigger #3, part 2)."""
-    kit.l2_status_id = StatusEnum.DONE.value
+    kit.l2_status_id = StatusEnum.L2_DONE.value
     kit.l2_done_date = _ist_today()
 
 
@@ -236,8 +236,8 @@ def _serialize(k: KitRegistration, status_names: dict,
     if k.l2_status_id in L2_PENDING_STATES and k.l1_done_date:
         l2_pending_days = (today - k.l1_done_date).days
 
-    l1_name = status_names.get(k.l1_status_id) if k.l1_status_id else None
-    l2_name = status_names.get(k.l2_status_id) if k.l2_status_id else None
+    l1_name = "L1 Done" if k.l1_status_id in L1_DONE_STATES else (status_names.get(k.l1_status_id) if k.l1_status_id else None)
+    l2_name = "L2 Done" if k.l2_status_id in L2_DONE_STATES else (status_names.get(k.l2_status_id) if k.l2_status_id else None)
 
     return {
         "id": k.id,
@@ -292,7 +292,7 @@ def mark_l1_done(kit_id: int, db: Session = Depends(get_db)):
     kit = db.query(KitRegistration).filter(KitRegistration.id == kit_id).first()
     if not kit:
         raise HTTPException(status_code=404, detail="Kit registration record not found.")
-    if kit.l1_status_id == StatusEnum.DONE.value:
+    if kit.l1_status_id in [StatusEnum.L1_DONE.value, 19]:
         raise HTTPException(status_code=400, detail="L1 is already marked Done.")
     _mark_l1_done(kit)
     db.commit()
@@ -306,7 +306,7 @@ def mark_l2_done(kit_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Kit registration record not found.")
     if kit.l2_status_id is None:
         raise HTTPException(status_code=400, detail="L2 has not started yet. Complete L1 first.")
-    if kit.l2_status_id == StatusEnum.DONE.value:
+    if kit.l2_status_id in [StatusEnum.L2_DONE.value, StatusEnum.APPROVED.value]:
         raise HTTPException(status_code=400, detail="L2 is already marked Done.")
     _mark_l2_done(kit)
     db.commit()

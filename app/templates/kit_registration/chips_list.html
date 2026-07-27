@@ -83,7 +83,7 @@
     empty_message='No kit registrations yet. Rows appear here automatically once Station IDs are allotted.',
     show_empty=(requests|length == 0)) %}
             {% for r in requests %}
-            <tr data-id="{{ r.id }}">
+            <tr data-id="{{ r.id }}" class="{{ 'delayed-row' if (r.l1_pending_days and r.l1_pending_days > 7) or (r.l2_pending_days and r.l2_pending_days > 7) else '' }}">
                 <td>{{ loop.index }}</td>
                 <td><strong>{{ r.request_no }}</strong></td>
                 <td>{{ r.station_id }}</td>
@@ -91,7 +91,8 @@
                 <td>{{ r.station_id_provided_date }}</td>
                 <td>
                     {% if r.l1_status and r.l1_status != '—' %}
-                    <span class="sid-badge sid-badge-{{ r.l1_status | lower | replace(' ', '_') }}">{{ r.l1_status }}</span>
+                    {% set l1_st = 'L1 Done' if r.l1_status in ['Done', 'DONE', 'Approved', 'APPROVED'] else r.l1_status %}
+                    <span class="sid-badge sid-badge-{{ l1_st | lower | replace(' ', '_') }}">{{ l1_st }}</span>
                     {% else %}—{% endif %}
                 </td>
                 <td>{{ r.l1_done_date }}</td>
@@ -104,7 +105,8 @@
                     {% if r.l2_status == 'Not Started' %}
                     <span class="sid-badge sid-badge-not_started">Not Started</span>
                     {% else %}
-                    <span class="sid-badge sid-badge-{{ r.l2_status | lower | replace(' ', '_') }}">{{ r.l2_status }}</span>
+                    {% set l2_st = 'L2 Done' if r.l2_status in ['Done', 'DONE', 'Approved', 'APPROVED'] else r.l2_status %}
+                    <span class="sid-badge sid-badge-{{ l2_st | lower | replace(' ', '_') }}">{{ l2_st }}</span>
                     {% endif %}
                 </td>
                 <td>{{ r.l2_done_date }}</td>

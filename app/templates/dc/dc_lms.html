@@ -1332,6 +1332,25 @@ reverted_count + reverted_by_chips_count %}
         }
 
         filterAdminQueues();
+
+        // ── Highlight delayed/aged > 7 days pending items ──────────────────────────
+        const now = new Date();
+        document.querySelectorAll('[data-panel="pending"] tr, #admin-pending-body tr').forEach(row => {
+            let dateAttr = row.getAttribute('data-updated');
+            if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                dateAttr = row.getAttribute('data-created');
+            }
+            if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                if (!isNaN(dateObj)) {
+                    const diffTime = Math.abs(now - dateObj);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        row.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
     });
 </script>
 {% endblock %}

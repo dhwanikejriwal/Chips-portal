@@ -153,6 +153,38 @@ def validate_single_document():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@operator_activation_bp.route("/dc/operator-activation/validate_ocr", methods=["POST"])
+def validate_ocr_proxy():
+    jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    file_obj = request.files.get("file")
+    if not file_obj or not file_obj.filename:
+        return jsonify({"success": False, "error": "No file uploaded"}), 400
+
+    files = {"file": (file_obj.filename, file_obj.read(), file_obj.content_type)}
+    data = {
+        "doc_type": request.form.get("doc_type"),
+        "name_as_per_aadhaar": request.form.get("name_as_per_aadhaar", ""),
+        "operator_aadhaar": request.form.get("operator_aadhaar", ""),
+        "operator_pan": request.form.get("operator_pan", ""),
+        "nseit_id": request.form.get("nseit_id", "") or request.form.get("nseit_certificate_number", ""),
+    }
+
+    try:
+        response = requests.post(
+            f"{backend_url()}/validate_ocr",
+            files=files,
+            data=data,
+            headers=headers
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @operator_activation_bp.route("/dc/operator-activation", methods=["GET"])
 def dc_submit_form():
     return redirect(url_for("operator_activation.dc_requests_list"))

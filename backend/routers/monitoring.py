@@ -59,6 +59,57 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
                 total_seconds += (t_end - t_start).total_seconds()
             return total_seconds / (len(requests) * 3600)
 
+        from backend.models.user_login import UserLogin
+        from backend.models.master_user_role import MasterUserRole
+        from backend.models.user_profile import UserProfile
+        from sqlalchemy.orm import joinedload
+        
+        # Pre-fetch all DC users and their profiles to avoid N+1 queries
+        dc_users = db.query(UserLogin).join(MasterUserRole).filter(
+            MasterUserRole.role == "DC",
+            UserLogin.district_id.isnot(None),
+            UserLogin.is_active == 1
+        ).options(joinedload(UserLogin.profile)).all()
+        
+        dc_lookup = {}
+        for user in dc_users:
+            profile = user.profile
+            dc_lookup[user.district_id] = {
+                "name": profile.full_name if profile and profile.full_name else "Not Assigned",
+                "email": profile.email if profile and profile.email else user.username,
+                "phone": profile.phone if profile and profile.phone else "N/A"
+            }
+            
+        import os
+        import glob
+        import pandas as pd
+        mbu_lookup = {}
+        reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "reports")
+        
+        # Find the latest MBU report
+        mbu_files = glob.glob(os.path.join(reports_dir, "report_mbu_district_wise_*.xlsx"))
+        mbu_file = max(mbu_files, key=os.path.getctime) if mbu_files else None
+        
+        if mbu_file and os.path.exists(mbu_file):
+            try:
+                mbu_df = pd.read_excel(mbu_file, sheet_name='Combined', engine='openpyxl')
+                # Find columns using flexible names
+                status_check_col = next((c for c in mbu_df.columns if 'status check' in str(c).lower()), None)
+                not_required_col = next((c for c in mbu_df.columns if 'not required' in str(c).lower()), None)
+                total_student_col = next((c for c in mbu_df.columns if 'total student' in str(c).lower()), None)
+                dist_col = next((c for c in mbu_df.columns if 'district' in str(c).lower() and 'name' not in str(c).lower()), None) or next((c for c in mbu_df.columns if 'district' in str(c).lower()), None)
+                
+                if dist_col and status_check_col and not_required_col and total_student_col:
+                    for _, row in mbu_df.iterrows():
+                        dist_val = str(row[dist_col]).strip().lower()
+                        mbu_lookup[dist_val] = {
+                            "status_check_to_be_done": int(row.get(status_check_col, 0)),
+                            "mbu_not_required": int(row.get(not_required_col, 0)),
+                            "total_student": int(row.get(total_student_col, 0))
+                        }
+            except Exception as e:
+                print(f"Error loading MBU data: {e}")
+
         result = []
         for dist in districts:
             dist_code = dist.district_code
@@ -117,6 +168,11 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
             rejected_total = sum(1 for c in cands if c.status_id == StatusEnum.REJECTED.value)
             reverted_total = op_act_reverts + st_id_reverts + l1_reverts + l2_reverts + react_reverts
 
+            mbu_stats = mbu_lookup.get(dist.district_name.lower().strip(), {})
+            mbu_status_check = mbu_stats.get("status_check_to_be_done", 0)
+            mbu_not_required = mbu_stats.get("mbu_not_required", 0)
+            mbu_total_student = mbu_stats.get("total_student", 0)
+
             result.append({
                 "district_code": dist_code,
                 "district_name": dist.district_name,
@@ -142,13 +198,17 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
                 "pending_total": pending_total,
                 "rejected_total": rejected_total,
                 "reverted_total": reverted_total,
-                "health_status": health_status
+                "health_status": health_status,
+                "mbu_status_check": mbu_status_check,
+                "mbu_not_required": mbu_not_required,
+                "mbu_total_student": mbu_total_student
             })
             
         return result
     except Exception as e:
         import traceback
-        return {"error": str(e), "traceback": traceback.format_exc()}
+        print(f"Error in get_dc_stats: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/district-detail/{district_code}")

@@ -57,8 +57,20 @@ class CandidateRegisterRequest(BaseModel):
         return values
 
 @router.get("/districts")
-def get_districts(db: Session = Depends(get_db)):
+def get_districts(all_districts: bool = False, db: Session = Depends(get_db)):
     districts = db.query(District).order_by(District.district_name).all()
+    if all_districts:
+        return [
+            {
+                "district_code": d.district_code,
+                "district_name": d.district_name,
+                "district_short_name": d.district_short_name,
+                "registration_start_date": d.registration_start_date,
+                "registration_end_date": d.registration_end_date,
+                "is_recently_opened": False
+            }
+            for d in districts
+        ]
     now = datetime.now()
     open_districts = []
     for d in districts:

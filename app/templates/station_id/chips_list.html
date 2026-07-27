@@ -280,10 +280,14 @@
 </div>
 
 {% if aging_filter %}
-{% set pending_filtered = requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED', 'pending', 'reapplied']) | list %}
-<div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
-    <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ pending_filtered|length }} found)</span>
-    <a href="/auth/chips/station-id" style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+{% set pending_filtered = requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED', 'pending', 'reapplied']) | list
+%}
+<div
+    style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+    <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ pending_filtered|length }}
+        found)</span>
+    <a href="/auth/chips/station-id" style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter
+        &times;</a>
 </div>
 {% endif %}
 
@@ -297,7 +301,8 @@
         <option value="reapplied" data-i18n="status.reapplied">Reapplied</option>
     </select>
     <button class="rs-export" data-i18n="ui.exportCsv"
-        onclick="exportTableToExcel('admin-pending-table', 'pending_station_id_requests.csv', false, true)">Export to CSV</button>
+        onclick="exportTableToExcel('admin-pending-table', 'pending_station_id_requests.csv', false, true)">Export to
+        CSV</button>
     {% endset %}
     {% call request_section(
     variant='pending',
@@ -325,7 +330,7 @@
     <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-district="{{ r.district_name or '' }}"
         data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
         data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
-        data-status="{{ r.status }}" data-created="{{ r.submitted_at or '' }}">
+        data-status="{{ r.status }}" data-created="{{ r.submitted_at or '' }}" data-updated="{{ r.reviewed_at or r.updated_at or '' }}">
         <td>{{ ns.count }}</td>
         <td><strong>{{ r.request_no or '—' }}</strong></td>
         <td{% if r.district_name %} data-i18n-district="{{ r.district_name }}" {% endif %}>{{ r.district_name or '—' }}
@@ -338,39 +343,39 @@
                 {{ r.user_type | replace('_', ' ') | capitalize }}
                 {% endif %}
             </td>
-                <td><strong>{{ r.number_of_kits }}</strong></td>
-                <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}"
-                        data-i18n="status.{{ r.status | lower | replace(' ', '_') }}">{{ r.status | replace('_', ' ') |
-                        title }}</span></td>
-                <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
-                <td>
-                    {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and (r.updated_at or r.reviewed_at) and
-                    (r.updated_at or r.reviewed_at) != '—' %}
-                    {{ (r.updated_at or r.reviewed_at)[:16] }}
-                    {% else %}
-                    —
-                    {% endif %}
-                </td>
-                <td>
-                    <div class="action-group" style="justify-content: center;">
-                        <button class="btn-approve"
-                            onclick="showApproveModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.model }}', '{{ r.number_of_kits }}')">
-                            <span data-i18n="action.allot">Allot</span>
-                        </button>
-                        <button class="btn-revert" onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">
-                            <span data-i18n="action.revert">Revert</span>
-                        </button>
-                        <button class="btn-details"
-                            onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5">
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                            <span data-i18n="action.details">Details</span>
-                        </button>
-                    </div>
-                </td>
+            <td><strong>{{ r.number_of_kits }}</strong></td>
+            <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}"
+                    data-i18n="status.{{ r.status | lower | replace(' ', '_') }}">{{ r.status | replace('_', ' ') |
+                    title }}</span></td>
+            <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
+            <td>
+                {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and (r.updated_at or r.reviewed_at) and
+                (r.updated_at or r.reviewed_at) != '—' %}
+                {{ (r.updated_at or r.reviewed_at)[:16] }}
+                {% else %}
+                —
+                {% endif %}
+            </td>
+            <td>
+                <div class="action-group" style="justify-content: center;">
+                    <button class="btn-approve"
+                        onclick="showApproveModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.model }}', '{{ r.number_of_kits }}')">
+                        <span data-i18n="action.allot">Allot</span>
+                    </button>
+                    <button class="btn-revert" onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">
+                        <span data-i18n="action.revert">Revert</span>
+                    </button>
+                    <button class="btn-details"
+                        onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <span data-i18n="action.details">Details</span>
+                    </button>
+                </div>
+            </td>
     </tr>
     {% set ns.count = ns.count + 1 %}
     {% endfor %}
@@ -382,7 +387,8 @@
 
     {% set reverted_controls %}
     <button class="rs-export" data-i18n="ui.exportCsv"
-        onclick="exportTableToExcel('reverted-table', 'reverted_station_id_requests.xlsx', false, true)">Export to CSV</button>
+        onclick="exportTableToExcel('reverted-table', 'reverted_station_id_requests.xlsx', false, true)">Export to
+        CSV</button>
     {% endset %}
     {% call request_section(
     variant='rejected',
@@ -423,21 +429,21 @@
                 {{ r.user_type | replace('_', ' ') | capitalize }}
                 {% endif %}
             </td>
-                <td><strong>{{ r.number_of_kits }}</strong></td>
-                <td><span class="sid-badge sid-badge-reverted" data-i18n="status.reverted">Reverted</span></td>
-                <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
-                <td>{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
-                <td style="text-align: center;">
-                    <button class="btn-details"
-                        onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        <span data-i18n="action.details">Details</span>
-                    </button>
-                </td>
+            <td><strong>{{ r.number_of_kits }}</strong></td>
+            <td><span class="sid-badge sid-badge-reverted" data-i18n="status.reverted">Reverted</span></td>
+            <td>{{ r.submitted_at[:16] if r.submitted_at else '—' }}</td>
+            <td>{{ r.reviewed_at[:16] if r.reviewed_at else '—' }}</td>
+            <td style="text-align: center;">
+                <button class="btn-details"
+                    onclick="showDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <span data-i18n="action.details">Details</span>
+                </button>
+            </td>
     </tr>
     {% set ns_reverted.count = ns_reverted.count + 1 %}
     {% endfor %}
@@ -1361,7 +1367,26 @@
             });
             rows.forEach(row => tbody.appendChild(row));
         }
-        sortLogTable();
+        function highlightAgedPendingRows() {
+            const now = new Date();
+            document.querySelectorAll('#pending-tbody tr').forEach(row => {
+                let dateAttr = row.getAttribute('data-updated');
+                if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                    dateAttr = row.getAttribute('data-created');
+                }
+                if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                    const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                    if (!isNaN(dateObj)) {
+                        const diffTime = Math.abs(now - dateObj);
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        if (diffDays > 7) {
+                            row.classList.add('delayed-row');
+                        }
+                    }
+                }
+            });
+        }
+        highlightAgedPendingRows();
 
         filterAdminQueues();
     });

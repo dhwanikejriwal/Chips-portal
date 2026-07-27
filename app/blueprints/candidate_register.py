@@ -12,6 +12,14 @@ def save_upload(file_obj, upload_folder):
     """Save an uploaded file and return the web-accessible path, or None on error."""
     if not file_obj or file_obj.filename == "":
         return None
+
+    # Run on-demand cleanup of expired temp files older than 1 hour (3600 seconds)
+    try:
+        from app.utils.temp_cleaner import cleanup_temp_files
+        cleanup_temp_files(upload_folder, max_age_seconds=3600)
+    except Exception:
+        pass
+
     # Read content to check size before saving
     content = file_obj.read()
     if len(content) > MAX_FILE_SIZE:

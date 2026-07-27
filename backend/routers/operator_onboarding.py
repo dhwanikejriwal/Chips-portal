@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from backend.database import get_db
 from backend.models.user_login import UserLogin
 from backend.models.operator import Operator
-from backend.models.operator_onboarding import OperatorOnboarding
+from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
 from backend.models.l2_registration import L2RegistrationRequest
 from backend.routers.auth import get_current_user
 
@@ -40,11 +40,11 @@ def get_onboarding_options(
         req.new_station_id for req in l2_requests if req.status.upper() in ["APPROVED", "APPROVED_BY_CHIPS", "L2_DONE"]
     ]
 
-    # Find OperatorOnboarding records mapped to these stations but NOT fully onboarded
-    pending_mappings = db.query(OperatorOnboarding).join(Operator).filter(
+    # Find OperatorOnboardingDetail records mapped to these stations but NOT fully onboarded
+    pending_mappings = db.query(OperatorOnboardingDetail).join(Operator).filter(
         Operator.district_id == current_user.district_id,
-        OperatorOnboarding.station_id.in_(approved_l2_stations) if approved_l2_stations else False,
-        OperatorOnboarding.onboarding_status == "Mapped"
+        OperatorOnboardingDetail.station_id.in_(approved_l2_stations) if approved_l2_stations else False,
+        OperatorOnboardingDetail.onboarding_status == "Mapped"
     ).all()
 
     mapped_station_ids = [m.station_id for m in pending_mappings]
@@ -53,8 +53,8 @@ def get_onboarding_options(
     station_ids = list(set(approved_l2_stations + mapped_station_ids))
 
     # Find onboarding records that are already fully onboarded (Completed)
-    completed_mappings = db.query(OperatorOnboarding).filter(
-        OperatorOnboarding.onboarding_status == "Completed"
+    completed_mappings = db.query(OperatorOnboardingDetail).filter(
+        OperatorOnboardingDetail.onboarding_status == "Completed"
     ).all()
     completed_station_ids = set(c.station_id for c in completed_mappings)
 
@@ -74,10 +74,10 @@ def confirm_onboarding(
         raise HTTPException(status_code=403, detail="Only DC/EDM can onboard operators.")
 
     # Find the pending mapping
-    mapping = db.query(OperatorOnboarding).join(Operator).filter(
-        OperatorOnboarding.station_id == payload.station_id,
+    mapping = db.query(OperatorOnboardingDetail).join(Operator).filter(
+        OperatorOnboardingDetail.station_id == payload.station_id,
         Operator.district_id == current_user.district_id,
-        OperatorOnboarding.onboarding_status == "Mapped"
+        OperatorOnboardingDetail.onboarding_status == "Mapped"
     ).first()
 
     if not mapping:
@@ -97,7 +97,7 @@ def confirm_onboarding(
                 raise HTTPException(status_code=404, detail="Operator associated with this L2 request is not activated or found.")
                 
             # Create a new mapping record on the fly
-            mapping = OperatorOnboarding(
+            mapping = OperatorOnboardingDetail(
                 operator_id=operator.id,
                 station_id=payload.station_id,
                 onboarding_status="Mapped",

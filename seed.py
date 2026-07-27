@@ -16,10 +16,13 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 def clean_str(val):
-    if not val:
+    if val is None:
         return ""
-    val = val.strip().replace('"', '').replace('\n', ' ').replace('\r', ' ')
-    return " ".join(val.split())
+    val = str(val).strip().replace('"', '').replace('\n', ' ').replace('\r', ' ')
+    val = " ".join(val.split())
+    if val.endswith('.0'):
+        val = val[:-2]
+    return val
 
 def seed_database():
     print("Seeding database values...")
@@ -105,7 +108,8 @@ def seed_database():
             StatusEnum.APPROVED_LEGACY: "Approved Legacy",
             StatusEnum.ON_HOLD: "On Hold",
             StatusEnum.ALLOTTED: "Allotted",
-            StatusEnum.DONE: "Done"
+            StatusEnum.L1_DONE: "L1 Done",
+            StatusEnum.L2_DONE: "L2 Done"
         }
         for status_enum, name in status_names.items():
             existing_status = db.query(MasterStatus).filter_by(id=status_enum.value).first()

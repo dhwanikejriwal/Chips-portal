@@ -15,7 +15,13 @@ def dc_monitoring():
     try:
         response = requests.get(backend_url)
         if response.status_code == 200:
-            districts_stats = response.json()
+            data = response.json()
+            if isinstance(data, list):
+                districts_stats = data
+            else:
+                flash(f"Error loading monitoring statistics: {data.get('detail', 'Unexpected response format')}", "danger")
+        else:
+            flash(f"Backend API error (Status {response.status_code})", "danger")
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         

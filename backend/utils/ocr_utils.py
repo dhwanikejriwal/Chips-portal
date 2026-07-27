@@ -57,8 +57,20 @@ def _do_ocr(image, lang: str) -> str:
         text_binary = ""
         print(f"Binarization failed: {e}")
     
-    # Combine all 4 passes to ensure absolute maximum text extraction coverage
-    return text_normal + "\n" + text_enhanced + "\n" + text_equalized + "\n" + text_binary
+    # 5. PSM 6 Pass (Assume uniform block of text) - Great for bypassing layout analysis that skips text next to QR codes
+    try:
+        text_psm6 = run_tess(img_gray, lang, psm=6)
+    except Exception as e:
+        text_psm6 = ""
+        
+    # 6. PSM 4 Pass (Assume single column) - Also good for forcing Tesseract to read line by line
+    try:
+        text_psm4 = run_tess(img_contrast, lang, psm=4)
+    except Exception as e:
+        text_psm4 = ""
+    
+    # Combine all passes to ensure absolute maximum text extraction coverage
+    return text_normal + "\n" + text_enhanced + "\n" + text_equalized + "\n" + text_binary + "\n" + text_psm6 + "\n" + text_psm4
 
 def extract_text_from_bytes(file_bytes: bytes, content_type: str, lang: str = "eng") -> str:
     """Extracts text directly from bytes (PDF or Image)."""
@@ -88,7 +100,8 @@ def extract_text_from_bytes(file_bytes: bytes, content_type: str, lang: str = "e
                         break
             
             # Convert first page of PDF to image (use dpi=300 for better OCR)
-            images = convert_from_bytes(file_bytes, first_page=1, last_page=1, poppler_path=poppler_path, dpi=300)
+            # Added a 30-second timeout so it doesn't hang indefinitely on Windows if Poppler stalls, but allows heavy PDFs
+            images = convert_from_bytes(file_bytes, first_page=1, last_page=1, poppler_path=poppler_path, dpi=300, timeout=30)
             if images:
                 extracted_text = _do_ocr(images[0], lang=lang)
         else:
@@ -109,6 +122,9 @@ def extract_text_from_bytes(file_bytes: bytes, content_type: str, lang: str = "e
 
         return extracted_text.upper()
     except Exception as e:
+        import traceback
+        with open("ocr_debug.txt", "a", encoding="utf-8") as f:
+            f.write(f"\n--- OCR Extraction Error ---\n{traceback.format_exc()}\n")
         print(f"OCR Extraction Error: {e}")
         # Debug logger on error
         try:
@@ -159,7 +175,7 @@ def validate_aadhaar(extracted_text: str, operator_name: str, operator_aadhaar: 
         if score < 50:
             with open("ocr_debug.txt", "a", encoding="utf-8") as f:
                 f.write(f"\n--- AADHAAR OCR FAILED ---\nExpected: {operator_name}\nExtracted: {extracted_text}\nNo space: {extracted_no_space}\n")
-            return f"Validation Error: Operator name '{operator_name}' does not match the name found in the uploaded Aadhaar document."
+            return f"Validation Error: The name on the Aadhaar document does not match the Operator's name '{operator_name}'."
             
     if operator_aadhaar:
         clean_aadhaar = "".join(filter(str.isdigit, operator_aadhaar))
@@ -178,30 +194,7 @@ def validate_pan(extracted_text: str, operator_name: str, operator_pan: str = No
     keywords = ["INCOME TAX DEPARTMENT", "PERMANENT ACCOUNT NUMBER", "GOVT. OF INDIA", "SIGNATURE", "PAN"]
     if sum(1 for kw in keywords if kw in extracted_text) < 1:
         return "Validation Error: The uploaded document does not appear to be a valid PAN Card."
-        
-    if operator_name:
-        name_upper = operator_name.upper().strip()
-        score = fuzz.token_set_ratio(name_upper, extracted_text)
-        if score < 50:
-            fixed_text = re.sub(r'(?<![A-Z])[A-Z](?: [A-Z])+(?![A-Z])', lambda m: m.group(0).replace(" ", ""), extracted_text)
-            score = max(score, fuzz.token_set_ratio(name_upper, fixed_text))
-            name_no_space = name_upper.replace(" ", "")
-            score = max(score, fuzz.token_set_ratio(name_no_space, fixed_text))
-            
-            # Simple match fallback using partial_ratio on no-space text
-            extracted_no_space = extracted_text.replace(" ", "")
-            name_parts = name_upper.split()
-            simple_match = any(fuzz.partial_ratio(part, extracted_no_space) > 75 for part in name_parts if len(part) > 3)
-            
-            if simple_match or fuzz.partial_ratio(name_no_space, extracted_no_space) > 75:
-                score = max(score, 50)
-            
-        if score < 50:
-            with open("ocr_debug.txt", "a", encoding="utf-8") as f:
-                f.write(f"\n--- PAN OCR FAILED ---\nExpected: {operator_name}\nExtracted: {extracted_text}\nNo space: {extracted_no_space}\n")
-            # Bypass strict name validation for PAN cards due to OCR unreliability
-            # return f"Validation Error: Operator name '{operator_name}' does not match the name found in the uploaded PAN document."
-            
+
     if operator_pan:
         clean_pan = operator_pan.upper().strip()
         if clean_pan and clean_pan not in extracted_text.replace(" ", ""):
@@ -255,9 +248,12 @@ def get_day_in_words(day: int) -> list[str]:
 
 def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: str, qualification: str = "High School (10th)") -> None:
     """Validates if the text looks like a marksheet, and matches name and DOB."""
-    print("===== OCR EXTRACTED TEXT =====")
-    print(extracted_text)
-    print("==============================")
+    # print("===== OCR EXTRACTED TEXT =====")
+    # try:
+    #     print(extracted_text.encode('utf-8', errors='replace').decode('utf-8'))
+    # except Exception:
+    #     pass
+    # print("==============================")
     if not extracted_text:
         return
 
@@ -339,7 +335,7 @@ def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: 
         name_upper = candidate_name.upper().strip()
         score = fuzz.token_set_ratio(name_upper, extracted_text)
         if score < 65:
-            errors['name'] = f"Candidate name '{candidate_name}' does not match the name found in the uploaded Marksheet."
+            errors['name'] = f"The name on the Marksheet does not match the Candidate's name '{candidate_name}'."
 
     # Rule 3: DOB Verification
     if candidate_dob and qualification == "High School (10th)":
@@ -480,7 +476,7 @@ def validate_consent_form(extracted_text: str, operator_name: str) -> str | None
             score = max(score, fuzz.token_set_ratio(name_no_space, fixed_text))
             
         if score < 50:
-            return f"Validation Error: Operator name '{operator_name}' does not match the name found in the uploaded Consent Form."
+            return f"Validation Error: The name on the Consent Form does not match the Operator's name '{operator_name}'."
     return None
 
 def validate_passbook(extracted_text: str, operator_name: str) -> str | None:
@@ -517,13 +513,13 @@ def validate_passbook(extracted_text: str, operator_name: str) -> str | None:
         if score < 50:
             with open("ocr_debug.txt", "a", encoding="utf-8") as f:
                 f.write(f"\n--- PASSBOOK OCR FAILED ---\nExpected: {operator_name}\nExtracted: {extracted_text}\nNo space: {extracted_no_space}\n")
-            return f"Validation Error: Operator name '{operator_name}' does not match the name found in the Passbook."
+            return f"Validation Error: The name on the Passbook does not match the Operator's name '{operator_name}'."
     return None
 
 def validate_nseit_certificate(extracted_text: str, operator_name: str, cert_number: str) -> str | None:
     if not extracted_text or len(extracted_text.strip()) < 10:
         return "Validation Error: Could not read text from the NSEIT Certificate. Please upload a clear image."
-    keywords = ["NSEIT", "CERTIFICATE", "CERTIFICATION", "UIDAI", "AADHAAR"]
+    keywords = ["NSEIT", "CERTIFICATE", "CERTIFICATION","TESTING", "UIDAI", "AADHAAR"]
     matches = sum(1 for kw in keywords if kw in extracted_text)
     if matches < 2:
         return "Validation Error: The uploaded document does not appear to be a valid NSEIT Certificate."
@@ -537,7 +533,7 @@ def validate_nseit_certificate(extracted_text: str, operator_name: str, cert_num
             score = max(score, fuzz.token_set_ratio(name_no_space, fixed_text))
             
         if score < 60:
-            return f"Validation Error: Operator name '{operator_name}' does not match the name found in the NSEIT Certificate."
+            return f"Validation Error: The name on the NSEIT Certificate does not match the Operator's name '{operator_name}'."
     if cert_number:
         clean_cert = "".join(c for c in str(cert_number).upper() if c.isalnum())
         text_no_space = "".join(c for c in extracted_text.upper() if c.isalnum())

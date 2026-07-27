@@ -48,11 +48,14 @@ from backend.routers.reactivation import router as reactivation_router
 from backend.routers.l2_registration import router as l2_registration_router
 from backend.routers.operator_activation import router as operator_activation_router
 from backend.models.station_id import StationIDRequest, StationIDRemark
-from backend.models.operator_onboarding import OperatorOnboarding
+from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
 from backend.routers.station_id import router as station_id_router
 from backend.routers.operator_mapping import router as operator_mapping_router
 from backend.routers.operator_onboarding import router as operator_onboarding_router
-
+from backend.routers.notifications import router as notifications_router
+from backend.routers.dashboard import router as dashboard_router
+from backend.routers.report import router as report_router
+from backend.routers.station_id import router as station_id_router
 from backend.routers.kit_registration import router as kit_registration_router
 from backend.routers.notifications import router as notifications_router
 from backend.routers.dashboard import router as dashboard_router
@@ -72,6 +75,8 @@ app.include_router(operator_activation_router, prefix="/operator-activation")
 app.include_router(station_id_router, prefix="/station-id")
 app.include_router(operator_mapping_router, prefix="/operator-mapping")
 app.include_router(operator_onboarding_router, prefix="/operator-onboarding")
+app.include_router(dashboard_router, prefix="/dashboard")
+app.include_router(report_router, prefix="/api/reports")
 app.include_router(kit_registration_router, prefix="/kit-registration")
 app.include_router(dashboard_router, prefix="/dashboard")
 
@@ -96,6 +101,19 @@ def run_migrations():
                 conn.execute(text("ALTER TABLE candidate_table ADD COLUMN IF NOT EXISTS exam_unique_code VARCHAR(100);"))
                 conn.execute(text("ALTER TABLE candidate_login_table ADD COLUMN IF NOT EXISTS has_changed_password INTEGER DEFAULT 0;"))
                 conn.execute(text("DROP TABLE IF EXISTS operator_kit_mappings;"))
+                conn.execute(text("ALTER TABLE kit_registration_table ADD COLUMN IF NOT EXISTS block VARCHAR(100);"))
+                conn.execute(text("ALTER TABLE kit_registration_table ADD COLUMN IF NOT EXISTS category VARCHAR(100);"))
+                conn.execute(text("ALTER TABLE kit_registration_table ADD COLUMN IF NOT EXISTS locality VARCHAR(100);"))
+                conn.execute(text("ALTER TABLE kit_registration_table ADD COLUMN IF NOT EXISTS ask_address VARCHAR(255);"))
+                conn.execute(text("ALTER TABLE kit_registration_table ADD COLUMN IF NOT EXISTS station_status VARCHAR(50);"))
+                conn.execute(text("ALTER TABLE operators ADD COLUMN IF NOT EXISTS inactive_reason VARCHAR(255);"))
+                conn.execute(text("ALTER TABLE operators ADD COLUMN IF NOT EXISTS inactive_date DATE;"))
+                conn.execute(text("ALTER TABLE operators ADD COLUMN IF NOT EXISTS security_deposit_status VARCHAR(50);"))
+                conn.execute(text("ALTER TABLE operators ADD COLUMN IF NOT EXISTS security_deposit_date DATE;"))
+                conn.execute(text("ALTER TABLE kit_registration_table ALTER COLUMN machine_id TYPE VARCHAR(255);"))
+                conn.execute(text("ALTER TABLE kit_registration_table ALTER COLUMN laptop_serial_no TYPE VARCHAR(255);"))
+                conn.execute(text("ALTER TABLE kit_registration_table ALTER COLUMN laptop_name TYPE VARCHAR(255);"))
+                conn.execute(text("ALTER TABLE kit_registration_table ALTER COLUMN category TYPE VARCHAR(100);"))
 
             print("Success: Checked and added new columns if missing!")
         except Exception as e:

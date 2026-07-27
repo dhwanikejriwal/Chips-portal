@@ -7,7 +7,7 @@ from backend.database import get_db
 from backend.models.user_login import UserLogin
 from backend.models.operator import Operator
 from backend.models.station_id import StationIDRequest
-from backend.models.operator_onboarding import OperatorOnboarding
+from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
 from backend.routers.auth import get_current_user
 
 router = APIRouter(
@@ -42,7 +42,7 @@ def get_mapping_options(
             station_ids.extend(ids)
 
     # Get already mapped records
-    onboarded_records = db.query(OperatorOnboarding).all()
+    onboarded_records = db.query(OperatorOnboardingDetail).all()
     onboarded_ids = [r.operator_id for r in onboarded_records]
     mapped_station_ids = set([r.station_id for r in onboarded_records])
 
@@ -93,16 +93,16 @@ def create_mapping(
     if not operator:
         raise HTTPException(status_code=404, detail="Operator not found.")
 
-    existing_mapping = db.query(OperatorOnboarding).filter(OperatorOnboarding.operator_id == operator.id).first()
+    existing_mapping = db.query(OperatorOnboardingDetail).filter(OperatorOnboardingDetail.operator_id == operator.id).first()
     if existing_mapping:
         raise HTTPException(status_code=400, detail="Operator is already mapped to a station.")
 
-    existing_station_mapping = db.query(OperatorOnboarding).filter(OperatorOnboarding.station_id == payload.station_id).first()
+    existing_station_mapping = db.query(OperatorOnboardingDetail).filter(OperatorOnboardingDetail.station_id == payload.station_id).first()
     if existing_station_mapping:
         raise HTTPException(status_code=400, detail="This Station ID is already mapped to another operator.")
 
-    # Map the operator using OperatorOnboarding
-    new_mapping = OperatorOnboarding(
+    # Map the operator using OperatorOnboardingDetail
+    new_mapping = OperatorOnboardingDetail(
         operator_id=operator.id,
         station_id=payload.station_id,
         onboarding_status="Mapped",
@@ -124,8 +124,8 @@ def list_mappings(
     if current_user.role.role not in ["DC", "EDM"]:
         raise HTTPException(status_code=403, detail="Only DC/EDM can view mappings.")
 
-    # Fetch operators that are mapped to a station via OperatorOnboarding
-    mappings = db.query(OperatorOnboarding).join(Operator).filter(
+    # Fetch operators that are mapped to a station via OperatorOnboardingDetail
+    mappings = db.query(OperatorOnboardingDetail).join(Operator).filter(
         Operator.mapped_dc_id == current_user.id
     ).all()
     
@@ -162,7 +162,7 @@ def delete_mapping(
     if not operator:
         raise HTTPException(status_code=404, detail="Operator not found.")
 
-    mapping = db.query(OperatorOnboarding).filter(OperatorOnboarding.operator_id == operator_id).first()
+    mapping = db.query(OperatorOnboardingDetail).filter(OperatorOnboardingDetail.operator_id == operator_id).first()
     if mapping:
         db.delete(mapping)
 

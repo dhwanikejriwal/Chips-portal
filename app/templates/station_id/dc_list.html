@@ -13,16 +13,16 @@
 {% set total_requests = requests | length %}
 {% set metrics = namespace(pending=0, reapplied=0, reverted=0, allotted=0) %}
 {% for r in requests %}
-    {% set st = r.status | upper %}
-    {% if st == 'PENDING' %}
-        {% set metrics.pending = metrics.pending + 1 %}
-    {% elif st == 'REAPPLIED' %}
-        {% set metrics.reapplied = metrics.reapplied + 1 %}
-    {% elif st == 'REVERTED' %}
-        {% set metrics.reverted = metrics.reverted + 1 %}
-    {% elif st == 'ALLOTTED' %}
-        {% set metrics.allotted = metrics.allotted + 1 %}
-    {% endif %}
+{% set st = r.status | upper %}
+{% if st == 'PENDING' %}
+{% set metrics.pending = metrics.pending + 1 %}
+{% elif st == 'REAPPLIED' %}
+{% set metrics.reapplied = metrics.reapplied + 1 %}
+{% elif st == 'REVERTED' %}
+{% set metrics.reverted = metrics.reverted + 1 %}
+{% elif st == 'ALLOTTED' %}
+{% set metrics.allotted = metrics.allotted + 1 %}
+{% endif %}
 {% endfor %}
 
 <div class="chips-header-banner" style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
@@ -76,7 +76,8 @@
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{
                 total_requests }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested Kits</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested
+                Kits</div>
         </div>
 
     </div>
@@ -148,7 +149,8 @@
     <option value="pending">Pending</option>
     <option value="reapplied">Reapplied</option>
 </select>
-<button class="rs-export" onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.csv', true, true)">Export to
+<button class="rs-export"
+    onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.csv', true, true)">Export to
     CSV</button>
 {% endset %}
 <div class="req-tabpanel active" data-panel="pending">
@@ -215,7 +217,9 @@
 <!-- Approved History Section -->
 <!-- Reverted History Section -->
 {% set reverted_controls %}
-<button class="rs-export" onclick="exportTableToExcel('reverted-table', 'reverted_station_id_history.csv', false, true, true)">Export to CSV</button>
+<button class="rs-export"
+    onclick="exportTableToExcel('reverted-table', 'reverted_station_id_history.csv', false, true, true)">Export to
+    CSV</button>
 {% endset %}
 <div class="req-tabpanel" data-panel="reverted">
     {% call request_section(
@@ -278,7 +282,8 @@
 
 <!-- Approved Section -->
 {% set approved_controls %}
-<button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_station_id_history.csv', true)">Export to CSV</button>
+<button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_station_id_history.csv', true)">Export
+    to CSV</button>
 {% endset %}
 <div class="req-tabpanel" data-panel="approved">
     {% call request_section(
@@ -942,5 +947,25 @@
             customClass: { confirmButton: 'swal-btn-close' }
         });
     }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const now = new Date();
+        document.querySelectorAll('#pending-tbody tr, #reverted-tbody tr, [data-panel="pending"] tr, [data-panel="reverted"] tr').forEach(row => {
+            let dateAttr = row.getAttribute('data-updated');
+            if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                dateAttr = row.getAttribute('data-created');
+            }
+            if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                if (!isNaN(dateObj)) {
+                    const diffTime = Math.abs(now - dateObj);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        row.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
+    });
 </script>
 {% endblock %}

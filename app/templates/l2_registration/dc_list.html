@@ -4,6 +4,15 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    .delayed-row {
+        background-color: #fee2e2 !important;
+    }
+
+    .delayed-row:hover {
+        background-color: #fecaca !important;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -39,7 +48,8 @@
     <div class="chips-banner-metrics" style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
         <div class="chips-metric-card">
             <div id="stat-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                metrics.pending if metrics else (requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED', 'pending', 'reapplied']) | list | length) }}</div>
+                metrics.pending if metrics else (requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED',
+                'pending', 'reapplied']) | list | length) }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
             </div>
         </div>
@@ -51,29 +61,35 @@
         </div>
         <div class="chips-metric-card">
             <div id="stat-sent-to-uidai" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                metrics.sent_to_uidai if metrics else (requests | selectattr('status', 'in', ['SENT_TO_UIDAI', 'sent_to_uidai']) | list | length) }}</div>
+                metrics.sent_to_uidai if metrics else (requests | selectattr('status', 'in', ['SENT_TO_UIDAI',
+                'sent_to_uidai']) | list | length) }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
             </div>
         </div>
         <div class="chips-metric-card">
             <div id="stat-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                metrics.reverted if metrics else (requests | selectattr('status', 'in', ['REVERTED', 'reverted', 'reverted_by_chips']) | list | length) }}</div>
+                metrics.reverted if metrics else (requests | selectattr('status', 'in', ['REVERTED', 'reverted',
+                'reverted_by_chips']) | list | length) }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
         <div class="chips-metric-card">
             <div id="stat-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                metrics.rejected if metrics else (requests | selectattr('status', 'in', ['REJECTED', 'rejected']) | list | length) }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by UIDAI</div>
+                metrics.rejected if metrics else (requests | selectattr('status', 'in', ['REJECTED', 'rejected']) | list
+                | length) }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by UIDAI
+            </div>
         </div>
         <div class="chips-metric-card">
             <div id="stat-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                metrics.approved if metrics else (requests | selectattr('status', 'in', ['APPROVED', 'approved', 'reviewed', 'l2_done']) | list | length) }}</div>
+                metrics.approved if metrics else (requests | selectattr('status', 'in', ['APPROVED', 'approved',
+                'reviewed', 'l2_done']) | list | length) }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">L2 Done</div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{
                 total_requests if total_requests is defined else (requests | length) }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested Kits</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested
+                Kits</div>
         </div>
     </div>
 </div>
@@ -122,7 +138,7 @@
             stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
-        <span>Approved L2 log</span>
+        <span>L2 Done log</span>
     </button>
 </div>
 
@@ -183,7 +199,8 @@
     empty_message='No stations with L1 done are awaiting L2 registration.',
     show_empty=(awaiting_l2|length == 0)) %}
     {% for s in awaiting_l2 %}
-    <tr data-status="AWAITING" data-new-station-id="{{ s.station_id }}" data-request-no="{{ s.request_no }}" data-model="{{ s.model }}" data-district="{{ s.district_name or '' }}" data-created="{{ s.l1_done_at }}">
+    <tr data-status="AWAITING" data-new-station-id="{{ s.station_id }}" data-request-no="{{ s.request_no }}"
+        data-model="{{ s.model }}" data-district="{{ s.district_name or '' }}" data-created="{{ s.l1_done_at }}">
         <td>{{ loop.index }}</td>
         <td><strong>{{ s.station_id }}</strong></td>
         <td>{{ s.request_no }}</td>
@@ -419,7 +436,7 @@
 <div class="req-tabpanel" data-panel="approved">
     {% call request_section(
     variant='approved',
-    title='Approved L2 log',
+    title='L2 Done log',
     count='–', count_id='approved-count-badge',
     controls=approved_controls,
     min_width=1050,
@@ -440,7 +457,7 @@
     empty_id='approved-empty-msg',
     empty_message='No approved request history records found.') %}
     {% set ns_approved = namespace(count=1) %}
-    {% for r in requests if (r.status|upper) == 'APPROVED' %}
+    {% for r in requests if (r.status|upper) in ['APPROVED', 'L2_DONE', 'L2 DONE', 'DONE'] %}
     <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no if r.request_no else '—' }}"
         data-operator-name="{{ r.operator_name }}" data-operator-id="{{ r.operator_id }}"
         data-client-version="{{ r.client_version }}" data-client-type="{{ r.client_type }}"
@@ -461,7 +478,7 @@
         <td>{{ r.client_version }}</td>
         <td>{{ r.client_type }}</td>
         <td>
-            <span class="sid-badge sid-badge-approved">Approved</span>
+            <span class="sid-badge sid-badge-approved">L2 Done</span>
         </td>
         <td>{{ r.submitted_at if r.submitted_at else '—' }}</td>
         <td>{{ r.updated_at if r.updated_at else (r.completed_at if r.completed_at else (r.reviewed_at if
@@ -1244,6 +1261,26 @@
             window.location.href = `/auth/dc/l2-registration/new?station_id=${encodeURIComponent(stationId)}`;
         });
     }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const now = new Date();
+        document.querySelectorAll('#pending-tbody tr, #reverted-tbody tr, [data-panel="reverted"] tr').forEach(row => {
+            let dateAttr = row.getAttribute('data-updated');
+            if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                dateAttr = row.getAttribute('data-created');
+            }
+            if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                if (!isNaN(dateObj)) {
+                    const diffTime = Math.abs(now - dateObj);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        row.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
+    });
 
 </script>
 {% endblock %}
