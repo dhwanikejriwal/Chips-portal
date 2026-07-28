@@ -78,6 +78,7 @@ def view_reactivation_dashboard():
                     "status": status_str,
                     "created_at": str(req.get("timestamp") or req.get("created_at") or req.get("submitted_at") or "—")[:19],
                     "updated_at": str(req.get("updated_at") or "—")[:19],
+                    "is_mailed": int(req.get("is_mailed") or 0),
                     "revert_reason": str(req.get("reject_reason") or req.get("revert_reason") or "None"),
                     "operators": [
                         dict(op, timeline_logs=req.get("timeline_logs", []))
@@ -560,3 +561,41 @@ def search_suspended_operators():
             return jsonify({"status": "error", "message": "Search failed"}), response.status_code
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@reactivation_bp.route("/chips/reactivation/export-and-mail/recipient", methods=["GET"])
+def chips_reactivation_export_mail_recipient():
+    raw_token = session.get("access_token", "")
+    if isinstance(raw_token, dict):
+        raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+    headers = {"Authorization": f"Bearer {str(raw_token).strip()}"}
+    try:
+        response = requests.get(f"{FASTAPI_URL}/export-and-mail/recipient", headers=headers, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.RequestException:
+        pass
+    return {"recipient_email": (os.getenv("UIDAI_RECIPIENT_EMAIL", "") or "").strip()}
+
+
+@reactivation_bp.route("/chips/reactivation/export-and-mail", methods=["POST"])
+def chips_reactivation_export_and_mail():
+    raw_token = session.get("access_token", "")
+    if isinstance(raw_token, dict):
+        raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+    headers = {"Authorization": f"Bearer {str(raw_token).strip()}"}
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids") or request.form.get("ids", "")
+    email_to = data.get("email_to") or request.form.get("email_to", "")
+
+    try:
+        response = requests.post(
+            f"{FASTAPI_URL}/export-and-mail",
+            json={"ids": ids, "email_to": email_to},
+            headers=headers,
+            timeout=15,
+        )
+        return (response.content, response.status_code, response.headers.items())
+    except requests.exceptions.RequestException as e:
+        return jsonify({"detail": f"Failed to connect to backend service: {e}"}), 502
+

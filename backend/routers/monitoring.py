@@ -66,19 +66,29 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
         
         # Pre-fetch all DC users and their profiles to avoid N+1 queries
         dc_users = db.query(UserLogin).join(MasterUserRole).filter(
-            MasterUserRole.role == "DC",
+            (MasterUserRole.role == "DC") | (UserLogin.roleid == 2),
             UserLogin.district_id.isnot(None),
             UserLogin.is_active == 1
-        ).options(joinedload(UserLogin.profile)).all()
+        ).options(joinedload(UserLogin.profile), joinedload(UserLogin.district)).all()
         
         dc_lookup = {}
         for user in dc_users:
             profile = user.profile
-            dc_lookup[user.district_id] = {
+            dist_obj = user.district
+            info = {
                 "name": profile.full_name if profile and profile.full_name else "Not Assigned",
-                "email": profile.email if profile and profile.email else user.username,
+                "email": profile.email if profile and profile.email else (user.username or "N/A"),
                 "phone": profile.phone if profile and profile.phone else "N/A"
             }
+            if user.district_id:
+                dc_lookup[str(user.district_id).strip()] = info
+            if dist_obj:
+                if dist_obj.district_code:
+                    dc_lookup[str(dist_obj.district_code).strip()] = info
+                if dist_obj.id:
+                    dc_lookup[str(dist_obj.id)] = info
+                if dist_obj.district_name:
+                    dc_lookup[dist_obj.district_name.lower().strip()] = info
             
         import os
         import glob
@@ -173,12 +183,19 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
             mbu_not_required = mbu_stats.get("mbu_not_required", 0)
             mbu_total_student = mbu_stats.get("total_student", 0)
 
+            dc_info = (
+                dc_lookup.get(str(dist.district_code).strip()) or
+                dc_lookup.get(str(dist.id)) or
+                dc_lookup.get(dist.district_name.lower().strip()) or
+                {}
+            )
+
             result.append({
                 "district_code": dist_code,
                 "district_name": dist.district_name,
-                "dc_name": dist.dc_name if hasattr(dist, "dc_name") else "Unknown",
-                "dc_email": dist.dc_email if hasattr(dist, "dc_email") else "",
-                "dc_phone": dist.dc_phone if hasattr(dist, "dc_phone") else "",
+                "dc_name": dc_info.get("name") or "Not Assigned",
+                "dc_email": dc_info.get("email") or "N/A",
+                "dc_phone": dc_info.get("phone") or "N/A",
                 "cand_holding_hours": cand_holding_hours,
                 "lms_holding_hours": lms_holding_hours,
                 "nseit_holding_hours": nseit_holding_hours,

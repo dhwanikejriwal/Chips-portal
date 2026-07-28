@@ -1498,8 +1498,8 @@ window.applyHistoryPanelFiltersPipeline = function () {
 
                 const matchesOpStatus = (statusValue === "ALL") || (opStatus === cleanStatusFilter);
 
-                // Highlight delayed/aged > 7 days pending, reverted, rejected, reapplied items
-                if (['PENDING', 'REVERTED', 'REJECTED', 'REAPPLIED'].includes(opStatus)) {
+                // Highlight delayed/aged > 7 days reverted and rejected items
+                if (['REVERTED', 'REJECTED'].includes(opStatus)) {
                     let dateAttr = opRow.getAttribute('data-updated') || row.getAttribute('data-updated');
                     if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
                         dateAttr = opRow.getAttribute('data-created') || row.getAttribute('data-created');

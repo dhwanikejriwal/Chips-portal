@@ -68,11 +68,11 @@
                 <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 8px; color: #475569; font-size: 14px;">
                         <span style="color: #94a3b8; font-weight: bold;">Email:</span>
-                        <span id="dc-info-email" style="font-weight: 500;">-</span>
+                        <a id="dc-info-email-link" href="#" style="font-weight: 500; color: #2563eb; text-decoration: none; transition: color 0.2s;"><span id="dc-info-email">-</span></a>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px; color: #475569; font-size: 14px;">
                         <span style="color: #94a3b8; font-weight: bold;">Phone:</span>
-                        <span id="dc-info-phone" style="font-weight: 500;">-</span>
+                        <a id="dc-info-phone-link" href="#" style="font-weight: 500; color: #2563eb; text-decoration: none; transition: color 0.2s;"><span id="dc-info-phone">-</span></a>
                     </div>
                 </div>
             </div>
@@ -825,13 +825,44 @@
         } else {
             if (dcInfoCard && filteredData.length > 0) {
                 const districtData = filteredData[0];
-                document.getElementById('dc-info-name').textContent = districtData.dc_name && districtData.dc_name !== 'Unknown' ? districtData.dc_name : 'Not Assigned';
+                const dcName = districtData.dc_name && districtData.dc_name !== 'Unknown' ? districtData.dc_name : 'Not Assigned';
+                document.getElementById('dc-info-name').textContent = dcName;
                 document.getElementById('dc-info-district').textContent = `District Coordinator for ${districtData.district_name}`;
-                document.getElementById('dc-info-email').textContent = districtData.dc_email || 'N/A';
-                document.getElementById('dc-info-phone').textContent = districtData.dc_phone || 'N/A';
+                
+                const emailVal = districtData.dc_email && districtData.dc_email !== 'N/A' ? districtData.dc_email : 'N/A';
+                const phoneVal = districtData.dc_phone && districtData.dc_phone !== 'N/A' ? districtData.dc_phone : 'N/A';
+                
+                document.getElementById('dc-info-email').textContent = emailVal;
+                document.getElementById('dc-info-phone').textContent = phoneVal;
 
-                const initials = (districtData.dc_name && districtData.dc_name !== 'Unknown')
-                    ? districtData.dc_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+                const emailLink = document.getElementById('dc-info-email-link');
+                if (emailLink) {
+                    if (emailVal !== 'N/A') {
+                        emailLink.href = `mailto:${emailVal}`;
+                        emailLink.style.pointerEvents = 'auto';
+                        emailLink.style.color = '#2563eb';
+                    } else {
+                        emailLink.removeAttribute('href');
+                        emailLink.style.pointerEvents = 'none';
+                        emailLink.style.color = '#475569';
+                    }
+                }
+
+                const phoneLink = document.getElementById('dc-info-phone-link');
+                if (phoneLink) {
+                    if (phoneVal !== 'N/A') {
+                        phoneLink.href = `tel:${phoneVal.replace(/\s+/g, '')}`;
+                        phoneLink.style.pointerEvents = 'auto';
+                        phoneLink.style.color = '#2563eb';
+                    } else {
+                        phoneLink.removeAttribute('href');
+                        phoneLink.style.pointerEvents = 'none';
+                        phoneLink.style.color = '#475569';
+                    }
+                }
+
+                const initials = (dcName !== 'Not Assigned')
+                    ? dcName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
                     : 'DC';
                 document.getElementById('dc-info-initials').textContent = initials;
 
@@ -921,10 +952,14 @@
                 badgeHtml = '<span class="badge" style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 600;">Critical</span>';
             }
 
+            const dcContact = (d.dc_email && d.dc_email !== 'N/A')
+                ? `<a href="mailto:${d.dc_email}" style="color: #2563eb; text-decoration: none; font-weight: 500;" title="Email: ${d.dc_email} | Phone: ${d.dc_phone}">${d.dc_name || 'Not Assigned'}</a>`
+                : (d.dc_name || 'Not Assigned');
+
             const tr = `<tr>
                 <td><strong>#${idx + 1}</strong></td>
                 <td><strong>${d.district_name}</strong></td>
-                <td>${d.dc_name}</td>
+                <td>${dcContact}</td>
                 <td>${badgeHtml}</td>
                 <td style="text-align: right; font-weight: 600; color: #1e293b;">${avgHolding}</td>
                 <td style="text-align: right; font-weight: 600; color: #1e293b;">${revertPct}%</td>

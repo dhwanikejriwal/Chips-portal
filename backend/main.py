@@ -114,6 +114,9 @@ def run_migrations():
                 conn.execute(text("ALTER TABLE kit_registration_table ALTER COLUMN laptop_serial_no TYPE VARCHAR(255);"))
                 conn.execute(text("ALTER TABLE kit_registration_table ALTER COLUMN laptop_name TYPE VARCHAR(255);"))
                 conn.execute(text("ALTER TABLE kit_registration_table ALTER COLUMN category TYPE VARCHAR(100);"))
+                conn.execute(text("ALTER TABLE operator_activation_requests ADD COLUMN IF NOT EXISTS is_mailed INTEGER DEFAULT 0;"))
+                conn.execute(text("ALTER TABLE operator_reactivation_requests ADD COLUMN IF NOT EXISTS is_mailed INTEGER DEFAULT 0;"))
+                conn.execute(text("ALTER TABLE l2_registration_requests ADD COLUMN IF NOT EXISTS is_mailed INTEGER DEFAULT 0;"))
 
             print("Success: Checked and added new columns if missing!")
         except Exception as e:

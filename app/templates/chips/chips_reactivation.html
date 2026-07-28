@@ -320,7 +320,7 @@
 {% from 'partials/request_section.html' import request_section %}
 <div style="background-color: var(--app-bg);">
     <!-- Jinja2 Metric Calculations -->
-    {% set ns_m = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0) %}
+    {% set ns_m = namespace(pending=0, processing=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0) %}
     {% set metric_source = full_history if full_history is defined and full_history else (requests_history if
     requests_history is defined and requests_history else requests) %}
     {% if metric_source %}
@@ -329,7 +329,9 @@
     {% for op in req.operators %}
     {% set s = (op.status or req.status or 'PENDING') | string | upper | replace('_', ' ') %}
     {% set ns_m.total = ns_m.total + 1 %}
-    {% if 'UIDAI' in s and 'REJECT' not in s %}
+    {% if req.is_mailed == 1 and s in ['PENDING', 'REAPPLIED'] %}
+    {% set ns_m.processing = ns_m.processing + 1 %}
+    {% elif 'UIDAI' in s and 'REJECT' not in s %}
     {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
     {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
     {% set ns_m.approved = ns_m.approved + 1 %}
@@ -337,8 +339,6 @@
     {% set ns_m.rejected = ns_m.rejected + 1 %}
     {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
     {% set ns_m.reverted = ns_m.reverted + 1 %}
-    {% elif s in ['REAPPLIED'] %}
-    {% set ns_m.reapplied = ns_m.reapplied + 1 %}
     {% else %}
     {% set ns_m.pending = ns_m.pending + 1 %}
     {% endif %}
@@ -347,7 +347,9 @@
     {% set s = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
     {% set cnt = req.operator_count or 1 %}
     {% set ns_m.total = ns_m.total + cnt %}
-    {% if 'UIDAI' in s and 'REJECT' not in s %}
+    {% if req.is_mailed == 1 and s in ['PENDING', 'REAPPLIED'] %}
+    {% set ns_m.processing = ns_m.processing + cnt %}
+    {% elif 'UIDAI' in s and 'REJECT' not in s %}
     {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + cnt %}
     {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
     {% set ns_m.approved = ns_m.approved + cnt %}
@@ -355,8 +357,6 @@
     {% set ns_m.rejected = ns_m.rejected + cnt %}
     {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
     {% set ns_m.reverted = ns_m.reverted + cnt %}
-    {% elif s in ['REAPPLIED'] %}
-    {% set ns_m.reapplied = ns_m.reapplied + cnt %}
     {% else %}
     {% set ns_m.pending = ns_m.pending + cnt %}
     {% endif %}
@@ -395,9 +395,9 @@
                 </div>
             </div>
             <div class="chips-metric-card">
-                <div id="metric-reapplied" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ ns_m.reapplied }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
+                <div id="metric-processing" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
+                    {{ ns_m.processing }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Under Processing
                 </div>
             </div>
             <div class="chips-metric-card">
@@ -458,6 +458,14 @@
                     <path d="M9 14h6" />
                 </svg>
                 <span>Pending reactivation requests</span>
+            </button>
+            <button type="button" class="req-tab" data-tab="processing">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <span>Under Processing queue</span>
             </button>
             <button type="button" class="req-tab" data-tab="uidai">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -536,7 +544,7 @@
                 <div class="rs-group-head">
                     <span class="rs-rail" aria-hidden="true"></span>
                     <h3 class="rs-title">Pending reactivation requests</h3>
-                    <span class="rs-count" id="pending-count">{{ ns_m.pending + ns_m.reapplied }}</span>
+                    <span class="rs-count" id="pending-count">{{ ns_m.pending }}</span>
                     <div class="rs-head-controls" style="margin-left: auto;">
                         <select id="admin-pending-status-filter" onchange="filterAdminQueues()" class="rs-filter">
                             <option value="all">All statuses</option>
@@ -546,12 +554,19 @@
                         <button class="rs-export"
                             onclick="exportTableToCSV('admin-pending-table', 'incoming_reactivation_batches.csv')">Export
                             to CSV</button>
+                        <button class="rs-export" style="background-color: #16a34a; border-color: #16a34a; color: #ffffff;" onclick="exportAndMailReactivationSection('pending')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                            Export & Mail
+                        </button>
                     </div>
                 </div>
                 <div class="rs-group-body" id="pending-cards-container">
                     {% if requests %}
                     {% set pending_found = namespace(val=false) %}
-                    {% for req in requests %}
+                    {% for req in requests if (req.is_mailed == 0 or not req.is_mailed) %}
                     {% set has_pending_op = namespace(val=false) %}
                     {% for op in req.operators %}
                     {% if op.status|upper in ['PENDING', 'REAPPLIED'] %}
@@ -620,9 +635,9 @@
                         <td style="text-align: center;">
                             <div class="action-group"
                                 style="gap: 5px; display: flex; align-items: center; justify-content: center;">
-                                <button type="button" class="btn-issue"
-                                    onclick="executeIndividualUidai('{{ op.id }}', '{{ req.request_code }}', this)">
-                                    Send to UIDAI
+                                <button type="button" class="btn-issue" style="background-color: #16a34a; border-color: #16a34a;"
+                                    onclick="exportAndMailReactivationSingle('{{ op.id }}', '{{ req.request_code }}')">
+                                    Mail
                                 </button>
                                 <button type="button" class="btn-revert"
                                     onclick="executeIndividualReversion('{{ op.id }}', '{{ req.request_code }}', this)">
@@ -653,6 +668,77 @@
                 </div>
             </div>
         </div><!-- /panel pending -->
+    </div>
+
+    <!-- ── UNDER PROCESSING QUEUE (mailed requests) ── -->
+    <div class="req-tabpanel" data-panel="processing">
+        {% set processing_controls %}
+        <button class="rs-export"
+            onclick="exportTableToCSV('admin-processing-table', 'under_processing_reactivation_operators.csv')">Export to CSV</button>
+        {% endset %}
+        {% set ns_proc = namespace(count=0) %}
+        {% for req in requests if req.is_mailed == 1 %}
+        {% for op in req.operators if op.status|upper in ['PENDING', 'REAPPLIED'] %}
+        {% set ns_proc.count = ns_proc.count + 1 %}
+        {% endfor %}
+        {% endfor %}
+        {% call request_section(
+        variant='pending',
+        title='Under Processing reactivation queue',
+        count=ns_proc.count, count_id='processing-count',
+        controls=processing_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'District'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='admin-processing-table', body_id='processing-tbody',
+        empty_id='processing-empty-msg', empty_message='No requests currently under processing.') %}
+        {% set proc_ns = namespace(i=1) %}
+        {% for req in requests if req.is_mailed == 1 %}
+        {% for op in req.operators %}
+        {% if op.status|upper in ['PENDING', 'REAPPLIED'] %}
+        <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+            data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
+            data-status="PENDING" data-district="{{ req.district_name }}"
+            data-code="{{ req.request_code }}" data-created="{{ req.created_at }}"
+            data-training-date="{{ req.training_date }}">
+            <td>{{ proc_ns.i }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.district_name or '—' }}</td>
+            <td>{{ op.operator_name }}</td>
+            <td>{{ op.operator_mobile }}</td>
+            <td>{{ op.email_id or '—' }}</td>
+            <td><span class="badge badge-pending">Pending</span></td>
+            <td>{% if req.created_at %}{{ req.created_at[:16] if req.created_at is string else req.created_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>
+            <td>{% if req.updated_at %}{{ req.updated_at[:16] if req.updated_at is string else req.updated_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>
+            <td style="text-align: center;">
+                <div class="action-group"
+                    style="gap: 5px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" class="btn-issue"
+                        onclick="executeIndividualUidai('{{ op.id }}', '{{ req.request_code }}', this)">
+                        Send to UIDAI
+                    </button>
+                    <button type="button" class="btn-details"
+                        onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">
+                        Details
+                    </button>
+                </div>
+            </td>
+        </tr>
+        {% set proc_ns.i = proc_ns.i + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% endcall %}
     </div>
 
     <!-- ── SENT TO UIDAI (flat operator table) ── -->
@@ -920,6 +1006,34 @@
                 card.style.display = 'none';
             }
         });
+
+        // 1.5. Filter UNDER PROCESSING (flat operator rows)
+        let totalProcessingOperators = 0;
+        document.querySelectorAll('#processing-tbody .op-row-item').forEach(opRow => {
+            const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
+            const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
+            const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
+            const opDistrict = (opRow.getAttribute('data-district') || '').toLowerCase();
+            const opCode = (opRow.getAttribute('data-code') || '').toLowerCase();
+            const opCreated = opRow.getAttribute('data-created') || '';
+
+            const matchesDistrict = district === 'all' || opDistrict === district;
+            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
+
+            if (matchesDistrict && matchesDate && matchesQuery) {
+                opRow.style.display = '';
+                totalProcessingOperators++;
+                opRow.cells[0].innerText = totalProcessingOperators;
+            } else {
+                opRow.style.display = 'none';
+            }
+        });
+
+        const processingCountEl = document.getElementById('processing-count');
+        if (processingCountEl) processingCountEl.textContent = totalProcessingOperators;
+        const processingEmptyMsg = document.getElementById('processing-empty-msg');
+        if (processingEmptyMsg) processingEmptyMsg.style.display = (totalProcessingOperators === 0) ? 'block' : 'none';
 
         // 2. Filter SENT TO UIDAI (flat operator rows)
         let totalUidaiOperators = 0;
@@ -1908,6 +2022,7 @@
                 const opStatus = (d.status || resolvedStatus || '').toUpperCase().trim();
                 const isRevertable = (opStatus === 'REVERTED' || opStatus === 'REVERT BACK');
                 const isRejected = (opStatus === 'REJECTED');
+                const isPendingTab = (opStatus === 'PENDING' || opStatus === 'REAPPLIED');
 
                 let htmlContent = '';
 
@@ -2003,6 +2118,11 @@
 
                         <!-- View Action Buttons -->
                         <div style="display: flex; justify-content: center; gap: 12px; margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                            ${!isPendingTab ? `
+                            <button type="button" id="btn-show-docs" style="padding: 8px 20px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">
+                                View Documents
+                            </button>
+                            ` : ''}
                             <button type="button" id="btn-show-remarks" style="padding: 8px 20px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">
                                 View Remarks
                             </button>
@@ -2022,9 +2142,18 @@
                         width: '650px',
                         focusConfirm: false,
                         didOpen: () => {
-                            document.getElementById('btn-show-remarks').onclick = () => {
-                                showIndividualOperatorDetails(operatorId, requestCode, resolvedStatus, 'remarks');
-                            };
+                            const btnDocs = document.getElementById('btn-show-docs');
+                            if (btnDocs) {
+                                btnDocs.onclick = () => {
+                                    viewBatchDocuments(requestCode);
+                                };
+                            }
+                            const btnRemarks = document.getElementById('btn-show-remarks');
+                            if (btnRemarks) {
+                                btnRemarks.onclick = () => {
+                                    showIndividualOperatorDetails(operatorId, requestCode, resolvedStatus, 'remarks');
+                                };
+                            }
                         }
                     });
 
@@ -2145,6 +2274,8 @@
         let selector = '';
         if (tableID === 'admin-pending-table') {
             selector = '#pending-cards-container .op-row-item';
+        } else if (tableID === 'admin-processing-table') {
+            selector = '#processing-tbody .op-row-item';
         } else if (tableID === 'admin-uidai-table') {
             selector = '#uidai-tbody .op-row-item';
         } else if (tableID === 'admin-approved-table') {
@@ -2175,12 +2306,198 @@
 
         // Map correct endpoint router execution paths based on tableID target
         let endpoint = '/auth/reactivation/export-csv-all';
-        if (tableID === 'admin-uidai-table') {
+        if (tableID === 'admin-uidai-table' || tableID === 'admin-processing-table') {
             endpoint = '/auth/reactivation/export-csv-uidai';
         }
 
         // Triggers immediate streaming browser download of complete fields
         window.location.href = `${endpoint}?ids=${ids.join(',')}`;
+    }
+
+    async function exportAndMailReactivationSection(section) {
+        const tbody = document.getElementById(section === 'processing' ? 'processing-tbody' : 'pending-tbody');
+        const rows = Array.from(document.querySelectorAll('.pending-card .op-row-item, #pending-tbody .op-row-item')).filter(r => r.style.display !== 'none');
+
+        if (rows.length === 0) {
+            Swal.fire({ title: 'No Data', text: 'No pending records found to export and email.', icon: 'warning', confirmButtonColor: '#4f46e5' });
+            return;
+        }
+
+        const ids = rows.map(r => r.getAttribute('data-id')).filter(Boolean);
+
+        let recipientEmail = '';
+        try {
+            const resp = await fetch('/auth/chips/reactivation/export-and-mail/recipient');
+            if (resp.ok) {
+                const rData = await resp.json();
+                if (rData && rData.recipient_email) {
+                    recipientEmail = rData.recipient_email;
+                }
+            }
+        } catch (e) {
+            console.error("Could not fetch default recipient email", e);
+        }
+
+        Swal.fire({
+            title: 'Export & Mail',
+            html: `
+                <div style="text-align: left; font-size: 14px; color: #334155; line-height: 1.5;">
+                    <p style="margin-bottom: 12px;">Send exported CSV containing <strong>${rows.length}</strong> pending operator reactivation request(s)?</p>
+                    <div style="background: #f8fafc; border-left: 4px solid #2563eb; padding: 10px 14px; border-radius: 4px; margin-top: 10px;">
+                        <span style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 700; display: block;">Target Recipient Email:</span>
+                        <strong style="font-size: 14px; color: #1e293b;">${escapeHtml(recipientEmail)}</strong>
+                    </div>
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Confirm',
+            confirmButtonColor: '#16a34a',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // 1. Download CSV Export
+                const downloadLink = document.createElement('a');
+                downloadLink.href = `/auth/reactivation/export-csv-uidai?ids=${ids.join(',')}`;
+                downloadLink.setAttribute('download', '');
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+
+                // 2. Dispatch Email
+                Swal.fire({
+                    title: 'Sending Email & Downloading Export...',
+                    html: `Generating CSV export for ${rows.length} request(s) and emailing to <strong>${escapeHtml(recipientEmail)}</strong>...`,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                fetch('/auth/chips/reactivation/export-and-mail', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ids: ids.join(','),
+                        email_to: recipientEmail
+                    })
+                }).then(async response => {
+                    let data = null;
+                    try {
+                        data = await response.json();
+                    } catch (e) {}
+
+                    if (response.ok && data && data.success) {
+                        Swal.fire({
+                            title: 'Email Sent & Export Downloaded!',
+                            text: data.detail || `Export CSV has been downloaded and emailed to ${recipientEmail}.`,
+                            icon: 'success',
+                            confirmButtonColor: '#16a34a'
+                        }).then(() => {
+                            sessionStorage.setItem('chips_action_reloading', 'true');
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error', (data && data.detail) ? data.detail : 'Failed to send export email.', 'error');
+                    }
+                }).catch(err => {
+                    Swal.fire('Error', 'Failed to connect to server to send export email.', 'error');
+                });
+            }
+        });
+    }
+
+    async function exportAndMailReactivationSingle(opId, reqCode) {
+        if (!opId) return;
+
+        let recipientEmail = '';
+        try {
+            const resp = await fetch('/auth/chips/reactivation/export-and-mail/recipient');
+            if (resp.ok) {
+                const rData = await resp.json();
+                if (rData && rData.recipient_email) {
+                    recipientEmail = rData.recipient_email;
+                }
+            }
+        } catch (e) {
+            console.error("Could not fetch default recipient email", e);
+        }
+
+        const displayReqNo = reqCode || ('REACT-REQ-' + opId);
+
+        Swal.fire({
+            title: 'Export & Mail',
+            html: `
+                <div style="text-align: left; font-size: 14px; color: #334155; line-height: 1.5;">
+                    <p style="margin-bottom: 12px;">Send exported CSV containing request <strong>${escapeHtml(displayReqNo)}</strong>?</p>
+                    <div style="background: #f8fafc; border-left: 4px solid #2563eb; padding: 10px 14px; border-radius: 4px; margin-top: 10px;">
+                        <span style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 700; display: block;">Target Recipient Email:</span>
+                        <strong style="font-size: 14px; color: #1e293b;">${escapeHtml(recipientEmail)}</strong>
+                    </div>
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Confirm',
+            confirmButtonColor: '#16a34a',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // 1. Download CSV Export
+                const downloadLink = document.createElement('a');
+                downloadLink.href = `/auth/reactivation/export-csv-uidai?ids=${opId}`;
+                downloadLink.setAttribute('download', '');
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+
+                // 2. Dispatch Email
+                Swal.fire({
+                    title: 'Sending Email & Downloading Export...',
+                    html: `Generating CSV export for request <strong>${escapeHtml(displayReqNo)}</strong> and emailing to <strong>${escapeHtml(recipientEmail)}</strong>...`,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                fetch('/auth/chips/reactivation/export-and-mail', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ids: String(opId),
+                        email_to: recipientEmail
+                    })
+                }).then(async response => {
+                    let data = null;
+                    try {
+                        data = await response.json();
+                    } catch (e) {}
+
+                    if (response.ok && data && data.success) {
+                        Swal.fire({
+                            title: 'Email Sent & Export Downloaded!',
+                            text: data.detail || `Export CSV for request ${displayReqNo} has been downloaded and emailed to ${recipientEmail}.`,
+                            icon: 'success',
+                            confirmButtonColor: '#16a34a'
+                        }).then(() => {
+                            sessionStorage.setItem('chips_action_reloading', 'true');
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error', (data && data.detail) ? data.detail : 'Failed to send export email.', 'error');
+                    }
+                }).catch(err => {
+                    Swal.fire('Error', 'Failed to connect to server to send export email.', 'error');
+                });
+            }
+        });
     }
 
     function escapeHtml(text) {

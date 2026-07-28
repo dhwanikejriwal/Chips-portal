@@ -5,6 +5,7 @@ from sqlalchemy import (
     ForeignKey,
     DateTime,
     Text,
+    Boolean,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -34,6 +35,7 @@ class OperatorActivationRequest(Base):
     nseit_certification_date = Column(DateTime, nullable=True)
     nseit_certificate_expiry_date = Column(DateTime, nullable=True)
     pincode = Column(String(10), nullable=True)
+    is_mailed = Column(Integer, default=0, nullable=True)
     
     status_id = Column(Integer, ForeignKey("master_status.id"), nullable=False, default=5, index=True)
 

@@ -14,6 +14,7 @@ router = APIRouter(prefix="/nseit_manage", tags=["nseit_manage"], dependencies=[
 class NSEITActionRequest(BaseModel):
     remark: str | None = None
     by_user_id: int
+    force_without_email: bool = False
 
 @router.get("/candidates")
 def get_nseit_requests(district_code: str | None = None, db: Session = Depends(get_db)):
@@ -208,6 +209,25 @@ def approve_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
         status_after_id=nseit.status_id
     )
     db.add(new_remark)
+    
+    # Try sending email synchronously before committing
+    if candidate.email:
+        try:
+            import asyncio
+            from backend.utils.email_utils import send_nseit_approval_email
+            
+            nseit_booking_link = "https://uidai.nseitexams.com"
+            
+            asyncio.run(send_nseit_approval_email(
+                email_to=candidate.email,
+                name=candidate.name,
+                booking_link=nseit_booking_link
+            ))
+        except Exception as e:
+            if not payload.force_without_email:
+                db.rollback()
+                return {"success": False, "email_failed": True, "detail": f"Failed to send email: {str(e)}"}
+                
     db.commit()
     return {"success": True, "detail": "NSEIT Request successfully approved."}
 

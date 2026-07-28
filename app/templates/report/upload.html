@@ -6,37 +6,140 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    function sortTableByTotalPending() {
-        let activePane = document.querySelector('.tab-pane[style*="display: block"]');
-        let table = activePane ? activePane.querySelector('table') : document.querySelector('#previewBody table');
-        if (!table) return;
-
+    function getColumnHeaderTexts(table, numCols) {
+        let colHeaders = new Array(numCols).fill('');
         let thead = table.querySelector('thead');
-        let tbody = table.querySelector('tbody');
-        if (!thead || !tbody) return;
+        if (!thead) return colHeaders;
 
-        let headers = Array.from(thead.querySelectorAll('th'));
-        let targetIdx = headers.findIndex(th => {
-            let txt = th.innerText.trim().toLowerCase();
-            return txt.includes('total pending') || txt.includes('pending total');
+        let trs = Array.from(thead.querySelectorAll('tr'));
+        if (trs.length === 0) return colHeaders;
+
+        trs.forEach(tr => {
+            let ths = Array.from(tr.querySelectorAll('th'));
+            let colIdx = 0;
+            ths.forEach(th => {
+                let text = th.innerText.trim();
+                let colspan = parseInt(th.getAttribute('colspan') || '1', 10);
+                for (let c = 0; c < colspan; c++) {
+                    if (colIdx + c < numCols) {
+                        colHeaders[colIdx + c] += (colHeaders[colIdx + c] ? ' ' : '') + text;
+                    }
+                }
+                colIdx += colspan;
+            });
         });
 
-        if (targetIdx === -1) {
-            targetIdx = headers.length - 1; // fallback to last column
+        return colHeaders;
+    }
+
+    function findSortColumnIndex(table, tbody) {
+        let firstRow = tbody.querySelector('tr');
+        if (!firstRow) return -1;
+        let numCols = firstRow.cells.length;
+        if (numCols === 0) return -1;
+
+        let colHeaders = getColumnHeaderTexts(table, numCols);
+
+        let priority1 = ['total pending', 'pending total', 'total requests', 'total request', 'total machine', 'total student', 'total kits'];
+        let priority2 = ['total', 'pending', 'requests', 'request', 'number of kits', 'alloted station id', 'count'];
+
+        for (let p of priority1) {
+            for (let i = 0; i < numCols; i++) {
+                let h = colHeaders[i].toLowerCase();
+                if (h.includes(p) && !h.includes('s.no') && !h.includes('sr.no') && !h.includes('sr no')) {
+                    return i;
+                }
+            }
         }
 
-        let rows = Array.from(tbody.querySelectorAll('tr'));
-        let isDesc = table.dataset.sortDir === 'desc';
-        let direction = isDesc ? 1 : -1;
-        table.dataset.sortDir = isDesc ? 'asc' : 'desc';
+        for (let p of priority2) {
+            for (let i = 0; i < numCols; i++) {
+                let h = colHeaders[i].toLowerCase();
+                if (h.includes(p) && !h.includes('s.no') && !h.includes('sr.no') && !h.includes('sr no')) {
+                    return i;
+                }
+            }
+        }
 
-        rows.sort((a, b) => {
-            let valA = parseFloat(a.cells[targetIdx].innerText.replace(/,/g, '')) || 0;
-            let valB = parseFloat(b.cells[targetIdx].innerText.replace(/,/g, '')) || 0;
-            return (valA - valB) * direction;
-        });
+        for (let i = Math.min(2, numCols - 1); i < numCols; i++) {
+            let cellText = firstRow.cells[i] ? firstRow.cells[i].innerText.trim().replace(/,/g, '') : '';
+            if (cellText !== '' && !isNaN(parseFloat(cellText))) {
+                return i;
+            }
+        }
+
+        return Math.max(0, numCols - 1);
+    }
+
+    function sortTableByTotalPending() {
+        let activePane = document.querySelector('.tab-pane[style*="display: block"]');
+        let container = activePane || document.getElementById('previewBody') || document;
+        let table = container.querySelector('table');
+        if (!table) return;
+
+        let tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        let rows = Array.from(tbody.querySelectorAll('tr'));
+        if (rows.length === 0) return;
+
+        let totalRow = null;
+        let lastRow = rows[rows.length - 1];
+        if (lastRow) {
+            let lastText = lastRow.innerText.toLowerCase();
+            if (lastText.includes('total')) {
+                totalRow = rows.pop();
+            }
+        }
+
+        if (rows.length === 0) {
+            if (totalRow) tbody.appendChild(totalRow);
+            return;
+        }
+
+        let targetIdx = findSortColumnIndex(table, tbody);
+        if (targetIdx >= 0 && targetIdx < rows[0].cells.length) {
+            let isDesc = table.dataset.sortDir !== 'asc';
+            let direction = isDesc ? -1 : 1;
+            table.dataset.sortDir = isDesc ? 'asc' : 'desc';
+
+            rows.sort((a, b) => {
+                let cellA = a.cells[targetIdx];
+                let cellB = b.cells[targetIdx];
+                if (!cellA || !cellB) return 0;
+
+                let strA = cellA.innerText.trim().replace(/,/g, '');
+                let strB = cellB.innerText.trim().replace(/,/g, '');
+
+                let valA = parseFloat(strA);
+                let valB = parseFloat(strB);
+
+                if (!isNaN(valA) && !isNaN(valB)) {
+                    return (valA - valB) * direction;
+                }
+                return strA.localeCompare(strB) * direction;
+            });
+        }
 
         rows.forEach(row => tbody.appendChild(row));
+
+        let firstHeaderCell = table.querySelector('thead th');
+        let firstHeaderTxt = firstHeaderCell ? firstHeaderCell.innerText.trim().toLowerCase() : '';
+        if (firstHeaderTxt.includes('s.no') || firstHeaderTxt.includes('sr') || firstHeaderTxt.includes('#') || firstHeaderTxt === '') {
+            let sNoIndex = 1;
+            rows.forEach(row => {
+                if (row.style.display !== 'none' && row.cells.length > 0) {
+                    let firstText = row.cells[0].innerText.trim();
+                    if (firstText !== 'total' && (!isNaN(parseInt(firstText, 10)) || firstText === '')) {
+                        row.cells[0].innerText = sNoIndex++;
+                    }
+                }
+            });
+        }
+
+        if (totalRow) {
+            tbody.appendChild(totalRow);
+        }
     }
 
     function filterCustomPreviewTable() {
@@ -71,6 +174,15 @@
     }
 </script>
 <style>
+    tr.total-row,
+    tr.total-row td {
+        background-color: #e2e8f0 !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+        border-top: 2px solid #64748b !important;
+        border-bottom: 2px solid #64748b !important;
+    }
+
     /* Main Navigation Pills */
     .nav-pills {
         display: flex;
@@ -847,12 +959,12 @@
                 <div id="generate-tab" class="tab-content">
                     <h2 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: #1e293b;">Process a New
                         Dataset</h2>
-                    <form id="generateForm" style="max-width: 500px;">
+                    <form id="generateForm" style="max-width: 500px;" autocomplete="off">
                         <div style="margin-bottom: 20px;">
                             <label for="report_type"
                                 style="display: block; font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px;">Select
                                 Processing Type</label>
-                            <select id="report_type" name="report_type" class="filter-input"
+                            <select id="report_type" name="report_type" class="filter-input" autocomplete="off"
                                 style="width: 100%; height: 45px; padding: 0 12px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: white;"
                                 required>
                                 <option value="" disabled selected>-- Select a processing logic --</option>
@@ -866,7 +978,7 @@
                             <label for="custom-district-filter"
                                 style="display: block; font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px;">Filter
                                 by District (Optional)</label>
-                            <select id="custom-district-filter" name="district" class="filter-input"
+                            <select id="custom-district-filter" name="district" class="filter-input" autocomplete="off"
                                 style="width: 100%; height: 45px; padding: 0 12px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: white;">
                                 <option value="">All Districts</option>
                                 {% for dist in districts %}
@@ -879,7 +991,7 @@
                             <label for="file"
                                 style="display: block; font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 8px;">Upload
                                 Raw Dataset (CSV/Excel)</label>
-                            <input type="file" id="file" name="file" accept=".csv, .xlsx, .xls"
+                            <input type="file" id="file" name="file" accept=".csv, .xlsx, .xls" autocomplete="off"
                                 style="width: 100%; padding: 10px; border-radius: 6px; border: 1px dashed #cbd5e1; background: #f8fafc;"
                                 required>
                         </div>
@@ -961,14 +1073,29 @@
 
     </div>
 
+    <script id="uploaded-history-data" type="application/json">
+        {{ history | default([]) | tojson | safe }}
+    </script>
     <script>
         // Main Section Navigation
         function switchMainSection(sectionId, element) {
             document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
 
-            element.classList.add('active');
-            document.getElementById(sectionId).classList.add('active');
+            let targetPill = element;
+            if (!targetPill) {
+                if (sectionId === 'custom-datasets') {
+                    targetPill = document.querySelectorAll('.pill')[1];
+                } else {
+                    targetPill = document.querySelectorAll('.pill')[0];
+                }
+            }
+
+            if (targetPill) targetPill.classList.add('active');
+            const targetSec = document.getElementById(sectionId);
+            if (targetSec) targetSec.classList.add('active');
+
+            localStorage.setItem('activeReportSection', sectionId);
         }
 
         // Sub-tab Navigation (Custom Datasets)
@@ -977,12 +1104,24 @@
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
             if (tabId === 'history') {
-                document.querySelectorAll('.tab')[0].classList.add('active');
-                document.getElementById('history-tab').classList.add('active');
+                const historyPill = document.querySelectorAll('.tab')[0];
+                if (historyPill) historyPill.classList.add('active');
+                const historyTab = document.getElementById('history-tab');
+                if (historyTab) historyTab.classList.add('active');
+                if (typeof refreshHistoryView === 'function') {
+                    refreshHistoryView();
+                }
             } else {
-                document.querySelectorAll('.tab')[1].classList.add('active');
-                document.getElementById('generate-tab').classList.add('active');
+                const genPill = document.querySelectorAll('.tab')[1];
+                if (genPill) genPill.classList.add('active');
+                const genTab = document.getElementById('generate-tab');
+                if (genTab) genTab.classList.add('active');
+                if (typeof resetGenerateForm === 'function') {
+                    resetGenerateForm();
+                }
             }
+
+            localStorage.setItem('activeReportSubTab', tabId);
         }
 
         // Modal Logic
@@ -1254,6 +1393,7 @@
                 if (!tbody) return;
                 const rows = tbody.querySelectorAll('tr');
                 rows.forEach(row => {
+                    if (row.classList.contains('total-row') || row.innerText.toLowerCase().includes('total')) return;
                     row.style.cursor = 'pointer';
                     row.onmouseover = () => { if (!row.classList.contains('delayed-row')) row.style.backgroundColor = '#f8fafc'; };
                     row.onmouseout = () => { if (!row.classList.contains('delayed-row')) row.style.backgroundColor = ''; };
@@ -1746,9 +1886,6 @@
             if (window.location.hash === "#preview") {
                 history.back();
             }
-            if (needsReload && !fromHistory) {
-                window.location.reload();
-            }
         }
 
         // Close modal when clicking outside
@@ -1759,7 +1896,176 @@
             }
         }
 
-        let needsReload = false;
+        const rawHistoryData = JSON.parse(document.getElementById('uploaded-history-data')?.textContent || '[]');
+        const uploadedFilenames = rawHistoryData.flatMap(r => [r?.filename, r?.original_filename]).filter(Boolean);
+        const uploadedFileNamesSet = new Set(uploadedFilenames.map(f => f.toLowerCase().trim()));
+
+        function checkDuplicateAndAlert(fileName) {
+            if (!fileName) return false;
+            const cleanName = fileName.trim();
+            if (uploadedFileNamesSet.has(cleanName.toLowerCase())) {
+                const fileInput = document.getElementById('file');
+                if (fileInput) {
+                    fileInput.value = '';
+                }
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Already Uploaded',
+                    text: `A report with the filename "${cleanName}" is already uploaded. Please select a different dataset file.`,
+                    confirmButtonColor: '#2563eb',
+                    confirmButtonText: 'OK'
+                });
+                return true;
+            }
+            return false;
+        }
+
+        async function refreshHistoryView() {
+            try {
+                const response = await fetch("{{ config['BACKEND_API_URL'] }}/reports/history");
+                if (!response.ok) return;
+                const reports = await response.json();
+                renderHistoryDOM(reports);
+            } catch (err) {
+                console.error("Failed to refresh history view:", err);
+            }
+        }
+
+        function renderHistoryDOM(reports) {
+            if (!reports) reports = [];
+
+            uploadedFileNamesSet.clear();
+            reports.forEach(r => {
+                if (r.filename) uploadedFileNamesSet.add(r.filename.toLowerCase().trim());
+                if (r.original_filename) uploadedFileNamesSet.add(r.original_filename.toLowerCase().trim());
+            });
+
+            const mainContainer = document.getElementById('history-main-view');
+            if (!mainContainer) return;
+
+            if (reports.length === 0) {
+                mainContainer.innerHTML = `
+                    <h2 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: #1e293b;">Past Uploaded Dataset Reports</h2>
+                    <div style="text-align: center; padding: 40px 20px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: #94a3b8; margin-bottom: 10px;">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="3" y1="9" x2="21" y2="9"></line>
+                            <line x1="9" y1="21" x2="9" y2="9"></line>
+                        </svg>
+                        <h3 style="margin: 0 0 5px 0; color: #475569; font-size: 16px;">No reports generated yet</h3>
+                        <p style="margin: 0; color: #64748b; font-size: 14px;">Switch to the 'Generate New Report' tab to create your first report.</p>
+                    </div>
+                `;
+                closeHistoryDetail();
+                return;
+            }
+
+            const groups = {};
+            reports.forEach(r => {
+                if (!groups[r.report_type]) groups[r.report_type] = [];
+                groups[r.report_type].push(r);
+            });
+
+            let mainCardsHtml = `
+                <h2 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: #1e293b;">Past Uploaded Dataset Reports</h2>
+                <div class="system-report-list">
+            `;
+
+            for (const [groupKey, groupList] of Object.entries(groups)) {
+                const title = groupKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                mainCardsHtml += `
+                    <div class="list-item" onclick="openHistoryDetail('${groupKey}', '${title}')" style="cursor: pointer; padding: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h3 style="margin: 0; color: #0f172a; font-size: 16px;">${title}</h3>
+                            <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;">${groupList.length} Reports Available</p>
+                        </div>
+                        <div style="background: #f1f5f9; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #3b82f6;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+                `;
+            }
+            mainCardsHtml += `</div>`;
+            mainContainer.innerHTML = mainCardsHtml;
+
+            let detailWrapper = document.querySelector('#history-detail-view > div');
+            if (detailWrapper) {
+                detailWrapper.querySelectorAll('.detail-list-container').forEach(c => {
+                    const idKey = c.id.replace('detail-list-', '');
+                    if (!groups[idKey]) {
+                        c.remove();
+                    }
+                });
+
+                for (const [groupKey, groupList] of Object.entries(groups)) {
+                    let listContainer = document.getElementById('detail-list-' + groupKey);
+                    if (!listContainer) {
+                        listContainer = document.createElement('div');
+                        listContainer.id = 'detail-list-' + groupKey;
+                        listContainer.className = 'detail-list-container';
+                        listContainer.style.display = 'none';
+                        listContainer.style.padding = '0';
+                        detailWrapper.appendChild(listContainer);
+                    }
+
+                    let rowsHtml = '';
+                    groupList.forEach(report => {
+                        const dateStr = report.created_at ? report.created_at.split('T')[0] : '';
+                        const timeStr = (report.created_at && report.created_at.includes('T')) ? report.created_at.split('T')[1].substring(0, 5) : '';
+                        const distBadge = report.district ? `<span style="background: #eff6ff; color: #2563eb; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">${report.district}</span>` : `<span style="color: #94a3b8; font-size: 13px;">All Districts</span>`;
+                        const downloadUrl = `{{ url_for('report.download', report_id=0) }}`.replace('0', report.id);
+
+                        rowsHtml += `
+                            <tr id="report-row-${report.id}" style="background: white; border-bottom: 1px solid #f1f5f9; transition: background 0.2s;">
+                                <td style="padding: 16px 20px; color: #334155; font-weight: 500;">
+                                    ${dateStr} <span style="color: #94a3b8; font-size: 12px; margin-left: 6px;">${timeStr}</span>
+                                </td>
+                                <td style="padding: 16px 20px; color: #64748b;">
+                                    ${distBadge}
+                                </td>
+                                <td style="padding: 16px 20px; text-align: right;">
+                                    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                                        <button class="btn-preview" style="padding: 6px 14px; font-size: 13px; font-weight: 600; background: #f1f5f9; color: #475569; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="openPreviewModal('${report.id}', '${report.filename}')" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">Preview</button>
+                                        <a href="${downloadUrl}" class="btn-download" style="padding: 6px 14px; font-size: 13px; font-weight: 600; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; transition: all 0.2s; display: inline-block;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">Download</a>
+                                        <button class="btn-delete" style="padding: 6px 14px; font-size: 13px; font-weight: 600; background: #fee2e2; color: #ef4444; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="deleteReport('${report.id}')" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    });
+
+                    listContainer.innerHTML = `
+                        <table class="preview-table" style="width: 100%; border-collapse: collapse; margin: 0;">
+                            <thead>
+                                <tr>
+                                    <th style="background: #f8fafc; padding: 12px 20px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Generation Date</th>
+                                    <th style="background: #f8fafc; padding: 12px 20px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">District</th>
+                                    <th style="background: #f8fafc; padding: 12px 20px; text-align: right; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            }
+
+            // Check if active detail container became empty after deletion
+            const activeDetail = Array.from(document.querySelectorAll('.detail-list-container')).find(c => c.style.display === 'block');
+            if (activeDetail) {
+                const rows = activeDetail.querySelectorAll('tbody tr');
+                if (rows.length === 0) {
+                    closeHistoryDetail();
+                } else {
+                    filterHistoryTable();
+                }
+            }
+        }
+
         async function generateReport(action) {
             const fileInput = document.getElementById('file');
             const typeInput = document.getElementById('report_type');
@@ -1769,8 +2075,15 @@
                 return;
             }
 
+            const uploadedFile = fileInput.files[0];
+            const uploadedFileName = uploadedFile ? uploadedFile.name : '';
+
+            if (checkDuplicateAndAlert(uploadedFileName)) {
+                return;
+            }
+
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            formData.append('file', uploadedFile);
             formData.append('report_type', typeInput.value);
 
             const districtSelect = document.getElementById('custom-district-filter');
@@ -1793,18 +2106,26 @@
                 const data = await response.json();
 
                 if (response.ok) {
+                    if (uploadedFileName) {
+                        uploadedFileNamesSet.add(uploadedFileName.toLowerCase().trim());
+                    }
+                    fileInput.value = '';
+
+                    await refreshHistoryView();
+
                     if (action === 'preview') {
                         Swal.close();
-                        needsReload = true;
                         openPreviewModal(data.report_id, data.filename);
                     } else {
                         Swal.fire({ icon: 'success', title: 'Success!', text: 'Report generated successfully.' });
                         window.location.href = "{{ url_for('report.download', report_id=0) }}".replace('0', data.report_id);
                     }
                 } else {
+                    fileInput.value = '';
                     Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'Failed to generate report.' });
                 }
             } catch (err) {
+                fileInput.value = '';
                 Swal.fire({ icon: 'error', title: 'Error', text: 'Connection failed.' });
             }
         }
@@ -1826,10 +2147,8 @@
                         });
 
                         if (response.ok) {
-                            Swal.fire('Deleted!', 'Report deleted successfully.', 'success').then(() => {
-                                const row = document.getElementById('report-row-' + reportId);
-                                if (row) row.remove();
-                            });
+                            await refreshHistoryView();
+                            Swal.fire('Deleted!', 'Report deleted successfully.', 'success');
                         } else {
                             const data = await response.json();
                             Swal.fire('Error', data.detail || 'Could not delete report.', 'error');
@@ -1859,7 +2178,48 @@
             }
         }
 
+        function resetGenerateForm() {
+            const form = document.getElementById('generateForm');
+            if (form) {
+                form.reset();
+            }
+            const reportTypeSelect = document.getElementById('report_type');
+            if (reportTypeSelect) {
+                reportTypeSelect.selectedIndex = 0;
+            }
+            const distSelect = document.getElementById('custom-district-filter');
+            if (distSelect) {
+                distSelect.selectedIndex = 0;
+            }
+            const fileInput = document.getElementById('file');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            resetGenerateForm();
+            refreshHistoryView();
+
+            const savedSection = localStorage.getItem('activeReportSection');
+            if (savedSection && document.getElementById(savedSection)) {
+                switchMainSection(savedSection, null);
+            }
+
+            const savedSubTab = localStorage.getItem('activeReportSubTab');
+            if (savedSubTab) {
+                switchSubTab(savedSubTab);
+            }
+
+            const fileInput = document.getElementById('file');
+            if (fileInput) {
+                fileInput.addEventListener('change', function () {
+                    if (this.files && this.files.length > 0) {
+                        checkDuplicateAndAlert(this.files[0].name);
+                    }
+                });
+            }
+
             if (localStorage.getItem('reportViewMode') === 'list') {
                 toggleViewMode('list');
             }
@@ -1871,38 +2231,11 @@
             }
         });
 
-        function sortTableByTotalPending() {
-            let activePane = document.querySelector('.tab-pane[style*="display: block"]');
-            let table = activePane ? activePane.querySelector('table') : document.querySelector('#previewBody table');
-            if (!table) return;
+        window.addEventListener('pageshow', () => {
+            resetGenerateForm();
+        });
 
-            let thead = table.querySelector('thead');
-            let tbody = table.querySelector('tbody');
-            if (!thead || !tbody) return;
 
-            let headers = Array.from(thead.querySelectorAll('th'));
-            let targetIdx = headers.findIndex(th => {
-                let txt = th.innerText.trim().toLowerCase();
-                return txt.includes('total pending') || txt.includes('pending total');
-            });
-
-            if (targetIdx === -1) {
-                targetIdx = headers.length - 1; // fallback to last column
-            }
-
-            let rows = Array.from(tbody.querySelectorAll('tr'));
-            let isDesc = table.dataset.sortDir === 'desc';
-            let direction = isDesc ? 1 : -1;
-            table.dataset.sortDir = isDesc ? 'asc' : 'desc';
-
-            rows.sort((a, b) => {
-                let valA = parseFloat(a.cells[targetIdx].innerText.replace(/,/g, '')) || 0;
-                let valB = parseFloat(b.cells[targetIdx].innerText.replace(/,/g, '')) || 0;
-                return (valA - valB) * direction;
-            });
-
-            rows.forEach(row => tbody.appendChild(row));
-        }
 
         function filterCustomPreviewTable() {
             const distEl = document.getElementById('modal-district-filter');

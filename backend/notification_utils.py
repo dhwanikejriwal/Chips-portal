@@ -212,7 +212,10 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
     type_counts["l1"] = len(l1_dates)
 
     l2_query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.submitted_at > baseline_at)
-    l2_dates = [make_naive(r.submitted_at) for r in l2_query.all() if str(r.status or "").strip().lower() in chips_actionable]
+    l2_dates = [
+        make_naive(r.submitted_at) for r in l2_query.all()
+        if str(r.status or "").strip().lower() in chips_actionable and (r.is_mailed == 0 or not r.is_mailed)
+    ]
     reg_activation_dates += l2_dates
     type_counts["l2"] = len(l2_dates)
 
@@ -222,12 +225,18 @@ def compute_notification_snapshot(admin_type: str, district_id: str | None, base
     type_counts["station_id"] = len(station_dates)
 
     act_query = db.query(OperatorActivationRequest).filter(OperatorActivationRequest.submitted_at > baseline_at)
-    act_dates = [make_naive(r.submitted_at) for r in act_query.all() if str(r.status or "").strip().lower() in chips_actionable]
+    act_dates = [
+        make_naive(r.submitted_at) for r in act_query.all()
+        if str(r.status or "").strip().lower() in chips_actionable and (r.is_mailed == 0 or not r.is_mailed)
+    ]
     reg_activation_dates += act_dates
     type_counts["operator_activation"] = len(act_dates)
 
     react_query = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.created_at > baseline_at)
-    react_dates = [make_naive(r.created_at) for r in react_query.all() if str(r.status or "").strip().lower() in chips_actionable]
+    react_dates = [
+        make_naive(r.created_at) for r in react_query.all()
+        if str(r.status or "").strip().lower() in chips_actionable and (r.is_mailed == 0 or not r.is_mailed)
+    ]
     reg_activation_dates += react_dates
     type_counts["operator_reactivation"] = len(react_dates)
 

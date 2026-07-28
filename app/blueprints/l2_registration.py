@@ -308,6 +308,7 @@ def chips_revert(request_id):
 
 
 @l2_registration_bp.route("/chips/l2-registration/export-excel", methods=["GET"])
+@l2_registration_bp.route("/chips/l2-registration/export-excel/uidai", methods=["GET"])
 def export_uidai():
     jwt_token = get_valid_token()
     headers = {"Authorization": f"Bearer {jwt_token}"}
@@ -388,3 +389,38 @@ def dc_export_uidai():
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=sent_to_uidai_l2_queue.csv"}
     )
+
+
+@l2_registration_bp.route("/chips/l2-registration/export-and-mail/recipient", methods=["GET"])
+def chips_l2_export_mail_recipient():
+    jwt_token = get_valid_token()
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    try:
+        response = requests.get(f"{BACKEND}/export-and-mail/recipient", headers=headers, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.RequestException:
+        pass
+    import os
+    return {"recipient_email": (os.getenv("UIDAI_RECIPIENT_EMAIL", "") or "").strip()}
+
+
+@l2_registration_bp.route("/chips/l2-registration/export-and-mail", methods=["POST"])
+def chips_l2_export_and_mail():
+    jwt_token = get_valid_token()
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids") or request.form.get("ids", "")
+    email_to = data.get("email_to") or request.form.get("email_to", "")
+
+    try:
+        response = requests.post(
+            f"{BACKEND}/export-and-mail",
+            json={"ids": ids, "email_to": email_to},
+            headers=headers,
+            timeout=15,
+        )
+        return response.json(), response.status_code
+    except requests.exceptions.RequestException as e:
+        return jsonify({"detail": f"Failed to connect to backend service: {e}"}), 502
+

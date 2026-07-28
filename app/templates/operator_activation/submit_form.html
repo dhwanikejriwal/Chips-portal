@@ -144,8 +144,10 @@
                                 style="padding-left: 130px !important; font-family: monospace; font-size: 14px; font-weight: 600; letter-spacing: 1px; width: 100%; height: 38px; box-sizing: border-box;"
                                 oninput="validateAadhaar(this)"
                                 value="{{ request_data.operator_aadhaar[-4:] if request_data and request_data.operator_aadhaar else '' }}">
-
                         </div>
+                        <span class="oa-input-hint" id="aadhaar-hint"
+                            style="display: none; color: #dc3545; font-size: 11px; margin-top: 4px; font-weight: 600;">Must
+                            be exactly 4 digits.</span>
                     </div>
 
                     <div class="input-group">
@@ -330,86 +332,80 @@
                 <div class="oa-docs-grid">
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">Consent Form <span class="required-star">*</span></label>
-                        <input type="file" name="hard_copy_form" accept=".pdf,image/*" {{ 'required' if not request_data
-                            }} class="oa-file-input" onchange="validateOCR(this, 'consent_form')">
-                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if request_data and request_data.documents %}
-                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'hard_copy_form') | list
-                        | first %}
+                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'hard_copy_form') | list | first %}
+                        {% endif %}
+                        <input type="file" name="hard_copy_form" accept=".pdf,image/*" {{ 'required' if not request_data
+                            }} class="oa-file-input" data-has-existing="{{ 'true' if doc else 'false' }}">
+                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if doc %}
                         <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
-                        {% endif %}
                         {% endif %}
                     </div>
 
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">Aadhaar Card <span class="required-star">*</span></label>
-                        <input type="file" name="aadhaar_photo" accept=".pdf,image/*" {{ 'required' if not request_data
-                            }} class="oa-file-input" onchange="validateOCR(this, 'aadhaar_photo')">
-                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if request_data and request_data.documents %}
-                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'aadhaar_photo') | list
-                        | first %}
-                        {% if doc %}
-                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% set doc_aadhaar = request_data.documents | selectattr('doc_type', 'equalto', 'aadhaar_photo') | list | first %}
                         {% endif %}
+                        <input type="file" name="aadhaar_photo" accept=".pdf,image/*" {{ 'required' if not request_data
+                            }} class="oa-file-input" data-has-existing="{{ 'true' if doc_aadhaar else 'false' }}">
+                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                        {% if doc_aadhaar %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc_aadhaar.original_filename }}</div>
                         {% endif %}
                     </div>
 
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">PAN Card <span class="required-star">*</span></label>
-                        <input type="file" name="pan_card" accept=".pdf,image/*" {{ 'required' if not request_data }}
-                            class="oa-file-input" onchange="validateOCR(this, 'pan_card')">
-                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if request_data and request_data.documents %}
-                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'pan_card') | list |
-                        first %}
-                        {% if doc %}
-                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% set doc_pan = request_data.documents | selectattr('doc_type', 'equalto', 'pan_card') | list | first %}
                         {% endif %}
+                        <input type="file" name="pan_card" accept=".pdf,image/*" {{ 'required' if not request_data }}
+                            class="oa-file-input" data-has-existing="{{ 'true' if doc_pan else 'false' }}">
+                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                        {% if doc_pan %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc_pan.original_filename }}</div>
                         {% endif %}
                     </div>
 
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">Passbook <span class="required-star">*</span></label>
-                        <input type="file" name="passbook" accept=".pdf,image/*" {{ 'required' if not request_data }}
-                            class="oa-file-input" onchange="validateOCR(this, 'passbook')">
-                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if request_data and request_data.documents %}
-                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'passbook') | list |
-                        first %}
-                        {% if doc %}
-                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% set doc_passbook = request_data.documents | selectattr('doc_type', 'equalto', 'passbook') | list | first %}
                         {% endif %}
+                        <input type="file" name="passbook" accept=".pdf,image/*" {{ 'required' if not request_data }}
+                            class="oa-file-input" data-has-existing="{{ 'true' if doc_passbook else 'false' }}">
+                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                        {% if doc_passbook %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc_passbook.original_filename }}</div>
                         {% endif %}
                     </div>
 
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">NSEIT Certificate <span class="required-star">*</span></label>
-                        <input type="file" name="nseit_certificate" accept=".pdf,image/*" {{ 'required' if not
-                            request_data }} class="oa-file-input" onchange="validateOCR(this, 'nseit_certificate')">
-                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
                         {% if request_data and request_data.documents %}
-                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'nseit_certificate') |
-                        list | first %}
-                        {% if doc %}
-                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% set doc_nseit = request_data.documents | selectattr('doc_type', 'equalto', 'nseit_certificate') | list | first %}
                         {% endif %}
+                        <input type="file" name="nseit_certificate" accept=".pdf,image/*" {{ 'required' if not
+                            request_data }} class="oa-file-input" data-has-existing="{{ 'true' if doc_nseit else 'false' }}">
+                        <span class="oa-doc-helper">PDF, JPG, PNG (Max. 2MB)</span>
+                        {% if doc_nseit %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc_nseit.original_filename }}</div>
                         {% endif %}
                     </div>
 
                     <div class="oa-doc-card">
                         <label class="oa-doc-label">Excel Sheet (Operator Details) <span
                                 class="required-star">*</span></label>
-                        <input type="file" name="excel_sheet" accept=".xls,.xlsx,.csv" {{ 'required' if not request_data
-                            }} class="oa-file-input">
-                        <span class="oa-doc-helper">XLSX, XLS, CSV (Max. 5MB)</span>
                         {% if request_data and request_data.documents %}
-                        {% set doc = request_data.documents | selectattr('doc_type', 'equalto', 'excel_sheet') | list |
-                        first %}
-                        {% if doc %}
-                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc.original_filename }}</div>
+                        {% set doc_excel = request_data.documents | selectattr('doc_type', 'equalto', 'excel_sheet') | list | first %}
                         {% endif %}
+                        <input type="file" name="excel_sheet" accept=".xls,.xlsx,.csv" {{ 'required' if not request_data
+                            }} class="oa-file-input" data-has-existing="{{ 'true' if doc_excel else 'false' }}">
+                        <span class="oa-doc-helper">XLSX, XLS, CSV (Max. 5MB)</span>
+                        {% if doc_excel %}
+                        <div style="font-size:11px;color:#059669;margin-top:4px;">✓ {{ doc_excel.original_filename }}</div>
                         {% endif %}
                     </div>
 
@@ -448,8 +444,8 @@
                         Cancel
                     </button>
 
-                    <button type="submit" class="oa-btn oa-btn-primary"
-                        style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                    <button type="submit" id="oa-submit-btn" class="oa-btn oa-btn-primary" disabled
+                        style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box; opacity: 0.5; cursor: not-allowed;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="20 6 9 17 4 12"></polyline>
@@ -866,13 +862,13 @@
         const hint = document.getElementById('aadhaar-hint');
         const valid = /^[0-9]{4}$/.test(val);
         if (val.length > 0 && val.length < 4) {
-            hint.style.display = 'block';
+            if (hint) hint.style.display = 'block';
             input.setCustomValidity('Must be exactly 4 digits');
         } else if (val.length === 4 && !valid) {
-            hint.style.display = 'block';
+            if (hint) hint.style.display = 'block';
             input.setCustomValidity('Must be exactly 4 numeric digits');
         } else {
-            hint.style.display = 'none';
+            if (hint) hint.style.display = 'none';
             input.setCustomValidity('');
         }
     }
@@ -1011,11 +1007,13 @@
         if (!submitBtn) return;
 
         let allValid = true;
-        document.querySelectorAll('.oa-file-input').forEach(input => {
+        const fileInputs = document.querySelectorAll('.oa-file-input');
+        fileInputs.forEach(input => {
             const hasFile = input.files && input.files.length > 0;
             const isRequired = input.hasAttribute('required');
+            const hasExisting = input.dataset.hasExisting === 'true';
 
-            if (isRequired && !hasFile) {
+            if (isRequired && !hasFile && !hasExisting) {
                 allValid = false;
             }
             if (hasFile && input.dataset.isValid !== 'true') {
@@ -1033,6 +1031,20 @@
             submitBtn.style.cursor = 'pointer';
         }
     };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.oa-file-input').forEach(input => {
+            input.addEventListener('change', function () {
+                if (this.files && this.files.length > 0) {
+                    performOcrValidation(this);
+                } else {
+                    this.dataset.isValid = 'false';
+                    window.checkFormValidity();
+                }
+            });
+        });
+        window.checkFormValidity();
+    });
 
     async function performOcrValidation(input) {
         const parent = input.closest('.oa-doc-card');
@@ -1361,33 +1373,58 @@
     }
 
     function selectCandidate(c) {
-        // Auto-fill fields
-        if (document.getElementById('name_as_per_aadhaar')) {
-            document.getElementById('name_as_per_aadhaar').value = c.name;
-        }
-        if (document.getElementById('operator_mobile')) {
-            document.getElementById('operator_mobile').value = c.mobile;
-        }
-        if (document.getElementById('primary_email')) {
-            document.getElementById('primary_email').value = c.email;
-        }
-        if (document.getElementById('operator_aadhaar') && c.aadhaar_last4) {
-            document.getElementById('operator_aadhaar').value = c.aadhaar_last4;
-        }
-        if (document.getElementById('pincode') && c.pincode) {
-            document.getElementById('pincode').value = c.pincode;
-        }
-        if (document.getElementById('nseit_certificate_number') && c.nseit_id) {
-            document.getElementById('nseit_certificate_number').value = c.nseit_id;
-            const autofillNote = document.getElementById('nseit-autofill-note');
-            if (autofillNote) {
-                autofillNote.style.display = 'block';
+        // Auto-fill fields and trigger validation
+        try {
+            const nameEl = document.getElementById('name_as_per_aadhaar');
+            if (nameEl) {
+                nameEl.value = c.name || '';
+                nameEl.dispatchEvent(new Event('input', { bubbles: true }));
             }
-        }
-        if (document.getElementById('nseit_certification_date') && c.issue_date) {
-            document.getElementById('nseit_certification_date').value = c.issue_date;
-            if (typeof autoFillExpiryDate === 'function') autoFillExpiryDate();
-        }
+        } catch (e) { console.error("Error setting name:", e); }
+
+        try {
+            const mobileEl = document.getElementById('operator_mobile');
+            if (mobileEl) {
+                mobileEl.value = c.mobile || '';
+                validateMobile(mobileEl);
+            }
+        } catch (e) { console.error("Error setting mobile:", e); }
+
+        try {
+            const emailEl = document.getElementById('primary_email');
+            if (emailEl) {
+                emailEl.value = c.email || '';
+                validateEmail(emailEl);
+            }
+        } catch (e) { console.error("Error setting email:", e); }
+
+        try {
+            const aadhaarEl = document.getElementById('operator_aadhaar');
+            if (aadhaarEl && c.aadhaar_last4) {
+                aadhaarEl.value = c.aadhaar_last4;
+                validateAadhaar(aadhaarEl);
+            }
+        } catch (e) { console.error("Error setting aadhaar:", e); }
+
+        try {
+            const pincodeEl = document.getElementById('pincode');
+            if (pincodeEl && c.pincode) {
+                pincodeEl.value = c.pincode;
+                validatePincode(pincodeEl);
+            }
+        } catch (e) { console.error("Error setting pincode:", e); }
+
+        try {
+            const nseitCertEl = document.getElementById('nseit_certificate_number');
+            if (nseitCertEl && c.nseit_id) {
+                nseitCertEl.value = c.nseit_id;
+                nseitCertEl.dispatchEvent(new Event('input', { bubbles: true }));
+                const autofillNote = document.getElementById('nseit-autofill-note');
+                if (autofillNote) {
+                    autofillNote.style.display = 'block';
+                }
+            }
+        } catch (e) { console.error("Error setting nseit_id:", e); }
 
         // Trigger user code autofill logic
         if (typeof autoFillUserCode === 'function') autoFillUserCode();
@@ -1490,7 +1527,9 @@
                         // Fill what we found
                         let filled = false;
                         if (data.parsed_data.name && document.getElementById('name_as_per_aadhaar')) {
-                            document.getElementById('name_as_per_aadhaar').value = data.parsed_data.name;
+                            const nameInputEl = document.getElementById('name_as_per_aadhaar');
+                            nameInputEl.value = data.parsed_data.name;
+                            nameInputEl.dispatchEvent(new Event('input', { bubbles: true }));
                             filled = true;
                         }
                         if (data.parsed_data.cert_no && document.getElementById('nseit_certificate_number')) {
@@ -1565,166 +1604,6 @@
             window.isAutofilling = false;
             // Reset file input so same file can be uploaded again if needed
             event.target.value = '';
-        }
-    }
-    async function validateOCR(inputEl, docType) {
-        if (!inputEl.files || !inputEl.files[0]) return;
-
-        const file = inputEl.files[0];
-        const nameInput = document.getElementById('name_as_per_aadhaar');
-        const nameVal = nameInput ? nameInput.value.trim() : '';
-
-        const container = inputEl.closest('.oa-doc-card') || inputEl.parentElement;
-        let statusEl = container.querySelector('.ocr-status');
-        if (!statusEl) {
-            statusEl = document.createElement('div');
-            statusEl.className = 'ocr-status';
-            statusEl.style.fontSize = '12px';
-            statusEl.style.marginTop = '6px';
-            statusEl.style.fontWeight = '500';
-            container.appendChild(statusEl);
-        }
-
-        // Special handling for NSEIT certificate upload
-        if (docType === 'nseit_certificate') {
-            const nseitInput = document.getElementById('nseit_certificate_number');
-            const nseitVal = nseitInput ? nseitInput.value.trim() : '';
-
-            statusEl.innerHTML = '<span style="color:#2563eb;">Reading & validating NSEIT Certificate...</span>';
-
-            // If either Name or NSEIT number is empty, call autofill/parse endpoint to extract & fill missing fields
-            if (!nameVal || !nseitVal) {
-                const formData = new FormData();
-                formData.append('nseit_certificate', file);
-                if (nameVal) formData.append('operator_name', nameVal);
-
-                try {
-                    const response = await fetch('/auth/dc/operator-activation/autofill-nseit', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await response.json();
-
-                    if (response.ok && data.status === 'success') {
-                        const parsed = data.parsed_data || {};
-                        let filledMsg = [];
-
-                        if (!nameVal && parsed.name && nameInput) {
-                            nameInput.value = parsed.name;
-                            if (typeof autoFillUserCode === 'function') autoFillUserCode();
-                            filledMsg.push('Name');
-                        }
-
-                        if (!nseitVal && parsed.cert_no && nseitInput) {
-                            nseitInput.value = parsed.cert_no;
-                            const autofillNote = document.getElementById('nseit-autofill-note');
-                            if (autofillNote) autofillNote.style.display = 'block';
-                            filledMsg.push('NSEIT Certificate No.');
-                        }
-
-                        const issueDateEl = document.getElementById('nseit_certification_date');
-                        if (issueDateEl && !issueDateEl.value && parsed.issue_date) {
-                            issueDateEl.value = parsed.issue_date;
-                            if (typeof autoFillExpiryDate === 'function') autoFillExpiryDate();
-                        }
-
-                        if (filledMsg.length > 0) {
-                            statusEl.innerHTML = `<span style="color:#059669;">✓ Verified & auto-filled ${filledMsg.join(' & ')}!</span>`;
-                        } else {
-                            statusEl.innerHTML = '<span style="color:#059669;">✓ Document Verified!</span>';
-                        }
-                        return;
-                    } else {
-                        statusEl.innerHTML = `<span style="color:#dc2626;">✗ ${data.message || 'Could not parse NSEIT certificate.'}</span>`;
-                        inputEl.value = '';
-                        return;
-                    }
-                } catch (e) {
-                    console.error("NSEIT validation error", e);
-                    statusEl.innerHTML = '<span style="color:#dc2626;">✗ OCR service unavailable.</span>';
-                    inputEl.value = '';
-                    return;
-                }
-            }
-        }
-
-        // Standard document checks when not NSEIT or when fields are already populated
-        if (!nameVal) {
-            Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out "Name as per Aadhaar" (or upload your NSEIT Certificate first to auto-fill) before uploading documents.' });
-            inputEl.value = '';
-            statusEl.innerHTML = '';
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('doc_type', docType);
-        formData.append('name_as_per_aadhaar', nameVal);
-
-        if (docType === 'aadhaar_photo') {
-            const aadhaarInput = document.getElementById('operator_aadhaar');
-            if (!aadhaarInput || !aadhaarInput.value.trim()) {
-                Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out your Aadhaar Number before uploading your Aadhaar Card.' });
-                inputEl.value = '';
-                statusEl.innerHTML = '';
-                return;
-            }
-            formData.append('operator_aadhaar', aadhaarInput.value.trim());
-        } else if (docType === 'pan_card') {
-            const panInput = document.getElementById('operator_pan');
-            if (!panInput || !panInput.value.trim()) {
-                Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please fill out your PAN Number before uploading your PAN Card.' });
-                inputEl.value = '';
-                statusEl.innerHTML = '';
-                return;
-            }
-            formData.append('operator_pan', panInput.value.trim());
-        } else if (docType === 'nseit_certificate') {
-            const nseitInput = document.getElementById('nseit_certificate_number');
-            if (nseitInput && nseitInput.value.trim()) {
-                formData.append('nseit_id', nseitInput.value.trim());
-            }
-        }
-
-        statusEl.innerHTML = '<span style="color:#2563eb;">Validating OCR...</span>';
-
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 35000);
-
-            const response = await fetch('/auth/dc/operator-activation/validate_ocr', {
-                method: 'POST',
-                body: formData,
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                if (data.warning) {
-                    statusEl.innerHTML = `<span style="color:#ca8a04;">⚠ ${data.warning}</span>`;
-                } else {
-                    statusEl.innerHTML = '<span style="color:#059669;">✓ Document Verified!</span>';
-                }
-            } else {
-                let errorMsg = 'Validation failed.';
-                if (data.error) {
-                    errorMsg = data.error;
-                } else if (data.detail) {
-                    errorMsg = Array.isArray(data.detail) ? data.detail.map(e => e.msg).join(', ') : data.detail;
-                }
-                statusEl.innerHTML = `<span style="color:#dc2626;">✗ ${errorMsg}</span>`;
-                inputEl.value = '';
-            }
-        } catch (err) {
-            console.error('OCR API Error:', err);
-            if (err.name === 'AbortError') {
-                statusEl.innerHTML = '<span style="color:#ca8a04;">⚠ Validation timed out. You may still submit.</span>';
-            } else {
-                statusEl.innerHTML = '<span style="color:#dc2626;">✗ OCR service unavailable.</span>';
-                inputEl.value = '';
-            }
         }
     }
 </script>

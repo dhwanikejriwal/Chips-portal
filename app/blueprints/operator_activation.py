@@ -9,6 +9,7 @@ from flask import (
     Response,
     current_app,
 )
+import os
 import requests
 from app.utils.aging import parse_aging_filter, filter_by_aging
 
@@ -629,6 +630,43 @@ def chips_export_excel():
             "Content-Disposition": "attachment; filename=sent_to_uidai.csv"
         },
     )
+
+
+@operator_activation_bp.route(
+    "/chips/operator-activation/export-and-mail/recipient", methods=["GET"]
+)
+def chips_export_mail_recipient():
+    jwt_token = session.get("access_token")
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    try:
+        response = requests.get(f"{backend_url()}/export-and-mail/recipient", headers=headers, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.RequestException:
+        pass
+    return {"recipient_email": (current_app.config.get("UIDAI_RECIPIENT_EMAIL") or os.getenv("UIDAI_RECIPIENT_EMAIL", "")).strip()}
+
+
+@operator_activation_bp.route(
+    "/chips/operator-activation/export-and-mail", methods=["POST"]
+)
+def chips_export_and_mail():
+    jwt_token = session.get("access_token")
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids") or request.form.get("ids", "")
+    email_to = data.get("email_to") or request.form.get("email_to", "")
+    
+    try:
+        response = requests.post(
+            f"{backend_url()}/export-and-mail",
+            json={"ids": ids, "email_to": email_to},
+            headers=headers,
+            timeout=25
+        )
+        return response.json(), response.status_code
+    except requests.exceptions.RequestException:
+        return {"detail": "Error connecting to backend API server."}, 500
 
 
 @operator_activation_bp.route(

@@ -4,11 +4,12 @@ import re
 import os
 import shutil
 import uuid
-from datetime import datetime
-from fastapi import APIRouter, Depends, Form, HTTPException, File, UploadFile
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import text, or_
+from backend.models.base import StatusEnum, get_ist_now
 from backend.database import get_db
 from backend.models.operator_activation import (
     OperatorActivationRequest,
@@ -369,7 +370,7 @@ def submit_operator_activation(
     # If candidate does not exist, we still allow the process to proceed (as requested by user)
     if candidate:
         nseit_done = False
-        nseit_req = db.query(NSEITRequest).filter(NSEITRequest.r_id == candidate.r_id).first()
+        nseit_req = db.query(NSEITRequest).filter(NSEITRequest.request_id == candidate.id).first()
         if nseit_req and nseit_req.status_id in [StatusEnum.APPROVED.value, StatusEnum.SKIPPED.value]:
             nseit_done = True
         elif candidate.nseit_id:
@@ -530,6 +531,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
 
                 "district_name": dist_name,
                 "status": clean_status,
+                "is_mailed": int(r.is_mailed or 0),
                 "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
                 "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else None,
                 "remarks_history": remarks_history,
@@ -577,6 +579,7 @@ def get_all_requests(db: Session = Depends(get_db)):
                 "ea_code": r.ea_code,
                 "user_code": r.user_code,
                 "status": clean_status,
+                "is_mailed": int(r.is_mailed or 0),
                 "remark_to_uidai": r.remarks[-1].remark if r.remarks else "—",
 
                 "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
@@ -599,50 +602,141 @@ def export_to_excel(ids: str = None, db: Session = Depends(get_db)):
     import csv
     import io
 
-    query = db.query(OperatorActivationRequest).filter(OperatorActivationRequest.status_id == StatusEnum.SENT_TO_UIDAI.value)
+    query = db.query(OperatorActivationRequest)
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
         query = query.filter(OperatorActivationRequest.id.in_(id_list))
+    else:
+        query = query.filter(
+            or_(
+                OperatorActivationRequest.status_id == StatusEnum.SENT_TO_UIDAI.value,
+                OperatorActivationRequest.is_mailed == 1
+            )
+        )
     requests_list = query.order_by(OperatorActivationRequest.submitted_at.desc()).all()
 
     stream = io.StringIO()
     writer = csv.writer(stream)
 
-    # 🌟 EXPANDED MASTER HEADERS MATRIX
     headers = [
-        "S.No", "Request ID", "District Name", "Role", 
-        "Name as per Aadhaar", "Registrar Code", "EA Code", "User Code", 
-        "NSEIT Certificate Number", "Mobile Number", "Primary Email ID", 
-        "Aadhaar Number", "PAN Number", "Pincode", "Status", 
-        "Submitted At Timestamp", "Reviewed At Timestamp"
+        "Sl. No", "Role", "Name as per Aadhaar", "Registrar Code", 
+        "EA Code", "User code", "Certificate Number", "Mobile Number", 
+        "Primary E-mail ID", "Aadhaar Number", "Certification Date", "Any Remarks"
     ]
     writer.writerow(headers)
 
     for idx, r in enumerate(requests_list, start=1):
-        dist_name = r.district.district_name if r.district else "—"
+        cert_date = str(r.nseit_certification_date)[:10] if r.nseit_certification_date else "—"
         writer.writerow([
             idx,
-            r.request_no or "—",
-            dist_name,
             r.role if r.role else "—",
-            r.name_as_per_aadhaar,
+            r.name_as_per_aadhaar if r.name_as_per_aadhaar else "—",
             r.registrar_code if r.registrar_code else "—",
             r.ea_code if r.ea_code else "—",
             r.user_code if r.user_code else "—",
             r.nseit_certificate_number if r.nseit_certificate_number else "—",
-            r.operator_mobile,
+            r.operator_mobile if r.operator_mobile else "—",
             r.primary_email if r.primary_email else "—",
             f"{r.operator_aadhaar}" if r.operator_aadhaar else "—",
-            f"{r.pan_number}" if r.pan_number else "—",
-            r.pincode if r.pincode else "—",
-            r.status,
-            str(r.submitted_at)[:19] if r.submitted_at else "—",
-            str(r.reviewed_at)[:16] if r.reviewed_at else "—"
+            cert_date,
+            ""
         ])
 
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = "attachment; filename=uidai_pipeline_complete_report.csv"
     return response
+
+class ExportAndMailRequest(BaseModel):
+    ids: str | None = None
+    email_to: str | None = None
+
+@router.get("/export-and-mail/recipient")
+def get_export_mail_recipient():
+    from backend.utils.email_utils import DEFAULT_UIDAI_RECIPIENT_EMAIL
+    return {"recipient_email": DEFAULT_UIDAI_RECIPIENT_EMAIL}
+
+@router.post("/export-and-mail")
+def export_and_mail_to_uidai(
+    payload: ExportAndMailRequest, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    import csv
+    import io
+    import asyncio
+    from backend.utils.email_utils import send_uidai_export_email, DEFAULT_UIDAI_RECIPIENT_EMAIL
+
+    query = db.query(OperatorActivationRequest)
+    if payload.ids:
+        id_list = [int(i.strip()) for i in payload.ids.split(",") if i.strip().isdigit()]
+        query = query.filter(OperatorActivationRequest.id.in_(id_list))
+    else:
+        query = query.filter(OperatorActivationRequest.status_id.in_([
+            StatusEnum.PENDING.value,
+            StatusEnum.REAPPLIED.value,
+            StatusEnum.SENT_TO_CHIPS.value
+        ]))
+    requests_list = query.order_by(OperatorActivationRequest.submitted_at.desc()).all()
+
+    if not requests_list:
+        raise HTTPException(status_code=400, detail="No pending activation requests found matching the selection.")
+
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+
+    headers = [
+        "Sl. No", "Role", "Name as per Aadhaar", "Registrar Code", 
+        "EA Code", "User code", "Certificate Number", "Mobile Number", 
+        "Primary E-mail ID", "Aadhaar Number", "Certification Date", "Any Remarks"
+    ]
+    writer.writerow(headers)
+
+    for idx, r in enumerate(requests_list, start=1):
+        cert_date = str(r.nseit_certification_date)[:10] if r.nseit_certification_date else "—"
+        writer.writerow([
+            idx,
+            r.role if r.role else "—",
+            r.name_as_per_aadhaar if r.name_as_per_aadhaar else "—",
+            r.registrar_code if r.registrar_code else "—",
+            r.ea_code if r.ea_code else "—",
+            r.user_code if r.user_code else "—",
+            r.nseit_certificate_number if r.nseit_certificate_number else "—",
+            r.operator_mobile if r.operator_mobile else "—",
+            r.primary_email if r.primary_email else "—",
+            f"{r.operator_aadhaar}" if r.operator_aadhaar else "—",
+            cert_date,
+            ""
+        ])
+
+    csv_content = stream.getvalue().encode("utf-8")
+    target_email = payload.email_to.strip() if payload.email_to else DEFAULT_UIDAI_RECIPIENT_EMAIL
+
+    try:
+        asyncio.run(send_uidai_export_email(
+            csv_content=csv_content,
+            record_count=len(requests_list),
+            module_name="Operator Activation",
+            filename="operator_activation_sent_to_uidai.csv",
+            email_to=target_email
+        ))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to email CSV export: {str(e)}")
+
+    now_ist = get_ist_now()
+    reviewer_id = getattr(current_user, 'id', 1)
+    for r in requests_list:
+        r.is_mailed = 1
+        r.reviewed_at = now_ist
+        r.reviewed_by = reviewer_id
+
+    db.commit()
+
+    return {
+        "success": True,
+        "detail": f"Export CSV ({len(requests_list)} records) emailed successfully to {target_email} and moved to Under Processing queue.",
+        "recipient_email": target_email,
+        "record_count": len(requests_list)
+    }
 
 
 

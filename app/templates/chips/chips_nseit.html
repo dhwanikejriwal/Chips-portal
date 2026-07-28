@@ -634,31 +634,80 @@
             }
         }).then((result) => {
             if (result.isConfirmed) {
-                const formData = new FormData();
-                formData.append('remark', result.value.remark);
+                const submitApprove = (forceWithoutEmail = false) => {
+                    Swal.fire({
+                        title: 'Processing...',
+                        html: forceWithoutEmail ? 'Approving candidate...' : 'Approving candidate and checking email delivery...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
 
-                fetch(`/auth/dc/approve-nseit/${r_id}`, {
-                    method: 'POST',
-                    body: formData
-                }).then(response => {
-                    if (response.ok) {
-                        Swal.fire({
-                            title: 'Approved!',
-                            text: 'NSEIT Certificate request successfully approved.',
-                            icon: 'success',
-                            confirmButtonColor: '#28a745',
-                            timer: 2000,
-                            timerProgressBar: true
-                        }).then(() => {
-                            sessionStorage.setItem('chips_action_reloading', 'true');
-                            window.location.reload();
-                        });
-                    } else {
-                        response.json().then(data => {
-                            Swal.fire('Error', data.detail || 'Failed to revert request.', 'error');
-                        });
+                    const payload = new URLSearchParams();
+                    payload.append("remark", result.value.remark);
+                    if (forceWithoutEmail) {
+                        payload.append("force_without_email", "true");
                     }
-                });
+
+                    fetch(`/auth/dc/approve-nseit/${r_id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: payload
+                    }).then(async response => {
+                        let data = null;
+                        try {
+                            data = await response.json();
+                        } catch (e) {
+                            console.error("Failed to parse response JSON", e);
+                        }
+
+                        if (response.ok && (!data || data.success !== false)) {
+                            const msg = forceWithoutEmail
+                                ? 'NSEIT Certificate request successfully approved (Email was not sent).'
+                                : 'NSEIT Certificate request successfully approved and candidate has been informed via email.';
+
+                            Swal.fire({
+                                title: 'Approved!',
+                                text: msg,
+                                icon: 'success',
+                                confirmButtonColor: '#28a745',
+                                timer: 3000,
+                                timerProgressBar: true
+                            }).then(() => {
+                                sessionStorage.setItem('chips_action_reloading', 'true');
+                                window.location.reload();
+                            });
+                        } else {
+                            if (data && data.email_failed) {
+                                Swal.fire({
+                                    title: 'Email Delivery Failed',
+                                    text: "The candidate couldn't be notified via email at the moment. Do you still want to proceed?",
+                                    icon: 'warning',
+                                    showDenyButton: true,
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Retry Email',
+                                    denyButtonText: 'Proceed Without Email',
+                                    cancelButtonText: 'Cancel'
+                                }).then((res) => {
+                                    if (res.isConfirmed) {
+                                        submitApprove(false); // Retry
+                                    } else if (res.isDenied) {
+                                        submitApprove(true); // Proceed without email
+                                    }
+                                });
+                            } else {
+                                Swal.fire('Error', (data && data.detail) ? data.detail : 'Failed to approve request.', 'error');
+                            }
+                        }
+                    }).catch(() => {
+                        Swal.fire('Error', 'Failed to approve request. Please check your connection.', 'error');
+                    });
+                };
+
+                submitApprove(false);
             }
         });
     }

@@ -202,19 +202,25 @@ def approve_nseit(r_id):
     remark = request.form.get("remark")
     by_user_id = session.get("user_id")
     
+    force_without_email = request.form.get("force_without_email") == "true"
+    
     if not by_user_id:
         return {"detail": "Admin user session expired. Please log in again."}, 400
 
     if not remark:
         remark = ""
-            
+
     backend_url = f"{current_app.config['BACKEND_API_URL']}/nseit_manage/approve/{r_id}"
     try:
         response = requests.post(backend_url, json={
             "remark": remark,
-            "by_user_id": by_user_id
+            "by_user_id": by_user_id,
+            "force_without_email": force_without_email
         }, headers=_headers())
         if response.status_code == 200:
+            res_json = response.json()
+            if not res_json.get("success", True):
+                return res_json, 400
             return {"success": True}
         else:
             return response.json(), response.status_code

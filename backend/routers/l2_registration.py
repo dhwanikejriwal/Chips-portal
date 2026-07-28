@@ -4,9 +4,11 @@ import re
 import io
 import openpyxl
 from fastapi import APIRouter, Depends, Form, HTTPException
+from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from backend.utils.exporter import generate_excel_export
 from sqlalchemy.orm import Session
+from sqlalchemy import text, or_
 from backend.database import SessionLocal
 from backend.models import L2RegistrationRequest, L2RegistrationRemark, User, District, StationIDRequest
 from backend.models.base import get_ist_time, StatusEnum
@@ -176,6 +178,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
             "status": clean_status,
             "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
             "updated_at": remarks_history[-1]["created_at"] if remarks_history else (str(r.submitted_at)[:16] if r.submitted_at else ""),
+            "is_mailed": getattr(r, 'is_mailed', 0) or 0,
             "remarks_history": remarks_history,
             "revert_reason": revert_reason
         })
@@ -345,6 +348,7 @@ def get_all_requests(db: Session = Depends(get_db)):
             "status": clean_status,
             "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
             "updated_at": remarks_history[-1]["created_at"] if remarks_history else (str(r.submitted_at)[:16] if r.submitted_at else ""),
+            "is_mailed": int(r.is_mailed or 0),
             "remarks_history": remarks_history
         })
 
@@ -403,7 +407,7 @@ def get_request_details(request_id: int, db: Session = Depends(get_db)):
         "uidai_remarks": r.uidai_remarks,
         "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
         "updated_at": remarks_history[-1]["created_at"] if remarks_history else (str(r.submitted_at)[:16] if r.submitted_at else ""),
-
+        "is_mailed": int(r.is_mailed or 0),
         "remarks_history": remarks_history
     }
 
@@ -657,16 +661,83 @@ def export_pending_excel(ids: str = None, db: Session = Depends(get_db)):
     reqs = query.order_by(L2RegistrationRequest.submitted_at.desc()).all()
     return make_csv_stream(reqs, "pending_l2_queue_report")
 
+def generate_l2_uidai_csv_content(reqs: list) -> str:
+    import csv
+    import io
+
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+
+    headers = [
+        "S.NO.",
+        "Client Version",
+        "New Station Id",
+        "EA Code",
+        "Reg Code",
+        "New Machine Id",
+        "Client Type",
+        "Old Station ID(If Any)",
+        "Reason For L2 Registration In Case of New Station Id is sent against the Old Station ID",
+        "Old Machine ID",
+        "Tech Center Remarks",
+        "Operator name",
+        "Operator Id",
+        "Unique Id",
+        "District",
+        "Block",
+        "Address of Govt premises"
+    ]
+    writer.writerow(headers)
+
+    for idx, r in enumerate(reqs, start=1):
+        dist_name = r.district.district_name if r.district else ""
+
+        row_data = [
+            idx,
+            r.client_version or "",
+            r.new_station_id or "",
+            r.ea_code or "",
+            r.reg_code or "",
+            r.new_machine_id or "",
+            r.client_type or "",
+            r.old_station_id or "",
+            r.reason_for_l2_registration or "",
+            r.old_machine_id or "",
+            r.tech_center_remarks or "",
+            r.operator_name or "",
+            r.operator_id or "",
+            r.unique_id or "",
+            dist_name,
+            r.block or "",
+            r.address_of_govt_premises or ""
+        ]
+        writer.writerow(row_data)
+
+    return stream.getvalue()
+
+
 @router.get("/export-excel/uidai")
 def export_uidai_excel(ids: str = None, db: Session = Depends(get_db)):
-    query = db.query(L2RegistrationRequest).filter(L2RegistrationRequest.status_id == StatusEnum.SENT_TO_UIDAI.value)
+    query = db.query(L2RegistrationRequest)
 
     if ids:
         id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
         if id_list:
             query = query.filter(L2RegistrationRequest.id.in_(id_list))
+    else:
+        query = query.filter(
+            or_(
+                L2RegistrationRequest.status_id == StatusEnum.SENT_TO_UIDAI.value,
+                L2RegistrationRequest.is_mailed == 1
+            )
+        )
     reqs = query.order_by(L2RegistrationRequest.submitted_at.desc()).all()
-    return make_csv_stream(reqs, "uidai_pipeline_l2_report")
+    
+    csv_content = generate_l2_uidai_csv_content(reqs)
+    response = StreamingResponse(iter([csv_content]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=uidai_pipeline_l2_report.csv"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 @router.get("/export-excel/credentials")
 def export_creds_excel(ids: str = None, db: Session = Depends(get_db)):
@@ -678,4 +749,69 @@ def export_creds_excel(ids: str = None, db: Session = Depends(get_db)):
             query = query.filter(L2RegistrationRequest.id.in_(id_list))
     reqs = query.order_by(L2RegistrationRequest.submitted_at.desc()).all()
     return make_csv_stream(reqs, "credentials_history_l2_report")
+
+
+class ExportAndMailL2Request(BaseModel):
+    ids: str | None = None
+    email_to: str | None = None
+
+@router.get("/export-and-mail/recipient")
+def get_l2_export_mail_recipient():
+    from backend.utils.email_utils import DEFAULT_UIDAI_RECIPIENT_EMAIL
+    return {"recipient_email": DEFAULT_UIDAI_RECIPIENT_EMAIL}
+
+@router.post("/export-and-mail")
+def export_and_mail_l2_to_uidai(
+    payload: ExportAndMailL2Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    import asyncio
+    from backend.utils.email_utils import send_uidai_export_email, DEFAULT_UIDAI_RECIPIENT_EMAIL
+
+    target_email = (payload.email_to or DEFAULT_UIDAI_RECIPIENT_EMAIL).strip()
+
+    query = db.query(L2RegistrationRequest)
+    if payload.ids:
+        id_list = [int(i.strip()) for i in payload.ids.split(",") if i.strip().isdigit()]
+        if id_list:
+            query = query.filter(L2RegistrationRequest.id.in_(id_list))
+    else:
+        query = query.filter(
+            L2RegistrationRequest.status_id.in_([
+                StatusEnum.PENDING.value,
+                StatusEnum.REAPPLIED.value
+            ]),
+            or_(L2RegistrationRequest.is_mailed == 0, L2RegistrationRequest.is_mailed.is_(None))
+        )
+    reqs = query.order_by(L2RegistrationRequest.submitted_at.desc()).all()
+
+    if not reqs:
+        raise HTTPException(status_code=400, detail="No unmailed L2 registration requests found matching the selection.")
+
+    csv_content = generate_l2_uidai_csv_content(reqs)
+
+    try:
+        asyncio.run(send_uidai_export_email(
+            csv_content=csv_content,
+            record_count=len(reqs),
+            module_name="L2 Registration",
+            filename="l2_registration_sent_to_uidai.csv",
+            email_to=target_email
+        ))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to email CSV export: {str(e)}")
+
+    for r in reqs:
+        r.is_mailed = 1
+
+    db.commit()
+
+    return {
+        "success": True,
+        "detail": f"Export CSV ({len(reqs)} records) emailed successfully to {target_email} and moved to Under Processing queue.",
+        "recipient_email": target_email,
+        "count": len(reqs)
+    }
+
 

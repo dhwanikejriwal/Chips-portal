@@ -220,6 +220,7 @@ async def generate_report(
         report_record = ReportHistory(
             report_type=report_type,
             filename=output_filename,
+            original_filename=file.filename,
             file_path=output_filepath
         )
         db.add(report_record)
@@ -260,7 +261,7 @@ def preview_report(report_id: int, db: Session = Depends(get_db)):
         html_sheets = {}
         for sheet_name, df in dfs.items():
             df = clean_dataframe_mobile_cols(df)
-            html_sheets[sheet_name] = df.iloc[::-1].head(100).to_html(classes='preview-table', index=False, border=0, na_rep='', float_format='{:.0f}'.format)
+            html_sheets[sheet_name] = df.to_html(classes='preview-table', index=False, border=0, na_rep='', float_format='{:.0f}'.format)
         return {"html_sheets": html_sheets, "multi_sheet": len(dfs) > 1, "html": html_sheets[list(dfs.keys())[0]]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
@@ -945,6 +946,31 @@ def _get_df_col(df, name):
             return col
     return None
 
+def add_total_row(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    total_row = {}
+    is_multi = isinstance(df.columns, pd.MultiIndex)
+
+    for idx, col in enumerate(df.columns):
+        col_name = str(col[0] if is_multi else col).strip().lower()
+        if idx == 0 or 's.no' in col_name or 'sr' in col_name:
+            total_row[col] = "Total"
+        elif 'district' in col_name or 'name' in col_name or 'lwe' in col_name:
+            total_row[col] = ""
+        else:
+            try:
+                numeric_vals = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                total_row[col] = int(numeric_vals.sum())
+            except Exception:
+                total_row[col] = ""
+
+    total_df = pd.DataFrame([total_row])
+    if is_multi:
+        total_df.columns = df.columns
+    return pd.concat([df, total_df], ignore_index=True)
+
 def generate_clean_multiindex_html(df, table_class='preview-table'):
     if not isinstance(df.columns, pd.MultiIndex):
         return df.to_html(classes=table_class, index=False, border=0)
@@ -987,13 +1013,16 @@ def generate_clean_multiindex_html(df, table_class='preview-table'):
     
     tbody_html = "<tbody>\n"
     for row_idx, row in df.iterrows():
-        bg_color = "#ffffff" if row_idx % 2 == 0 else "#f8fafc"
-        tbody_html += f'  <tr style="background: {bg_color};">\n'
+        is_total = (str(row.iloc[0]).strip().lower() == "total" or str(row.iloc[1]).strip().lower() == "total")
+        row_cls = ' class="total-row"' if is_total else ''
+        bg_color = "#e2e8f0" if is_total else ("#ffffff" if row_idx % 2 == 0 else "#f8fafc")
+        border_style = "border-top: 2px solid #64748b; border-bottom: 2px solid #64748b;" if is_total else "border-bottom: 1px solid #e2e8f0;"
+        tbody_html += f'  <tr{row_cls} style="background: {bg_color}; font-weight: {"700" if is_total else "normal"};">\n'
         for col_idx, val in enumerate(row):
-            # Left align District name, center numbers
-            align = "left" if col_idx == 1 else "center"
-            font_wt = "600" if col_idx == 1 else "400"
-            tbody_html += f'    <td style="text-align: {align}; font-weight: {font_wt}; padding: 10px 14px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; color: #1e293b;">{val}</td>\n'
+            align = "left" if (col_idx in [0, 1] and not is_total) else ("left" if is_total and col_idx == 0 else "center")
+            font_wt = "700" if (is_total or col_idx == 1) else "400"
+            td_bg = "background: #e2e8f0;" if is_total else ""
+            tbody_html += f'    <td style="text-align: {align}; font-weight: {font_wt}; padding: 10px 14px; {border_style} border-right: 1px solid #cbd5e1; color: #0f172a; {td_bg}">{val}</td>\n'
         tbody_html += "  </tr>\n"
     tbody_html += "</tbody>"
     
@@ -1052,8 +1081,9 @@ def preview_system_report(report_name: str, lwe: bool = False, division: Optiona
         df = apply_system_filters(df, lwe, division, district)
         df = clean_dataframe_mobile_cols(df)
         df = df.fillna("")
-        df_preview = df.iloc[::-1].head(200)
-        html_table = generate_clean_multiindex_html(df_preview)
+        if report_name in ["district_wise_kit_count", "lms_summary", "nseit_summary"]:
+            df = add_total_row(df)
+        html_table = generate_clean_multiindex_html(df)
         return {"html": html_table}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
@@ -1065,10 +1095,27 @@ def download_system_report(report_name: str, lwe: bool = False, division: Option
         df = apply_system_filters(df, lwe, division, district)
         df = clean_dataframe_mobile_cols(df)
         df = df.fillna("")
-        
+        if report_name in ["district_wise_kit_count", "lms_summary", "nseit_summary"]:
+            df = add_total_row(df)
+            
         output = io.BytesIO()
+        sheet_name = 'Kit Status' if report_name == 'district_wise_kit_count' else 'System Report'
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=True if isinstance(df.columns, pd.MultiIndex) else False, sheet_name='Kit Status' if report_name == 'district_wise_kit_count' else 'System Report')
+            if isinstance(df.columns, pd.MultiIndex):
+                first_col = df.columns[0]
+                df_export = df.set_index(first_col)
+                df_export.to_excel(writer, index=True, sheet_name=sheet_name)
+                
+                ws = writer.sheets[sheet_name]
+                ws.cell(row=1, column=1, value='S.No')
+                if not ws.cell(row=1, column=2).value:
+                    ws.cell(row=1, column=2, value='District')
+                    
+                val_row3 = str(ws.cell(row=3, column=1).value or '')
+                if 'S.No' in val_row3 or 'tuple' in val_row3 or val_row3.startswith('('):
+                    ws.delete_rows(3)
+            else:
+                df.to_excel(writer, index=False, sheet_name=sheet_name)
             
         output.seek(0)
         from fastapi.responses import Response
