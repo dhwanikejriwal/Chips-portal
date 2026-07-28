@@ -242,7 +242,7 @@
     
     /* Preview Table Pandas Styling */
     .preview-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; background: white; }
-    .preview-table thead th { position: sticky; top: 0; background: #f8fafc; padding: 14px 20px; border-bottom: 2px solid #e2e8f0; text-align: left; z-index: 10; color: #475569; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .preview-table thead th { position: sticky; top: 0; background: #0f172a; padding: 14px 20px; text-align: left; z-index: 10; color: white; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-right: 1px solid #1e293b; border-bottom: 2px solid #1e293b; }
     .preview-table tbody td { padding: 14px 20px; border-bottom: 1px solid #f1f5f9; color: #334155; }
     .preview-table tbody tr:hover { background: #f8fafc; }
 </style>
@@ -724,13 +724,20 @@
         distContainer.style.display = 'flex';
         
         // Hide Station ID and Operator Name search for summary reports
-        if (['district_wise_kit_count', 'lms_summary', 'nseit_summary'].includes(reportName)) {
+        const hideSearchReports = ['district_wise_kit_count', 'lms_summary', 'nseit_summary', 'mbu_district_wise', '18_plus_pendency', 'cenetarian_district_report'];
+        if (hideSearchReports.includes(reportName)) {
             if (stSearch) stSearch.style.display = 'none';
             if (opSearch) opSearch.style.display = 'none';
             if (searchBtn) searchBtn.style.display = 'none'; 
         } else {
-            if (stSearch) { stSearch.style.display = ''; stSearch.value = ''; }
-            if (opSearch) { opSearch.style.display = ''; opSearch.value = ''; }
+            if (stSearch) { 
+                stSearch.style.display = (reportName === 'operator_list') ? 'none' : ''; 
+                stSearch.value = ''; 
+            }
+            if (opSearch) { 
+                opSearch.style.display = (reportName === 'l1_pending_list' || reportName === 'l2_pending_list') ? 'none' : ''; 
+                opSearch.value = ''; 
+            }
             if (searchBtn) searchBtn.style.display = 'flex';
         }
         
@@ -826,7 +833,7 @@
                 <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; max-width: 100%; flex: 1;">
                     ${tabButtonsHtml}
                 </div>
-                <button onclick="sortTableByTotalPending()" style="padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: #475569; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s; white-space: nowrap;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"></path></svg> Sort by Requests</button>
+
             </div>
         `;
         
@@ -1213,7 +1220,7 @@
                 }
                 
                 tabsHtml += '</div>';
-                tabsHtml += `<button onclick="sortTableByTotalPending()" style="padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: #475569; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"></path></svg> Sort by Requests</button>`;
+
                 tabsHtml += '</div>';
                 
                 document.getElementById('previewBody').innerHTML = tabsHtml + contentHtml + '</div>';

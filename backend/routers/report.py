@@ -72,7 +72,7 @@ async def generate_report(
             
         # Filter specific columns based on report type
         if report_type == '18_plus_pendency':
-            desired = ['Total Pending', 'Pending at SubDistrict', 'Pending at District']
+            desired = ['Total Pending', 'Total Rejected', 'Total Approved']
             matched = []
             for d in desired:
                 for c in df.columns:
@@ -87,9 +87,7 @@ async def generate_report(
             desired = [
                 'MBU Pending (Age 5-15)', 
                 'MBU Pending (Age 15 and above)',
-                'Status Check to be done',
-                'MBU Not Required',
-                'Total Student'
+                'Total Students AADHAAR Provided'
             ]
             matched = []
             for d in desired:
@@ -104,7 +102,7 @@ async def generate_report(
             df = df[keep_cols + matched]
             
         elif report_type == 'cenetarian_district_report':
-            desired = ['Pending Total', 'Pending Sub District', 'Pending District']
+            desired = ['Pending Total', 'Not verifiable Total', 'Deceased Total', 'Alive Total']
             matched = []
             for d in desired:
                 for c in df.columns:
@@ -131,18 +129,77 @@ async def generate_report(
         df = df[keep_cols].dropna(subset=[dist_col])
 
         if report_type == 'mbu_district_wise' and numeric_cols:
-            df['Total Pending'] = df[numeric_cols].sum(axis=1)
+            if 'MBU Pending (Age 5-15)' in df.columns and 'MBU Pending (Age 15 and above)' in df.columns:
+                df['Total Pending'] = df['MBU Pending (Age 5-15)'] + df['MBU Pending (Age 15 and above)']
+            else:
+                df['Total Pending'] = df[numeric_cols].sum(axis=1)
             numeric_cols.append('Total Pending')
+
+        if report_type == 'cenetarian_district_report' and numeric_cols:
+            total_reqs = pd.Series(0, index=df.index)
+            for c in df.columns:
+                if str(c).strip().lower() in [d.lower() for d in ['Pending Total', 'Not verifiable Total', 'Deceased Total', 'Alive Total']]:
+                    total_reqs += df[c].fillna(0)
+            df['Total Requests'] = total_reqs
+            numeric_cols.append('Total Requests')
+
+        if report_type == '18_plus_pendency' and numeric_cols:
+            total_reqs_18 = pd.Series(0, index=df.index)
+            for c in df.columns:
+                if str(c).strip().lower() in [d.lower() for d in ['Total Pending', 'Total Rejected', 'Total Approved']]:
+                    total_reqs_18 += df[c].fillna(0)
+            df['Total Requests'] = total_reqs_18
+            numeric_cols.append('Total Requests')
 
         if district:
             df = df[df[dist_col].astype(str).str.lower() == district.lower()]
 
         # Write to multi-sheet excel
         with pd.ExcelWriter(output_filepath, engine='openpyxl') as writer:
+            
+            def add_derived_cols(summary_df):
+                if report_type == 'mbu_district_wise' and 'Total Pending' in summary_df.columns and 'Total Students AADHAAR Provided' in summary_df.columns:
+                    summary_df['MBU Pendency %'] = ((summary_df['Total Pending'] / summary_df['Total Students AADHAAR Provided'].replace(0, 1)) * 100).round(2).astype(str) + '%'
+                elif report_type == 'cenetarian_district_report':
+                    pending_col = next((c for c in summary_df.columns if str(c).strip().lower() == 'pending total'), None)
+                    if 'Total Requests' in summary_df.columns and pending_col:
+                        summary_df['Pending %'] = ((summary_df[pending_col] / summary_df['Total Requests'].replace(0, 1)) * 100).round(2).astype(str) + '%'
+                elif report_type == '18_plus_pendency':
+                    pending_col = next((c for c in summary_df.columns if str(c).strip().lower() == 'total pending'), None)
+                    if 'Total Requests' in summary_df.columns and pending_col:
+                        summary_df['Pendency %'] = ((summary_df[pending_col] / summary_df['Total Requests'].replace(0, 1)) * 100).round(2).astype(str) + '%'
+                return summary_df
+
             # Combined Sheet
             combined_df = df.groupby(dist_col)[numeric_cols].sum().reset_index()
+            combined_df = add_derived_cols(combined_df)
             combined_df.insert(0, 'S.No', range(1, len(combined_df) + 1))
             combined_df.to_excel(writer, index=False, sheet_name='Combined')
+            
+            # Divisions Sheet
+            if report_type in ['mbu_district_wise', 'cenetarian_district_report', '18_plus_pendency']:
+                DIVISIONS = {
+                    "bilaspur": ["bilaspur", "gaurella-pendra-marwahi", "gaurela-pendra-marwahi", "janjgir-champa", "janjgir", "korba", "mungeli", "raigarh", "sakti", "sarangarh-bilaigarh", "sarangarh"],
+                    "raipur": ["baloda bazar-bhatapara", "balodabazar", "baloda bazar", "dhamtari", "gariaband", "gariyaband", "mahasamund", "raipur"],
+                    "durg": ["balod", "bemetara", "durg", "kabirdham (kawardha)", "kabirdham", "kawardha", "khairagarh-chhuikhadan-gandai", "khairagarh", "mohla-manpur-chowki", "mohla-manpur-ambagarh chowki", "mohla", "rajnandgaon"],
+                    "bastar": ["bastar", "baster", "bijapur", "dakshin bastar (dantewada)", "dantewada", "uttar bastar (kanker)", "kanker", "kondagaon", "narayanpur", "sukma"],
+                    "surguja": ["balrampur-ramanujganj", "balrampur", "jashpur", "koriya", "manendragarh-chirmiri-bharatpur", "manendragarh", "surajpur", "surguja"]
+                }
+                
+                def get_division(d_name):
+                    d_name_lower = str(d_name).strip().lower()
+                    for div, allowed in DIVISIONS.items():
+                        for a in allowed:
+                            if a in d_name_lower or d_name_lower in a:
+                                return div.title()
+                    return "Unknown"
+                
+                df_with_div = df.copy()
+                df_with_div['Division Name'] = df_with_div[dist_col].apply(get_division)
+                div_summary = df_with_div.groupby('Division Name')[numeric_cols].sum().reset_index()
+                div_summary = add_derived_cols(div_summary)
+                div_summary.insert(0, 'S.No', range(1, len(div_summary) + 1))
+                div_summary.to_excel(writer, index=False, sheet_name='Divisions')
             
             # LWE Sheet
             lwe_districts = ["dantewada", "bastar", "baster", "sukma", "narayanpur", "mohla-manpur-chowki", "mohla manpur ambagarh chowki", "mohla-manpur-ambagarh chouki", "bijapur", "kanker", "mohla-manpur", "mohla manpur"]
@@ -156,6 +213,7 @@ async def generate_report(
             lwe_df = df[lwe_mask]
             if not lwe_df.empty:
                 lwe_summary = lwe_df.groupby(dist_col)[numeric_cols].sum().reset_index()
+                lwe_summary = add_derived_cols(lwe_summary)
                 lwe_summary.insert(0, 'S.No', range(1, len(lwe_summary) + 1))
                 lwe_summary.to_excel(writer, index=False, sheet_name='LWE')
             else:
@@ -167,6 +225,7 @@ async def generate_report(
                     if pd.notna(year):
                         year_df = df[df['Academic Year'] == year]
                         year_summary = year_df.groupby(dist_col)[numeric_cols].sum().reset_index()
+                        year_summary = add_derived_cols(year_summary)
                         year_summary.insert(0, 'S.No', range(1, len(year_summary) + 1))
                         safe_sheet_name = str(year).replace('/', '-').replace('*', '')[:31]
                         year_summary.to_excel(writer, index=False, sheet_name=safe_sheet_name)
@@ -214,7 +273,7 @@ def preview_report(report_id: int, db: Session = Depends(get_db)):
         dfs = pd.read_excel(report.file_path, sheet_name=None, engine='openpyxl')
         html_sheets = {}
         for sheet_name, df in dfs.items():
-            html_sheets[sheet_name] = df.iloc[::-1].head(100).to_html(classes='preview-table', index=False, border=0, na_rep='', float_format='{:.0f}'.format)
+            html_sheets[sheet_name] = df.head(100).to_html(classes='preview-table', index=False, border=0, na_rep='', float_format='{:.0f}'.format)
         return {"html_sheets": html_sheets, "multi_sheet": len(dfs) > 1, "html": html_sheets[list(dfs.keys())[0]]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
@@ -616,13 +675,17 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
             kit = next((k for k in kits if op_mapping and k.station_id == op_mapping[0].station_id), None)
             dist_name = kit.district if kit else dist_dict.get(o.district_id, "")
             
+            mobile_str = str(o.mobile).strip() if o.mobile else ""
+            if mobile_str.endswith(".0"):
+                mobile_str = mobile_str[:-2]
+            
             op_data.append({
                 "SR No.": sr_no,
                 "District": dist_name,
                 "Is LWE District": is_lwe_district(dist_name),
                 "Operator Name": o.name,
                 "Operator Id": o.user_code,
-                "Operator Mobile": o.mobile,
+                "Operator Mobile": mobile_str,
                 "SD Status": o.security_deposit_status,
                 "Security Deposit Date": o.security_deposit_date,
                 "Block": kit.block if kit else "",
@@ -997,7 +1060,7 @@ def preview_system_report(report_name: str, lwe: bool = False, division: Optiona
         df = get_system_report_dataframe(report_name, db)
         df = apply_system_filters(df, lwe, division, district)
         df = df.fillna("")
-        df_preview = df.iloc[::-1].head(200)
+        df_preview = df.head(200)
         html_table = generate_clean_multiindex_html(df_preview)
         return {"html": html_table}
     except Exception as e:
