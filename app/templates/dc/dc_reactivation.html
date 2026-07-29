@@ -7,6 +7,7 @@
 {% endblock %}
 
 {% block content %}
+{% from 'partials/request_section.html' import request_section %}
 {% set total_requests = requests|length %}
 {% set metrics = namespace(pending=0, approved=0, reverted=0, sent_to_uidai=0, reapplied=0, rejected=0) %}
 {% for req in requests %}
@@ -59,46 +60,88 @@
                 New Request
             </button>
         </div>
+        {% set ns_m = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0) %}
+        {% set metric_source = requests_history if requests_history is defined and requests_history else requests %}
+        {% if metric_source %}
+        {% for req in metric_source %}
+        {% if req.operators and req.operators|length > 0 %}
+        {% for op in req.operators %}
+        {% set s = (op.status or req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+        {% set ns_m.total = ns_m.total + 1 %}
+        {% if 'UIDAI' in s and 'REJECT' not in s %}
+        {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
+        {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+        {% set ns_m.approved = ns_m.approved + 1 %}
+        {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+        {% set ns_m.rejected = ns_m.rejected + 1 %}
+        {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+        {% set ns_m.reverted = ns_m.reverted + 1 %}
+        {% elif s in ['REAPPLIED'] %}
+        {% set ns_m.reapplied = ns_m.reapplied + 1 %}
+        {% else %}
+        {% set ns_m.pending = ns_m.pending + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% else %}
+        {% set s = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+        {% set cnt = req.operator_count or 1 %}
+        {% set ns_m.total = ns_m.total + cnt %}
+        {% if 'UIDAI' in s and 'REJECT' not in s %}
+        {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + cnt %}
+        {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+        {% set ns_m.approved = ns_m.approved + cnt %}
+        {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+        {% set ns_m.rejected = ns_m.rejected + cnt %}
+        {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+        {% set ns_m.reverted = ns_m.reverted + cnt %}
+        {% elif s in ['REAPPLIED'] %}
+        {% set ns_m.reapplied = ns_m.reapplied + cnt %}
+        {% else %}
+        {% set ns_m.pending = ns_m.pending + cnt %}
+        {% endif %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
         <div class="chips-banner-metrics" style="width: 100%;">
             <div class="chips-metric-card">
                 <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                    metrics.pending }}</div>
+                    ns_m.pending }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-reapplied" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.reapplied }}</div>
+                    {{ ns_m.reapplied }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-sent-to-uidai"
-                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                    metrics.sent_to_uidai }}</div>
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.sent_to_uidai
+                    }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.reverted }}</div>
+                    {{ ns_m.reverted }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.rejected }}</div>
+                    {{ ns_m.rejected }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
-                    {{ metrics.approved }}</div>
+                    {{ ns_m.approved }}</div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-total-requests"
-                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.total }}
                 </div>
                 <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
                     Requests</div>
@@ -110,8 +153,8 @@
 <div id="view-workspace-application-panel" style="display: none;">
     <div style="padding: 20px 0;">
         <div style="margin-bottom: 20px;">
-            <button type="button" onclick="switchReactivationView('dashboard')"
-                style="background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; font-weight: 600; padding: 8px 16px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px;">
+            <button type="button" onclick="switchReactivationView('dashboard')" class="oa-btn-back"
+                style="font-weight: 600; padding: 8px 16px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round">
                     <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -148,29 +191,70 @@
 
                     <!-- Batch Revert / Reject Reason Display (Page 1) -->
                     <div id="batch-revert-reason-container-p1" style="display: none; margin-bottom: 20px;">
-                        <div style="background:#fef2f2;border:1px dashed #fca5a5;border-left:4px solid #ef4444;border-radius:6px;padding:12px 14px;text-align:left;">
-                            <div style="font-size:11px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                        <div
+                            style="background:#fef2f2;border:1px dashed #fca5a5;border-left:4px solid #ef4444;border-radius:6px;padding:12px 14px;text-align:left;">
+                            <div
+                                style="font-size:11px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path
+                                        d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z">
+                                    </path>
                                 </svg>
                                 <span id="batch-revert-reason-label-p1">BATCH REVERT REASON</span>
                             </div>
-                            <div id="batch-revert-reason-text-p1" style="font-size:13px;color:#7f1d1d;font-weight:500;line-height:1.4;">
+                            <div id="batch-revert-reason-text-p1"
+                                style="font-size:13px;color:#7f1d1d;font-weight:500;line-height:1.4;">
                             </div>
                         </div>
                     </div>
 
                     <!-- Operator Revert / Reject Reason Display -->
                     <div id="operator-revert-reason-container" style="display: none; margin-bottom: 20px;">
-                        <div style="background:#fef2f2;border:1px dashed #fca5a5;border-left:4px solid #ef4444;border-radius:6px;padding:12px 14px;text-align:left;">
-                            <div style="font-size:11px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                        <div
+                            style="background:#fef2f2;border:1px dashed #fca5a5;border-left:4px solid #ef4444;border-radius:6px;padding:12px 14px;text-align:left;">
+                            <div
+                                style="font-size:11px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path
+                                        d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z">
+                                    </path>
                                 </svg>
                                 <span id="operator-revert-reason-label">REVERT REASON / REMARKS</span>
                             </div>
-                            <div id="operator-revert-reason-text" style="font-size:13px;color:#7f1d1d;font-weight:500;line-height:1.4;">
+                            <div id="operator-revert-reason-text"
+                                style="font-size:13px;color:#7f1d1d;font-weight:500;line-height:1.4;">
                             </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; position: relative;"
+                        id="reactivation_search_panel">
+                        <h2 class="container-sub-title"
+                            style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; margin-bottom: 10px;">
+                            Search Suspended Operator
+                        </h2>
+                        <div style="display: flex; gap: 10px; align-items: center; position: relative;">
+                            <select id="operator_search_input" class="form-control-input"
+                                style="flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #cbd5e1;"
+                                onchange="selectSuspendedOperator(this.value)">
+                                <option value="">-- Select Suspended Operator --</option>
+                            </select>
+
+                            <div id="search_spinner" style="display: none;">
+                                <svg class="animate-spin" style="width:20px;height:20px;color:#3b82f6;"
+                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                        stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
+                            Selecting an operator will automatically fill their details below.
                         </div>
                     </div>
 
@@ -245,8 +329,8 @@
                             </div>
                             <div class="input-group">
                                 <label>Registrar Code <span class="required-star">*</span></label>
-                                <input type="text" id="op_reg" class="form-control-input" value="986" readonly
-                                    style="background-color: #f8fafc; color: #64748b; cursor: not-allowed;">
+                                <input type="text" id="op_reg" class="form-control-input oa-readonly-input" value="986"
+                                    readonly style="cursor: not-allowed;">
                                 <div id="err_op_reg" class="error-msg"
                                     style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
                                 </div>
@@ -296,7 +380,8 @@
                         <div class="form-grid-3x" style="margin-top: 15px;">
                             <div class="input-group">
                                 <label>NSEIT Certification Date <span class="required-star">*</span></label>
-                                <input type="date" id="op_cert_date" class="form-control-input" onkeydown="return false;">
+                                <input type="date" id="op_cert_date" class="form-control-input"
+                                    onkeydown="return false;">
                                 <div id="err_op_cert_date" class="error-msg"
                                     style="color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 600; min-height: 15px;">
                                 </div>
@@ -345,28 +430,23 @@
                             <table class="excel-table" id="excel-tracking-table"
                                 style="width: 100%; border-collapse: collapse; min-width: 1400px;">
                                 <thead>
-                                    <tr style="background-color: #f8fafc; color: #334155;">
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">S.No</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Role</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Name as
-                                            per
-                                            Aadhaar</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Registrar Code</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">EA Code</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">User Code</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">NSEIT Certificate Number
-                                        </th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">LMS Certificate ID</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Mobile</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Primary
-                                            E-MAIL
-                                            ID</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Aadhaar Number</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Certification Date</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Remarks</th>
-                                        <th style="padding: 10px; border: 1px solid #cbd5e1;">Model</th>
+                                    <tr>
+                                        <th>S.No</th>
+                                        <th>Role</th>
+                                        <th style="text-align: center;">Name as per Aadhaar</th>
+                                        <th>Registrar Code</th>
+                                        <th>EA Code</th>
+                                        <th>User Code</th>
+                                        <th>NSEIT Certificate Number</th>
+                                        <th>LMS Certificate ID</th>
+                                        <th>Mobile</th>
+                                        <th style="text-align: center;">Primary E-MAIL ID</th>
+                                        <th>Aadhaar Number</th>
+                                        <th>Certification Date</th>
+                                        <th>Remarks</th>
+                                        <th>Model</th>
                                         <th
-                                            style="background-color:#ef4444 !important; color:white; text-align:center; padding:10px;">
+                                            style="background-color:#ef4444 !important; color:white; text-align:center;">
                                             Action</th>
                                     </tr>
                                 </thead>
@@ -403,14 +483,20 @@
                 <div id="section-documents-upload-view" style="display: none;">
                     <!-- Batch Revert / Reject Reason Display (Page 2) -->
                     <div id="batch-revert-reason-container-p2" style="display: none; margin-bottom: 20px;">
-                        <div style="background:#fef2f2;border:1px dashed #fca5a5;border-left:4px solid #ef4444;border-radius:6px;padding:12px 14px;text-align:left;">
-                            <div style="font-size:11px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                        <div
+                            style="background:#fef2f2;border:1px dashed #fca5a5;border-left:4px solid #ef4444;border-radius:6px;padding:12px 14px;text-align:left;">
+                            <div
+                                style="font-size:11px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;display:flex;align-items:center;gap:4px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path
+                                        d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z">
+                                    </path>
                                 </svg>
                                 <span id="batch-revert-reason-label-p2">BATCH REVERT REASON</span>
                             </div>
-                            <div id="batch-revert-reason-text-p2" style="font-size:13px;color:#7f1d1d;font-weight:500;line-height:1.4;">
+                            <div id="batch-revert-reason-text-p2"
+                                style="font-size:13px;color:#7f1d1d;font-weight:500;line-height:1.4;">
                             </div>
                         </div>
                     </div>
@@ -421,7 +507,8 @@
                                 style="display: block; font-weight: 600; font-size: 13px; color: #475569; margin-bottom: 6px;">
                                 Training Completion Date <span class="required-star">*</span>
                             </label>
-                            <input type="date" id="doc_training_date" name="training_date" class="form-control-input" onkeydown="return false;">
+                            <input type="date" id="doc_training_date" name="training_date" class="form-control-input"
+                                onkeydown="return false;">
                         </div>
 
                         <h2 class="container-sub-title"
@@ -443,7 +530,8 @@
                                 <input type="file" name="training_photo" accept="image/jpeg,image/png"
                                     class="oa-file-input reapply-optional-file">
                                 <span class="oa-doc-helper">JPG, PNG (Max. 2MB)</span>
-                                <div id="prev-training_photo" class="prev-doc-indicator" style="display:none; font-size:11px; color:#059669; margin-top:4px;"></div>
+                                <div id="prev-training_photo" class="prev-doc-indicator"
+                                    style="display:none; font-size:11px; color:#059669; margin-top:4px;"></div>
                             </div>
                             <div class="oa-doc-card">
                                 <label class="oa-doc-label" id="lbl-nodal-letter">District Nodal Endorsement Letter
@@ -451,7 +539,8 @@
                                 <input type="file" name="nodal_letter" accept=".pdf"
                                     class="oa-file-input reapply-optional-file">
                                 <span class="oa-doc-helper">PDF (Max. 2MB)</span>
-                                <div id="prev-nodal_letter" class="prev-doc-indicator" style="display:none; font-size:11px; color:#059669; margin-top:4px;"></div>
+                                <div id="prev-nodal_letter" class="prev-doc-indicator"
+                                    style="display:none; font-size:11px; color:#059669; margin-top:4px;"></div>
                             </div>
                             <div class="oa-doc-card">
                                 <label class="oa-doc-label" id="lbl-om-letter">Office Memorandum (OM) Copy <span
@@ -459,7 +548,8 @@
                                 <input type="file" name="om_letter" accept=".pdf"
                                     class="oa-file-input reapply-optional-file">
                                 <span class="oa-doc-helper">PDF (Max. 2MB)</span>
-                                <div id="prev-om_letter" class="prev-doc-indicator" style="display:none; font-size:11px; color:#059669; margin-top:4px;"></div>
+                                <div id="prev-om_letter" class="prev-doc-indicator"
+                                    style="display:none; font-size:11px; color:#059669; margin-top:4px;"></div>
                             </div>
                             <div class="oa-doc-card">
                                 <label class="oa-doc-label" id="lbl-attendance">Operator Attendance Excel Sheet <span
@@ -469,16 +559,19 @@
                                 <span class="oa-doc-helper">XLSX, XLS (Max. 5MB) <span id="reapply-doc-hint"
                                         style="display:none; color:#2563eb; font-weight:600;">(Optional — leave blank to
                                         keep existing)</span></span>
-                                <div id="prev-attendance_list" class="prev-doc-indicator" style="display:none; font-size:11px; color:#059669; margin-top:4px;"></div>
+                                <div id="prev-attendance_list" class="prev-doc-indicator"
+                                    style="display:none; font-size:11px; color:#059669; margin-top:4px;"></div>
                             </div>
                         </div>
 
-                        <div id="reapply-remark-section" style="display: none; margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-                            <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; text-transform: uppercase; margin-bottom: 12px; font-family: 'Inter', sans-serif;">
+                        <div id="reapply-remark-section"
+                            style="display: none; margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                            <h3
+                                style="font-size: 16px; font-weight: 700; color: #1e293b; text-transform: uppercase; margin-bottom: 12px; font-family: 'Inter', sans-serif;">
                                 REAPPLY REMARK <span style="color: #ef4444;">*</span>
                             </h3>
-                            <textarea id="reapply_remarks_field" name="reapply_remarks" rows="4" 
-                                style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 14px; font-size: 14px; font-family: 'Inter', sans-serif; resize: vertical; box-sizing: border-box;" 
+                            <textarea id="reapply_remarks_field" name="reapply_remarks" rows="4"
+                                style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 14px; font-size: 14px; font-family: 'Inter', sans-serif; resize: vertical; box-sizing: border-box;"
                                 placeholder="Explain the corrections you made to resolve CHiPS Admin's remarks..."></textarea>
                         </div>
 
@@ -514,22 +607,39 @@
         </form>
     </div>
 </div>
-
-
 <div id="view-workspace-history-panel">
-    <div class="filter-wrapper"
-        style="display: flex; gap: 15px; margin-bottom: 24px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); align-items: center; border: 1px solid #e2e8f0; flex-wrap: wrap;">
-        <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
-            <label style="font-size: 12px; font-weight: 600; color: #475569;">Search Operator</label>
+    <div class="req-tabs" role="tablist" style="margin-bottom: 15px;">
+        <button type="button" class="req-tab active" data-tab="batches">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+            </svg>
+            <span>Reactivation Batches</span>
+        </button>
+        <button type="button" class="req-tab" data-tab="approved">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span>Approved Operators</span>
+        </button>
+    </div>
+
+    <!-- Compact filter bar (shared .filter-bar styling, like CHiPS admin) -->
+    <div class="filter-bar" style="margin-bottom: 15px;">
+        <div class="filter-group filter-group-search">
+            <label>Search Operator</label>
             <input type="text" id="filter-search-operator" class="filter-input"
                 oninput="applyHistoryPanelFiltersPipeline()"
-                placeholder="Search by operator name, mobile or request ID..."
-                style="height: 38px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 12px; font-size: 13px; outline: none; transition: border-color 0.2s;">
+                placeholder="Search by operator name, mobile or request ID...">
         </div>
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-size: 12px; font-weight: 600; color: #475569;">Filter By Status</label>
-            <select id="filter-status" class="filter-input" onchange="applyHistoryPanelFiltersPipeline()"
-                style="height: 38px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 30px 0 12px; font-size: 13px; outline: none; appearance: none; background: white url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2364748b%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpolyline points=%226 9 12 15 18 9%22%3E%3C/polyline%3E%3C/svg%3E') no-repeat right 10px center; min-width: 160px;">
+        <div class="filter-group">
+            <label>Filter By Status</label>
+            <select id="filter-status" class="filter-input" onchange="applyHistoryPanelFiltersPipeline()">
                 <option value="ALL">All Statuses</option>
                 <option value="PENDING">Pending</option>
                 <option value="REAPPLIED">Reapplied</option>
@@ -539,21 +649,19 @@
                 <option value="APPROVED">Approved</option>
             </select>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-size: 12px; font-weight: 600; color: #475569;">Time Period</label>
-            <select id="filter-date-period" class="filter-input" onchange="applyHistoryPanelFiltersPipeline()"
-                style="height: 38px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 30px 0 12px; font-size: 13px; outline: none; appearance: none; background: white url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2364748b%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpolyline points=%226 9 12 15 18 9%22%3E%3C/polyline%3E%3C/svg%3E') no-repeat right 10px center; min-width: 120px;">
+        <div class="filter-group">
+            <label>Time Period</label>
+            <select id="filter-date-period" class="filter-input" onchange="applyHistoryPanelFiltersPipeline()">
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
                 <option value="week">Week</option>
                 <option value="month" selected>Month</option>
             </select>
         </div>
-        <div class="filter-group-button" style="flex: 0 0 auto; margin-top: 20px;">
-            <button type="button" class="btn-clear-filters" onclick="resetHistoryPanelFilters()"
-                style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 600; color: #475569; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+        <div class="filter-group-button" style="flex: 0 0 auto;">
+            <button type="button" class="btn-clear-filters" onclick="resetHistoryPanelFilters()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0px;">
+                    stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
@@ -561,256 +669,205 @@
             </button>
         </div>
     </div>
-    <div class="form-card-container">
-        <div class="section-heading"
-            style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0;">
-            <div class="section-heading-dot" style="background:#f59e0b; width: 10px; height: 10px; border-radius: 50%;">
+
+    <div class="form-card-container"
+        style="border:none; box-shadow:none; background:transparent; padding:0; margin-bottom:0;">
+
+        <div id="view-batches-container" class="req-tabpanel active" data-panel="batches">
+            <div class="rs-head rs-head--pending" style="margin-bottom: 15px;">
+                <div class="rs-head-title">
+                    <span class="rs-rail" aria-hidden="true"></span>
+                    <h3 class="rs-title">Reactivation Batches</h3>
+                    <span class="rs-count" id="batches-count">–</span>
+                </div>
+                <div class="rs-head-controls">
+                    <button type="button" class="rs-export" onclick="exportReactivationHistoryToExcel()">Export to
+                        CSV</button>
+                </div>
             </div>
-            <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">Reactivation Request History
-            </h3>
-            <span class="section-count" id="batches-count"
-                style="background: #f1f5f9; color: #475569; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700;">–</span>
-            <button type="button" onclick="exportReactivationHistoryToExcel()"
-                style="display: inline-flex; align-items: center; gap: 8px; background-color: white; color: #1e293b; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s; margin-left: auto;">
-
-                Export to CSV
-            </button>
-        </div>
-
-        <div style="display: flex; gap: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px;">
-            <button type="button" class="main-view-tab active-view" onclick="switchMainView('batches', this)"
-                style="background: none; border: none; padding: 10px 15px; font-weight: 700; font-size: 15px; color: #007bff; border-bottom: 3px solid #007bff; margin-bottom: -2px; cursor: pointer; transition: 0.2s;">
-                Reactivation Batches
-            </button>
-            <button type="button" class="main-view-tab" onclick="switchMainView('approved', this)"
-                style="background: none; border: none; padding: 10px 15px; font-weight: 600; font-size: 15px; color: #64748b; border-bottom: 3px solid transparent; margin-bottom: -2px; cursor: pointer; transition: 0.2s;">
-                Approved Operators
-            </button>
-        </div>
-
-        <div id="view-batches-container">
-            <div id="history-cards-container" style="max-height: 550px; overflow-y: auto; padding-right: 5px;">
-                {% if requests %}
-                {% for req in requests %}
-                {% set req_status_upper = req.status|upper %}
-                <div class="history-data-row request-card" data-request-id="{{ req.request_code | upper }}"
-                    data-status="{% if 'UIDAI' in req_status_upper %}SENT_TO_UIDAI{% elif req_status_upper == 'PENDING' %}PENDING{% elif req_status_upper == 'REAPPLIED' %}REAPPLIED{% elif req_status_upper in ['APPROVED', 'REVIEWED', 'ASSIGNED'] %}APPROVED{% elif req_status_upper == 'REJECTED' %}REJECTED{% else %}REVERTED{% endif %}"
-                    data-training-date="{{ req.training_date }}" data-created="{{ req.created_at }}"
-                    style="border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-
-                    <div class="batch-card-header-wrapper"
-                        style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; border-radius: 8px 8px 0 0;">
-                        <div class="batch-card-header"
-                            style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 10px;">
-                            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
-                                <span class="row-index-counter" style="display: none;">{{ loop.index }}</span>
-                                <span
-                                    style="font-weight: 700; font-size: 15px; color: #1e293b; white-space: nowrap;">Request
-                                    ID: <span style="color: #2563eb;">{{ req.request_code }}</span></span>
-                                <span
-                                    style="font-size: 12px; color: #64748b; background: #e2e8f0; padding: 3px 8px; border-radius: 4px; font-weight: 600; white-space: nowrap;">Operators:
-                                    {{ req.operator_count }}</span>
-
-                                <button type="button" onclick="viewBatchDocuments('{{ req.request_code }}')"
-                                    style="margin-left: 5px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;"
-                                    onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'"
-                                    onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                        <polyline points="14 2 14 8 20 8"></polyline>
-                                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                                        <polyline points="10 9 9 9 8 9"></polyline>
-                                    </svg>
-                                    View Documents
-                                </button>
-                            </div>
-                            <div
-                                style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-left: auto;">
-                                <div
-                                    style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; white-space: nowrap;">
-                                    <span style="font-size: 13px; color: #475569;">Submitted: <strong
-                                            style="color: #1e293b;">{{ req.created_at or "—" }}</strong></span>
-                                    <span style="font-size: 13px; color: #475569;">Updated: <strong
-                                            style="color: #1e293b;">{{ req.updated_at or "—" }}</strong></span>
-                                </div>
-                                {% set op_check = namespace(has_revert=false) %}
-                                {% if req.operators %}
-                                {% for op in req.operators %}
-                                 {% set s = op.status|upper %}
-                                 {% if s in ['REVERTED', 'REVERT BACK', 'REJECTED'] %}
-                                 {% set op_check.has_revert = true %}
-                                {% endif %}
-                                {% endfor %}
-                                {% endif %}
-
-                                {% if op_check.has_revert %}
-                                <button type="button"
-                                    onclick="reapplyReactivatedBatch('{{ req.request_code }}', '{{ req.training_date }}')"
-                                    style="background-color: #f59e0b; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
-                                    Reapply All Revert
-                                </button>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="padding: 10px 20px;" id="opContainer-{{ req.request_code }}">
-                        {% if req.operators and req.operators|length > 0 %}
-                        {% for op in req.operators %}
-                        {% set op_status_upper = op.status|upper %}
-                        <div class="op-row-item op-row-{{ req.request_code }} {% if op_status_upper in ['REVIEWED', 'APPROVED'] %}op-reviewed{% else %}op-other{% endif %}"
-                            data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
-                            data-mobile="{{ op.operator_mobile }}"
-                            data-email="{{ op.email_id | lower | default('', true) }}"
-                            data-status="{% if 'UIDAI' in op_status_upper %}SENT_TO_UIDAI{% elif op_status_upper in ['REVIEWED', 'APPROVED'] %}APPROVED{% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}REVERTED{% elif op_status_upper in ['REJECTED'] %}REJECTED{% elif op_status_upper in ['REAPPLIED'] %}REAPPLIED{% else %}PENDING{% endif %}"
-                            style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-                            <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
-                                <span style="color: #64748b; font-size: 13px; font-weight: 600; min-width: 20px;">{{
-                                    loop.index }}.</span>
-                                <span style="font-size: 14px; font-weight: 600; color: #334155;">{{ op.operator_name
-                                    }}</span>
-                                <span style="font-size: 12px; color: #475569;">({{ op.operator_mobile }}{% if
-                                    op.email_id %} | {{ op.email_id }}{% endif %})</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 15px;">
-                                <div
-                                    style="font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                                    <span style="color: #64748b;">Status:</span>
-                                    {% if 'UIDAI' in op_status_upper %}
-                                    <span class="badge badge-forwarded">Sent to UIDAI</span>
-                                    {% elif op_status_upper == 'APPROVED' %}
-                                    <span class="badge badge-approved">Approved</span>
-                                    {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
-                                    <span class="badge badge-reverted">Reverted</span>
-                                    {% elif op_status_upper in ['REJECTED'] %}
-                                    <span class="badge badge-reverted"
-                                        style="background-color: #fef2f2; color: #b91c1c;">Rejected</span>
-                                    {% elif op_status_upper in ['REAPPLIED'] %}
-                                    <span class="badge badge-reapplied">Reapplied</span>
-                                    {% else %}
-                                    <span class="badge badge-pending">Pending</span>
-                                    {% endif %}
-                                </div>
-                                <button type="button"
-                                    data-operators="{{ req.operators | tojson | forceescape }}"
-                                    data-request-code="{{ req.request_code }}"
-                                    data-batch-status="{{ req.status }}"
-                                    data-index="{{ loop.index0 }}"
-                                    onclick='window.currentViewingOperators = JSON.parse(this.dataset.operators); window.currentViewingRequestCode = this.dataset.requestCode; window.currentViewingBatchStatus = this.dataset.batchStatus; openIndividualOperatorDetailCard(parseInt(this.dataset.index, 10));'
-                                    style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2.5">
-                                        <circle cx="11" cy="11" r="8" />
-                                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                                    </svg>
-                                    Details
-                                </button>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        {% else %}
-                        <div
+            <!-- Grouped box: batch cards sit as sub-units on a recessed body,
+                 matching the CHiPS admin pending-reactivation design. -->
+            <div class="rs-group rs-group--pending">
+                <div id="history-cards-container" class="rs-group-body" style="max-height: 550px;">
+                    {% if requests %}
+                    {% for req in requests %}
+                    {% set req_status_upper = req.status|upper %}
+                    {% set batch_status = 'SENT_TO_UIDAI' if 'UIDAI' in req_status_upper else ('PENDING' if
+                    req_status_upper == 'PENDING' else ('REAPPLIED' if req_status_upper == 'REAPPLIED' else ('APPROVED'
+                    if req_status_upper in ['APPROVED', 'REVIEWED', 'ASSIGNED'] else ('REJECTED' if req_status_upper ==
+                    'REJECTED' else 'REVERTED')))) %}
+                    {% set batch_variant = 'progress' if batch_status == 'SENT_TO_UIDAI' else ('done' if batch_status ==
+                    'APPROVED' else 'pending') %}
+                    {% set op_check = namespace(has_revert=false) %}
+                    {% if req.operators %}
+                    {% for op in req.operators %}
+                    {% set s = op.status|upper %}
+                    {% if s in ['REVERTED', 'REVERT BACK', 'REJECTED'] %}
+                    {% set op_check.has_revert = true %}
+                    {% endif %}
+                    {% endfor %}
+                    {% endif %}
+                    {% set batch_controls %}
+                    <span class="rs-batch-dates"
+                        style="font-size: 12px; color: #64748b; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-right: 4px;">
+                        <span>Submitted: <strong style="color:#1e293b;">{{ req.created_at or "—" }}</strong></span>
+                        <span class="rs-date-sep" style="color: #cbd5e1;">·</span>
+                        <span>Updated: <strong style="color:#1e293b;">{{ req.updated_at or "—" }}</strong></span>
+                    </span>
+                    <button type="button" onclick="viewBatchDocuments('{{ req.request_code }}')"
+                        style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">View
+                        Documents</button>
+                    {% if op_check.has_revert %}
+                    <button type="button"
+                        onclick="reapplyReactivatedBatch('{{ req.request_code }}', '{{ req.training_date }}')"
+                        style="background-color: #f59e0b; color: white; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Reapply
+                        All Revert</button>
+                    {% endif %}
+                    {% endset %}
+                    {% call request_section(
+                    variant=batch_variant,
+                    title='Request ID: ' ~ req.request_code,
+                    count=(req.operator_count ~ ' operators in batch' if req.operator_count is not none else '0
+                    operators in batch'),
+                    card_classes='history-data-row request-card',
+                    card_data={'request-id': req.request_code|upper, 'status': batch_status, 'training-date':
+                    req.training_date, 'created': req.created_at or '', 'updated': req.updated_at or ''},
+                    controls=batch_controls,
+                    min_width=1040,
+                    body_id='opContainer-' ~ req.request_code,
+                    columns=[
+                    {'label': 'S.No', 'cls': 'rs-col-sno'},
+                    {'label': 'Operator name'},
+                    {'label': 'Mobile'},
+                    {'label': 'Email'},
+                    {'label': 'Status'},
+                    {'label': 'Action', 'align': 'center'}
+                    ]) %}
+                    {% if req.operators and req.operators|length > 0 %}
+                    {% for op in req.operators %}
+                    {% set op_status_upper = op.status|upper %}
+                    <tr class="op-row-item op-row-{{ req.request_code }} {% if op_status_upper in ['REVIEWED', 'APPROVED'] %}op-reviewed{% else %}op-other{% endif %}"
+                        data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+                        data-mobile="{{ op.operator_mobile }}"
+                        data-email="{{ op.email_id | lower | default('', true) }}"
+                        data-created="{{ op.created_at or req.created_at or '' }}"
+                        data-updated="{{ op.updated_at or req.updated_at or '' }}"
+                        data-status="{% if 'UIDAI' in op_status_upper %}SENT_TO_UIDAI{% elif op_status_upper in ['REVIEWED', 'APPROVED'] %}APPROVED{% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}REVERTED{% elif op_status_upper in ['REJECTED'] %}REJECTED{% elif op_status_upper in ['REAPPLIED'] %}REAPPLIED{% else %}PENDING{% endif %}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ op.operator_name }}</td>
+                        <td>{{ op.operator_mobile }}</td>
+                        <td>{{ op.email_id or '—' }}</td>
+                        <td>
+                            {% if 'UIDAI' in op_status_upper %}
+                            <span class="badge badge-forwarded">Sent to UIDAI</span>
+                            {% elif op_status_upper == 'APPROVED' %}
+                            <span class="badge badge-approved">Approved</span>
+                            {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
+                            <span class="badge badge-reverted">Reverted</span>
+                            {% elif op_status_upper in ['REJECTED'] %}
+                            <span class="badge badge-rejected">Rejected</span>
+                            {% elif op_status_upper in ['REAPPLIED'] %}
+                            <span class="badge badge-reapplied">Reapplied</span>
+                            {% else %}
+                            <span class="badge badge-pending">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            <button type="button" data-operators="{{ req.operators | tojson | forceescape }}"
+                                data-request-code="{{ req.request_code }}" data-batch-status="{{ req.status }}"
+                                data-index="{{ loop.index0 }}"
+                                onclick='window.currentViewingOperators = JSON.parse(this.dataset.operators); window.currentViewingRequestCode = this.dataset.requestCode; window.currentViewingBatchStatus = this.dataset.batchStatus; openIndividualOperatorDetailCard(parseInt(this.dataset.index, 10));'
+                                style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;">Details</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="6"
                             style="padding: 15px; text-align: center; color: #94a3b8; font-size: 13px; font-style: italic;">
-                            No operators found for this batch.
-                        </div>
-                        {% endif %}
+                            No operators found for this batch.</td>
+                    </tr>
+                    {% endif %}
+                    {% endcall %}
+                    {% endfor %}
+                    {% else %}
+                    <div id="history-fallback-empty-row" class="empty-state">
+
+                        <p>No reactivation requests found</p>
+                    </div>
+                    {% endif %}
+
+                    <div id="history-no-match-fallback" class="empty-state" style="display: none;">
+
+                        <p>No matching requests found</p>
                     </div>
                 </div>
-                {% endfor %}
-                {% else %}
-                <div id="history-fallback-empty-row" class="empty-state">
-
-                    <p>No reactivation requests found</p>
-                </div>
-                {% endif %}
-
-                <div id="history-no-match-fallback" class="empty-state" style="display: none;">
-
-                    <p>No matching requests found</p>
-                </div>
-            </div>
+            </div><!-- /rs-group -->
         </div>
-        <div id="view-approved-container" style="display: none;">
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f8fafc; padding: 10px 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                <span style="font-size: 14px; font-weight: 600; color: #334155;">All Approved Operators</span>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="text" id="flat-op-search" placeholder="Search approved operators..."
-                        onkeyup="filterFlatApprovedOperators()"
-                        style="padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 13px; width: 250px; outline: none;">
-                    <button type="button" class="btn btn-sm" onclick="exportApprovedOperatorsCSV()"
-                        style="white-space: nowrap;">Export to CSV</button>
-                </div>
-            </div>
-
-            <div class="sid-table-wrapper" style="max-height: 550px; overflow-y: auto;">
-                <table class="sid-table" id="flat-approved-table">
-                    <thead>
-                        <tr>
-                            <th>S.No</th>
-                            <th>Operator Name</th>
-                            <th>Mobile Number</th>
-                            <th>Email ID</th>
-                            <th>Status</th>
-                            <th>Request ID</th>
-                            <th style="text-align: center;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="flat-approved-tbody">
-                        {% if activated_operators %}
-                        {% for op in activated_operators %}
-                        <tr class="flat-op-row" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
-                            data-mobile="{{ op.operator_mobile }}"
-                            data-email="{{ op.email_id | lower | default('', true) }}"
-                            data-request-id="{{ op.request_code | upper }}">
-                            <td>{{ loop.index }}</td>
-                            <td>{{ op.operator_name }}</td>
-                            <td>{{ op.operator_mobile }}</td>
-                            <td>{{ op.email_id }}</td>
-                            <td>
-                                {% set op_status_upper = op.status|upper %}
-                                {% if op_status_upper in ['APPROVED', 'REVIEWED'] %}
-                                <span class="badge badge-approved">Approved</span>
-                                {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
-                                <span class="badge badge-reverted">Reverted</span>
-                                {% elif op_status_upper in ['REJECTED'] %}
-                                <span class="badge badge-reverted"
-                                    style="background-color: #fef2f2; color: #b91c1c;">Rejected</span>
-                                {% elif op_status_upper in ['REAPPLIED'] %}
-                                <span class="badge badge-reapplied">Reapplied</span>
-                                {% else %}
-                                <span class="badge badge-pending">Pending</span>
-                                {% endif %}
-                            </td>
-                            <td><strong>{{ op.request_code }}</strong></td>
-                            <td style="text-align: center;">
-                                <button type="button" class="btn-details"
-                                    data-operator="{{ op | tojson | forceescape }}"
-                                    data-request-code="{{ op.request_code }}"
-                                    onclick="window.currentViewingOperators = [JSON.parse(this.getAttribute('data-operator'))]; window.currentViewingRequestCode = this.getAttribute('data-request-code'); openIndividualOperatorDetailCard(0)">
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2.5">
-                                        <circle cx="11" cy="11" r="8" />
-                                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                                    </svg>
-                                    View Profile
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        {% else %}
-                        <tr>
-                            <td colspan="7"
-                                style="text-align: center; color: #94a3b8; padding: 30px; font-style: italic;">
-                                No approved operators found.
-                            </td>
-                        </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
+        <div id="view-approved-container" class="req-tabpanel" data-panel="approved">
+            {% set flat_controls %}
+            <button type="button" class="rs-export" onclick="exportApprovedOperatorsCSV()">Export to CSV</button>
+            {% endset %}
+            {% call request_section(
+            variant='approved',
+            title='All approved operators',
+            count=(activated_operators|length if activated_operators else 0), count_id='flat-approved-count',
+            controls=flat_controls,
+            min_width=900,
+            columns=[
+            {'label': 'S.No', 'cls': 'rs-col-sno'},
+            {'label': 'Operator name'},
+            {'label': 'Mobile number'},
+            {'label': 'Email ID'},
+            {'label': 'Status'},
+            {'label': 'Request ID'},
+            {'label': 'Action', 'align': 'center'}
+            ],
+            table_id='flat-approved-table', body_id='flat-approved-tbody',
+            empty_id='flat-approved-empty-msg',
+            empty_message='No approved operators found.',
+            show_empty=(not activated_operators)) %}
+            {% if activated_operators %}
+            {% for op in activated_operators %}
+            <tr class="flat-op-row" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+                data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
+                data-request-id="{{ op.request_code | upper }}"
+                data-created="{{ op.submitted_at or op.created_at or '' }}">
+                <td>{{ loop.index }}</td>
+                <td>{{ op.operator_name }}</td>
+                <td>{{ op.operator_mobile }}</td>
+                <td>{{ op.email_id }}</td>
+                <td>
+                    {% set op_status_upper = op.status|upper %}
+                    {% if op_status_upper in ['APPROVED', 'REVIEWED'] %}
+                    <span class="badge badge-approved">Approved</span>
+                    {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
+                    <span class="badge badge-reverted">Reverted</span>
+                    {% elif op_status_upper in ['REJECTED'] %}
+                    <span class="badge badge-rejected">Rejected</span>
+                    {% elif op_status_upper in ['REAPPLIED'] %}
+                    <span class="badge badge-reapplied">Reapplied</span>
+                    {% else %}
+                    <span class="badge badge-pending">Pending</span>
+                    {% endif %}
+                </td>
+                <td><strong>{{ op.request_code }}</strong></td>
+                <td style="text-align: center;">
+                    <button type="button" class="btn-details" data-operator="{{ op | tojson | forceescape }}"
+                        data-request-code="{{ op.request_code }}"
+                        onclick="window.currentViewingOperators = [JSON.parse(this.getAttribute('data-operator'))]; window.currentViewingRequestCode = this.getAttribute('data-request-code'); openIndividualOperatorDetailCard(0)">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        View Profile
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+            {% endcall %}
         </div>
     </div>
 </div>
@@ -832,6 +889,90 @@
         status: String(req.status || 'PENDING').toUpperCase().replace(" ", "_"),
         revert_reason: String(req.reject_reason || req.revert_reason || 'None')
     })) : [];
+
+    // Dropdown and Autofill Logic
+    window.suspendedOperatorsMap = {};
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        const spinner = document.getElementById('search_spinner');
+        const select = document.getElementById('operator_search_input');
+        if (!select) return;
+
+        if (spinner) spinner.style.display = 'block';
+        try {
+            const res = await fetch(`/auth/dc/operator-reactivation/search`);
+            if (res.ok) {
+                const candidates = await res.json();
+                candidates.forEach(c => {
+                    window.suspendedOperatorsMap[c.id] = c;
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = `${c.name} - ${c.mobile} (${c.email || 'No Email'})`;
+                    select.appendChild(opt);
+                });
+            }
+        } catch (e) {
+            console.error("Failed to load suspended operators", e);
+        } finally {
+            if (spinner) spinner.style.display = 'none';
+        }
+    });
+
+    function selectSuspendedOperator(id) {
+        if (!id || !window.suspendedOperatorsMap[id]) return;
+        selectCandidate(window.suspendedOperatorsMap[id]);
+    }
+
+    function selectCandidate(c) {
+        if (document.getElementById('op_name')) document.getElementById('op_name').value = c.name || '';
+        if (document.getElementById('op_mobile')) document.getElementById('op_mobile').value = c.mobile || '';
+        if (document.getElementById('op_email')) document.getElementById('op_email').value = c.email || '';
+        if (document.getElementById('op_aadhaar')) document.getElementById('op_aadhaar').value = c.aadhaar_last4 || '';
+        if (document.getElementById('op_role')) {
+            const roleSel = document.getElementById('op_role');
+            for (let i = 0; i < roleSel.options.length; i++) {
+                if (roleSel.options[i].value.toLowerCase() === (c.role || '').toLowerCase()) {
+                    roleSel.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        if (document.getElementById('op_cert')) document.getElementById('op_cert').value = c.nseit_id || '';
+        if (document.getElementById('user_code')) document.getElementById('user_code').value = c.user_code || '';
+        if (document.getElementById('op_reg')) document.getElementById('op_reg').value = c.registrar_code || '';
+        if (document.getElementById('op_ea')) {
+            const eaSel = document.getElementById('op_ea');
+            for (let i = 0; i < eaSel.options.length; i++) {
+                if (eaSel.options[i].value === c.ea_code) {
+                    eaSel.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const now = new Date();
+        document.querySelectorAll('.op-row-item, .history-data-row').forEach(row => {
+            const status = (row.getAttribute('data-status') || '').toUpperCase();
+            if (['REVERTED', 'REJECTED'].includes(status)) {
+                let dateAttr = row.getAttribute('data-updated');
+                if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                    dateAttr = row.getAttribute('data-created');
+                }
+                if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                    const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                    if (!isNaN(dateObj)) {
+                        const diffTime = Math.abs(now - dateObj);
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        if (diffDays > 7) {
+                            row.classList.add('delayed-row');
+                        }
+                    }
+                }
+            }
+        });
+    });
 </script>
 <script src="{{ url_for('static', filename='js/dc_reactivation.js') }}?v={{ range(1, 1000000000) | random }}"></script>
 {% endblock %}

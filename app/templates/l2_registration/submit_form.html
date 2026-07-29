@@ -19,8 +19,8 @@
 
 {% block content %}
 <div style="margin-bottom: 20px;">
-    <a href="/auth/dc/l2-registration/list"
-        style="background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; font-weight: 600; padding: 8px 16px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; text-decoration: none; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); transition: background 0.2s;">
+    <a href="/auth/dc/l2-registration/list" class="oa-btn-back"
+        style="font-weight: 600; padding: 8px 16px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; text-decoration: none;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -40,6 +40,19 @@
 
         <div class="form-grid-3x">
             <div class="input-group">
+                <label>New Station ID <span class="required-star">*</span></label>
+                <select name="new_station_id" id="l2-station-id-select" class="form-control-input" required
+                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;"
+                    onchange="onL2StationSelected(this)">
+                    <option value="" disabled selected>Select an L1 Approved Station ID</option>
+                    {% for s in awaiting_l2 %}
+                    <option value="{{ s.station_id }}">{{ s.station_id }}</option>
+                    {% else %}
+                    <option value="" disabled>No L1 Approved Station IDs awaiting L2</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="input-group">
                 <label>Client Software Version <span class="required-star">*</span></label>
                 <input type="text" name="client_version" required placeholder="e.g. 3.3.4.2/120-1"
                     class="form-control-input">
@@ -54,10 +67,6 @@
                 </select>
             </div>
             <div class="input-group">
-                <label>New Station ID <span class="required-star">*</span></label>
-                <input type="text" name="new_station_id" required placeholder="e.g. 11023" class="form-control-input">
-            </div>
-            <div class="input-group">
                 <label>New Machine ID <span class="required-star">*</span></label>
                 <input type="text" name="new_machine_id" required placeholder="e.g. MAC-10292"
                     class="form-control-input">
@@ -69,8 +78,8 @@
             </div>
             <div class="input-group">
                 <label>Registrar Code <span class="required-star">*</span></label>
-                <input type="text" name="reg_code" value="986" readonly style="background:#f1f5f9; cursor:not-allowed;"
-                    required placeholder="e.g. 986" class="form-control-input">
+                <input type="text" name="reg_code" value="986" readonly style="cursor:not-allowed;" required
+                    placeholder="e.g. 986" class="form-control-input oa-readonly-input">
             </div>
         </div>
 
@@ -120,8 +129,8 @@
             <div class="input-group">
                 <label>District <span class="required-star">*</span></label>
                 <select name="district" required disabled
-                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px; background:#f1f5f9; cursor:not-allowed;"
-                    class="form-control-input">
+                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px; cursor:not-allowed;"
+                    class="form-control-input oa-readonly-input">
                     <option value="{{ session.get('district_id') }}" selected>{{
                         session.get('district_name', 'Select District') }}</option>
                 </select>
@@ -197,6 +206,12 @@
         const formData = new FormData(this);
         // Re-append district since disabled selects are omitted by default
         formData.append('district_id', "{{ session.get('district_id', 1) }}");
+
+        // Also re-append new_station_id if the select is disabled!
+        const stationSelect = document.getElementById('l2-station-id-select');
+        if (stationSelect && stationSelect.disabled) {
+            formData.append('new_station_id', stationSelect.value);
+        }
 
         fetch(this.action, {
             method: 'POST',
@@ -327,6 +342,60 @@
         }
 
         window.loadL2Draft();
+
+        // Define onL2StationSelected handler to prefill L2 form
+        window.onL2StationSelected = function (sel) {
+            const stationId = sel.value;
+            if (!stationId) return;
+
+            const fillable = ['new_machine_id', 'operator_name', 'operator_id', 'client_version', 'client_type'];
+
+            fetch(`/auth/dc/l2-registration/prefill/${encodeURIComponent(stationId)}`)
+                .then(res => res.ok ? res.json() : {})
+                .then(data => {
+                    if (!data || typeof data !== 'object') return;
+                    fillable.forEach(key => {
+                        const val = data[key];
+                        if (val === undefined || val === null || val === '') return;
+                        const el = document.getElementsByName(key)[0];
+                        if (!el) return;
+                        if (el.tagName === 'SELECT') {
+                            const match = Array.from(el.options).find(o => o.value === val);
+                            if (match) {
+                                el.value = val;
+                                el.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        } else {
+                            el.value = val;
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    });
+                    if (typeof window.saveL2Draft === 'function') window.saveL2Draft();
+                })
+                .catch(() => { /* prefill is best-effort; leave blanks */ });
+        };
+
+        // Pre-fill the L2 form when arriving from the "Awaiting L2 Registration" section via ?station_id=...
+        const presetStation = new URLSearchParams(window.location.search).get('station_id');
+        if (presetStation) {
+            const stationInput = document.getElementById('l2-station-id-select');
+            if (stationInput) {
+                let optionExists = Array.from(stationInput.options).some(o => o.value === presetStation);
+                if (!optionExists) {
+                    const opt = document.createElement('option');
+                    opt.value = presetStation;
+                    opt.textContent = presetStation;
+                    stationInput.appendChild(opt);
+                }
+                stationInput.value = presetStation;
+                stationInput.disabled = true;
+                stationInput.style.background = '#f1f5f9';
+                stationInput.style.cursor = 'not-allowed';
+
+                // Trigger prefill
+                window.onL2StationSelected(stationInput);
+            }
+        }
     });
 </script>
 {% endblock %}

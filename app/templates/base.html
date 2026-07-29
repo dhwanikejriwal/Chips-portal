@@ -2,16 +2,42 @@
 <html lang="en">
 
 <head>
+    <!-- Theme bootstrap — MUST run before any CSS so the page paints in the
+         correct theme with no flash (FOUC). Explicit choice (portal-theme)
+         wins forever; otherwise fall back to the OS preference. -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('portal-theme');
+                if (t !== 'dark' && t !== 'light') {
+                    t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Chips Portal{% endblock %}</title>
     <!-- Modern Google Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- i18n runtime — loaded early (before inline scripts that use window.i18n).
+         Sets <html lang> from the persisted choice and translates all
+         data-i18n* marked nodes from /static/i18n/{en,hi}.json. -->
+    <script src="{{ url_for('static', filename='i18n/i18n.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/table_sort.js') }}"></script>
     <!-- Main Style -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/request_section.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pending_alerts.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 
     <!-- 🌟 GLOBAL INTERACTIVE POPUP INFRASTRUCTURE: SweetAlert2 -->
@@ -19,32 +45,53 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.min.css">
     <!-- SheetJS CDN for xlsx downloads -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- PDF.js CDN for mobile/desktop responsive PDF rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     {% block extra_css %}{% endblock %}
 
+
     <!-- Highlight for rows linked to from the notification panel / dashboard KPIs -->
     <style>
-        .row-highlight-new {
-            position: relative;
-            background: rgba(245, 158, 11, 0.08) !important;
-            box-shadow: inset 3px 0 0 0 #f59e0b;
-            animation: row-highlight-fade 2.5s ease-out 1;
+        /* Devanagari-capable fallback in the global stack. Latin text keeps
+           rendering in Outfit; Hindi glyphs fall through to Noto Sans
+           Devanagari instead of a random system font. !important mirrors the
+           same-selector rule in dc/dc_style.css so this (later in the
+           cascade) wins and the stack is consistent portal-wide. */
+        body,
+        input,
+        select,
+        textarea,
+        button {
+            font-family: 'Outfit', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
         }
-        @keyframes row-highlight-fade {
-            0% { background: rgba(245, 158, 11, 0.22) !important; }
-            100% { background: rgba(245, 158, 11, 0.08) !important; }
+
+        .row-highlight-new,
+        .row-highlight-new>td,
+        table tbody tr.row-highlight-new>td {
+            background-color: #FFFDF0 !important;
+            transition: background-color 0.3s ease;
         }
-        .row-status-match {
-            position: relative;
-            background: rgba(37, 99, 235, 0.08) !important;
-            box-shadow: inset 3px 0 0 0 #2563eb;
-            animation: row-status-fade 2.5s ease-out 1;
+
+        .row-highlight-new>td:first-child,
+        table tbody tr.row-highlight-new>td:first-child {
+            border-left: 4px solid #F59E0B !important;
+            box-shadow: inset 4px 0 0 0 #F59E0B !important;
         }
-        @keyframes row-status-fade {
-            0% { background: rgba(37, 99, 235, 0.20) !important; }
-            100% { background: rgba(37, 99, 235, 0.08) !important; }
+
+        .row-highlight-fade-out,
+        .row-highlight-fade-out>td,
+        table tbody tr.row-highlight-fade-out>td {
+            background-color: transparent !important;
+            transition: background-color 1s ease-out !important;
         }
-        .row-status-dim { opacity: 0.45; }
+
+        .row-highlight-fade-out>td:first-child,
+        table tbody tr.row-highlight-fade-out>td:first-child {
+            border-left-color: transparent !important;
+            box-shadow: none !important;
+            transition: border-color 1s ease-out, box-shadow 1s ease-out !important;
+        }
     </style>
     <!-- Tab Session Enforcer -->
     {% if session.get('access_token') %}
@@ -95,58 +142,276 @@
         {% endblock %}
     </div>
 
-    <!-- Sidebar Toggle Script -->
+    <!-- Generic request-section tab switcher. Any page that renders a
+         `.req-tabs` strip (tabs carry data-tab) plus `.req-tabpanel` panels
+         (each carries data-panel) gets click-to-switch behaviour for free.
+         Harmless on pages without tabs (delegated, only fires on a .req-tab). -->
     <script>
-        // Restore sidebar state from localStorage on load
         (function () {
-            var isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
-            if (window.innerWidth <= 768) {
-                isCollapsed = true;
-            }
-            if (isCollapsed) {
-                document.addEventListener('DOMContentLoaded', function () {
-                    var sidebar = document.querySelector('.sidebar');
-                    if (sidebar) sidebar.classList.add('collapsed');
-                });
-            }
-        })();
+            // Restore active tab from sessionStorage if available
+            function restoreActiveTab() {
+                var path = window.location.pathname;
+                var params = new URLSearchParams(window.location.search);
+                var status = params.get('status');
+                var savedTab = null;
 
-        // Event delegation — survives HTMX DOM re-processing
-        document.addEventListener('click', function (e) {
-            var btn = e.target.closest('#sidebar-toggle');
-            if (btn) {
-                var sidebar = document.querySelector('.sidebar');
-                if (sidebar) {
-                    sidebar.classList.toggle('collapsed');
-                    localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+                if (status) {
+                    status = status.toLowerCase();
+                    if (path.indexOf('/lms') !== -1) {
+                        sessionStorage.setItem('dc_lms_search', '');
+                        sessionStorage.setItem('dc_lms_date', 'month');
+                        sessionStorage.setItem('dc_lms_pending_status', 'all');
+                        sessionStorage.setItem('dc_lms_chips_status', 'all');
+                        sessionStorage.setItem('dc_lms_reverted_status', 'all');
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                    } else if (path.indexOf('/nseit') !== -1) {
+                        sessionStorage.setItem('dc_nseit_search', '');
+                        sessionStorage.setItem('dc_nseit_date', 'month');
+                        sessionStorage.setItem('dc_nseit_pending_status', 'all');
+                        sessionStorage.setItem('dc_nseit_chips_status', 'all');
+                        sessionStorage.setItem('dc_nseit_reverted_status', 'all');
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                    }
+
+                    if (status === 'pending' || status === 'reapplied') {
+                        savedTab = path.indexOf('/dc/reactivation') !== -1 ? 'batches' : 'pending';
+                    } else if (status === 'awaiting' || status === 'awaiting_l1' || status === 'awaiting_l2') {
+                        savedTab = 'awaiting';
+                    } else if (status === 'sent_to_uidai' || status === 'sent_to_chips' || status === 'forwarded' || status === 'forwarded_again') {
+                        savedTab = (path.indexOf('/operator-activation') !== -1 || path.indexOf('/l2-registration') !== -1 || path.indexOf('/chips/reactivation') !== -1) ? 'uidai' : (path.indexOf('/dc/reactivation') !== -1 ? 'batches' : 'sent_to_chips');
+                    } else if (status === 'approved') {
+                        savedTab = 'approved';
+                    } else if (status === 'rejected' || status === 'uidai_rejected' || status === 'rejected_by_uidai') {
+                        savedTab = path.indexOf('/candidate-requests') !== -1 ? 'rejected' : (path.indexOf('/reactivation') !== -1 ? 'batches' : 'reverted');
+                    } else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'reverted_rejected' || status === 'hold' || status === 'on_hold') {
+                        savedTab = path.indexOf('/reactivation') !== -1 ? 'batches' : (path.indexOf('/candidate-requests') !== -1 ? 'hold' : 'reverted');
+                    }
+
+                    if (savedTab) {
+                        sessionStorage.setItem('active_tab_' + path, savedTab);
+                    }
+                }
+
+                var aging = params.get('aging');
+                if (aging) {
+                    if (path.indexOf('/dc/reactivation') !== -1) {
+                        savedTab = 'batches';
+                    } else if (path.indexOf('/dc/l1-registration') !== -1 || path.indexOf('/dc/l2-registration') !== -1) {
+                        savedTab = 'awaiting';
+                    } else {
+                        savedTab = 'pending';
+                    }
+                    sessionStorage.setItem('active_tab_' + path, savedTab);
+
+                    // Force all date dropdowns to 'all' to prevent filtering out older requests
+                    var dateFilterIds = ['admin-date-filter', 'global-date', 'sid-date', 'sid-date-filter', 'dc-date-filter'];
+                    dateFilterIds.forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (el) {
+                            el.value = 'all';
+                        }
+                    });
+
+                    // Clear any saved search filters and reset date filter to 'all' so matching rows aren't hidden
+                    if (path.indexOf('/chips/lms') !== -1) {
+                        sessionStorage.setItem('chips_lms_search', '');
+                        sessionStorage.setItem('chips_lms_date', 'all');
+                        sessionStorage.setItem('chips_lms_district', 'all');
+                        sessionStorage.setItem('chips_lms_pending_status', 'all');
+                        sessionStorage.setItem('chips_action_reloading', 'true');
+                    } else if (path.indexOf('/chips/nseit') !== -1) {
+                        sessionStorage.setItem('chips_nseit_search', '');
+                        sessionStorage.setItem('chips_nseit_date', 'all');
+                        sessionStorage.setItem('chips_nseit_district', 'all');
+                        sessionStorage.setItem('chips_nseit_pending_status', 'all');
+                        sessionStorage.setItem('chips_action_reloading', 'true');
+                    } else if (path.indexOf('/chips/reactivation') !== -1) {
+                        sessionStorage.setItem('chips_react_search', '');
+                        sessionStorage.setItem('chips_react_date', 'all');
+                        sessionStorage.setItem('chips_react_district', 'all');
+                        sessionStorage.setItem('chips_react_pending_status', 'all');
+                        sessionStorage.setItem('chips_react_reverted_status', 'all');
+                        sessionStorage.setItem('chips_action_reloading', 'true');
+                    } else if (path.indexOf('/dc/lms') !== -1) {
+                        sessionStorage.setItem('dc_lms_search', '');
+                        sessionStorage.setItem('dc_lms_date', 'all');
+                        sessionStorage.setItem('dc_lms_pending_status', 'all');
+                        sessionStorage.setItem('dc_lms_chips_status', 'all');
+                        sessionStorage.setItem('dc_lms_reverted_status', 'all');
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                    } else if (path.indexOf('/dc/nseit') !== -1) {
+                        sessionStorage.setItem('dc_nseit_search', '');
+                        sessionStorage.setItem('dc_nseit_date', 'all');
+                        sessionStorage.setItem('dc_nseit_pending_status', 'all');
+                        sessionStorage.setItem('dc_nseit_chips_status', 'all');
+                        sessionStorage.setItem('dc_nseit_reverted_status', 'all');
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                    } else if (path.indexOf('/dc/candidate-requests') !== -1) {
+                        sessionStorage.setItem('dc_cand_search', '');
+                        sessionStorage.setItem('dc_cand_date', 'all');
+                        sessionStorage.setItem('dc_cand_pending_status', 'all');
+                        sessionStorage.setItem('dc_action_reloading', 'true');
+                    }
+                }
+
+                if (!savedTab) {
+                    savedTab = sessionStorage.getItem('active_tab_' + path);
+                }
+                if (savedTab) {
+                    var activeTabBtn = document.querySelector('.req-tab[data-tab="' + savedTab + '"]');
+                    if (activeTabBtn) {
+                        activeTabBtn.click();
+                        var strip = activeTabBtn.closest('.req-tabs');
+                        if (strip) {
+                            strip.querySelectorAll('.req-tab').forEach(function (t) {
+                                t.classList.toggle('active', t === activeTabBtn);
+                            });
+                        }
+                        document.querySelectorAll('.req-tabpanel').forEach(function (p) {
+                            p.classList.toggle('active', p.getAttribute('data-panel') === savedTab);
+                        });
+                    }
+                }
+
+                if (status && (status === 'reverted' || status === 'rejected' || status === 'reverted_rejected' || status === 'reverted_by_chips')) {
+                    var filterSelect = document.getElementById('filter-status') || document.getElementById('reverted-status-filter');
+                    if (filterSelect) {
+                        if (status === 'rejected') {
+                            filterSelect.value = 'REJECTED';
+                        } else if (status === 'reverted') {
+                            filterSelect.value = 'REVERTED';
+                        } else {
+                            filterSelect.value = 'all';
+                        }
+                        if (window.applyHistoryPanelFiltersPipeline) window.applyHistoryPanelFiltersPipeline();
+                        if (window.filterAllTables) window.filterAllTables();
+                    }
                 }
             }
-        });
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', restoreActiveTab);
+            } else {
+                restoreActiveTab();
+            }
+
+            document.addEventListener('click', function (e) {
+                var tab = e.target.closest('.req-tab');
+                if (!tab) return;
+                var name = tab.getAttribute('data-tab');
+                var strip = tab.closest('.req-tabs');
+                if (strip) {
+                    strip.querySelectorAll('.req-tab').forEach(function (t) {
+                        t.classList.toggle('active', t === tab);
+                    });
+                }
+                document.querySelectorAll('.req-tabpanel').forEach(function (p) {
+                    p.classList.toggle('active', p.getAttribute('data-panel') === name);
+                });
+                // Save active tab
+                sessionStorage.setItem('active_tab_' + window.location.pathname, name);
+            });
+        })();
     </script>
+
+    <!-- Sidebar state + toggle/pin/tooltip/auto-collapse behaviour now lives in
+         partials/sidebar.html (co-located with the sidebar markup + styles, and
+         only loaded when authenticated). It persists { collapsed, pinned } under
+         the "chips.sidebar" localStorage key and owns the #sidebar-toggle click. -->
     <style>
-        /* Flash Alert Timer Animation */
+        /* 🌟 CANDIDATE & SYSTEM FLASH NOTIFICATIONS (MATCHING IMAGE DESIGN SPECIFICATION) */
+        .flash-container {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
         .flash-container .alert,
-        .flash-container .alert-flash {
+        .flash-container .alert-flash,
+        .alert-success,
+        .alert-flash-success {
             position: relative;
             overflow: hidden;
+            padding: 13px 20px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
             margin-bottom: 1rem;
             transition: all 0.5s ease-out;
             transform-origin: top;
+            box-shadow: 0 2px 8px rgba(15, 81, 50, 0.04);
+            letter-spacing: -0.01em;
+            line-height: 1.5;
         }
+
+        /* Light Mode - Success Alert (Exact match to green notification image) */
+        .alert-success,
+        .alert-flash-success,
+        .alert.alert-success {
+            background-color: #d1e7dd !important;
+            color: #0f5132 !important;
+            border: 1px solid #badbcc !important;
+        }
+
+        /* Dark Mode - Success Alert */
+        html[data-theme="dark"] .alert-success,
+        html[data-theme="dark"] .alert-flash-success,
+        html[data-theme="dark"] .alert.alert-success {
+            background-color: #064e3b !important;
+            color: #a7f3d0 !important;
+            border: 1px solid #047857 !important;
+        }
+
+        /* Danger / Error Alert - Light Mode */
+        .alert-danger,
+        .alert-error,
+        .alert-flash-error,
+        .alert.alert-danger {
+            background-color: #f8d7da !important;
+            color: #842029 !important;
+            border: 1px solid #f5c2c7 !important;
+        }
+
+        /* Danger / Error Alert - Dark Mode */
+        html[data-theme="dark"] .alert-danger,
+        html[data-theme="dark"] .alert-error,
+        html[data-theme="dark"] .alert-flash-error,
+        html[data-theme="dark"] .alert.alert-danger {
+            background-color: #450a0a !important;
+            color: #fca5a5 !important;
+            border: 1px solid #991b1b !important;
+        }
+
+        /* Flash Alert Timer Line Animation (Bottom Progress Bar) */
         .flash-container .alert::after,
-        .flash-container .alert-flash::after {
+        .flash-container .alert-flash::after,
+        .alert-success::after,
+        .alert-flash-success::after {
             content: '';
             position: absolute;
             bottom: 0;
             left: 0;
             height: 3px;
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(15, 81, 50, 0.35);
             animation: collapseTimer 3s linear forwards;
         }
-        @keyframes collapseTimer {
-            0% { width: 100%; }
-            100% { width: 0%; }
+
+        html[data-theme="dark"] .flash-container .alert::after,
+        html[data-theme="dark"] .flash-container .alert-flash::after,
+        html[data-theme="dark"] .alert-success::after,
+        html[data-theme="dark"] .alert-flash-success::after {
+            background: #34d399;
         }
+
+        @keyframes collapseTimer {
+            0% {
+                width: 100%;
+            }
+
+            100% {
+                width: 0%;
+            }
+        }
+
         .flash-container .alert.fade-out,
         .flash-container .alert-flash.fade-out {
             opacity: 0;
@@ -159,12 +424,12 @@
     </style>
     <script>
         // Auto-dismiss flash messages with collapse animation after 3 seconds
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             var alerts = document.querySelectorAll('.flash-container .alert, .flash-container .alert-flash');
-            alerts.forEach(function(alert) {
-                setTimeout(function() {
+            alerts.forEach(function (alert) {
+                setTimeout(function () {
                     alert.classList.add('fade-out');
-                    setTimeout(function() {
+                    setTimeout(function () {
                         alert.remove();
                     }, 500); // Wait for the transition to finish
                 }, 3000);
@@ -178,81 +443,678 @@
             var params = new URLSearchParams(window.location.search);
             var highlightSince = params.get('highlight_since');
             if (!highlightSince) return;
+
             var cutoff = new Date(highlightSince.replace(' ', 'T'));
             if (isNaN(cutoff.getTime())) return;
 
             function applyHighlights() {
-                var candidates = document.querySelectorAll('[data-created], [data-updated]');
+                var candidates = document.querySelectorAll('table tbody tr[data-created], table tbody tr[data-updated], .op-row-item, .history-data-row, tr[data-id]');
+                var highlightedElements = [];
                 var firstMatch = null;
+
                 candidates.forEach(function (el) {
-                    var raw = el.getAttribute('data-updated') || el.getAttribute('data-created');
-                    if (!raw) return;
+                    var raw = el.getAttribute('data-updated') || el.getAttribute('data-created') || el.getAttribute('data-submitted');
+                    if (!raw || raw === 'None' || raw === '—' || !raw.trim()) return;
                     var ts = new Date(raw.replace(' ', 'T'));
-                    if (isNaN(ts.getTime()) || ts <= cutoff) return;
-                    el.classList.add('row-highlight-new');
-                    if (!firstMatch) firstMatch = el;
-                });
-                if (firstMatch) {
-                    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }
-
-            // Delay slightly so any page-specific JS that filters/renders rows
-            // from the same server-rendered data attributes has settled.
-            window.addEventListener('load', function () {
-                setTimeout(applyHighlights, 300);
-            });
-        })();
-    </script>
-
-    <!-- Filter/highlight rows by status bucket (used by DC dashboard KPI links
-         and the notification panel's reverted/rejected links) -->
-    <script>
-        (function () {
-            var params = new URLSearchParams(window.location.search);
-            var wantStatus = params.get('status');
-            if (!wantStatus) return;
-            wantStatus = wantStatus.trim().toLowerCase();
-
-            // Same bucketing rules as _status_bucket() in blueprints/dashboard.py.
-            function bucket(raw) {
-                var s = (raw || '').toString().trim().toLowerCase();
-                if (['approved', 'reviewed', 'activated', 'assigned', 'sent_to_uidai', 'sent to uidai'].indexOf(s) !== -1) return 'approved';
-                if (s === 'rejected') return 'rejected';
-                if (['reverted', 'reverted by chips', 'reverted_by_chips'].indexOf(s) !== -1) return 'reverted';
-                return 'pending';
-            }
-
-            // "reverted_rejected" is a combined sentinel used by the DC
-            // notification panel, since a type's reverted/rejected count
-            // there isn't broken down by exact bucket.
-            function matchesWant(rowBucket) {
-                if (wantStatus === 'reverted_rejected') return rowBucket === 'reverted' || rowBucket === 'rejected';
-                return rowBucket === wantStatus;
-            }
-
-            function apply() {
-                var rows = document.querySelectorAll('[data-status]');
-                if (!rows.length) return;
-                var firstMatch = null;
-                rows.forEach(function (el) {
-                    if (matchesWant(bucket(el.getAttribute('data-status')))) {
-                        el.classList.add('row-status-match');
+                    if (!isNaN(ts.getTime()) && ts > cutoff) {
+                        highlightedElements.push(el);
                         if (!firstMatch) firstMatch = el;
-                    } else {
-                        el.classList.add('row-status-dim');
                     }
                 });
+
+                if (highlightedElements.length === 0) return;
+
+                highlightedElements.forEach(function (el) {
+                    el.classList.add('row-highlight-new');
+                });
+
                 if (firstMatch) {
                     firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
+
+                setTimeout(function () {
+                    highlightedElements.forEach(function (el) {
+                        el.classList.add('row-highlight-fade-out');
+                        setTimeout(function () {
+                            el.classList.remove('row-highlight-new', 'row-highlight-fade-out');
+                        }, 1000);
+                    });
+                }, 5000);
             }
 
             window.addEventListener('load', function () {
-                setTimeout(apply, 300);
+                setTimeout(applyHighlights, 350);
             });
+            document.addEventListener('DOMContentLoaded', function () {
+                setTimeout(applyHighlights, 350);
+            });
+
+            if (window.history.replaceState) {
+                var newUrl = window.location.pathname;
+                params.delete('highlight_since');
+                params.delete('from_notif');
+                var qs = params.toString();
+                if (qs) {
+                    newUrl += '?' + qs;
+                }
+                window.history.replaceState({ path: newUrl }, '', newUrl);
+            }
         })();
     </script>
+
+
+
+    {% if config.ENABLE_LANGUAGE_TOGGLE %}
+    <div id="google_translate_element" style="display: none;"></div>
+    <style>
+        /* Hide all default Google Translate banner, frames, and dropdown widgets */
+        body {
+            top: 0 !important;
+        }
+
+        #google_translate_element,
+        .skiptranslate,
+        .goog-te-banner-frame,
+        .goog-te-balloon-frame,
+        .goog-te-gadget-icon,
+        .goog-logo-link,
+        .goog-te-gadget,
+        .goog-te-gadget-simple,
+        .goog-te-menu-value,
+        iframe.skiptranslate,
+        iframe[class*="skiptranslate"],
+        #goog-gt-tt,
+        [class*="goog-"],
+        [id*="goog-"],
+        [class*="skiptranslate"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            width: 0 !important;
+            position: absolute !important;
+            left: -9999px !important;
+            top: -9999px !important;
+            z-index: -9999 !important;
+        }
+    </style>
+    <script>
+        (function () {
+            var currentLang = (typeof window.i18n !== 'undefined' && window.i18n.getLang)
+                ? window.i18n.getLang()
+                : (localStorage.getItem('lang') || sessionStorage.getItem('portal_lang') || 'en');
+
+            if (currentLang === 'hi') {
+                document.cookie = "googtrans=/en/hi; path=/;";
+                document.cookie = "googtrans=/en/hi; path=/; domain=." + window.location.hostname;
+
+                window.googleTranslateElementInit = function () {
+                    new google.translate.TranslateElement({
+                        pageLanguage: 'en',
+                        includedLanguages: 'hi',
+                        autoDisplay: false
+                    }, 'google_translate_element');
+                };
+
+                const gtScript = document.createElement('script');
+                gtScript.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+                document.body.appendChild(gtScript);
+            }
+        })();
+    </script>
+
+
+    <script>
+        (function () {
+            // --- Hindi Transliteration Engine for Mobile & Desktop Remarks/Reason fields ---
+            const setupTransliteration = () => {
+                const isRemarksField = (el) => {
+                    if (!el) return false;
+                    const id = (el.id || '').toLowerCase();
+                    const name = (el.name || '').toLowerCase();
+                    const ph = (el.placeholder || '').toLowerCase();
+                    const cls = (el.className || '').toLowerCase();
+                    return id.includes('remark') || name.includes('remark') || ph.includes('remark') || cls.includes('remark') ||
+                        id.includes('reason') || name.includes('reason') || ph.includes('reason') || cls.includes('reason') ||
+                        id.includes('टिप्पणी') || ph.includes('टिप्पणी') || ph.includes('कारण');
+                };
+
+                const fetchTransliteration = async (text) => {
+                    try {
+                        const url = `https://inputtools.google.com/request?text=${encodeURIComponent(text)}&itc=hi-t-i0-und&num=1&cp=0-0&cs=1&ie=utf-8&oe=utf-8`;
+                        const res = await fetch(url);
+                        if (!res.ok) return null;
+                        const data = await res.json();
+                        if (data && data[0] === 'SUCCESS' && data[1] && data[1][0] && data[1][0][1]) {
+                            return data[1][0][1][0];
+                        }
+                    } catch (e) {
+                        console.error('Transliteration failed:', e);
+                    }
+                    return null;
+                };
+
+                let isProcessing = false;
+                const processTransliteration = async (el) => {
+                    if (!el || !el.dataset.transliterationEnabled || isProcessing) return;
+
+                    const val = el.value;
+                    const cursor = el.selectionStart;
+
+                    const textBeforeCursor = val.substring(0, cursor);
+                    const match = textBeforeCursor.match(/(\S+)(\s)$/);
+                    if (!match) return;
+
+                    const lastWord = match[1];
+                    const whitespace = match[2];
+
+                    if (/[\u0900-\u097F]/.test(lastWord) || !lastWord.trim()) return;
+
+                    isProcessing = true;
+                    const translated = await fetchTransliteration(lastWord);
+                    if (translated) {
+                        const prefix = textBeforeCursor.substring(0, textBeforeCursor.length - (lastWord.length + whitespace.length));
+                        const suffix = val.substring(cursor);
+
+                        el.value = prefix + translated + whitespace + suffix;
+                        const newCursor = (prefix + translated + whitespace).length;
+                        el.selectionStart = el.selectionEnd = newCursor;
+
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    isProcessing = false;
+                };
+
+                const handleInputEvent = (e) => {
+                    processTransliteration(e.target);
+                };
+
+                const handleKeyDownEvent = (e) => {
+                    if (e.keyCode === 32 || e.keyCode === 13) {
+                        setTimeout(() => processTransliteration(e.target), 10);
+                    }
+                };
+
+                const injectToggleSwitch = (el) => {
+                    if (el.dataset.transliterationSetup) return;
+                    el.dataset.transliterationSetup = 'true';
+
+                    const container = document.createElement('div');
+                    container.className = 'transliteration-toggle-container notranslate';
+                    container.setAttribute('translate', 'no');
+                    container.style.cssText = 'display: flex; align-items: center; gap: 6px; margin: 8px 0; font-size: 13px; font-weight: 500; color: #374151; user-select: none;';
+
+                    const chk = document.createElement('input');
+                    chk.type = 'checkbox';
+                    chk.className = 'transliteration-chk';
+                    chk.style.cssText = 'cursor: pointer; width: 16px; height: 16px; margin: 0; accent-color: #4f46e5;';
+
+                    const lbl = document.createElement('label');
+                    lbl.textContent = 'Type in Hindi / हिंदी में लिखें';
+                    lbl.style.cssText = 'cursor: pointer; margin: 0; user-select: none; color: #374151; font-size: 13px;';
+
+                    lbl.onclick = (evt) => {
+                        evt.preventDefault();
+                        chk.checked = !chk.checked;
+                        chk.dispatchEvent(new Event('change'));
+                    };
+
+                    container.appendChild(chk);
+                    container.appendChild(lbl);
+
+                    el.parentNode.insertBefore(container, el.nextSibling);
+
+                    chk.addEventListener('change', () => {
+                        if (chk.checked) {
+                            el.dataset.transliterationEnabled = 'true';
+                            el.classList.add('notranslate');
+                            el.setAttribute('translate', 'no');
+                        } else {
+                            delete el.dataset.transliterationEnabled;
+                        }
+                    });
+
+                    el.addEventListener('input', handleInputEvent);
+                    el.addEventListener('keyup', handleInputEvent);
+                    el.addEventListener('keydown', handleKeyDownEvent);
+                };
+
+                const scanForRemarksFields = () => {
+                    const elements = document.querySelectorAll('textarea, input[type="text"]');
+                    elements.forEach(el => {
+                        if (isRemarksField(el)) {
+                            injectToggleSwitch(el);
+                        }
+                    });
+                };
+
+                document.addEventListener('focusin', (e) => {
+                    if (e.target && (e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && e.target.type === 'text'))) {
+                        if (isRemarksField(e.target)) {
+                            injectToggleSwitch(e.target);
+                        }
+                    }
+                });
+
+                const observer = new MutationObserver(() => {
+                    scanForRemarksFields();
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+
+                scanForRemarksFields();
+            };
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', setupTransliteration);
+            } else {
+                setupTransliteration();
+            }
+        })();
+    </script>
+    {% endif %}
+    <!-- Mandatory Password Change Modal for DC/EDM/Admin -->
+    {% if session.get('access_token') and not session.get('has_changed_password', 1) and session.get('role') in ['DC',
+    'EDM', 'Admin'] %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            Swal.fire({
+                title: 'Action Required: Change Default Password',
+                html: `
+                <p style="font-size: 14px; color: #5A5F7A; text-align: left; margin-bottom: 20px;">
+                    For security reasons, you must change your default password before accessing the system.
+                </p>
+                <div style="text-align: left; margin-bottom: 15px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px;">Current Password</label>
+                    <input type="password" id="swal-current-password" class="swal2-input" placeholder="Current Password" style="margin: 0; width: 100%; max-width: 100%; height: 44px; font-size: 15px;">
+                </div>
+                <div style="text-align: left; margin-bottom: 15px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px;">New Password</label>
+                    <input type="password" id="swal-new-password" class="swal2-input" placeholder="New Password" style="margin: 0; width: 100%; max-width: 100%; height: 44px; font-size: 15px;">
+                    <div style="margin-top: 8px;">
+                        <div style="height: 4px; background: #E0E4F0; border-radius: 2px; overflow: hidden;">
+                            <div id="swal-strength-bar" style="height: 100%; width: 0%; transition: all 0.3s ease; background-color: #EF4444;"></div>
+                        </div>
+                        <div id="swal-strength-text" style="font-size: 12px; margin-top: 4px; color: #5A5F7A;">Password strength</div>
+                    </div>
+                </div>
+                <div style="text-align: left; margin-bottom: 5px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px;">Confirm New Password</label>
+                    <input type="password" id="swal-confirm-password" class="swal2-input" placeholder="Confirm New Password" style="margin: 0; width: 100%; max-width: 100%; height: 44px; font-size: 15px;">
+                </div>
+            `,
+                icon: 'warning',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showCancelButton: false,
+                confirmButtonText: 'Change Password',
+                confirmButtonColor: '#6C4FE8',
+                didOpen: () => {
+                    const newPassInput = document.getElementById('swal-new-password');
+                    const strengthBar = document.getElementById('swal-strength-bar');
+                    const strengthText = document.getElementById('swal-strength-text');
+
+                    newPassInput.addEventListener('input', (e) => {
+                        const pass = e.target.value;
+                        let strength = 0;
+                        if (pass.length >= 8) strength += 1;
+                        if (/[a-z]/.test(pass)) strength += 1;
+                        if (/[A-Z]/.test(pass)) strength += 1;
+                        if (/\d/.test(pass)) strength += 1;
+                        if (/[!@#$%^&*(),.?":{}|<>]/.test(pass)) strength += 1;
+
+                        let color = '#E0E4F0';
+                        let text = 'Password strength';
+                        let width = '0%';
+
+                        if (pass.length === 0) {
+                            width = '0%';
+                            color = '#E0E4F0';
+                            text = 'Password strength';
+                        } else if (strength <= 2) {
+                            color = '#EF4444'; // Red
+                            text = 'Weak (Needs more variety)';
+                            width = '33%';
+                        } else if (strength <= 4) {
+                            color = '#F59E0B'; // Yellow
+                            text = 'Medium (Getting better)';
+                            width = '66%';
+                        } else {
+                            color = '#10B981'; // Green
+                            text = 'Strong (Good to go!)';
+                            width = '100%';
+                        }
+
+                        strengthBar.style.width = width;
+                        strengthBar.style.backgroundColor = color;
+                        strengthText.innerText = text;
+                        strengthText.style.color = color === '#E0E4F0' ? '#5A5F7A' : color;
+                    });
+                },
+                preConfirm: () => {
+                    const current = document.getElementById('swal-current-password').value;
+                    const newPass = document.getElementById('swal-new-password').value;
+                    const confirmPass = document.getElementById('swal-confirm-password').value;
+
+                    if (!current || !newPass || !confirmPass) {
+                        Swal.showValidationMessage('All fields are required');
+                        return false;
+                    }
+                    if (current === newPass) {
+                        Swal.showValidationMessage('New password cannot be the same as the current password');
+                        return false;
+                    }
+                    if (newPass !== confirmPass) {
+                        Swal.showValidationMessage('New passwords do not match');
+                        return false;
+                    }
+                    if (newPass.length < 8) {
+                        Swal.showValidationMessage('Password must be at least 8 characters long');
+                        return false;
+                    }
+                    if (!/[a-z]/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one lowercase letter');
+                        return false;
+                    }
+                    if (!/[A-Z]/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one uppercase letter');
+                        return false;
+                    }
+                    if (!/\d/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one number');
+                        return false;
+                    }
+                    if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPass)) {
+                        Swal.showValidationMessage('Password must contain at least one special character');
+                        return false;
+                    }
+
+                    return {
+                        current_password: current,
+                        new_password: newPass
+                    };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const data = result.value;
+                    Swal.fire({
+                        title: 'Updating...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    fetch('{{ config.BACKEND_API_URL }}/auth/change-password', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer {{ session.access_token }}'
+                        },
+                        body: JSON.stringify(data)
+                    })
+                        .then(res => res.json())
+                        .then(apiRes => {
+                            if (apiRes.success) {
+                                fetch('{{ url_for("auth.session_has_changed_password") }}', { method: 'POST' })
+                                    .then(() => {
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: 'Success',
+                                            text: 'Password has been updated!',
+                                            confirmButtonColor: '#6C4FE8'
+                                        }).then(() => {
+                                            window.location.reload();
+                                        });
+                                    });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: apiRes.detail || 'Failed to update password',
+                                    confirmButtonText: 'Try Again',
+                                    confirmButtonColor: '#6C4FE8'
+                                }).then(() => {
+                                    window.location.reload();
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            Swal.fire('Error', 'Failed to connect to server', 'error');
+                        });
+                }
+            });
+        });
+    </script>
+    {% endif %}
+
+    <script>
+        // 🌟 UNIVERSAL DOCUMENT PREVIEW ENGINE (PDF.js CANVAS VIEW FOR ALL DEVICES)
+        window.previewDocument = function (url, fileType, fileName) {
+            if (!url) return;
+
+            const name = fileName || 'Document Preview';
+            const fType = (fileType || '').toLowerCase();
+            const urlLower = url.toLowerCase();
+
+            const isImage = fType.includes('image') || fType.includes('png') || fType.includes('jpg') || fType.includes('jpeg') || fType.includes('gif') || fType.includes('webp') || urlLower.endsWith('.png') || urlLower.endsWith('.jpg') || urlLower.endsWith('.jpeg') || urlLower.endsWith('.webp') || urlLower.startsWith('data:image/');
+            const isPdf = !isImage && (fType.includes('pdf') || urlLower.endsWith('.pdf') || urlLower.includes('.pdf'));
+
+            const downloadFilename = fileName || (isPdf ? 'document.pdf' : 'document.jpg');
+            const isMobile = window.innerWidth < 768;
+
+            let bodyHtml = '';
+
+            if (isPdf) {
+                // 📄 PDF MODE: Render all PDF Pages on HTML5 <canvas> using PDF.js for ALL DEVICES
+                bodyHtml = `
+                    <div id="pdf-canvas-container" style="width: 100%; max-height: 65vh; overflow-y: auto; text-align: center; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-sizing: border-box;">
+                        <div id="pdf-loading-spinner" style="padding: 24px; font-weight: 600; color: #4f46e5; font-size: 14px;">
+                            ⚡ Rendering PDF Preview...
+                        </div>
+                    </div>
+                `;
+            } else {
+                // 🖼️ IMAGE MODE: Render Image Centered
+                bodyHtml = `
+                    <div style="text-align: center; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
+                        <img src="${url}" alt="${name}" style="max-width: 100%; max-height: 65vh; object-fit: contain; border-radius: 6px;" />
+                    </div>
+                `;
+            }
+
+            // 🌟 UNIFIED BUTTON FOOTER FOR ALL DEVICES: Green Download + Purple Close
+            const footerHtml = `
+                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 12px;">
+                    <a href="${url}" target="_blank" download="${downloadFilename}" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 22px; background: #10b981; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600; box-shadow: 0 2px 6px rgba(16,185,129,0.25); transition: background 0.2s ease;">
+                        <i class="ti ti-download" style="font-size: 16px;"></i> Download
+                    </a>
+                    <button type="button" id="btn-modal-close" style="padding: 10px 24px; background: #4f46e5; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(79,70,229,0.25); transition: background 0.2s ease;">
+                        Close
+                    </button>
+                </div>
+            `;
+
+            const renderPdfCanvas = () => {
+                if (isPdf && typeof pdfjsLib !== 'undefined') {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    pdfjsLib.getDocument(url).promise.then(pdf => {
+                        const container = document.getElementById('pdf-canvas-container');
+                        const spinner = document.getElementById('pdf-loading-spinner');
+                        const totalPages = pdf.numPages;
+
+                        if (!container) return;
+
+                        if (spinner) spinner.style.display = 'none';
+
+                        // If multi-page, add a sticky header indicator
+                        if (totalPages > 1) {
+                            const headerBar = document.createElement('div');
+                            headerBar.style.cssText = 'position: sticky; top: -12px; z-index: 20; background: #ffffff; padding: 10px 14px; margin: -12px -12px 14px -12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #334155; display: flex; align-items: center; justify-content: space-between; border-top-left-radius: 12px; border-top-right-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);';
+                            headerBar.innerHTML = `
+                                <span style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 16px;">📄</span> <span style="color: #4f46e5;">Multi-Page Document</span> (${totalPages} Pages)
+                                </span>
+                                <span style="font-size: 12px; font-weight: 600; color: #64748b;">Scroll to view all pages</span>
+                            `;
+                            container.appendChild(headerBar);
+                        }
+
+                        const renderPage = (pageNum) => {
+                            return pdf.getPage(pageNum).then(page => {
+                                const pageWrapper = document.createElement('div');
+                                pageWrapper.style.cssText = 'margin-bottom: 20px; text-align: center; position: relative;';
+
+                                if (totalPages > 1) {
+                                    const pageBadge = document.createElement('div');
+                                    pageBadge.style.cssText = 'display: inline-block; font-size: 11px; font-weight: 700; color: #475569; background: #e2e8f0; padding: 3px 12px; border-radius: 12px; margin-bottom: 8px; font-family: inherit;';
+                                    pageBadge.innerText = `Page ${pageNum} of ${totalPages}`;
+                                    pageWrapper.appendChild(pageBadge);
+                                }
+
+                                const canvas = document.createElement('canvas');
+                                canvas.style.cssText = 'width: 100%; max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); background: #ffffff; display: block; margin: 0 auto;';
+                                pageWrapper.appendChild(canvas);
+                                container.appendChild(pageWrapper);
+
+                                const context = canvas.getContext('2d');
+                                const containerWidth = container.clientWidth ? (container.clientWidth - 32) : 600;
+                                const unscaledViewport = page.getViewport({ scale: 1 });
+                                const scale = Math.min(2.0, (containerWidth > 0 ? containerWidth : 600) / unscaledViewport.width);
+                                const viewport = page.getViewport({ scale: scale > 0.5 ? scale : 1 });
+
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+
+                                const renderContext = {
+                                    canvasContext: context,
+                                    viewport: viewport
+                                };
+                                return page.render(renderContext).promise;
+                            });
+                        };
+
+                        // Sequentially render all pages
+                        let chain = Promise.resolve();
+                        for (let i = 1; i <= totalPages; i++) {
+                            chain = chain.then(() => renderPage(i));
+                        }
+                    }).catch(err => {
+                        console.error('PDF.js render error / Fallback:', err);
+                        const container = document.getElementById('pdf-canvas-container');
+                        if (container) {
+                            container.innerHTML = `<iframe src="${url}" style="width: 100%; height: 60vh; border: none; border-radius: 6px;"></iframe>`;
+                        }
+                    });
+                }
+            };
+
+            // 🌟 IF A SWEETALERT IS ALREADY OPEN (e.g. showSkipModal popup):
+            // Use custom high-z-index overlay so closing preview preserves the parent modal!
+            if (typeof Swal !== 'undefined' && Swal.isVisible()) {
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0';
+                overlay.style.left = '0';
+                overlay.style.width = '100vw';
+                overlay.style.height = '100vh';
+                overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.65)';
+                overlay.style.backdropFilter = 'blur(4px)';
+                overlay.style.display = 'flex';
+                overlay.style.justifyContent = 'center';
+                overlay.style.alignItems = 'center';
+                overlay.style.zIndex = '999999';
+                overlay.style.animation = 'docPreviewOverlaySmoothIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+
+                const modalBox = document.createElement('div');
+                modalBox.style.width = isMobile ? '95%' : '720px';
+                modalBox.style.maxWidth = '95vw';
+                modalBox.style.backgroundColor = '#ffffff';
+                modalBox.style.borderRadius = '16px';
+                modalBox.style.padding = '24px';
+                modalBox.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.35)';
+                modalBox.style.boxSizing = 'border-box';
+                modalBox.style.position = 'relative';
+                modalBox.style.animation = 'docPreviewModalSmoothIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+
+                const closeOverlaySmoothly = () => {
+                    overlay.style.transition = 'opacity 0.2s ease-out';
+                    modalBox.style.animation = 'docPreviewModalSmoothOut 0.2s cubic-bezier(0.4, 0, 1, 1) forwards';
+                    overlay.style.opacity = '0';
+                    setTimeout(() => {
+                        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                    }, 200);
+                };
+
+                const headerBox = document.createElement('div');
+                headerBox.style.display = 'flex';
+                headerBox.style.justifyContent = 'space-between';
+                headerBox.style.alignItems = 'center';
+                headerBox.style.marginBottom = '16px';
+
+                const titleEl = document.createElement('span');
+                titleEl.innerHTML = `<strong style="font-family:inherit; font-size: 18px; color: #0f172a;">${name}</strong>`;
+
+                const closeCross = document.createElement('button');
+                closeCross.type = 'button';
+                closeCross.innerHTML = '✕';
+                closeCross.style.background = 'none';
+                closeCross.style.border = 'none';
+                closeCross.style.fontSize = '20px';
+                closeCross.style.cursor = 'pointer';
+                closeCross.style.color = '#64748b';
+                closeCross.style.padding = '0 4px';
+                closeCross.onclick = closeOverlaySmoothly;
+
+                headerBox.appendChild(titleEl);
+                headerBox.appendChild(closeCross);
+
+                const contentBox = document.createElement('div');
+                contentBox.innerHTML = bodyHtml + footerHtml;
+
+                modalBox.appendChild(headerBox);
+                modalBox.appendChild(contentBox);
+                overlay.appendChild(modalBox);
+
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) closeOverlaySmoothly();
+                };
+
+                document.body.appendChild(overlay);
+
+                const closeBtn = modalBox.querySelector('#btn-modal-close');
+                if (closeBtn) closeBtn.onclick = closeOverlaySmoothly;
+
+                setTimeout(renderPdfCanvas, 50);
+                return;
+            }
+
+            // Standard SweetAlert modal if no prior modal is active
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:700; font-size: 18px; color: #0f172a;">${name}</span>`,
+                html: bodyHtml + footerHtml,
+                width: isMobile ? '95%' : '720px',
+                showConfirmButton: false,
+                showCloseButton: true,
+                focusConfirm: false,
+                showClass: {
+                    popup: 'doc-preview-modal-smooth',
+                    backdrop: 'doc-preview-overlay-smooth'
+                },
+                hideClass: {
+                    popup: 'doc-preview-modal-smooth-out'
+                },
+                didOpen: () => {
+                    const closeBtn = document.getElementById('btn-modal-close');
+                    if (closeBtn) closeBtn.onclick = () => Swal.close();
+                    renderPdfCanvas();
+                }
+            });
+        };
+        // Backwards compatibility alias
+        window.previewFile = window.previewDocument;
+    </script>
+
+    {% block extra_js %}{% endblock %}
 </body>
 
 </html>

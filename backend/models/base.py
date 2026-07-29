@@ -35,11 +35,19 @@ class StatusEnum(int, Enum):
     REJECTED = 14
     REVERTED_BY_CHIPS = 15
     APPROVED_LEGACY = 16
+    ON_HOLD = 17
+    ALLOTTED = 18
+    L1_DONE = 19
+    L2_DONE = 20
 
 def to_code(status_str: str) -> int:
     if not status_str:
         return StatusEnum.PENDING.value
     s = status_str.strip().upper().replace(' ', '_')
+    if s in ['L1_DONE', 'L1DONE', 'L1_APPROVED']:
+        return StatusEnum.L1_DONE.value
+    if s in ['L2_DONE', 'L2DONE', 'L2_APPROVED']:
+        return StatusEnum.L2_DONE.value
     try:
         return StatusEnum[s].value
     except KeyError:
@@ -48,6 +56,10 @@ def to_code(status_str: str) -> int:
 def to_name(status_id: int) -> str:
     if not status_id:
         return ""
+    if status_id == StatusEnum.L1_DONE.value:
+        return "L1 Done"
+    if status_id == StatusEnum.L2_DONE.value:
+        return "L2 Done"
     try:
         return StatusEnum(status_id).name
     except ValueError:

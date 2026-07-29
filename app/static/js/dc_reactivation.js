@@ -39,7 +39,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const navEntries = performance.getEntriesByType("navigation");
     const isReload = navEntries.length > 0 && navEntries[0].type === "reload";
 
-    if (isReload) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const qStatus = urlParams.get("status");
+
+    if (isReload && !qStatus) {
         const searchOperatorInput = document.getElementById("filter-search-operator");
         if (searchOperatorInput) searchOperatorInput.value = "";
 
@@ -50,8 +53,130 @@ document.addEventListener("DOMContentLoaded", () => {
         if (datePeriodInput) datePeriodInput.value = "month";
     }
 
+    if (qStatus) {
+        const st = qStatus.toUpperCase().trim();
+        const statusInput = document.getElementById("filter-status");
+        if (statusInput) {
+            if (st === "REVERTED_REJECTED") {
+                statusInput.value = "ALL";
+            } else if (st === "REVERTED" || st === "REVERTED_CHIPS" || st === "REVERTED_BY_CHIPS") {
+                statusInput.value = "REVERTED";
+            } else if (st === "REJECTED") {
+                statusInput.value = "REJECTED";
+            } else if (st === "PENDING") {
+                statusInput.value = "PENDING";
+            } else if (st === "APPROVED") {
+                statusInput.value = "APPROVED";
+            } else if (st === "SENT_TO_UIDAI" || st === "UIDAI") {
+                statusInput.value = "SENT_TO_UIDAI";
+            }
+        }
+    }
+
     // 4. Initialize counts by running the filter pipeline
     applyHistoryPanelFiltersPipeline();
+
+    // 🌟 5. Instant Input Verification and Database Duplicate Lookups
+    const mobileInput = document.getElementById("op_mobile");
+    if (mobileInput) {
+        mobileInput.addEventListener("input", async () => {
+            const val = mobileInput.value.trim();
+            const errNode = document.getElementById("err_op_mobile");
+            if (!errNode) return;
+            errNode.innerText = "";
+
+            if (val.length === 10) {
+                if (!/^[6-9]\d{9}$/.test(val)) {
+                    errNode.innerText = "Must be a valid 10-digit number starting with 6-9.";
+                    return;
+                }
+                const opId = document.getElementById('editing_op_id') ? document.getElementById('editing_op_id').value : '';
+                // Check local duplicate
+                const isLocalDup = structuredOperatorList.some(op => op.mobile === val && op.id !== opId);
+                if (isLocalDup) {
+                    errNode.innerText = "This mobile number is already added to this batch.";
+                    return;
+                }
+                // Check DB duplicate
+                try {
+                    const res = await fetch(`/auth/dc/reactivation/check-duplicate?mobile=${val}&exclude_id=${opId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.exists) {
+                            errNode.innerText = data.message;
+                        }
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        });
+    }
+
+    const emailInput = document.getElementById("op_email");
+    if (emailInput) {
+        emailInput.addEventListener("change", async () => {
+            const val = emailInput.value.trim();
+            const errNode = document.getElementById("err_op_email");
+            if (!errNode) return;
+            errNode.innerText = "";
+
+            if (val.length > 0) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(val)) {
+                    errNode.innerText = "Please enter a valid email format.";
+                    return;
+                }
+                const opId = document.getElementById('editing_op_id') ? document.getElementById('editing_op_id').value : '';
+                // Check local duplicate
+                const isLocalDup = structuredOperatorList.some(op => op.email === val && op.id !== opId);
+                if (isLocalDup) {
+                    errNode.innerText = "This email address is already added to this batch.";
+                    return;
+                }
+                // Check DB duplicate
+                try {
+                    const res = await fetch(`/auth/dc/reactivation/check-duplicate?email=${encodeURIComponent(val)}&exclude_id=${opId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.exists) {
+                            errNode.innerText = data.message;
+                        }
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        });
+    }
+
+    if (certDateInput) {
+        certDateInput.addEventListener("change", () => {
+            const val = certDateInput.value;
+            const errNode = document.getElementById("err_op_cert_date");
+            if (!errNode) return;
+            errNode.innerText = "";
+
+            if (val) {
+                const todayD = new Date();
+                const yyyy = todayD.getFullYear();
+                const mm = String(todayD.getMonth() + 1).padStart(2, '0');
+                const dd = String(todayD.getDate()).padStart(2, '0');
+                const todayStr = `${yyyy}-${mm}-${dd}`;
+
+                if (val > todayStr) {
+                    errNode.innerText = "Certification date cannot be in the future.";
+                } else {
+                    const certD = new Date(val);
+                    const threeYearsAgo = new Date();
+                    threeYearsAgo.setFullYear(todayD.getFullYear() - 3);
+                    if (certD < threeYearsAgo) {
+                        errNode.innerText = "NSEIT Certification Date must not be more than 3 years old.";
+                    }
+                }
+            }
+        });
+    }
 });
 
 // 🔄 DYNAMIC VIEW PANEL ROUTER (Bound to global context)
@@ -124,9 +249,11 @@ window.switchReactivationView = function (targetPanel, shouldReset = false) {
 };
 
 // 🎛️ STEP-1 CACHE ENTRY VALIDATOR
-window.addOperatorRecordToExcelLog = function () {
+window.addOperatorRecordToExcelLog = async function () {
     document.querySelectorAll('.error-msg').forEach(el => el.innerText = '');
     let hasValidationError = false;
+
+    const opId = document.getElementById('editing_op_id') ? document.getElementById('editing_op_id').value : '';
 
     const fields = {
         role: document.getElementById('op_role').value.trim(),
@@ -173,9 +300,19 @@ window.addOperatorRecordToExcelLog = function () {
         hasValidationError = true;
     }
 
-    if (fields.mobile && !/^[6-9]\d{9}$/.test(fields.mobile)) {
-        document.getElementById('err_op_mobile').innerText = 'Must be a valid 10-digit number starting with 6-9.';
-        hasValidationError = true;
+    // Check local duplicate mobile in batch list
+    let isMobileLocalDup = false;
+    if (fields.mobile) {
+        if (!/^[6-9]\d{9}$/.test(fields.mobile)) {
+            document.getElementById('err_op_mobile').innerText = 'Must be a valid 10-digit number starting with 6-9.';
+            hasValidationError = true;
+        } else {
+            isMobileLocalDup = structuredOperatorList.some(op => op.mobile === fields.mobile && op.id !== opId);
+            if (isMobileLocalDup) {
+                document.getElementById('err_op_mobile').innerText = 'This mobile number is already added to this batch.';
+                hasValidationError = true;
+            }
+        }
     }
 
     if (fields.aadhar && !/^\d{4}$/.test(fields.aadhar)) {
@@ -183,9 +320,51 @@ window.addOperatorRecordToExcelLog = function () {
         hasValidationError = true;
     }
 
-    if (fields.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) {
-        document.getElementById('err_op_email').innerText = 'Please enter a valid email format.';
-        hasValidationError = true;
+    // Check local duplicate email in batch list
+    let isEmailLocalDup = false;
+    if (fields.email) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) {
+            document.getElementById('err_op_email').innerText = 'Please enter a valid email format.';
+            hasValidationError = true;
+        } else {
+            isEmailLocalDup = structuredOperatorList.some(op => op.email === fields.email && op.id !== opId);
+            if (isEmailLocalDup) {
+                document.getElementById('err_op_email').innerText = 'This email address is already added to this batch.';
+                hasValidationError = true;
+            }
+        }
+    }
+
+    // Check database duplicate mobile
+    if (fields.mobile && /^[6-9]\d{9}$/.test(fields.mobile) && !isMobileLocalDup) {
+        try {
+            const res = await fetch(`/auth/dc/reactivation/check-duplicate?mobile=${fields.mobile}&exclude_id=${opId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.exists) {
+                    document.getElementById('err_op_mobile').innerText = data.message;
+                    hasValidationError = true;
+                }
+            }
+        } catch (e) {
+            console.error("Mobile duplicate check failed", e);
+        }
+    }
+
+    // Check database duplicate email
+    if (fields.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email) && !isEmailLocalDup) {
+        try {
+            const res = await fetch(`/auth/dc/reactivation/check-duplicate?email=${encodeURIComponent(fields.email)}&exclude_id=${opId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.exists) {
+                    document.getElementById('err_op_email').innerText = data.message;
+                    hasValidationError = true;
+                }
+            }
+        } catch (e) {
+            console.error("Email duplicate check failed", e);
+        }
     }
 
     if (fields.certDate) {
@@ -198,6 +377,15 @@ window.addOperatorRecordToExcelLog = function () {
         if (fields.certDate > todayStr) {
             document.getElementById('err_op_cert_date').innerText = 'Certification date cannot be in the future.';
             hasValidationError = true;
+        } else {
+            // Validate NSEIT Certification Date does not cross 3 years
+            const certD = new Date(fields.certDate);
+            const threeYearsAgo = new Date();
+            threeYearsAgo.setFullYear(todayD.getFullYear() - 3);
+            if (certD < threeYearsAgo) {
+                document.getElementById('err_op_cert_date').innerText = 'NSEIT Certification Date must not be more than 3 years old.';
+                hasValidationError = true;
+            }
         }
     }
 
@@ -214,7 +402,6 @@ window.addOperatorRecordToExcelLog = function () {
         return;
     }
 
-    const opId = document.getElementById('editing_op_id') ? document.getElementById('editing_op_id').value : '';
     const opStatus = document.getElementById('editing_op_status') ? document.getElementById('editing_op_status').value : '';
     const opRejectReason = document.getElementById('editing_op_reject_reason') ? document.getElementById('editing_op_reject_reason').value : '';
 
@@ -384,108 +571,125 @@ window.handleFormSubmissionPipeline = function (event) {
     }
 
     const formElement = document.getElementById('reactivationForm');
-const formData = new FormData(formElement);
 
-// 📁 STRICT DOCUMENT VALIDATION LAYER
-const requiredFiles = [
-    { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'], maxMB: 2 },
-    { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'], maxMB: 2 },
-    { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'], maxMB: 2 },
-    { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'], maxMB: 5 }
-];
+    // Check if training completion date is provided
+    const trainingDateInput = document.getElementById("doc_training_date");
+    if (trainingDateInput && !trainingDateInput.value) {
+        Swal.fire({ title: 'Missing Information', text: 'Please select the Training Completion Date.', icon: 'warning' });
+        trainingDateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
 
-for (const fileDef of requiredFiles) {
-    const fileObj = formData.get(fileDef.name);
+    const formData = new FormData(formElement);
 
-    // Check presence
-    if (!fileObj || fileObj.size === 0) {
-        if (window.currentReapplyCode) {
-            // Documents are optional when reapplying; skip presence checks
-            continue;
+    // 📁 STRICT DOCUMENT VALIDATION LAYER
+    const requiredFiles = [
+        { name: 'training_photo', label: 'Training Photo (.jpg/.png)', exts: ['.jpg', '.jpeg', '.png'], maxMB: 2 },
+        { name: 'nodal_letter', label: 'District Nodal Endorsement Letter (.pdf)', exts: ['.pdf'], maxMB: 2 },
+        { name: 'om_letter', label: 'Office Memorandum (OM) Copy (.pdf)', exts: ['.pdf'], maxMB: 2 },
+        { name: 'attendance_list', label: 'Operator Attendance Excel Sheet (.xlsx)', exts: ['.xlsx', '.xls'], maxMB: 5 }
+    ];
+
+    for (const fileDef of requiredFiles) {
+        const fileObj = formData.get(fileDef.name);
+
+        // Check presence
+        if (!fileObj || fileObj.size === 0) {
+            if (window.currentReapplyCode) {
+                // Documents are optional when reapplying; skip presence checks
+                continue;
+            }
+            Swal.fire({ title: 'Missing Document', text: `Please upload the ${fileDef.label}.`, icon: 'warning' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
         }
-        Swal.fire({ title: 'Missing Document', text: `Please upload the ${fileDef.label}.`, icon: 'warning' });
-        const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
-        if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
+
+        // Check size boundaries
+        const maxBytes = fileDef.maxMB * 1024 * 1024;
+        if (fileObj.size > maxBytes) {
+            Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${fileDef.maxMB}MB.`, icon: 'error' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        // Check file extension extension validity
+        const fileName = fileObj.name.toLowerCase();
+        const hasValidExt = fileDef.exts.some(ext => fileName.endsWith(ext));
+        if (!hasValidExt) {
+            Swal.fire({ title: 'Invalid File Format', text: `The ${fileDef.label} must end with one of: ${fileDef.exts.join(', ')}`, icon: 'error' });
+            const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
+            if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
     }
 
-    // Check size boundaries
-    const maxBytes = fileDef.maxMB * 1024 * 1024;
-    if (fileObj.size > maxBytes) {
-        Swal.fire({ title: 'File Too Large', text: `${fileDef.label} must be smaller than ${fileDef.maxMB}MB.`, icon: 'error' });
-        const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
-        if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-    }
+    formData.append('manual_operators', JSON.stringify(structuredOperatorList));
 
-    // Check file extension extension validity
-    const fileName = fileObj.name.toLowerCase();
-    const hasValidExt = fileDef.exts.some(ext => fileName.endsWith(ext));
-    if (!hasValidExt) {
-        Swal.fire({ title: 'Invalid File Format', text: `The ${fileDef.label} must end with one of: ${fileDef.exts.join(', ')}`, icon: 'error' });
-        const fileInput = document.querySelector(`input[name="${fileDef.name}"]`);
-        if (fileInput) fileInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-    }
-}
+    const submitRequestAction = (remarksValue) => {
+        if (remarksValue) {
+            formData.append('reapply_remarks', remarksValue);
+        }
 
-formData.append('manual_operators', JSON.stringify(structuredOperatorList));
-
-const submitRequestAction = (remarksValue) => {
-    if (remarksValue) {
-        formData.append('reapply_remarks', remarksValue);
-    }
-
-    Swal.fire({
-        title: 'Submitting Request...',
-        allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
-    });
-
-    const routingTargetUrl = '/auth/dc/submit';
-    fetch(routingTargetUrl, { method: 'POST', body: formData })
-        .then(res => {
-            return res.json().then(data => {
-                if (!res.ok) throw new Error(data.error || "Server transaction processing failure.");
-                return data;
-            });
-        })
-        .then(data => {
-            const isReapply = !!window.currentReapplyCode;
-            Swal.fire({
-                title: isReapply ? 'Reapplied!' : 'Submitted Successfully',
-                text: isReapply ? 'Your corrected request has been sent back to CHiPS Admin.' : 'Reactivation request submitted successfully.',
-                icon: 'success',
-                confirmButtonColor: '#007bff',
-                allowOutsideClick: false,
-                showConfirmButton: true,
-                timer: 3000,
-                timerProgressBar: true
-            }).then(() => {
-                window.location.reload();
-            });
-        })
-        .catch(err => {
-            Swal.close();
-            Swal.fire({ title: 'Submission Error', text: err.message, icon: 'error' });
+        Swal.fire({
+            title: 'Submitting Request...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
         });
-};
 
-if (window.currentReapplyCode) {
-    formData.append('reapply_request_code', window.currentReapplyCode);
+        const routingTargetUrl = '/auth/dc/submit';
+        fetch(routingTargetUrl, { method: 'POST', body: formData })
+            .then(res => {
+                return res.json().then(data => {
+                    if (!res.ok) {
+                        let errMsg = "Server transaction processing failure.";
+                        if (data && data.error) {
+                            errMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : data.error;
+                        } else if (data && data.detail) {
+                            errMsg = typeof data.detail === 'object' ? JSON.stringify(data.detail) : data.detail;
+                        }
+                        throw new Error(errMsg);
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                const isReapply = !!window.currentReapplyCode;
+                Swal.fire({
+                    title: isReapply ? 'Reapplied!' : 'Submitted Successfully',
+                    text: isReapply ? 'Your corrected request has been sent back to CHiPS Admin.' : 'Reactivation request submitted successfully.',
+                    icon: 'success',
+                    confirmButtonColor: '#378ADD',
+                    allowOutsideClick: false,
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            })
+            .catch(err => {
+                Swal.close();
+                Swal.fire({ title: 'Submission Error', text: err.message, icon: 'error' });
+            });
+    };
 
-    // Validate the reapply remarks field in the form itself
-    const remarksField = document.getElementById('reapply_remarks_field');
-    const remarks = remarksField ? remarksField.value.trim() : '';
-    if (!remarks) {
-        Swal.fire({ title: 'Validation Error', text: 'Please enter reapplication remarks.', icon: 'warning' });
-        if (remarksField) remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
+    if (window.currentReapplyCode) {
+        formData.append('reapply_request_code', window.currentReapplyCode);
+
+        // Validate the reapply remarks field in the form itself
+        const remarksField = document.getElementById('reapply_remarks_field');
+        const remarks = remarksField ? remarksField.value.trim() : '';
+        if (!remarks) {
+            Swal.fire({ title: 'Validation Error', text: 'Please enter reapplication remarks.', icon: 'warning' });
+            if (remarksField) remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+        submitRequestAction(remarks);
+    } else {
+        submitRequestAction(null);
     }
-    submitRequestAction(remarks);
-} else {
-    submitRequestAction(null);
-}
 }
 
 
@@ -771,155 +975,13 @@ window.zoomPhoto = function (url) {
 
 window.viewDocument = function (title, fileUrl, extension) {
     if (!fileUrl) return;
-
-    const ext = (extension || '').toLowerCase();
-    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || fileUrl.startsWith('data:image/');
-
-    const overlay = document.createElement('div');
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100vw';
-    overlay.style.height = '100vh';
-    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
-    overlay.style.display = 'flex';
-    overlay.style.justifyContent = 'center';
-    overlay.style.alignItems = 'center';
-    overlay.style.zIndex = '99999';
-
-    const modal = document.createElement('div');
-    modal.style.width = '90%';
-    modal.style.maxWidth = '800px';
-    modal.style.height = '85vh';
-    modal.style.maxHeight = '700px';
-    modal.style.backgroundColor = 'white';
-    modal.style.borderRadius = '12px';
-    modal.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
-    modal.style.display = 'flex';
-    modal.style.flexDirection = 'column';
-    modal.style.overflow = 'hidden';
-    modal.style.animation = 'swal2-show 0.3s ease-out';
-
-    const header = document.createElement('div');
-    header.style.backgroundColor = '#1e3a8a';
-    header.style.padding = '12px 20px';
-    header.style.display = 'flex';
-    header.style.justifyContent = 'space-between';
-    header.style.alignItems = 'center';
-    header.style.color = 'white';
-
-    const headerTitle = document.createElement('span');
-    headerTitle.innerText = title;
-    headerTitle.style.fontWeight = '700';
-    headerTitle.style.fontSize = '16px';
-
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-    closeBtn.style.border = 'none';
-    closeBtn.style.width = '32px';
-    closeBtn.style.height = '32px';
-    closeBtn.style.borderRadius = '50%';
-    closeBtn.style.display = 'flex';
-    closeBtn.style.alignItems = 'center';
-    closeBtn.style.justifyContent = 'center';
-    closeBtn.style.cursor = 'pointer';
-    closeBtn.style.color = 'white';
-    closeBtn.style.transition = 'background 0.2s';
-    closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
-    closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-    closeBtn.onclick = () => document.body.removeChild(overlay);
-    closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-
-    header.appendChild(headerTitle);
-    header.appendChild(closeBtn);
-
-    const body = document.createElement('div');
-    body.style.flex = '1';
-    body.style.padding = '20px';
-    body.style.backgroundColor = '#f8fafc';
-    body.style.display = 'flex';
-    body.style.justifyContent = 'center';
-    body.style.alignItems = 'center';
-    body.style.overflow = 'hidden';
-
-    if (isImage) {
-        const img = document.createElement('img');
-        img.src = fileUrl;
-        img.style.maxWidth = '100%';
-        img.style.maxHeight = '100%';
-        img.style.objectFit = 'contain';
-        img.style.borderRadius = '4px';
-        body.appendChild(img);
-    } else {
-        const iframe = document.createElement('iframe');
-        iframe.src = fileUrl;
-        iframe.style.width = '100%';
-        iframe.style.height = '100%';
-        iframe.style.border = 'none';
-        iframe.style.borderRadius = '4px';
-        body.appendChild(iframe);
+    if (fileUrl && !fileUrl.startsWith('data:') && !fileUrl.startsWith('http') && !fileUrl.startsWith('/')) {
+        fileUrl = '/candidate_upload/' + fileUrl;
     }
-
-    const footer = document.createElement('div');
-    footer.style.padding = '12px 20px';
-    footer.style.borderTop = '1px solid #edf2f7';
-    footer.style.display = 'flex';
-    footer.style.justifyContent = 'flex-end';
-    footer.style.alignItems = 'center';
-    footer.style.gap = '12px';
-    footer.style.backgroundColor = 'white';
-
-    const downloadLink = document.createElement('a');
-    downloadLink.href = fileUrl;
-    downloadLink.download = title;
-    downloadLink.style.display = 'inline-flex';
-    downloadLink.style.alignItems = 'center';
-    downloadLink.style.gap = '6px';
-    downloadLink.style.padding = '8px 16px';
-    downloadLink.style.borderRadius = '8px';
-    downloadLink.style.backgroundColor = '#ecfdf5';
-    downloadLink.style.color = '#10b981';
-    downloadLink.style.fontWeight = '600';
-    downloadLink.style.fontSize = '14px';
-    downloadLink.style.textDecoration = 'none';
-    downloadLink.style.cursor = 'pointer';
-    downloadLink.style.transition = 'background-color 0.2s';
-    downloadLink.onmouseenter = () => downloadLink.style.backgroundColor = '#d1fae5';
-    downloadLink.onmouseleave = () => downloadLink.style.backgroundColor = '#ecfdf5';
-    downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
-
-    const closeBtnFooter = document.createElement('button');
-    closeBtnFooter.type = 'button';
-    closeBtnFooter.style.padding = '8px 24px';
-    closeBtnFooter.style.borderRadius = '8px';
-    closeBtnFooter.style.backgroundColor = '#4f46e5';
-    closeBtnFooter.style.color = 'white';
-    closeBtnFooter.style.fontWeight = '600';
-    closeBtnFooter.style.fontSize = '14px';
-    closeBtnFooter.style.border = 'none';
-    closeBtnFooter.style.cursor = 'pointer';
-    closeBtnFooter.style.transition = 'background-color 0.2s';
-    closeBtnFooter.onmouseenter = () => closeBtnFooter.style.backgroundColor = '#4338ca';
-    closeBtnFooter.onmouseleave = () => closeBtnFooter.style.backgroundColor = '#4f46e5';
-    closeBtnFooter.onclick = () => document.body.removeChild(overlay);
-    closeBtnFooter.innerText = 'Close';
-
-    footer.appendChild(downloadLink);
-    footer.appendChild(closeBtnFooter);
-
-    modal.appendChild(header);
-    modal.appendChild(body);
-    modal.appendChild(footer);
-    overlay.appendChild(modal);
-
-    overlay.onclick = (e) => {
-        if (e.target === overlay) {
-            document.body.removeChild(overlay);
-        }
-    };
-
-    document.body.appendChild(overlay);
+    const ext = extension || fileUrl.split('.').pop().toLowerCase();
+    if (typeof window.previewDocument === 'function') {
+        window.previewDocument(fileUrl, ext, title);
+    }
 };
 
 window.buildDocumentCard = function (title, fileUrl, defaultName) {
@@ -1009,7 +1071,7 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
     const cardEl = document.querySelector(`[data-request-id="${requestCode}"]`);
     const submittedAt = cardEl ? cardEl.getAttribute('data-created') || '—' : '—';
     const statusUpper = (op.status || '').toUpperCase().trim();
-    const isRevertable = (statusUpper === 'REVERTED' || statusUpper === 'REVERT BACK');
+    const isRevertable = ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS', 'REVERTED_BY_CHIPS'].includes(statusUpper);
     const isRejected = (statusUpper === 'REJECTED');
 
     if (activeView === 'details') {
@@ -1385,7 +1447,6 @@ window.applyHistoryPanelFiltersPipeline = function () {
     const m = (now.getMonth() + 1).toString().padStart(2, '0');
     const d = now.getDate().toString().padStart(2, '0');
     const todayPrefix = `${y}-${m}-${d}`;
-    const monthPrefix = `${y}-${m}`;
 
     rows.forEach(row => {
         const rowId = row.getAttribute("data-request-id") || "";
@@ -1437,8 +1498,26 @@ window.applyHistoryPanelFiltersPipeline = function () {
 
                 const matchesOpStatus = (statusValue === "ALL") || (opStatus === cleanStatusFilter);
 
+                // Highlight delayed/aged > 7 days reverted and rejected items
+                if (['REVERTED', 'REJECTED'].includes(opStatus)) {
+                    let dateAttr = opRow.getAttribute('data-updated') || row.getAttribute('data-updated');
+                    if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                        dateAttr = opRow.getAttribute('data-created') || row.getAttribute('data-created');
+                    }
+                    if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                        const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                        if (!isNaN(dateObj)) {
+                            const diffTime = Math.abs(now - dateObj);
+                            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                            if (diffDays > 7) {
+                                opRow.classList.add('delayed-row');
+                            }
+                        }
+                    }
+                }
+
                 if (matchesSearch && matchesOpStatus) {
-                    opRow.style.display = "flex";
+                    opRow.style.display = "";
                     visibleOpsCount++;
                 } else {
                     opRow.style.display = "none";
@@ -1472,24 +1551,40 @@ window.applyHistoryPanelFiltersPipeline = function () {
     const countEl = document.getElementById('batches-count');
     if (countEl) countEl.textContent = totalVisibleOperators;
 
-    // Dynamically update dashboard metric cards
-    const pendingEl = document.getElementById('metric-pending');
-    const reappliedEl = document.getElementById('metric-reapplied');
-    const sentToUidaiEl = document.getElementById('metric-sent-to-uidai');
-    const revertedEl = document.getElementById('metric-reverted');
-    const rejectedEl = document.getElementById('metric-rejected');
-    const approvedEl = document.getElementById('metric-approved');
-    const totalEl = document.getElementById('metric-total-requests');
+    // Filter Flat Approved Operators Table
+    const approvedRows = document.querySelectorAll(".flat-op-row");
+    let visibleApproved = 0;
+    approvedRows.forEach((row, idx) => {
+        const opName = (row.getAttribute("data-name") || "").toLowerCase();
+        const opMobile = (row.getAttribute("data-mobile") || "").toLowerCase();
+        const opEmail = (row.getAttribute("data-email") || "").toLowerCase();
+        const reqId = (row.getAttribute("data-request-id") || "").toLowerCase();
+        const rowCreated = row.getAttribute("data-created") || "";
 
-    const totalAllStatuses = opPendingCount + opReappliedCount + opSentToUidaiCount + opRevertedCount + opRejectedCount + opApprovedCount;
+        const matchSearch = !searchQuery ||
+            opName.includes(searchQuery) ||
+            opMobile.includes(searchQuery) ||
+            opEmail.includes(searchQuery) ||
+            reqId.includes(searchQuery);
 
-    if (pendingEl) pendingEl.textContent = opPendingCount;
-    if (reappliedEl) reappliedEl.textContent = opReappliedCount;
-    if (sentToUidaiEl) sentToUidaiEl.textContent = opSentToUidaiCount;
-    if (revertedEl) revertedEl.textContent = opRevertedCount;
-    if (rejectedEl) rejectedEl.textContent = opRejectedCount;
-    if (approvedEl) approvedEl.textContent = opApprovedCount;
-    if (totalEl) totalEl.textContent = totalAllStatuses;
+        const matchStatus = (statusValue === "ALL") || (statusValue === "APPROVED");
+        const show = matchSearch && matchStatus;
+        row.style.display = show ? "" : "none";
+        if (show) {
+            visibleApproved++;
+            row.cells[0].innerText = visibleApproved;
+        }
+    });
+
+    const flatApprovedCountEl = document.getElementById("flat-approved-count");
+    if (flatApprovedCountEl) flatApprovedCountEl.textContent = visibleApproved;
+
+    const flatApprovedEmptyMsg = document.getElementById("flat-approved-empty-msg");
+    if (flatApprovedEmptyMsg) {
+        flatApprovedEmptyMsg.style.display = (visibleApproved === 0) ? "block" : "none";
+    }
+
+    // Metric cards display all-time counts irrespective of active filters
 }
 
 window.resetHistoryPanelFilters = function () {
@@ -1628,7 +1723,7 @@ window.submitOperatorReapplication = function (data) {
                     title: 'Success',
                     text: 'Operator reapplied successfully!',
                     icon: 'success',
-                    confirmButtonColor: '#007bff',
+                    confirmButtonColor: '#378ADD',
                     allowOutsideClick: false,
                     showConfirmButton: true,
                     timer: 3000,
@@ -1929,7 +2024,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-});
+    });
 });
 
 window.navigateWizardStep = function (stepNumber) {
@@ -1947,7 +2042,7 @@ window.navigateWizardStep = function (stepNumber) {
 window.switchMainView = function (viewType, btn) {
     const batchesContainer = document.getElementById('view-batches-container');
     const approvedContainer = document.getElementById('view-approved-container');
-    
+
     if (viewType === 'batches') {
         if (batchesContainer) batchesContainer.style.display = 'block';
         if (approvedContainer) approvedContainer.style.display = 'none';
@@ -1955,7 +2050,7 @@ window.switchMainView = function (viewType, btn) {
         if (batchesContainer) batchesContainer.style.display = 'none';
         if (approvedContainer) approvedContainer.style.display = 'block';
     }
-    
+
     // Toggle active classes on tabs
     document.querySelectorAll('.main-view-tab').forEach(tab => {
         tab.classList.remove('active-view');
@@ -1963,11 +2058,11 @@ window.switchMainView = function (viewType, btn) {
         tab.style.borderBottomColor = 'transparent';
         tab.style.fontWeight = '600';
     });
-    
+
     if (btn) {
         btn.classList.add('active-view');
-        btn.style.color = '#007bff';
-        btn.style.borderBottomColor = '#007bff';
+        btn.style.color = '#378ADD';
+        btn.style.borderBottomColor = '#378ADD';
         btn.style.fontWeight = '700';
     }
 };

@@ -16,7 +16,7 @@ station_id_bp = Blueprint("station_id", __name__)
 BACKEND = "http://127.0.0.1:8000/station-id"
 
 # Statuses that are NOT part of the pending queue for aging purposes
-_STATION_NON_PENDING = {"approved", "activated", "rejected", "reverted", "reverted_by_chips"}
+_STATION_NON_PENDING = {"allotted", "approved", "activated", "rejected", "reverted", "reverted_by_chips"}
 
 def _headers():
     return {"Authorization": f"Bearer {session.get('access_token', '')}"}
@@ -49,17 +49,38 @@ def dc_list():
                 "model": r.get("model"),
                 "user_type": r.get("user_type"),
                 "user_type_custom_reason": r.get("user_type_custom_reason"),
+                "slot": r.get("slot"),
                 "number_of_kits": r.get("number_of_kits"),
                 "status": r.get("status"),
                 "assigned_station_id": r.get("assigned_station_id") or r.get("station_id_inserted"),
                 "submitted_at": r.get("submitted_at") or r.get("created_at") or "—",
                 "reviewed_at": r.get("reviewed_at") or r.get("updated_at") or "—",
-                "remarks_history": r.get("remarks_history", [])
+                "remarks_history": r.get("remarks_history") or []
             })
     except Exception:
         requests_list = []
 
-    return render_template("station_id/dc_list.html", requests=requests_list)
+    all_time_metrics = {
+        "pending": 0,
+        "reapplied": 0,
+        "reverted": 0,
+        "allotted": 0,
+    }
+    total_kits = 0
+    for r in requests_list:
+        kits = int(r.get("number_of_kits") or 1)
+        total_kits += kits
+        st = str(r.get("status") or "").lower().strip()
+        if st in ["allotted", "allocated", "approved", "activated"]:
+            all_time_metrics["allotted"] += kits
+        elif st in ["reverted", "reverted_by_chips"]:
+            all_time_metrics["reverted"] += kits
+        elif st in ["reapplied"]:
+            all_time_metrics["reapplied"] += kits
+        else:
+            all_time_metrics["pending"] += kits
+
+    return render_template("station_id/dc_list.html", requests=requests_list, metrics=all_time_metrics, total_requests=total_kits)
 
 
 @station_id_bp.route("/dc/station-id/new", methods=["GET"])
@@ -80,6 +101,7 @@ def dc_submit():
         "model": request.form.get("model"),
         "user_type": request.form.get("user_type"),
         "user_type_custom_reason": request.form.get("user_type_custom_reason", ""),
+        "slot": request.form.get("slot"),
         "number_of_kits": request.form.get("number_of_kits"),
     }
 
@@ -137,6 +159,7 @@ def chips_list():
     except http.exceptions.ConnectionError:
         requests_list = []
 
+    all_reqs = list(requests_list)
     aging_filter, aging_label = parse_aging_filter(request.args)
     if aging_filter:
         pending_subset = [
@@ -148,6 +171,7 @@ def chips_list():
     return render_template(
         "station_id/chips_list.html",
         requests=requests_list,
+        unfiltered_requests=all_reqs,
         aging_filter=aging_filter,
         aging_label=aging_label,
     )
@@ -166,6 +190,26 @@ def chips_detail_json(request_id):
     )
 
 
+@station_id_bp.route("/chips/station-id/<int:request_id>/recommend-station-ids", methods=["GET"])
+def chips_recommend_station_ids(request_id):
+    """Proxy the next-available Station ID suggestion for the allot modal."""
+    if not session.get("access_token"):
+        return jsonify({"available": False, "error": "Session expired."}), 401
+    try:
+        resp = http.get(
+            f"{BACKEND}/{request_id}/recommend-station-ids",
+            headers=_headers(),
+            timeout=10,
+        )
+        return Response(
+            resp.content,
+            status=resp.status_code,
+            content_type=resp.headers.get("Content-Type", "application/json"),
+        )
+    except Exception as network_err:
+        return jsonify({"available": False, "error": str(network_err)}), 500
+
+
 @station_id_bp.route("/chips/station-id/<int:request_id>/approve", methods=["POST"])
 def chips_approve(request_id):
     if not session.get("access_token"):
@@ -179,6 +223,9 @@ def chips_approve(request_id):
         "reviewed_by": str(session.get("user_id")),
         "station_id_value": str(request.form.get("station_id_value", "")).strip(),
     }
+    slot = str(request.form.get("slot", "")).strip()
+    if slot:
+        form_payload["slot"] = slot
     if raw_remarks:
         form_payload["chips_remarks"] = raw_remarks
 
@@ -245,8 +292,18 @@ def export_station_id_proxy():
     if not session.get("access_token"):
         return "Unauthorized", 401
     ids = request.args.get("ids", "")
+    exclude_kits = request.args.get("exclude_kits", "")
+    exclude_slot = request.args.get("exclude_slot", "")
+    exclude_assigned_id = request.args.get("exclude_assigned_id", "")
     try:
-        response = http.get(f"{BACKEND}/export-excel", params={"ids": ids}, headers=_headers(), stream=True)
+        params = {"ids": ids}
+        if exclude_kits:
+            params["exclude_kits"] = exclude_kits
+        if exclude_slot:
+            params["exclude_slot"] = exclude_slot
+        if exclude_assigned_id:
+            params["exclude_assigned_id"] = exclude_assigned_id
+        response = http.get(f"{BACKEND}/export-excel", params=params, headers=_headers(), stream=True)
         if response.status_code == 200:
             from flask import Response as FlaskResponse
             return FlaskResponse(

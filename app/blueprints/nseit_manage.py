@@ -2,7 +2,7 @@
 import requests
 from flask import Blueprint, render_template, redirect, url_for, request, session, flash, current_app, Response
 from datetime import datetime, date
-
+from app.utils.aging import parse_aging_filter, filter_by_aging
 nseit_manage_bp = Blueprint("nseit_manage", __name__)
 
 def _headers():
@@ -21,6 +21,7 @@ def dc_nseit():
     backend_url = f"{current_app.config['BACKEND_API_URL']}/nseit_manage/candidates"
     pending_requests = []
     processed_requests = []
+    sent_to_chips_requests = []
     try:
         response = requests.get(backend_url, params={"district_code": session.get("district_id")}, headers=_headers())
         if response.status_code == 401:
@@ -28,15 +29,25 @@ def dc_nseit():
         if response.status_code == 200:
             requests_list = response.json()
             pending_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["PENDING", "REAPPLIED"]]
-            processed_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["FORWARDED", "FORWARDED_AGAIN", "APPROVED", "REVERTED", "REVERTED_BY_CHIPS"]]
+            processed_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["APPROVED", "REVERTED", "REVERTED_BY_CHIPS"]]
+            sent_to_chips_requests = [r for r in requests_list if str(r["nseit_status"]).strip().upper() in ["FORWARDED", "FORWARDED_AGAIN"]]
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
+        
+    all_pending = list(pending_requests)
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
         
     return render_template(
         "dc/dc_nseit.html",
         pending_requests=pending_requests,
         processed_requests=processed_requests,
-        approved_requests=processed_requests
+        sent_to_chips_requests=sent_to_chips_requests,
+        approved_requests=processed_requests,
+        all_pending_requests=all_pending,
+        aging_filter=aging_filter,
+        aging_label=aging_label
     )
 
 @nseit_manage_bp.route("/chips/nseit")
@@ -64,6 +75,7 @@ def chips_nseit():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
+    all_pending = list(pending_requests)
     aging_filter = request.args.get('aging')
     aging_label = ""
     if aging_filter in ['0-3', '4-7', '8-15', '15plus']:
@@ -109,6 +121,7 @@ def chips_nseit():
         pending_requests=pending_requests,
         processed_requests=processed_requests,
         approved_requests=processed_requests,
+        all_pending_requests=all_pending,
         aging_filter=aging_filter,
         aging_label=aging_label
     )
@@ -189,19 +202,25 @@ def approve_nseit(r_id):
     remark = request.form.get("remark")
     by_user_id = session.get("user_id")
     
+    force_without_email = request.form.get("force_without_email") == "true"
+    
     if not by_user_id:
         return {"detail": "Admin user session expired. Please log in again."}, 400
 
-    if not remark or not remark.strip():
-        return {"detail": "Approval remarks are mandatory."}, 400
-            
+    if not remark:
+        remark = ""
+
     backend_url = f"{current_app.config['BACKEND_API_URL']}/nseit_manage/approve/{r_id}"
     try:
         response = requests.post(backend_url, json={
             "remark": remark,
-            "by_user_id": by_user_id
+            "by_user_id": by_user_id,
+            "force_without_email": force_without_email
         }, headers=_headers())
         if response.status_code == 200:
+            res_json = response.json()
+            if not res_json.get("success", True):
+                return res_json, 400
             return {"success": True}
         else:
             return response.json(), response.status_code
@@ -241,7 +260,7 @@ def export_nseit_proxy():
     ids = request.args.get("ids", "")
     backend_url = f"{current_app.config['BACKEND_API_URL']}/nseit_manage/export-excel"
     try:
-        response = requests.get(backend_url, params={"ids": ids}, headers=_headers(), stream=True)
+        response = requests.get(backend_url, params=request.args.to_dict(), headers=_headers(), stream=True)
         if response.status_code == 401:
             return redirect(url_for("auth.logout"))
         if response.status_code == 200:

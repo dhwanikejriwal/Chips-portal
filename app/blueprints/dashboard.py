@@ -13,7 +13,9 @@ def _get(path, token=None):
     """Helper: GET from FastAPI backend. Returns list or empty list on failure."""
     headers = {}
     if token:
-        headers["Authorization"] = f"Bearer {token}"
+        if isinstance(token, dict):
+            token = token.get("token", "") or token.get("access_token", "")
+        headers["Authorization"] = f"Bearer {str(token).strip()}"
     try:
         resp = requests.get(f"{FASTAPI_BASE}{path}", headers=headers, timeout=8)
         if resp.status_code == 200:
@@ -28,9 +30,9 @@ def _days_ago(dt_str):
     if not dt_str:
         return 9999
     try:
-        now = datetime.now()
+        now_date = datetime.now().date()
         dt = datetime.fromisoformat(str(dt_str).replace("T", " ")[:19])
-        return max(0, (now - dt).days)
+        return max(0, (now_date - dt.date()).days)
     except Exception:
         return 9999
 
@@ -92,7 +94,7 @@ def dc_dashboard():
             out.append({
                 "name":               r.get("name", ""),
                 "district":           r.get("district_name", district_name),
-                "status":             (r.get(status_key) or "Pending").strip(),
+                "status":             (r.get(status_key) or r.get("status") or "Pending").strip(),
                 "submitted_days_ago": _days_ago(r.get("created_at")),
                 "created_at":         r.get("created_at"),
                 id_field:             r.get(id_key, ""),
@@ -141,26 +143,91 @@ def dc_dashboard():
     for r in (react_raw if isinstance(react_raw, list) else []):
         if not isinstance(r, dict):
             continue
-        reactivation_requests.append({
+        dist = r.get("district_name", district_name)
+        req_code = r.get("request_code") or (f"#{r.get('id')}" if r.get("id") else "Batch")
+        created = r.get("submitted_at") or r.get("created_at")
+        ops = r.get("operators")
+        if ops and isinstance(ops, list):
+            for op in ops:
+                op_status = (op.get("status") or r.get("status") or "PENDING").strip().upper()
+                reactivation_requests.append({
+                    "id":                 op.get("id") or r.get("id"),
+                    "district":          dist,
+                    "label":             req_code,
+                    "status":            op_status,
+                    "submitted_days_ago": _days_ago(created),
+                    "created_at":         created,
+                    "operator_count":     1,
+                    "revert_reason":      op.get("revert_reason") or op.get("reject_reason") or r.get("revert_reason") or r.get("reject_reason") or "",
+                })
+        else:
+            reactivation_requests.append({
+                "id":                 r.get("id"),
+                "district":          dist,
+                "label":             req_code,
+                "status":            (r.get("status") or "PENDING").strip().upper(),
+                "submitted_days_ago": _days_ago(created),
+                "created_at":         created,
+                "operator_count":     r.get("operator_count") or 1,
+                "revert_reason":      r.get("revert_reason") or r.get("reject_reason") or "",
+            })
+
+    cand_raw = _get(f"/api/selection/candidates?district_code={district_id}", token)
+
+    cand_requests = []
+    for r in (cand_raw if isinstance(cand_raw, list) else []):
+        if not isinstance(r, dict):
+            continue
+        cand_requests.append({
+            "name":               r.get("name") or r.get("candidate_name") or "",
+            "label":              r.get("request_code") or r.get("name") or (f"#{r.get('r_id')}" if r.get("r_id") else "Request"),
             "district":           r.get("district_name", district_name),
-            "label":              r.get("request_code") or (f"#{r.get('id')}" if r.get("id") else "Batch"),
-            "status":             (r.get("status") or "PENDING").strip().upper(),
-            "submitted_days_ago": _days_ago(r.get("submitted_at")),
-            "created_at":         r.get("submitted_at"),
-            "operator_count":     r.get("operator_count", 0),
-            "revert_reason":      r.get("revert_reason") or r.get("reject_reason") or "",
+            "status":             (r.get("status") or "PENDING").strip(),
+            "submitted_days_ago": _days_ago(r.get("created_at")),
+            "created_at":         r.get("created_at"),
+            "revert_reason":      r.get("hold_remark") or r.get("reject_reason") or "",
         })
+
+
+
+    allotted_raw = _get("/l1-registration/allotted-pending", token)
+    awaiting_l2_raw = _get(f"/l2-registration/awaiting-l2/{dc_id}", token)
+
+    l1_requests = _norm_req(l1_raw)
+    for r in (allotted_raw if isinstance(allotted_raw, list) else []):
+        if isinstance(r, dict):
+            l1_requests.append({
+                "district":           r.get("district_name", district_name),
+                "status":             "awaiting_l1",
+                "submitted_days_ago": _days_ago(r.get("created_at")),
+                "created_at":         r.get("created_at"),
+                "label":              _label(r),
+                "revert_reason":      "",
+            })
+
+    l2_requests = _norm_req(l2_raw)
+    for r in (awaiting_l2_raw if isinstance(awaiting_l2_raw, list) else []):
+        if isinstance(r, dict):
+            l2_requests.append({
+                "district":           r.get("district_name", district_name),
+                "status":             "awaiting_l2",
+                "submitted_days_ago": _days_ago(r.get("created_at")),
+                "created_at":         r.get("created_at"),
+                "label":              _label(r),
+                "revert_reason":      "",
+            })
 
     stats = {
         "districts":             [district_name] if district_name else [],
         "district_name":         district_name,
+        "cand_requests":         cand_requests,
         "lms_requests":          lms_requests,
         "nseit_requests":        nseit_requests,
         "activation_requests":   activation_requests,
         "reactivation_requests": reactivation_requests,
         "station_id_requests":   _norm_req(station_raw),
-        "l1_requests":           _norm_req(l1_raw),
-        "l2_requests":           _norm_req(l2_raw),
+        "l1_requests":           l1_requests,
+        "l2_requests":           l2_requests,
     }
 
     return render_template("dc/dc_dash.html", stats=stats)
@@ -171,7 +238,43 @@ def registration_settings():
     if "access_token" not in session or session.get("role") != "Admin":
         flash("Unauthorized access. Please log in.", "danger")
         return redirect(url_for("auth.login"))
-    return render_template("chips/registration_settings.html")
+    token = session.get("access_token")
+    res = _get("/dashboard/districts/settings", token)
+    districts = res.get("districts", []) if isinstance(res, dict) else []
+    return render_template("chips/registration_settings.html", districts=districts)
+
+@dashboard_bp.route("/chips/registration-settings/update", methods=["POST"])
+def update_district_setting():
+    if "access_token" not in session or session.get("role") != "Admin":
+        return jsonify({"success": False, "detail": "Unauthorized access"}), 403
+    token = session.get("access_token")
+    data = flask_request.get_json() or {}
+    code = data.get("district_code")
+    if not code:
+        return jsonify({"success": False, "detail": "district_code is required"}), 400
+    try:
+        resp = requests.put(
+            f"{FASTAPI_BASE}/dashboard/districts/{code}/settings",
+            json=data,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            timeout=8
+        )
+        if resp.status_code == 200:
+            try:
+                res_json = resp.json()
+                msg = res_json.get("message", "Settings updated successfully")
+            except Exception:
+                msg = "Settings updated successfully"
+            return jsonify({"success": True, "message": msg})
+        else:
+            try:
+                err_json = resp.json()
+                detail = err_json.get("detail") or err_json.get("message") or "Update failed"
+            except Exception:
+                detail = f"Server returned error code {resp.status_code}"
+            return jsonify({"success": False, "detail": str(detail)}), resp.status_code
+    except Exception as e:
+        return jsonify({"success": False, "detail": str(e)}), 500
 
 @dashboard_bp.route("/chips/dashboard")
 def chips_dashboard():
@@ -188,8 +291,8 @@ def chips_dashboard():
     station_id_raw   = _get("/station-id/all", token)
     l2_raw           = _get("/l2-registration/all", token)
     l1_raw           = _get("/l1-registration/requests", token)
-    reactivation_raw = _get("/reactivation/requests", token)
-    districts_raw    = _get("/api/candidate_register/districts?all_districts=true", token)
+    reactivation_raw = _get("/reactivation/requests-with-operators", token)
+    districts_raw    = _get("/dashboard/districts-with-resources", token)
 
     # ── Normalise LMS list ────────────────────────────────────────────────
     lms_requests = []
@@ -302,13 +405,27 @@ def chips_dashboard():
     # ── Normalise Reactivation list ───────────────────────────────────────
     reactivation_requests = []
     for r in (reactivation_raw if isinstance(reactivation_raw, list) else []):
-        reactivation_requests.append({
-            "id":                 r.get("id"),
-            "district":          r.get("district_name", "Unknown"),
-            "status":            (r.get("status") or "PENDING").strip().upper(),
-            "submitted_days_ago": _days_ago(r.get("submitted_at")),
-            "operator_count":     r.get("operator_count", 0),
-        })
+        dist = r.get("district_name") or r.get("district") or "Unknown"
+        created_at = r.get("created_at") or r.get("submitted_at")
+        ops = r.get("operators")
+        if ops and isinstance(ops, list):
+            for op in ops:
+                op_status = (op.get("status") or r.get("status") or "PENDING").strip().upper()
+                reactivation_requests.append({
+                    "id":                 op.get("id") or r.get("id"),
+                    "district":          dist,
+                    "status":            op_status,
+                    "submitted_days_ago": _days_ago(created_at),
+                    "operator_count":     1,
+                })
+        else:
+            reactivation_requests.append({
+                "id":                 r.get("id"),
+                "district":          dist,
+                "status":            (r.get("status") or "PENDING").strip().upper(),
+                "submitted_days_ago": _days_ago(created_at),
+                "operator_count":     r.get("operator_count") or 1,
+            })
 
     # ── Collect unique district names for filter dropdown ─────────────────
     if districts_raw and isinstance(districts_raw, list):
@@ -547,18 +664,34 @@ def cg_map_data():
 
     # ── Reactivation ─────────────────────────────────────────────────────
     for r in (reactivation_raw if isinstance(reactivation_raw, list) else []):
-        dist = _normalize_district(r.get("district_name", ""))
+        dist = _normalize_district(r.get("district_name") or r.get("district") or "")
         if not dist:
             continue
-        status = (r.get("status") or "PENDING").strip().upper()
-        count = r.get("operator_count") or 0
-        data[dist]["operator_total"] += count
-        data[dist]["reactivation_total"] += count
-        if status in ("PENDING", "REAPPLIED", "SENT_TO_UIDAI"):
-            data[dist]["operator_pending"] += count
-            data[dist]["reactivation_pending"] += count
-        elif status in ("REVIEWED", "ACTIVATED", "APPROVED"):
-            data[dist]["operator_approved"] += count
+        ops = r.get("operators")
+        if ops and isinstance(ops, list):
+            for op in ops:
+                op_status = (op.get("status") or r.get("status") or "PENDING").strip().upper()
+                data[dist]["operator_total"] += 1
+                data[dist]["reactivation_total"] += 1
+                if op_status in ("PENDING", "REAPPLIED", "SENT_TO_UIDAI"):
+                    data[dist]["operator_pending"] += 1
+                    data[dist]["reactivation_pending"] += 1
+                elif op_status in ("REVIEWED", "ACTIVATED", "APPROVED"):
+                    data[dist]["operator_approved"] += 1
+                elif op_status in ("REVERTED", "REVERTED_BY_CHIPS", "REVERT_BACK", "REJECTED"):
+                    data[dist]["operator_rejected"] += 1
+        else:
+            status = (r.get("status") or "PENDING").strip().upper()
+            count = r.get("operator_count") or 1
+            data[dist]["operator_total"] += count
+            data[dist]["reactivation_total"] += count
+            if status in ("PENDING", "REAPPLIED", "SENT_TO_UIDAI"):
+                data[dist]["operator_pending"] += count
+                data[dist]["reactivation_pending"] += count
+            elif status in ("REVIEWED", "ACTIVATED", "APPROVED"):
+                data[dist]["operator_approved"] += count
+            elif status in ("REVERTED", "REVERTED_BY_CHIPS", "REVERT_BACK", "REJECTED"):
+                data[dist]["operator_rejected"] += count
 
     # ── Kit requests: Station ID ──────────────────────────────────────────
     for r in (station_id_raw if isinstance(station_id_raw, list) else []):

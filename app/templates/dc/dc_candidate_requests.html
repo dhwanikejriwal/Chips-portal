@@ -9,10 +9,15 @@
 
 {% block content %}
 
-{% set total_requests = pending_requests | length + approved_requests | length %}
-{% set pending_count = pending_requests | length %}
-{% set approved_count = approved_requests | selectattr('status', 'equalto', 'Approved') | list | length %}
-{% set reverted_count = approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length %}
+{% from 'partials/request_section.html' import request_section %}
+{% set pending_list = all_pending_requests if all_pending_requests is defined else pending_requests %}
+{% set pending_count = pending_list | length %}
+{% set approved_count = approved_requests | selectattr('status', 'equalto', 'APPROVED') | list | length +
+approved_requests | selectattr('status', 'equalto', 'Approved') | list | length %}
+{% set reverted_count = approved_requests | selectattr('status', 'equalto', 'REJECTED') | list | length +
+approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length %}
+{% set hold_count = hold_requests | length %}
+{% set total_requests = pending_count + approved_count + reverted_count + hold_count %}
 
 <!-- Stats Row -->
 <!-- Gradient Admin Banner -->
@@ -32,25 +37,73 @@
     </div>
     <div class="chips-banner-metrics" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ pending_count }}</div>
+            <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                pending_count }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ approved_count }}</div>
+            <div id="metric-hold" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                hold_count }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">On Hold</div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                approved_count }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ reverted_count }}</div>
+            <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                reverted_count }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
         </div>
         <div class="chips-metric-card">
-            <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ total_requests }}</div>
+            <div id="metric-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                total_requests }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
             </div>
         </div>
     </div>
 </div>
 
+
+<!-- Section tabs -->
+<div class="req-tabs" role="tablist">
+    <button type="button" class="req-tab active" data-tab="pending">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+            <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+            <path d="M12 11v6" />
+            <path d="M9 14h6" />
+        </svg>
+        <span>Pending onboarding requests</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="hold">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>On hold requests</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="rejected">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+        </svg>
+        <span>Rejected onboarding history</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved onboarding history</span>
+    </button>
+</div>
 
 <!-- Unified Filter Controls -->
 <div class="filter-bar">
@@ -82,201 +135,300 @@
     </div>
 </div>
 
+{% if aging_filter %}
+<div class="aging-filter-notice"
+    style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-top: 10px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+    <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ pending_requests|length }}
+        found)</span>
+    <a href="{{ url_for('selection.dc_candidate_requests') }}"
+        style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+</div>
+{% endif %}
+
 <!-- Pending Queue Table Section -->
-<div class="section-heading">
-    <div class="section-heading-dot" style="background:#f59e0b;"></div>
-    <h3>Pending Onboarding Requests</h3>
-    <span class="section-count" id="pending-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <button type="button" onclick="exportBackend('admin-pending-table')" class="btn btn-sm"
-            style="display: inline-flex; align-items: center; background-color: #007bff; color: white; border: none; cursor: pointer;">
-            Export to CSV
-        </button>
-    </div>
-</div>
-<div class="sid-table-wrapper">
-    <table class="sid-table" id="admin-pending-table">
-        <thead>
-            <tr>
-                <th>S.No</th>
-                <th>Request Code</th>
-                <th>District</th>
-                <th>Candidate Name</th>
-                <th>Mobile No</th>
-                <th>Email ID</th>
-                <th>Qualification</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th style="text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="admin-queue-body">
-            {% for req in pending_requests %}
-            <tr id="request-row-{{ req.r_id }}" data-id="{{ req.r_id }}" data-district="{{ req.district_name }}"
-                data-code="{{ req.request_code }}" data-name="{{ req.name }}" data-phone="{{ req.mobile }}"
-                data-email="{{ req.email }}" data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
-                data-aadhaar="{{ req.aadhaar }}" data-address="{{ req.address or '' }}"
-                data-pincode="{{ req.pincode or '' }}"
-                data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
-                data-photo="{{ req.photo_upload or '' }}" data-lms-id="{{ req.lms_id or '' }}"
-                data-nseit-id="{{ req.nseit_id or '' }}" data-marksheet="{{ req.marksheet_upload or '' }}"
-                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.status }}"
-                data-login-id="{{ req.generated_login_id or '' }}"
-                data-password="{{ req.generated_password_raw or '' }}"
-                data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}">
-                <td>{{ loop.index }}</td>
-                <td><strong>{{ req.request_code }}</strong></td>
-                <td>{{ req.district_name }}</td>
-                <td>{{ req.name }}</td>
-                <td>{{ req.mobile }}</td>
-                <td>{{ req.email }}</td>
-                <td>{{ req.qualification }}</td>
-                <td>
-                    <span class="badge badge-pending">Pending</span>
-                </td>
-                <td>{{ req.created_at }}</td>
-                <td style="text-align: center;">
-                    <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
-                        <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
-                            onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')">Approve</button>
-                        <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
-                            onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')">Reject</button>
-                        <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'), false)">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5">
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                            Details
-                        </button>
-                    </div>
-                </td>
-            </tr>
+{% set pending_controls %}
+<button type="button" onclick="exportBackend('admin-pending-table')" class="rs-export">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel active" data-panel="pending">
+    {% call request_section(
+    variant='pending',
+    title='Pending onboarding requests',
+    count='–', count_id='pending-count',
+    controls=pending_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Qualification'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-pending-table', body_id='admin-queue-body',
+    empty_id='pending-empty-msg',
+    empty_message='No pending requests') %}
+    {% for req in pending_requests %}
+    <tr id="request-row-{{ req.r_id }}" data-id="{{ req.r_id }}" data-district="{{ req.district_name }}"
+        data-code="{{ req.request_code }}" data-name="{{ req.name }}" data-phone="{{ req.mobile }}"
+        data-email="{{ req.email }}" data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
+        data-aadhaar="{{ req.aadhaar }}" data-address="{{ req.address or '' }}" data-pincode="{{ req.pincode or '' }}"
+        data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}" data-photo="{{ req.photo_upload or '' }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+        data-marksheet="{{ req.marksheet_upload or '' }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-status="{{ req.status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-login-id="{{ req.generated_login_id or '' }}" data-password="{{ req.generated_password_raw or '' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}">
+        <td>{{ loop.index }}</td>
+        <td class="notranslate" translate="no"><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>{{ req.qualification }}</td>
+        <td>
+            <span class="badge badge-pending">Pending</span>
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td style="text-align: center;">
+            <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                    onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')" data-i18n="action.approve">Approve</button>
+                <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                    onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')" data-i18n="action.reject">Reject</button>
+                <button type="button" class="btn btn-sm" style="background-color: #6c757d; color: white;"
+                    onclick="openHoldModal('{{ req.r_id }}', '{{ req.name }}')" data-i18n="action.hold">Hold</button>
+                <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'), false)">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <span data-i18n="action.details">Details</span>
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel pending -->
+
+<!-- Hold Requests Table Section -->
+{% set hold_controls %}
+<button type="button" onclick="exportBackend('admin-hold-table')" class="rs-export">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="hold">
+    {% call request_section(
+    variant='pending',
+    title='On hold requests',
+    count='–', count_id='hold-count-badge',
+    controls=hold_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-hold-table', body_id='admin-hold-body',
+    empty_id='hold-empty-msg',
+    empty_message='No hold requests') %}
+    {% for req in hold_requests %}
+    <tr id="request-row-{{ req.r_id }}" data-id="{{ req.r_id }}" data-district="{{ req.district_name }}"
+        data-code="{{ req.request_code }}" data-name="{{ req.name }}" data-phone="{{ req.mobile }}"
+        data-email="{{ req.email }}" data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}"
+        data-aadhaar="{{ req.aadhaar }}" data-address="{{ req.address or '' }}" data-pincode="{{ req.pincode or '' }}"
+        data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}" data-photo="{{ req.photo_upload or '' }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+        data-marksheet="{{ req.marksheet_upload or '' }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-status="{{ req.status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-login-id="{{ req.generated_login_id or '' }}" data-password="{{ req.generated_password_raw or '' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+        data-updated="{{ req.updated_at or req.created_at }}">
+        <td>{{ loop.index }}</td>
+        <td class="notranslate" translate="no"><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>
+            <span class="badge" style="background: #f59e0b; color: white;">On Hold</span>
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td>{{ req.updated_at or req.created_at }}</td>
+        <td style="text-align: center;">
+            <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                    onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')">Approve</button>
+                <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                    onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')">Reject</button>
+                <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'), false)">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel hold -->
+
+<!-- Approved History Table Section -->
+<!-- Rejected History Table Section -->
+{% set rejected_controls %}
+<button type="button" onclick="exportBackend('admin-rejected-table')" class="rs-export">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="rejected">
+    {% call request_section(
+    variant='rejected',
+    title='Rejected onboarding history',
+    count='–', count_id='rejected-count-badge',
+    controls=rejected_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-rejected-table', body_id='admin-rejected-body',
+    empty_id='rejected-empty-msg',
+    empty_message='No rejected history log found') %}
+    {% for req in approved_requests if (req.status|upper) == 'REJECTED' %}
+    <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+        data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+        data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
+        data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+        data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+        data-marksheet="{{ req.marksheet_upload }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-status="{{ req.status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-login-id="{{ req.generated_login_id or '' }}" data-password="{{ req.generated_password_raw or '' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+        data-updated="{{ req.updated_at or req.created_at }}">
+        <td>{{ loop.index }}</td>
+        <td class="notranslate" translate="no"><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>
+            <span class="badge badge-rejected">Rejected</span>
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td>{{ req.updated_at or req.created_at }}</td>
+        <td style="text-align: center;">
+            <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel rejected -->
+
+{% set approved_controls %}
+<button type="button" onclick="exportBackend('admin-approved-table')" class="rs-export">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="approved">
+    {% call request_section(
+    variant='approved',
+    title='Approved onboarding history',
+    count='–', count_id='approved-count-badge',
+    controls=approved_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request code'},
+    {'label': 'Candidate name'},
+    {'label': 'Mobile no'},
+    {'label': 'Email ID'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='admin-approved-table', body_id='admin-approved-body',
+    empty_id='approved-empty-msg',
+    empty_message='No approved history log found') %}
+    {% for req in approved_requests if (req.status|upper) == 'APPROVED' %}
+    <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+        data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
+        data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
+        data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
+        data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
+        data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
+        data-marksheet="{{ req.marksheet_upload }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
+        data-status="{{ req.status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
+        data-login-id="{{ req.generated_login_id or '' }}" data-password="{{ req.generated_password_raw or '' }}"
+        data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
+        data-updated="{{ req.updated_at or req.created_at }}">
+        <td>{{ loop.index }}</td>
+        <td class="notranslate" translate="no"><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.name }}</td>
+        <td>{{ req.mobile }}</td>
+        <td>{{ req.email }}</td>
+        <td>
+            <span class="badge badge-approved">Approved</span>
+            {% set has_email_fail = false %}
+            {% if req.remarks_history %}
+            {% for r in req.remarks_history %}
+            {% if r.remark and '[Email Failed]' in r.remark %}
+            {% set has_email_fail = true %}
+            {% endif %}
             {% endfor %}
-        </tbody>
-    </table>
-    <div id="pending-empty-msg" class="empty-state" style="display: none;">
-
-        <p>No pending requests</p>
-    </div>
-</div>
-
-<hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
-
-<!-- Log History Table Section -->
-<div class="section-heading">
-    <div class="section-heading-dot" style="background:#16a34a;"></div>
-    <h3>Credentials Log History</h3>
-    <span class="section-count" id="approved-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <select id="admin-history-status-filter" class="filter-input"
-            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAdminQueues()">
-            <option value="all">All Statuses</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-        </select>
-        <button type="button" onclick="exportBackend('admin-approved-table')" class="btn btn-sm"
-            style="display: inline-flex; align-items: center; background-color: #007bff; color: white; border: none; cursor: pointer;">
-            Export to CSV
-        </button>
-    </div>
-</div>
-<div class="sid-table-wrapper">
-    <table class="sid-table" id="admin-approved-table">
-        <thead>
-            <tr>
-                <th>S.No</th>
-                <th>Request Code</th>
-                <th>District</th>
-                <th>Candidate Name</th>
-                <th>Mobile No</th>
-                <th>Email ID</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th>Updated At</th>
-                <th style="text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="admin-approved-body">
-            {% for req in approved_requests %}
-            <tr data-id="{{ req.r_id }}" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
-                data-name="{{ req.name }}" data-phone="{{ req.mobile }}" data-email="{{ req.email }}"
-                data-qualification="{{ req.qualification }}" data-dob="{{ req.dob }}" data-aadhaar="{{ req.aadhaar }}"
-                data-lms-id="{{ req.lms_id or '' }}" data-address="{{ req.address or '' }}"
-                data-pincode="{{ req.pincode or '' }}"
-                data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
-                data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
-                data-marksheet="{{ req.marksheet_upload }}"
-                data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}" data-status="{{ req.status }}"
-                data-login-id="{{ req.generated_login_id or '' }}"
-                data-password="{{ req.generated_password_raw or '' }}"
-                data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
-                data-updated="{{ req.updated_at or req.created_at }}">
-                <td>{{ loop.index }}</td>
-                <td><strong>{{ req.request_code }}</strong></td>
-                <td>{{ req.district_name }}</td>
-                <td>{{ req.name }}</td>
-                <td>{{ req.mobile }}</td>
-                <td>{{ req.email }}</td>
-                <td>
-                    {% set status_upper = req.status | upper %}
-                    {% if status_upper == 'APPROVED' %}
-                    <span class="badge badge-approved">Approved</span>
-                    {% elif status_upper == 'REJECTED' %}
-                    <span class="badge badge-rejected">Rejected</span>
-                    {% else %}
-                    <span class="badge" style="background: #e2e8f0; color: #4a5568;">{{ req.status.replace("_", " ") |
-                        title }}</span>
-                    {% endif %}
-
-                    {% set has_email_fail = false %}
-                    {% if req.remarks_history %}
-                    {% for r in req.remarks_history %}
-                    {% if r.remark and '[Email Failed]' in r.remark %}
-                    {% set has_email_fail = true %}
-                    {% endif %}
-                    {% endfor %}
-                    {% endif %}
-
-                    {% if has_email_fail %}
-                    <div style="margin-top: 4px;">
-                        <span class="badge"
-                            style="background: #f59e0b; color: white; font-size: 10px; border-radius: 4px; padding: 2px 6px;"
-                            title="Email delivery failed for this action">Failed to send email</span>
-                    </div>
-                    {% endif %}
-                </td>
-                <td>{{ req.created_at }}</td>
-                <td>{{ req.updated_at or req.created_at }}</td>
-                <td style="text-align: center;">
-                    <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        Details
-                    </button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div id="approved-empty-msg" class="empty-state" style="display: none;">
-
-        <p>No log history</p>
-    </div>
-</div>
+            {% endif %}
+            {% if has_email_fail %}
+            <div style="margin-top: 4px;">
+                <span class="badge"
+                    style="background: #f59e0b; color: white; font-size: 10px; border-radius: 4px; padding: 2px 6px;"
+                    title="Email delivery failed for this action">Failed to send email</span>
+            </div>
+            {% endif %}
+        </td>
+        <td>{{ req.created_at }}</td>
+        <td>{{ req.updated_at or req.created_at }}</td>
+        <td style="text-align: center;">
+            <button class="btn-details" onclick="openDetailsModal(this.closest('tr'), true)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel approved -->
 
 
-<script>
-    function clearAllFilters() {
+<script>    function clearAllFilters() {
         document.getElementById('admin-search-input').value = '';
         document.getElementById('admin-date-filter').value = 'month';
         const pendingFilter = document.getElementById('admin-pending-status-filter');
         if (pendingFilter) pendingFilter.value = 'all';
-        const historyFilter = document.getElementById('admin-history-status-filter');
-        if (historyFilter) historyFilter.value = 'all';
         filterAdminQueues();
     }
 
@@ -289,7 +441,6 @@
             sessionStorage.removeItem('dc_cand_search');
             sessionStorage.removeItem('dc_cand_date');
             sessionStorage.removeItem('dc_cand_pending_status');
-            sessionStorage.removeItem('dc_cand_history_status');
         }
 
         if (sessionStorage.getItem('dc_cand_search') !== null) {
@@ -298,7 +449,6 @@
             if (document.getElementById('admin-pending-status-filter')) {
                 document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('dc_cand_pending_status');
             }
-            document.getElementById('admin-history-status-filter').value = sessionStorage.getItem('dc_cand_history_status');
         } else {
             const searchInput = document.getElementById('admin-search-input');
             if (searchInput) searchInput.value = '';
@@ -306,8 +456,6 @@
             if (document.getElementById('admin-pending-status-filter')) {
                 document.getElementById('admin-pending-status-filter').value = 'all';
             }
-            const historyFilter = document.getElementById('admin-history-status-filter');
-            if (historyFilter) historyFilter.value = 'all';
         }
 
         filterAdminQueues();
@@ -319,13 +467,11 @@
         const district = 'all'; // Always all for DC district pre-scoped queries
         const dateFilter = document.getElementById('admin-date-filter').value;
         const pendingStatusFilter = document.getElementById('admin-pending-status-filter') ? document.getElementById('admin-pending-status-filter').value.toLowerCase() : 'all';
-        const historyStatusFilter = document.getElementById('admin-history-status-filter').value.toLowerCase();
 
         // Save current filter criteria to sessionStorage dynamically
         sessionStorage.setItem('dc_cand_search', document.getElementById('admin-search-input').value);
         sessionStorage.setItem('dc_cand_date', dateFilter);
         sessionStorage.setItem('dc_cand_pending_status', document.getElementById('admin-pending-status-filter') ? document.getElementById('admin-pending-status-filter').value : 'all');
-        sessionStorage.setItem('dc_cand_history_status', document.getElementById('admin-history-status-filter').value);
 
         const now = new Date();
         const yearStr = now.getFullYear().toString();
@@ -341,7 +487,7 @@
         let pendingIndex = 1;
         let pendingCount = 0;
         pendingRows.forEach(row => {
-            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return; // skip "no rows" row
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
 
             const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
             const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
@@ -380,7 +526,6 @@
                 }
             }
 
-
             if (matchesQuery && matchesDistrict && matchesDate && matchesStatus) {
                 row.style.display = '';
                 if (row.cells[0]) {
@@ -392,12 +537,12 @@
             }
         });
 
-        // Filter history log
+        // Filter approved history
         const approvedRows = document.querySelectorAll('#admin-approved-body tr');
         let approvedIndex = 1;
         let approvedCount = 0;
         approvedRows.forEach(row => {
-            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return; // skip "no rows" row
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
 
             const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
             const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
@@ -405,11 +550,9 @@
             const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
             const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
             const rowCreated = row.getAttribute('data-created') || '';
-            const rowStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
 
             const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
             const matchesDistrict = district === 'all' || rowDistrict === district;
-            const matchesHistoryStatus = historyStatusFilter === 'all' || rowStatus === historyStatusFilter;
 
             let matchesDate = true;
             if (dateFilter === 'today') {
@@ -436,8 +579,7 @@
                 }
             }
 
-
-            if (matchesQuery && matchesDistrict && matchesDate && matchesHistoryStatus) {
+            if (matchesQuery && matchesDistrict && matchesDate) {
                 row.style.display = '';
                 if (row.cells[0]) {
                     row.cells[0].innerText = approvedIndex++;
@@ -448,18 +590,270 @@
             }
         });
 
+        // Filter rejected history
+        const rejectedRows = document.querySelectorAll('#admin-rejected-body tr');
+        let rejectedIndex = 1;
+        let rejectedCount = 0;
+        rejectedRows.forEach(row => {
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
+
+            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+            const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
+            const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+            const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
+            const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
+            const rowCreated = row.getAttribute('data-created') || '';
+
+            const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+            const matchesDistrict = district === 'all' || rowDistrict === district;
+
+            let matchesDate = true;
+            if (dateFilter === 'today') {
+                matchesDate = rowCreated.startsWith(todayPrefix);
+            } else if (dateFilter === 'week') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last7Days = new Date(now);
+                    last7Days.setDate(now.getDate() - 7);
+                    last7Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last7Days;
+                }
+            } else if (dateFilter === 'month') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last30Days = new Date(now);
+                    last30Days.setDate(now.getDate() - 30);
+                    last30Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last30Days;
+                }
+            }
+
+            if (matchesQuery && matchesDistrict && matchesDate) {
+                row.style.display = '';
+                if (row.cells[0]) {
+                    row.cells[0].innerText = rejectedIndex++;
+                }
+                rejectedCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Filter hold requests
+        const holdRows = document.querySelectorAll('#admin-hold-body tr');
+        let holdIndex = 1;
+        let holdCount = 0;
+        holdRows.forEach(row => {
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
+
+            const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
+            const name = row.getAttribute('data-name') ? row.getAttribute('data-name').toLowerCase() : '';
+            const email = row.getAttribute('data-email') ? row.getAttribute('data-email').toLowerCase() : '';
+            const code = row.getAttribute('data-code') ? row.getAttribute('data-code').toLowerCase() : '';
+            const phone = row.getAttribute('data-phone') ? row.getAttribute('data-phone').toLowerCase() : '';
+            const rowCreated = row.getAttribute('data-created') || '';
+
+            const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+            const matchesDistrict = district === 'all' || rowDistrict === district;
+
+            let matchesDate = true;
+            if (dateFilter === 'today') {
+                matchesDate = rowCreated.startsWith(todayPrefix);
+            } else if (dateFilter === 'week') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last7Days = new Date(now);
+                    last7Days.setDate(now.getDate() - 7);
+                    last7Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last7Days;
+                }
+            } else if (dateFilter === 'month') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last30Days = new Date(now);
+                    last30Days.setDate(now.getDate() - 30);
+                    last30Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last30Days;
+                }
+            }
+
+            if (matchesQuery && matchesDistrict && matchesDate) {
+                row.style.display = '';
+                if (row.cells[0]) {
+                    row.cells[0].innerText = holdIndex++;
+                }
+                holdCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
         const pendingCountEl = document.getElementById('pending-count');
         if (pendingCountEl) pendingCountEl.textContent = pendingCount;
-        const approvedCountEl = document.getElementById('approved-count');
+        const approvedCountEl = document.getElementById('approved-count-badge');
         if (approvedCountEl) approvedCountEl.textContent = approvedCount;
+        const rejectedCountEl = document.getElementById('rejected-count-badge');
+        if (rejectedCountEl) rejectedCountEl.textContent = rejectedCount;
+        const holdCountBadgeEl = document.getElementById('hold-count-badge');
+        if (holdCountBadgeEl) holdCountBadgeEl.textContent = holdCount;
 
-        const pendingTable = document.getElementById('admin-pending-table');
         const pendingEmptyMsg = document.getElementById('pending-empty-msg');
         if (pendingEmptyMsg) pendingEmptyMsg.style.display = (pendingCount === 0) ? 'block' : 'none';
 
-        const approvedTable = document.getElementById('admin-approved-table');
         const approvedEmptyMsg = document.getElementById('approved-empty-msg');
         if (approvedEmptyMsg) approvedEmptyMsg.style.display = (approvedCount === 0) ? 'block' : 'none';
+
+        const rejectedEmptyMsg = document.getElementById('rejected-empty-msg');
+        if (rejectedEmptyMsg) rejectedEmptyMsg.style.display = (rejectedCount === 0) ? 'block' : 'none';
+
+        const holdEmptyMsg = document.getElementById('hold-empty-msg');
+        if (holdEmptyMsg) holdEmptyMsg.style.display = (holdCount === 0) ? 'block' : 'none';
+
+        // Calculate and update metrics dynamically
+        let metricPending = 0;
+        let metricHold = 0;
+        let metricApproved = 0;
+        let metricRejected = 0;
+
+        const allRows = document.querySelectorAll('#admin-queue-body tr, #admin-hold-body tr, #admin-approved-body tr, #admin-rejected-body tr');
+        allRows.forEach(row => {
+            if (row.cells.length <= 1 && row.cells[0].getAttribute('colspan')) return;
+            const name = (row.getAttribute('data-name') || '').toLowerCase();
+            const email = (row.getAttribute('data-email') || '').toLowerCase();
+            const code = (row.getAttribute('data-code') || '').toLowerCase();
+            const phone = (row.getAttribute('data-phone') || '').toLowerCase();
+            const rowCreated = row.getAttribute('data-created') || '';
+            const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+
+            const matchesQuery = name.includes(query) || email.includes(query) || code.includes(query) || phone.includes(query);
+            const matchesDistrict = district === 'all' || (row.getAttribute('data-district') || '').toLowerCase() === district;
+
+            let matchesDate = true;
+            if (dateFilter === 'today') {
+                matchesDate = rowCreated.startsWith(todayPrefix);
+            } else if (dateFilter === 'week') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last7Days = new Date(now);
+                    last7Days.setDate(now.getDate() - 7);
+                    last7Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last7Days;
+                }
+            } else if (dateFilter === 'month') {
+                if (!rowCreated) {
+                    matchesDate = false;
+                } else {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const last30Days = new Date(now);
+                    last30Days.setDate(now.getDate() - 30);
+                    last30Days.setHours(0, 0, 0, 0);
+                    matchesDate = rowDate >= last30Days;
+                }
+            }
+
+            if (matchesQuery && matchesDistrict && matchesDate) {
+                if (rowStatus === 'pending') {
+                    metricPending++;
+                } else if (rowStatus === 'hold' || rowStatus === 'on_hold' || rowStatus === 'on hold') {
+                    metricHold++;
+                } else if (rowStatus === 'approved') {
+                    metricApproved++;
+                } else if (rowStatus === 'rejected') {
+                    metricRejected++;
+                }
+            }
+        });
+
+        // Metric cards display all-time counts irrespective of active filters
+    }
+
+    // Open SweetAlert for Placing requests On Hold
+    function openHoldModal(rId, candidateName) {
+        Swal.fire({
+            title: 'Place Request On Hold',
+            html: `
+                    <div style="text-align: left; padding: 0 10px;">
+                        <p style="margin-bottom: 15px; font-size: 14px; color: #555;">
+                            Are you sure you want to put candidate <strong>${candidateName}</strong> on hold?
+                        </p>
+                        
+                        <div>
+                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">Hold Remark (Mandatory) *</label>
+                            <textarea id="swal-hold-remark" class="swal2-textarea" style="width: 100%; height: 85px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="State the reason for placing this candidate request on hold..."></textarea>
+                        </div>
+                    </div>
+                `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Place On Hold',
+            confirmButtonColor: '#6c757d',
+            cancelButtonColor: '#3085d6',
+            preConfirm: () => {
+                const remark = document.getElementById('swal-hold-remark').value.trim();
+                if (!remark) {
+                    Swal.showValidationMessage('Please provide a hold reason remark.');
+                    return false;
+                }
+                return { remark: remark };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const remark = result.value.remark;
+
+                Swal.fire({
+                    title: 'Processing...',
+                    text: 'Placing candidate request on hold...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                const payload = new URLSearchParams();
+                payload.append("remark", remark);
+
+                fetch(`/auth/dc/hold-candidate/${rId}`, {
+                    method: 'POST',
+                    body: payload,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        Swal.fire({
+                            title: 'Placed On Hold!',
+                            text: 'The candidate onboarding request has been placed on hold successfully.',
+                            icon: 'success',
+                            confirmButtonColor: '#6c757d',
+                            timer: 3000,
+                            timerProgressBar: true
+                        }).then(() => {
+                            sessionStorage.setItem('dc_action_reloading', 'true');
+                            window.location.reload();
+                        });
+                    } else {
+                        response.json().then(data => {
+                            const errorDetail = data.detail || 'Failed to place request on hold. Please try again.';
+                            Swal.fire('Error', errorDetail, 'error');
+                        }).catch(() => {
+                            Swal.fire('Error', 'Failed to place request on hold.', 'error');
+                        });
+                    }
+                }).catch(() => {
+                    Swal.fire('Error', 'Failed to connect to backend server.', 'error');
+                });
+            }
+        });
     }
 
     // Open SweetAlert for Approving candidate requests
@@ -694,162 +1088,13 @@
     // Custom inline document viewer matching the user's mockup window
     function viewDocument(title, fileUrl) {
         if (!fileUrl) return;
-
-        // Determine extension
-        const extension = fileUrl.split('.').pop().toLowerCase();
-        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
-
-        // Create overlay
-        const overlay = document.createElement('div');
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100vw';
-        overlay.style.height = '100vh';
-        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
-        overlay.style.display = 'flex';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.zIndex = '99999';
-
-        // Create modal container
-        const modal = document.createElement('div');
-        modal.style.width = '90%';
-        modal.style.maxWidth = '800px';
-        modal.style.height = '85vh';
-        modal.style.maxHeight = '700px';
-        modal.style.backgroundColor = 'white';
-        modal.style.borderRadius = '12px';
-        modal.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
-        modal.style.display = 'flex';
-        modal.style.flexDirection = 'column';
-        modal.style.overflow = 'hidden';
-        modal.style.animation = 'swal2-show 0.3s ease-out';
-
-        // Create header
-        const header = document.createElement('div');
-        header.style.backgroundColor = '#1e3a8a'; // Dark Navy Blue
-        header.style.padding = '12px 20px';
-        header.style.display = 'flex';
-        header.style.justifyContent = 'space-between';
-        header.style.alignItems = 'center';
-        header.style.color = 'white';
-
-        const headerTitle = document.createElement('span');
-        headerTitle.innerText = title;
-        headerTitle.style.fontWeight = '700';
-        headerTitle.style.fontSize = '16px';
-
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-        closeBtn.style.border = 'none';
-        closeBtn.style.width = '32px';
-        closeBtn.style.height = '32px';
-        closeBtn.style.borderRadius = '50%';
-        closeBtn.style.display = 'flex';
-        closeBtn.style.alignItems = 'center';
-        closeBtn.style.justifyContent = 'center';
-        closeBtn.style.cursor = 'pointer';
-        closeBtn.style.color = 'white';
-        closeBtn.style.transition = 'background 0.2s';
-        closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
-        closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-        closeBtn.onclick = () => document.body.removeChild(overlay);
-        closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-
-        header.appendChild(headerTitle);
-        header.appendChild(closeBtn);
-
-        // Create body
-        const body = document.createElement('div');
-        body.style.flex = '1';
-        body.style.padding = '20px';
-        body.style.backgroundColor = '#f8fafc';
-        body.style.display = 'flex';
-        body.style.justifyContent = 'center';
-        body.style.alignItems = 'center';
-        body.style.overflow = 'hidden';
-
-        if (isImage) {
-            const img = document.createElement('img');
-            img.src = fileUrl;
-            img.style.maxWidth = '100%';
-            img.style.maxHeight = '100%';
-            img.style.objectFit = 'contain';
-            img.style.borderRadius = '4px';
-            body.appendChild(img);
-        } else {
-            const iframe = document.createElement('iframe');
-            iframe.src = fileUrl;
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            iframe.style.borderRadius = '4px';
-            body.appendChild(iframe);
+        if (fileUrl && !fileUrl.startsWith('data:') && !fileUrl.startsWith('http') && !fileUrl.startsWith('/')) {
+            fileUrl = '/candidate_upload/' + fileUrl;
         }
-
-        // Create footer
-        const footer = document.createElement('div');
-        footer.style.padding = '12px 20px';
-        footer.style.borderTop = '1px solid #edf2f7';
-        footer.style.display = 'flex';
-        footer.style.justifyContent = 'flex-end';
-        footer.style.alignItems = 'center';
-        footer.style.gap = '12px';
-        footer.style.backgroundColor = 'white';
-
-        const downloadLink = document.createElement('a');
-        downloadLink.href = fileUrl;
-        const fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1) || 'document';
-        downloadLink.download = fileName;
-        downloadLink.style.display = 'inline-flex';
-        downloadLink.style.alignItems = 'center';
-        downloadLink.style.gap = '6px';
-        downloadLink.style.padding = '8px 16px';
-        downloadLink.style.borderRadius = '8px';
-        downloadLink.style.backgroundColor = '#ecfdf5';
-        downloadLink.style.color = '#10b981';
-        downloadLink.style.fontWeight = '600';
-        downloadLink.style.fontSize = '14px';
-        downloadLink.style.textDecoration = 'none';
-        downloadLink.style.cursor = 'pointer';
-        downloadLink.style.transition = 'background-color 0.2s';
-        downloadLink.onmouseenter = () => downloadLink.style.backgroundColor = '#d1fae5';
-        downloadLink.onmouseleave = () => downloadLink.style.backgroundColor = '#ecfdf5';
-        downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
-
-        const closeBtnFooter = document.createElement('button');
-        closeBtnFooter.type = 'button';
-        closeBtnFooter.style.padding = '8px 24px';
-        closeBtnFooter.style.borderRadius = '8px';
-        closeBtnFooter.style.backgroundColor = '#4f46e5';
-        closeBtnFooter.style.color = 'white';
-        closeBtnFooter.style.fontWeight = '600';
-        closeBtnFooter.style.fontSize = '14px';
-        closeBtnFooter.style.border = 'none';
-        closeBtnFooter.style.cursor = 'pointer';
-        closeBtnFooter.style.transition = 'background-color 0.2s';
-        closeBtnFooter.onmouseenter = () => closeBtnFooter.style.backgroundColor = '#4338ca';
-        closeBtnFooter.onmouseleave = () => closeBtnFooter.style.backgroundColor = '#4f46e5';
-        closeBtnFooter.onclick = () => document.body.removeChild(overlay);
-        closeBtnFooter.innerText = 'Close';
-
-        footer.appendChild(downloadLink);
-        footer.appendChild(closeBtnFooter);
-
-        modal.appendChild(header);
-        modal.appendChild(body);
-        modal.appendChild(footer);
-        overlay.appendChild(modal);
-
-        overlay.onclick = (e) => {
-            if (e.target === overlay) {
-                document.body.removeChild(overlay);
-            }
-        };
-
-        document.body.appendChild(overlay);
+        const extension = fileUrl.split('.').pop().toLowerCase();
+        if (typeof window.previewDocument === 'function') {
+            window.previewDocument(fileUrl, extension, title);
+        }
     }
 
     // Helper to build a document preview card matching the mockup design
@@ -940,6 +1185,8 @@
             statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">' + d.status.charAt(0).toUpperCase() + d.status.slice(1).toLowerCase().replace(/_/g, " ") + '</span>';
         } else if (dStatus === 'rejected') {
             statusBadge = '<span class="badge badge-rejected" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Rejected</span>';
+        } else if (dStatus === 'on hold') {
+            statusBadge = '<span class="badge" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: #e2e8f0; color: #475569;">On Hold</span>';
         } else {
             statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
         }
@@ -952,7 +1199,9 @@
                 try {
                     const remarksArray = JSON.parse(d.remarksStr);
                     if (remarksArray && remarksArray.length > 0) {
-                        let latestRemark = remarksArray[0].remark;
+                        let latestRemarkObj = remarksArray[0];
+                        let latestRemark = latestRemarkObj.remark;
+                        let remarkTime = latestRemarkObj.created_at || '';
 
                         let emailFailedBadgeHtml = '';
                         if (latestRemark.includes('[Email Failed]')) {
@@ -963,13 +1212,16 @@
                         }
 
                         const dStatusLower = (d.status || '').toLowerCase();
-                        const badgeColor = (dStatusLower === 'approved') ? '#16a34a' : ((dStatusLower === 'rejected') ? '#dc2626' : '#888');
-                        const badgeBg = (dStatusLower === 'approved') ? '#dcfce7' : ((dStatusLower === 'rejected') ? '#fee2e2' : '#f1f5f9');
-                        const titleText = (dStatusLower === 'approved') ? 'Approval Remark' : ((dStatusLower === 'rejected') ? 'Rejection Remark' : 'Admin Remark');
+                        const badgeColor = (dStatusLower === 'approved') ? '#16a34a' : ((dStatusLower === 'rejected') ? '#dc2626' : ((dStatusLower === 'on hold') ? '#475569' : '#888'));
+                        const badgeBg = (dStatusLower === 'approved') ? '#dcfce7' : ((dStatusLower === 'rejected') ? '#fee2e2' : ((dStatusLower === 'on hold') ? '#f1f5f9' : '#f1f5f9'));
+                        const titleText = (dStatusLower === 'approved') ? 'Approval Remark' : ((dStatusLower === 'rejected') ? 'Rejection Remark' : ((dStatusLower === 'on hold') ? 'Hold Remark' : 'Admin Remark'));
 
                         adminRemarkHtml = `
                         <div style="margin-bottom: 15px; padding: 12px; border-radius: 8px; background-color: ${badgeBg}; border-left: 4px solid ${badgeColor}; font-size: 13px;">
-                            <div style="font-weight: 700; color: ${badgeColor}; margin-bottom: 4px;">${titleText}:</div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span style="font-weight: 700; color: ${badgeColor};">${titleText}:</span>
+                                <span style="font-size: 11px; color: #64748b; font-weight: 500;">${remarkTime}</span>
+                            </div>
                             <div style="color: #334155;">${escapeHtml(latestRemark)}</div>
                         </div>
                         `;
@@ -979,9 +1231,9 @@
 
             let htmlContent = `
                 <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                        <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
-                        <span>${statusBadge}</span>
+                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; gap: 8px;">
+                        <span style="font-size: 13px; color: #64748b; font-weight: 500; white-space: nowrap;">Request: <strong style="color:#0f172a; font-weight:700;">${d.code}</strong></span>
+                        <span style="flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center;">${statusBadge}</span>
                     </div>
                     <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
                         Registered At: <strong>${d.created}</strong>
@@ -1088,15 +1340,17 @@
         else if (activeView === 'documents') {
             let htmlContent = `
                 <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                        <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
-                        <span>${statusBadge}</span>
+                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; gap: 8px;">
+                        <span style="font-size: 13px; color: #64748b; font-weight: 500; white-space: nowrap;">Request: <strong style="color:#0f172a; font-weight:700;">${d.code}</strong></span>
+                        <span style="flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center;">${statusBadge}</span>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
                         ${(d.photo && d.photo !== 'None' && d.photo !== 'null' && d.photo !== '') ? buildDocumentCard('Profile Photo', d.photo, 'profile_photo.jpg') : ''}
 
-                        ${(d.marksheet && d.marksheet !== 'None' && d.marksheet !== 'null' && d.marksheet !== '') ? buildDocumentCard('Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf') : ''}
+                        ${(d.marksheet && d.marksheet !== 'None' && d.marksheet !== 'null' && d.marksheet !== '') ? buildDocumentCard('Highest Qualification Marksheet', d.marksheet, 'qualification_marksheet.pdf') : ''}
                         ${(d.tenthMarksheet && d.tenthMarksheet !== 'None' && d.tenthMarksheet !== 'null' && d.tenthMarksheet !== '') ? buildDocumentCard('10th Marksheet', d.tenthMarksheet, '10th_marksheet.pdf') : ''}
+                        ${(d.lmsCertificate && d.lmsCertificate !== 'None' && d.lmsCertificate !== 'null' && d.lmsCertificate !== '') ? buildDocumentCard('LMS Certificate', d.lmsCertificate, 'lms_certificate.pdf') : ''}
+                        ${(d.nseitCertificate && d.nseitCertificate !== 'None' && d.nseitCertificate !== 'null' && d.nseitCertificate !== '') ? buildDocumentCard('NSEIT Certificate', d.nseitCertificate, 'nseit_certificate.pdf') : ''}
                     </div>
                 </div>
                 `;
@@ -1196,9 +1450,9 @@
 
             let htmlContent = `
                 <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
-                        <span style="font-size: 14px; color: #666;">Request: <strong>${d.code}</strong></span>
-                        <span>${headerStatusBadge}</span>
+                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; gap: 8px; flex: 0 0 auto;">
+                        <span style="font-size: 13px; color: #64748b; font-weight: 500; white-space: nowrap;">Request: <strong style="color:#0f172a; font-weight:700;">${d.code}</strong></span>
+                        <span style="flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center;">${headerStatusBadge}</span>
                     </div>
                     ${timelineHtml}
                 </div>
@@ -1244,6 +1498,8 @@
             nseitId: row.getAttribute('data-nseit-id') || '',
             marksheet: (row.getAttribute('data-marksheet') && row.getAttribute('data-marksheet') !== 'None') ? row.getAttribute('data-marksheet') : '',
             tenthMarksheet: (row.getAttribute('data-tenth-marksheet') && row.getAttribute('data-tenth-marksheet') !== 'None') ? row.getAttribute('data-tenth-marksheet') : '',
+            lmsCertificate: (row.getAttribute('data-lms-certificate') && row.getAttribute('data-lms-certificate') !== 'None') ? row.getAttribute('data-lms-certificate') : '',
+            nseitCertificate: (row.getAttribute('data-nseit-certificate') && row.getAttribute('data-nseit-certificate') !== 'None') ? row.getAttribute('data-nseit-certificate') : '',
             status: row.getAttribute('data-status'),
             remarksStr: row.getAttribute('data-remarks') || '[]',
             created: row.getAttribute('data-created') || '',

@@ -1,7 +1,6 @@
 // app/static/js/dc_l1_registration.js
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Show dashboard by default
     showL1Dashboard();
 
     const isActionReload = sessionStorage.getItem('dc_action_reloading') === 'true';
@@ -11,7 +10,6 @@ document.addEventListener("DOMContentLoaded", () => {
         sessionStorage.removeItem('dc_l1_search');
         sessionStorage.removeItem('dc_l1_date');
         sessionStorage.removeItem('dc_l1_pending_status');
-        sessionStorage.removeItem('dc_l1_log_status');
     }
 
     if (sessionStorage.getItem('dc_l1_search') !== null) {
@@ -21,8 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (dateInput) dateInput.value = sessionStorage.getItem('dc_l1_date');
         const pendingStatusEl = document.getElementById('pending-status-filter');
         if (pendingStatusEl) pendingStatusEl.value = sessionStorage.getItem('dc_l1_pending_status');
-        const logStatusEl = document.getElementById('log-status-filter');
-        if (logStatusEl) logStatusEl.value = sessionStorage.getItem('dc_l1_log_status');
     } else {
         const searchInput = document.getElementById('l1-search-input');
         if (searchInput) searchInput.value = '';
@@ -30,8 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (dateInput) dateInput.value = 'month';
         const pendingStatusEl = document.getElementById('pending-status-filter');
         if (pendingStatusEl) pendingStatusEl.value = 'all';
-        const logStatusEl = document.getElementById('log-status-filter');
-        if (logStatusEl) logStatusEl.value = 'all';
     }
 
     filterL1Table();
@@ -61,7 +55,6 @@ function filterL1Table() {
     sessionStorage.setItem('dc_l1_search', input ? input.value : '');
     sessionStorage.setItem('dc_l1_date', dateFilter);
     sessionStorage.setItem('dc_l1_pending_status', document.getElementById('pending-status-filter') ? document.getElementById('pending-status-filter').value : 'all');
-    sessionStorage.setItem('dc_l1_log_status', document.getElementById('log-status-filter') ? document.getElementById('log-status-filter').value : 'all');
 
     const now = new Date();
     const y = now.getFullYear();
@@ -71,14 +64,14 @@ function filterL1Table() {
     const todayPrefix = `${y}-${m}-${d}`;
     const monthPrefix = `${y}-${m}`;
 
-    ['pending', 'log'].forEach(sec => {
+    ['allotted', 'pending', 'approved', 'reverted'].forEach(sec => {
         const rows = document.querySelectorAll(`#${sec}-tbody tr[data-status]`);
         let visibleCount = 0;
         const statusFilterEl = document.getElementById(`${sec}-status-filter`);
         const statusFilter = statusFilterEl ? statusFilterEl.value.toUpperCase() : 'ALL';
 
         rows.forEach(row => {
-            const reqCode = (row.getAttribute('data-request-code') || '').toUpperCase();
+            const reqCode = (row.getAttribute('data-request-code') || row.getAttribute('data-request-no') || '').toUpperCase();
             const stationId = (row.getAttribute('data-station-id') || '').toUpperCase();
             const model = (row.getAttribute('data-model') || '').toUpperCase();
             const rowStatus = (row.getAttribute('data-status') || '').toUpperCase();
@@ -115,18 +108,76 @@ function filterL1Table() {
             if (matchQuery && matchStatus && matchDate) {
                 row.style.display = "";
                 visibleCount++;
+                if (row.cells[0]) row.cells[0].innerText = visibleCount;
             } else {
                 row.style.display = "none";
             }
         });
 
-        const tbl = document.getElementById(`${sec}-table`);
         const emg = document.getElementById(`${sec}-empty-msg`);
-        const cnt = document.getElementById(`${sec}-count`);
+        const cnt = document.getElementById(`${sec}-count`) || document.getElementById(`${sec}-count-badge`) || document.getElementById('allotted-count');
 
         if (emg) emg.style.display = (visibleCount === 0) ? 'block' : 'none';
         if (cnt) cnt.textContent = visibleCount;
     });
+
+    // Calculate and update metrics dynamically
+    let metricPending = 0;
+    let metricReapplied = 0;
+    let metricReverted = 0;
+    let metricApproved = 0;
+    let metricAwaiting = 0;
+
+    const allRowsForMetrics = document.querySelectorAll('#allotted-tbody tr[data-status], #pending-tbody tr[data-status], #approved-tbody tr[data-status], #reverted-tbody tr[data-status]');
+    allRowsForMetrics.forEach(row => {
+        const reqCode = (row.getAttribute('data-request-code') || row.getAttribute('data-request-no') || '').toUpperCase();
+        const stationId = (row.getAttribute('data-station-id') || '').toUpperCase();
+        const model = (row.getAttribute('data-model') || '').toUpperCase();
+        const rowStatus = (row.getAttribute('data-status') || '').toUpperCase();
+        const createdDate = row.getAttribute('data-created') || '';
+
+        const matchQuery = !filter ||
+            reqCode.indexOf(filter) > -1 ||
+            stationId.indexOf(filter) > -1 ||
+            model.indexOf(filter) > -1;
+
+        let matchDate = true;
+        if (dateFilter === 'today') {
+            matchDate = createdDate.startsWith(todayPrefix);
+        } else if (dateFilter === 'week') {
+            if (!createdDate) {
+                matchDate = false;
+            } else {
+                const rowDate = new Date(createdDate.replace(' ', 'T'));
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                matchDate = rowDate >= sevenDaysAgo;
+            }
+        } else if (dateFilter === 'month') {
+            if (!createdDate) {
+                matchDate = false;
+            } else {
+                const rowDate = new Date(createdDate.replace(' ', 'T'));
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                matchDate = rowDate >= thirtyDaysAgo;
+            }
+        }
+
+        if (matchQuery && matchDate) {
+            if (rowStatus === 'PENDING') {
+                metricPending++;
+            } else if (rowStatus === 'REAPPLIED') {
+                metricReapplied++;
+            } else if (rowStatus === 'REVERTED') {
+                metricReverted++;
+            } else if (['DONE', 'APPROVED', 'REVIEWED'].includes(rowStatus)) {
+                metricApproved++;
+            } else if (rowStatus === 'AWAITING') {
+                metricAwaiting++;
+            }
+        }
+    });
+
+    // Metric cards display all-time counts irrespective of active filters
 }
 
 function clearAllFilters() {
@@ -145,7 +196,7 @@ function submitL1Registration(event) {
     const formElement = document.getElementById('l1RegistrationForm');
     const formData = new FormData(formElement);
 
-    const requiredFields = ['station_id', 'machine_id', 'model_type', 'software_version', 'uv_id', 'uv_password'];
+    const requiredFields = ['station_id', 'machine_id', 'model_type', 'software_version', 'laptop_serial_no', 'laptop_brand', 'uv_id', 'uv_password'];
     for (let field of requiredFields) {
         if (!formData.get(field) || formData.get(field).trim() === '') {
             Swal.fire('Validation Error', `Please fill out all required fields.`, 'warning');
@@ -173,7 +224,7 @@ function submitL1Registration(event) {
                 title: 'Submitted Successfully',
                 text: 'Your L1 registration request has been submitted successfully.',
                 icon: 'success',
-                confirmButtonColor: '#007bff',
+                confirmButtonColor: '#378ADD',
                 allowOutsideClick: false,
                 showConfirmButton: true,
                 timer: 3000,
@@ -250,11 +301,11 @@ function openL1ReapplyModal(requestCode) {
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                         <div>
-                            <label style="font-weight: 600; font-size: 13px;">UV ID *</label>
+                            <label style="font-weight: 600; font-size: 13px;">Ultra Viewer ID *</label>
                             <input type="text" name="uv_id" value="${data.uv_id}" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
                         </div>
                         <div>
-                            <label style="font-weight: 600; font-size: 13px;">UV Password *</label>
+                            <label style="font-weight: 600; font-size: 13px;">Ultra Viewer Password *</label>
                             <div style="position: relative;">
                                 <input type="password" id="reapply_uv_password_input" name="uv_password" value="${data.uv_password}" style="width: 100%; padding: 8px; padding-right: 40px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
                                 <button type="button" onclick="togglePasswordVisibility('reapply_uv_password_input', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; color: #64748b;">
@@ -282,7 +333,7 @@ function openL1ReapplyModal(requestCode) {
                 width: '600px',
                 showCancelButton: true,
                 confirmButtonText: 'Reapply',
-                confirmButtonColor: '#007bff',
+                confirmButtonColor: '#378ADD',
                 preConfirm: () => {
                     // 🌟 ADDED: Front-end Validation to ensure text isn't empty
                     const reapplyRemark = document.getElementById('ra-reapply-remark').value.trim();
@@ -322,7 +373,7 @@ function getStatusBadgeHtml(status) {
     const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
     let badgeClass = 'badge-pending';
     let label = 'Pending';
-    if (s.includes('approve') || s.includes('reviewed')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+    if (s.includes('done') || s.includes('approve') || s.includes('reviewed')) { badgeClass = 'badge-approved'; label = 'Done'; }
     else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
     else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
     else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
@@ -347,7 +398,7 @@ function buildL1RemarksHtml(remarks) {
         if (statusAfter) {
             statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
             const sLower = statusAfter.toLowerCase();
-            if (sLower.includes('approve') || sLower.includes('reviewed')) markerClass = 'marker-approved';
+            if (sLower.includes('done') || sLower.includes('approve') || sLower.includes('reviewed')) markerClass = 'marker-approved';
             else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
             else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
             else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
@@ -356,7 +407,7 @@ function buildL1RemarksHtml(remarks) {
         const username = r.author_username || '';
         // Only show username if it's a DC (hide CHiPS Admin username from DC panel)
         const hasUsername = !isChips && username && username !== 'system';
-        
+
         // Assume escapeHtml function exists globally or in the file, if not we can use a basic fallback inline
         // Wait, dc_l1_registration.js has an escapeHtml inside showL1Details but here it's outside. Let's just use a simple escape inline or define it if not present.
         // Actually, we can just use the global one or a small inline replace.
@@ -394,7 +445,8 @@ window.showL1Details = function (d, activeView) {
             .replace(/'/g, "&#039;");
     };
 
-    const isReverted = d.status === 'REVERTED';
+    const normStatus = (d.status || '').trim().toUpperCase();
+    const isReverted = ['REVERTED', 'REJECTED', 'REVERTED BY CHIPS', 'REVERTED_BY_CHIPS'].includes(normStatus);
 
     if (activeView === 'details') {
         let htmlContent = '';
@@ -472,11 +524,11 @@ window.showL1Details = function (d, activeView) {
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                             <div>
-                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">UV ID *</label>
+                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Ultra Viewer ID *</label>
                                 <input type="text" name="uv_id" value="${d.uv_id}" style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px;">
                             </div>
                             <div>
-                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">UV Password *</label>
+                                <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Ultra Viewer Password *</label>
                                 <div style="position: relative;">
                                     <input type="password" id="reapply_uv_password_input_details" name="uv_password" value="${d.uv_password}" style="width: 100%; height:38px; padding: 8px; padding-right: 40px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px;">
                                     <button type="button" id="btn-toggle-pw" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; color: #64748b;">
@@ -563,6 +615,14 @@ window.showL1Details = function (d, activeView) {
                             <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Software Version</div>
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.software_version}</div>
                         </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Laptop Serial Number</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.laptop_serial_no || 'N/A'}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Laptop Brand</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.laptop_brand || 'N/A'}</div>
+                        </div>
                     </div>
                 </div>
 
@@ -571,12 +631,20 @@ window.showL1Details = function (d, activeView) {
                     <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Authentication Details</div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">UV ID</div>
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Ultra Viewer ID</div>
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.uv_id}</div>
                         </div>
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">UV Password</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.uv_password}</div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01); display: flex; flex-direction: column; gap: 3px;">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Ultra Viewer Password</div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
+                                <input type="password" id="dc_uv_password_display" value="${escapeHtml(d.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: #495057; width: 100%; outline: none;" />
+                                <button type="button" onclick="togglePasswordVisibility('dc_uv_password_display', this)" style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #64748b;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -607,7 +675,7 @@ window.showL1Details = function (d, activeView) {
                         window.showL1Details(d, 'remarks');
                     };
                 }
-                
+
                 const btnTogglePw = document.getElementById('btn-toggle-pw');
                 if (btnTogglePw) {
                     btnTogglePw.onclick = () => {
@@ -744,7 +812,7 @@ function exportTableToExcel(tableID, filename = 'export.csv') {
 // Draft saving and restoring logic
 const L1_DRAFT_KEY = 'l1_request_draft';
 
-window.saveL1Draft = function() {
+window.saveL1Draft = function () {
     const form = document.getElementById('l1RegistrationForm');
     if (!form) return;
     const formData = new FormData(form);
@@ -756,7 +824,7 @@ window.saveL1Draft = function() {
     sessionStorage.setItem(L1_DRAFT_KEY, JSON.stringify(draft));
 };
 
-window.loadL1Draft = function() {
+window.loadL1Draft = function () {
     const draftStr = sessionStorage.getItem(L1_DRAFT_KEY);
     if (!draftStr) return;
     try {
@@ -774,7 +842,7 @@ window.loadL1Draft = function() {
     }
 };
 
-window.clearL1DraftAndForm = function() {
+window.clearL1DraftAndForm = function () {
     sessionStorage.removeItem(L1_DRAFT_KEY);
     if (typeof clearL1Form === 'function') {
         clearL1Form();
@@ -802,7 +870,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isReloadOrBack && !isActionReload) {
         window.clearL1DraftAndForm();
     }
-    
+
     // Attempt load if not just cleared
     window.loadL1Draft();
 });

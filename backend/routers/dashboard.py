@@ -59,11 +59,11 @@ def _fetch_workflow_rows(db, workflow):
     """
     if workflow == "lms":
         return db.query(LMS.created_at, LMS.updated_at, LMS.status, District.district_name)\
-            .join(Candidate, LMS.r_id == Candidate.r_id)\
+            .join(Candidate, LMS.request_id == Candidate.id)\
             .outerjoin(District, Candidate.district == District.district_code).all()
     if workflow == "nseit":
         return db.query(NSEITRequest.created_at, NSEITRequest.updated_at, NSEITRequest.status, District.district_name)\
-            .join(Candidate, NSEITRequest.r_id == Candidate.r_id)\
+            .join(Candidate, NSEITRequest.request_id == Candidate.id)\
             .outerjoin(District, Candidate.district == District.district_code).all()
     if workflow == "activation":
         return db.query(OperatorActivationRequest.submitted_at, OperatorActivationRequest.reviewed_at,
@@ -195,40 +195,82 @@ def _timeframe_cutoff(timeframe):
 
 def _compute_monthly_trend(db, model, date_field, status_field, update_field, approved_values, rejected_values):
     """Last-12-months submissions/approvals/rejections trend for any request model."""
-    from datetime import date
-    today = date.today()
+    from datetime import datetime
+    now = datetime.now()
     monthly_trend = []
+    
+    try:
+        rows = db.query(model).all()
+    except Exception:
+        rows = []
+
+    date_attr = date_field.key if hasattr(date_field, 'key') else str(date_field).split('.')[-1]
+    status_attr = status_field.key if hasattr(status_field, 'key') else str(status_field).split('.')[-1]
+    update_attr = update_field.key if (update_field and hasattr(update_field, 'key')) else (str(update_field).split('.')[-1] if update_field else None)
+
     for i in range(11, -1, -1):
-        year = today.year
-        month = today.month - i
+        year = now.year
+        month = now.month - i
         while month <= 0:
             month += 12
             year -= 1
-        month_start = date(year, month, 1)
-        month_end = date(month_start.year + 1, 1, 1) if month_start.month == 12 else date(month_start.year, month_start.month + 1, 1)
+        month_start = datetime(year, month, 1)
+        if month == 12:
+            month_end = datetime(year + 1, 1, 1)
+        else:
+            month_end = datetime(year, month + 1, 1)
 
-        submissions = db.query(func.count(model.id)).filter(
-            date_field >= month_start,
-            date_field < month_end,
-        ).scalar() or 0
+        month_label = month_start.strftime("%b")
 
-        approvals = db.query(func.count(model.id)).filter(
-            status_field.in_(approved_values),
-            update_field >= month_start,
-            update_field < month_end,
-        ).scalar() or 0
+        sub_cnt = 0
+        app_cnt = 0
+        rej_cnt = 0
 
-        rejections = db.query(func.count(model.id)).filter(
-            status_field.in_(rejected_values),
-            update_field >= month_start,
-            update_field < month_end,
-        ).scalar() or 0
+        for r in rows:
+            raw_sub = getattr(r, date_attr, None)
+            dt_sub = None
+            if raw_sub:
+                if isinstance(raw_sub, datetime):
+                    dt_sub = raw_sub
+                elif hasattr(raw_sub, 'year'):
+                    dt_sub = datetime(raw_sub.year, raw_sub.month, raw_sub.day)
+                elif isinstance(raw_sub, str):
+                    try:
+                        dt_sub = datetime.fromisoformat(raw_sub.replace("T", " ")[:19])
+                    except Exception:
+                        pass
+
+            if dt_sub and month_start <= dt_sub < month_end:
+                sub_cnt += getattr(r, 'operator_count', 1) or 1
+
+            status_val = str(getattr(r, status_attr, '') or '').strip()
+            raw_upd = getattr(r, update_attr, None) if update_attr else raw_sub
+            dt_upd = None
+            if raw_upd:
+                if isinstance(raw_upd, datetime):
+                    dt_upd = raw_upd
+                elif hasattr(raw_upd, 'year'):
+                    dt_upd = datetime(raw_upd.year, raw_upd.month, raw_upd.day)
+                elif isinstance(raw_upd, str):
+                    try:
+                        dt_upd = datetime.fromisoformat(raw_upd.replace("T", " ")[:19])
+                    except Exception:
+                        pass
+            if not dt_upd:
+                dt_upd = dt_sub
+
+            if dt_upd and month_start <= dt_upd < month_end:
+                op_c = getattr(r, 'operator_count', 1) or 1
+                if any(status_val.lower() == str(v).lower() for v in approved_values):
+                    app_cnt += op_c
+                elif any(status_val.lower() == str(v).lower() for v in rejected_values):
+                    rej_cnt += op_c
 
         monthly_trend.append({
-            "month": month_start.strftime("%b"),
-            "submissions": submissions,
-            "approvals": approvals,
-            "rejections": rejections,
+            "month": month_label,
+            "submissions": sub_cnt,
+            "approvals": app_cnt,
+            "rejections": rej_cnt,
         })
     return monthly_trend
 
@@ -504,7 +546,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         station_id_analysis["monthly_trend"] = _compute_monthly_trend(
             db, StationIDRequest, StationIDRequest.submitted_at,
             StationIDRequest.status, StationIDRequest.reviewed_at,
-            approved_values=["approved", "activated"],
+            approved_values=["allotted", "approved", "activated"],
             rejected_values=["rejected", "reverted", "reverted_by_chips"],
         )
     except Exception:
@@ -515,7 +557,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         l1_analysis["monthly_trend"] = _compute_monthly_trend(
             db, L1RegistrationRequest, L1RegistrationRequest.created_at,
             L1RegistrationRequest.status, L1RegistrationRequest.updated_at,
-            approved_values=["REVIEWED"],
+            approved_values=["DONE", "REVIEWED", "APPROVED"],
             rejected_values=["REVERTED"],
         )
     except Exception:
@@ -644,7 +686,11 @@ def get_district_settings(db: Session = Depends(get_db)):
         })
     return {"districts": res}
 
+class DistrictSettingsUpdateWithCode(DistrictSettingsUpdate):
+    district_code: Optional[str] = None
+
 @router.put("/districts/{district_code}/settings")
+@router.post("/districts/{district_code}/settings")
 def update_district_settings(district_code: str, settings: DistrictSettingsUpdate, db: Session = Depends(get_db)):
     from datetime import datetime
     from fastapi import HTTPException
@@ -653,7 +699,7 @@ def update_district_settings(district_code: str, settings: DistrictSettingsUpdat
     if not d:
         raise HTTPException(status_code=404, detail="District not found")
         
-    d.registration_open = settings.registration_open
+    d.registration_open = 1 if settings.registration_open else 0
     d.registration_start_date = settings.registration_start_date
     d.registration_end_date = settings.registration_end_date
     
@@ -662,6 +708,78 @@ def update_district_settings(district_code: str, settings: DistrictSettingsUpdat
         
     db.commit()
     return {"message": "Settings updated successfully"}
+
+@router.post("/districts/settings")
+def update_district_settings_post(settings: DistrictSettingsUpdateWithCode, db: Session = Depends(get_db)):
+    from fastapi import HTTPException
+    if not settings.district_code:
+        raise HTTPException(status_code=400, detail="district_code is required")
+    return update_district_settings(settings.district_code, settings, db)
+
+@router.get("/districts-with-resources")
+def get_districts_with_resources(db: Session = Depends(get_db)):
+    from backend.models.user_login import UserLogin
+    from sqlalchemy.orm import joinedload
+
+    districts = db.query(District).order_by(District.district_name).all()
+
+    # Pre-fetch all district resources (EDMs, DCs, MTOs, ADCs) and their profiles
+    all_users = db.query(UserLogin).filter(
+        UserLogin.district_id.isnot(None),
+        UserLogin.is_active == 1
+    ).options(joinedload(UserLogin.profile)).all()
+
+    # Map users by district_id and roleid
+    district_resources = {}
+    for user in all_users:
+        dist_id = user.district_id
+        if dist_id not in district_resources:
+            district_resources[dist_id] = {
+                "edm_name": "", "edm_contact": "", "edm_email": "",
+                "dc_name": "", "dc_contact": "", "dc_email": "",
+                "mto_name": "", "mto_contact": "", "mto_email": "",
+                "adc_name": "", "adc_contact": "", "adc_email": ""
+            }
+        
+        profile = user.profile
+        name = profile.full_name if (profile and profile.full_name) else ""
+        contact = profile.phone if (profile and profile.phone) else ""
+        email = profile.email if (profile and profile.email) else (user.username or "")
+
+        if user.roleid == 3: # EDM
+            district_resources[dist_id]["edm_name"] = name
+            district_resources[dist_id]["edm_contact"] = contact
+            district_resources[dist_id]["edm_email"] = email
+        elif user.roleid == 2: # DC
+            district_resources[dist_id]["dc_name"] = name
+            district_resources[dist_id]["dc_contact"] = contact
+            district_resources[dist_id]["dc_email"] = email
+        elif user.roleid == 5: # MTO
+            district_resources[dist_id]["mto_name"] = name
+            district_resources[dist_id]["mto_contact"] = contact
+            district_resources[dist_id]["mto_email"] = email
+        elif user.roleid == 6: # ADC (Assistant Division Coordinator)
+            district_resources[dist_id]["adc_name"] = name
+            district_resources[dist_id]["adc_contact"] = contact
+            district_resources[dist_id]["adc_email"] = email
+
+    res = []
+    for d in districts:
+        res_info = district_resources.get(d.district_code)
+        if not res_info:
+            res_info = {
+                "edm_name": "", "edm_contact": "", "edm_email": "",
+                "dc_name": "Not Assigned", "dc_contact": "", "dc_email": "",
+                "mto_name": "", "mto_contact": "", "mto_email": "",
+                "adc_name": "", "adc_contact": "", "adc_email": ""
+            }
+        res.append({
+            "district_code": d.district_code,
+            "district_name": d.district_name,
+            "district_short_name": d.district_short_name,
+            "aadhaar_resources": res_info
+        })
+    return res
 
 
 

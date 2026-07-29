@@ -1,5 +1,6 @@
 import requests
 from flask import Blueprint, render_template, redirect, url_for, request, session, flash, current_app, Response
+from app.utils.aging import parse_aging_filter, filter_by_aging
 
 selection_bp = Blueprint("selection", __name__)
 
@@ -19,6 +20,7 @@ def dc_candidate_requests():
     backend_url = f"{current_app.config['BACKEND_API_URL']}/selection/candidates"
     pending_requests = []
     approved_requests = []
+    hold_requests = []
     try:
         response = requests.get(backend_url, params={"district_code": session.get("district_id")}, headers=_headers())
         if response.status_code == 401:
@@ -27,16 +29,26 @@ def dc_candidate_requests():
             candidates = response.json()
             pending_requests = [c for c in candidates if str(c["status"]).strip().upper() == "PENDING"]
             approved_requests = [c for c in candidates if str(c["status"]).strip().upper() in ["APPROVED", "REJECTED"]]
+            hold_requests = [c for c in candidates if str(c["status"]).strip().upper() == "ON HOLD"]
         else:
             print(f"Backend API returned {response.status_code}: {response.text}")
             flash(f"Backend error: {response.text[:100]}", "danger")
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         
+    all_pending = list(pending_requests)
+    aging_filter, aging_label = parse_aging_filter(request.args)
+    if aging_filter:
+        pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
+
     return render_template(
         "dc/dc_candidate_requests.html",
         pending_requests=pending_requests,
-        approved_requests=approved_requests
+        approved_requests=approved_requests,
+        hold_requests=hold_requests,
+        all_pending_requests=all_pending,
+        aging_filter=aging_filter,
+        aging_label=aging_label
     )
 
 
@@ -132,3 +144,32 @@ def export_candidate_requests():
     except requests.exceptions.RequestException:
         flash("Error connecting to backend API server.", "danger")
         return redirect(url_for("selection.dc_candidate_requests"))
+
+
+@selection_bp.route("/dc/hold-candidate/<int:r_id>", methods=["POST"])
+def hold_candidate(r_id):
+    if "access_token" not in session or session.get("role") not in ["DC", "EDM", "Admin"]:
+        return {"detail": "Unauthorized"}, 401
+        
+    remark = request.form.get("remark")
+    by_user_id = session.get("user_id")
+    
+    if not by_user_id:
+        return {"detail": "Admin user ID session expired. Please log in again."}, 400
+        
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/selection/hold-candidate/{r_id}"
+    try:
+        response = requests.post(
+            backend_url,
+            json={"remark": remark, "by_user_id": int(by_user_id)},
+            headers=_headers()
+        )
+        if response.status_code == 200:
+            return {"success": True}
+        else:
+            try:
+                return response.json(), response.status_code
+            except Exception:
+                return {"detail": response.text}, response.status_code
+    except requests.exceptions.RequestException:
+        return {"detail": "Error connecting to backend API server."}, 500

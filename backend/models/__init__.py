@@ -6,8 +6,9 @@ from backend.models.master_status import MasterStatus
 from backend.models.district import District
 from backend.models.user_login import UserLogin, UserLogin as User
 from backend.models.user_profile import UserProfile
-from backend.models.candidate import Candidate, CandidateLogin
+from backend.models.candidate import Candidate, CandidateLogin, CandidateDocument
 from backend.models.dc_remark import DCRemark
+from backend.models.hold_candidate import HoldCandidate
 from backend.models.nseit import NSEITRequest, NSEITRemark
 from backend.models.l1_registration import L1RegistrationRequest, L1RegistrationRemarkHistory
 from backend.models.reactivation import (
@@ -24,8 +25,14 @@ from backend.models.operator_activation import (
 )
 from backend.models.station_id import StationIDRequest, StationIDRemark
 from backend.models.otp_verification import OtpVerification
-from backend.models.aadhaar_district_resources import AadhaarDistrictResource
 from backend.models.admin_login_logs import AdminLoginLog
+from backend.models.report import ReportHistory
+
+from backend.models.operator import Operator
+from backend.models.kit_registration import KitRegistration
+from backend.models.station_id_master import StationIDMaster
+from backend.models.operator_station_mapping import OperatorStationMapping
+from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
 
 __all__ = [
     "Base",
@@ -37,6 +44,7 @@ __all__ = [
     "UserLogin",
     "Candidate",
     "CandidateLogin",
+    "CandidateDocument",
     "DCRemark",
     "LMS",
     "LMSRemark",
@@ -56,6 +64,12 @@ __all__ = [
     "StationIDRequest",
     "StationIDRemark",
     "OtpVerification",
-    "AadhaarDistrictResource",
     "AdminLoginLog",
+    "HoldCandidate",
+    "ReportHistory",
+    "Operator",
+    "KitRegistration",
+    "StationIDMaster",
+    "OperatorStationMapping",
+    "OperatorOnboardingDetail",
 ]

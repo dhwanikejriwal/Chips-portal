@@ -40,6 +40,7 @@ class OperatorReactivationRequest(Base):
     created_at = Column(DateTime(timezone=True), default=get_ist_now, nullable=False, index=True)
     updated_at = Column(DateTime(timezone=True), default=get_ist_now, onupdate=get_ist_now, nullable=False)
     reviewed_by = Column(Integer, ForeignKey("user_login_table.id"), nullable=True)
+    is_mailed = Column(Integer, default=0, nullable=True)
 
     operators = relationship("ReactivationOperator", back_populates="parent_request", cascade="all, delete-orphan")
     remarks = relationship("ReactivationRemarkHistory", back_populates="parent_request", cascade="all, delete-orphan")

@@ -76,9 +76,9 @@ def view_reactivation_dashboard():
                     "operator_count": int(req.get("operator_count", 0)),
                     "training_date": str(req.get("training_date", "")),
                     "status": status_str,
-                    # 🌟 CONNECTED: Maps fallback parameter chains safely to prevent template metrics runtime drops
                     "created_at": str(req.get("timestamp") or req.get("created_at") or req.get("submitted_at") or "—")[:19],
                     "updated_at": str(req.get("updated_at") or "—")[:19],
+                    "is_mailed": int(req.get("is_mailed") or 0),
                     "revert_reason": str(req.get("reject_reason") or req.get("revert_reason") or "None"),
                     "operators": [
                         dict(op, timeline_logs=req.get("timeline_logs", []))
@@ -86,17 +86,78 @@ def view_reactivation_dashboard():
                     ] if isinstance(req.get("operators"), list) else [],
                     "timeline_logs": req.get("timeline_logs", [])
                 })
-        else:
-            print(f"WARNING: Unexpected data type from FastAPI backend: {type(raw_history)}")
-            requests_history = []
+        full_history = list(requests_history)
+
+        all_time_metrics = {
+            "pending": 0,
+            "reapplied": 0,
+            "sent_to_uidai": 0,
+            "reverted": 0,
+            "rejected": 0,
+            "approved": 0,
+        }
+        for r in full_history:
+            if not isinstance(r, dict):
+                continue
+            ops = r.get("operators")
+            if ops and isinstance(ops, list) and len(ops) > 0:
+                for op in ops:
+                    st = str(op.get("status") or r.get("status") or "PENDING").upper().replace("_", " ").strip()
+                    if "UIDAI" in st and "REJECT" not in st:
+                        all_time_metrics["sent_to_uidai"] += 1
+                    elif st in ["APPROVED", "REVIEWED", "ACTIVATED", "ACTIVE", "ASSIGNED"]:
+                        all_time_metrics["approved"] += 1
+                    elif st in ["REVERTED", "REVERT BACK", "REVERTED BY CHIPS"]:
+                        all_time_metrics["reverted"] += 1
+                    elif st in ["REJECTED", "UIDAI REJECTED", "REJECTED BY UIDAI"] or "REJECT" in st:
+                        all_time_metrics["rejected"] += 1
+                    elif st in ["REAPPLIED"]:
+                        all_time_metrics["reapplied"] += 1
+                    else:
+                        all_time_metrics["pending"] += 1
+            else:
+                op_cnt = int(r.get("operator_count") or 1)
+                st = str(r.get("status") or "PENDING").upper().replace("_", " ").strip()
+                if "UIDAI" in st and "REJECT" not in st:
+                    all_time_metrics["sent_to_uidai"] += op_cnt
+                elif st in ["APPROVED", "REVIEWED", "ACTIVATED", "ACTIVE", "ASSIGNED"]:
+                    all_time_metrics["approved"] += op_cnt
+                elif st in ["REVERTED", "REVERT BACK", "REVERTED BY CHIPS"]:
+                    all_time_metrics["reverted"] += op_cnt
+                elif st in ["REJECTED", "UIDAI REJECTED", "REJECTED BY UIDAI"] or "REJECT" in st:
+                    all_time_metrics["rejected"] += op_cnt
+                elif st in ["REAPPLIED"]:
+                    all_time_metrics["reapplied"] += op_cnt
+                else:
+                    all_time_metrics["pending"] += op_cnt
+
+        total_requests = (
+            all_time_metrics["pending"] +
+            all_time_metrics["reapplied"] +
+            all_time_metrics["sent_to_uidai"] +
+            all_time_metrics["reverted"] +
+            all_time_metrics["rejected"] +
+            all_time_metrics["approved"]
+        )
 
     except Exception as e:
         print(f"❌ CRITICAL BLUEPRINT DIAGNOSTIC LOOP ERROR: {str(e)}")
         requests_history = []
+        full_history = []
+        all_time_metrics = {"pending": 0, "reapplied": 0, "sent_to_uidai": 0, "reverted": 0, "rejected": 0, "approved": 0}
+        total_requests = 0
 
     aging_filter, aging_label = parse_aging_filter(request.args)
     if aging_filter:
-        pending_subset = [r for r in requests_history if r.get("status") == "PENDING"]
+        pending_subset = []
+        for r in requests_history:
+            ops = r.get("operators", [])
+            if ops:
+                if any(str(op.get("status") or "").upper().replace("_", " ").strip() in ["PENDING", "REAPPLIED"] for op in ops):
+                    pending_subset.append(r)
+            else:
+                if str(r.get("status") or "").upper().replace("_", " ").strip() in ["PENDING", "REAPPLIED"]:
+                    pending_subset.append(r)
         requests_history = filter_by_aging(pending_subset, aging_filter, "created_at")
 
     # Extract flattened activated operators list
@@ -116,21 +177,51 @@ def view_reactivation_dashboard():
             status_lower = str(op.get("status", "")).lower()
             if status_lower in ["active", "activated", "reviewed", "approved"]:
                 activated_operators.append(op_flat)
+
+    # 🌟 CONNECTED: Resolves correct structural template path targets
                 
     with open("debug_all_operators.txt", "w") as f:
         f.write(str(all_operators))
-        
-    # 🌟 CONNECTED: Resolves correct structural template path targets
+
     template_path = "chips/chips_reactivation.html" if "/chips" in request.path else "dc/dc_reactivation.html"
     return render_template(
         template_path,
         requests=requests_history,
-        requests_history=requests_history,
+        requests_history=full_history,
+        full_history=full_history,
         activated_operators=activated_operators,
         all_operators=all_operators,
+        metrics=all_time_metrics,
+        total_requests=total_requests,
         aging_filter=aging_filter,
         aging_label=aging_label
     )
+
+
+@reactivation_bp.route("/dc/reactivation/check-duplicate", methods=["GET"])
+def check_duplicate():
+    if not session.get("username"):
+        return jsonify({"error": "Unauthorized session context"}), 401
+
+    headers = {}
+    if session.get("access_token"):
+        headers["Authorization"] = f"Bearer {session.get('access_token')}"
+
+    params = {
+        "mobile": request.args.get("mobile"),
+        "email": request.args.get("email"),
+        "exclude_id": request.args.get("exclude_id")
+    }
+
+    try:
+        response = requests.get(
+            f"{FASTAPI_URL}/check-duplicate",
+            params=params,
+            headers=headers
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @reactivation_bp.route("/dc/submit", methods=["POST"])
@@ -446,3 +537,65 @@ def proxy_reject_all_batch(request_code):
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@reactivation_bp.route("/dc/operator-reactivation/search", methods=["GET"])
+def search_suspended_operators():
+    if not session.get("username"):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        q = request.args.get("q", "")
+        raw_token = session.get("access_token", "")
+        if isinstance(raw_token, dict):
+            raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+            
+        headers = {}
+        if raw_token:
+            headers["Authorization"] = f"Bearer {str(raw_token).strip()}"
+        
+        backend_url = f"{FASTAPI_URL}/search-suspended-operators"
+        response = requests.get(f"{backend_url}?q={q}", headers=headers, timeout=5)
+        
+        if response.status_code == 200:
+            return jsonify(response.json())
+        else:
+            return jsonify({"status": "error", "message": "Search failed"}), response.status_code
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@reactivation_bp.route("/chips/reactivation/export-and-mail/recipient", methods=["GET"])
+def chips_reactivation_export_mail_recipient():
+    raw_token = session.get("access_token", "")
+    if isinstance(raw_token, dict):
+        raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+    headers = {"Authorization": f"Bearer {str(raw_token).strip()}"}
+    try:
+        response = requests.get(f"{FASTAPI_URL}/export-and-mail/recipient", headers=headers, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.RequestException:
+        pass
+    return {"recipient_email": (os.getenv("UIDAI_RECIPIENT_EMAIL", "") or "").strip()}
+
+
+@reactivation_bp.route("/chips/reactivation/export-and-mail", methods=["POST"])
+def chips_reactivation_export_and_mail():
+    raw_token = session.get("access_token", "")
+    if isinstance(raw_token, dict):
+        raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+    headers = {"Authorization": f"Bearer {str(raw_token).strip()}"}
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids") or request.form.get("ids", "")
+    email_to = data.get("email_to") or request.form.get("email_to", "")
+
+    try:
+        response = requests.post(
+            f"{FASTAPI_URL}/export-and-mail",
+            json={"ids": ids, "email_to": email_to},
+            headers=headers,
+            timeout=15,
+        )
+        return (response.content, response.status_code, response.headers.items())
+    except requests.exceptions.RequestException as e:
+        return jsonify({"detail": f"Failed to connect to backend service: {e}"}), 502
+

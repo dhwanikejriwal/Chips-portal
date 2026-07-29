@@ -201,6 +201,7 @@ async def send_lms_approval_email(email_to: str, name: str, username: str, raw_p
                 
                 <p>Please click the button below to access the LMS portal:</p>
                 <a href="{lms_link}" class="btn" style="color: #ffffff;">Go to LMS Portal</a>
+                <p style="margin-top: 15px; font-size: 14px;">Or use this link: <a href="{lms_link}" target="_blank">{lms_link}</a></p>
                 
                 <p>For security reasons, we strongly recommend that you change your password upon your first login.</p>
                 <p>Best regards,<br>The CHiPS Administration Team</p>
@@ -236,6 +237,128 @@ async def send_lms_approval_email(email_to: str, name: str, username: str, raw_p
         await fm.send_message(message)
     except Exception as e:
         print(f"Failed to send LMS approval email to {email_to}: {e}")
+        raise e
+
+async def send_nseit_approval_email(email_to: str, name: str, booking_link: str = "https://uidai.nseitexams.com"):
+    """
+    Sends an automated HTML email to the candidate upon NSEIT request approval,
+    informing them that their request is approved and they can book their exam slot and make the payment.
+    """
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f1f5f9;
+                padding: 20px;
+                color: #334155;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: #ffffff;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            }}
+            .header {{
+                text-align: center;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 20px;
+                margin-bottom: 20px;
+            }}
+            .header h2 {{
+                color: #0f172a;
+                margin: 0;
+            }}
+            .content {{
+                line-height: 1.6;
+            }}
+            .info-box {{
+                background-color: #f8fafc;
+                border-left: 4px solid #10b981;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }}
+            .info-box p {{
+                margin: 5px 0;
+            }}
+            .btn {{
+                display: inline-block;
+                background-color: #10b981;
+                color: #ffffff;
+                padding: 10px 20px;
+                text-decoration: none;
+                border-radius: 6px;
+                margin-top: 15px;
+                font-weight: 500;
+            }}
+            .footer {{
+                text-align: center;
+                font-size: 14px;
+                color: #64748b;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 20px;
+                margin-top: 20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>NSEIT Application Approved</h2>
+            </div>
+            <div class="content">
+                <p>Hello {name},</p>
+                <p>Great news! Your NSEIT request has been reviewed and approved by CHiPS Administration.</p>
+                
+                <div class="info-box">
+                    <p><strong>Next Steps:</strong></p>
+                    <p>1. Visit the NSEIT Exam Portal.</p>
+                    <p>2. Book your preferred examination slot.</p>
+                    <p>3. Complete the exam fee payment to finalize your booking.</p>
+                </div>
+                
+                <p>Please click the button below to visit the NSEIT Exam Portal and book your exam slot:</p>
+                <a href="{booking_link}" class="btn" style="color: #ffffff;" target="_blank">Book Exam Slot & Pay Fee</a>
+                <p style="margin-top: 15px; font-size: 14px;">Or use this link: <a href="{booking_link}" target="_blank">{booking_link}</a></p>
+                
+                <p>Best regards,<br>The CHiPS Administration Team</p>
+            </div>
+            <div class="footer">
+                <p>This is an automated email. Please do not reply directly to this message.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    message = MessageSchema(
+        subject="Your NSEIT Application has been Approved - CHiPS Portal",
+        recipients=[email_to],
+        body=html_content,
+        subtype=MessageType.html
+    )
+
+    # Bypass email sending if SMTP server is not configured
+    if not conf.MAIL_SERVER:
+        print(f"\n======================================")
+        print(f"MOCK EMAIL TO: {email_to}")
+        print(f"SUBJECT: Your NSEIT Application has been Approved - CHiPS Portal")
+        print(f"Candidate: {name}")
+        print(f"Message: NSEIT request approved. Candidate can now book exam slot & pay fee.")
+        print(f"Booking Link: {booking_link}")
+        print(f"======================================\n")
+        return
+
+    fm = FastMail(conf)
+    try:
+        await fm.send_message(message)
+    except Exception as e:
+        print(f"Failed to send NSEIT approval email to {email_to}: {e}")
         raise e
 
 async def send_rejection_email(email_to: str, name: str, reason: str):
@@ -524,6 +647,7 @@ async def send_password_reset_otp_email(email_to: str, name: str, otp_code: str)
         await fm.send_message(message)
     except Exception as e:
         print(f"Failed to send email to {email_to}: {e}")
+        raise e
 
 
 async def send_otp_email(email_to: str, otp_code: str):
@@ -627,3 +751,135 @@ async def send_otp_email(email_to: str, otp_code: str):
     except Exception as e:
         print(f"Failed to send email to {email_to}: {e}")
         return False
+
+DEFAULT_UIDAI_RECIPIENT_EMAIL = os.getenv("UIDAI_RECIPIENT_EMAIL", "").strip()
+
+async def send_uidai_export_email(
+    csv_content: str,
+    record_count: int,
+    module_name: str,
+    filename: str,
+    email_to: str | None = None
+):
+    """
+    Sends an automated HTML email containing the CSV export of Sent to UIDAI operator requests as an attachment.
+    """
+    target_email = (email_to or DEFAULT_UIDAI_RECIPIENT_EMAIL).strip()
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f1f5f9;
+                padding: 20px;
+                color: #334155;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 0 auto;
+                background-color: #ffffff;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            }}
+            .header {{
+                text-align: center;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 20px;
+                margin-bottom: 20px;
+            }}
+            .header h2 {{
+                color: #1e293b;
+                margin: 0;
+            }}
+            .content {{
+                line-height: 1.6;
+            }}
+            .info-box {{
+                background-color: #f8fafc;
+                border-left: 4px solid #2563eb;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }}
+            .info-box p {{
+                margin: 5px 0;
+            }}
+            .footer {{
+                text-align: center;
+                font-size: 14px;
+                color: #64748b;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 20px;
+                margin-top: 20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>{module_name} Requests - Ready for UIDAI Processing</h2>
+            </div>
+            <div class="content">
+                <p>Respected Sir,</p>
+                <p>Please find attached the exported dataset of verified {module_name.lower()} requests that are ready to be sent to UIDAI for processing.</p>
+                
+                <div class="info-box">
+                    <p>• <strong>Total Records:</strong> {record_count}</p>
+                    <p>• <strong>Attachment:</strong> {filename}</p>
+                </div>
+                
+                <p>The attached CSV file contains complete operator details.</p>
+                <p>Best regards,<br>The CHiPS Aadhar Admin Team</p>
+            </div>
+            <div class="footer">
+                <p>This is an automated email sent from CHiPS Admin Portal. Please do not reply directly to this message.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    from starlette.datastructures import UploadFile
+    import io
+
+    if isinstance(csv_content, bytes):
+        csv_bytes = csv_content
+    else:
+        csv_bytes = csv_content.encode("utf-8")
+
+    attachment_file = UploadFile(
+        filename=filename,
+        file=io.BytesIO(csv_bytes),
+        headers={"content-type": "text/csv"}
+    )
+
+    message = MessageSchema(
+        subject=f"{module_name} Requests - Ready for UIDAI Processing - CHiPS Portal",
+        recipients=[target_email],
+        body=html_content,
+        subtype=MessageType.html,
+        attachments=[attachment_file]
+    )
+
+    if not conf.MAIL_SERVER:
+        print(f"\n======================================")
+        print(f"MOCK EMAIL TO: {target_email}")
+        print(f"SUBJECT: {module_name} Requests - Ready for UIDAI Processing - CHiPS Portal")
+        print(f"Record Count: {record_count}")
+        print(f"Attachment Filename: {filename}")
+        print(f"CSV Bytes Size: {len(csv_bytes)} bytes")
+        print(f"======================================\n")
+        return True
+
+    fm = FastMail(conf)
+    try:
+        await fm.send_message(message)
+        return True
+    except Exception as e:
+        print(f"Failed to send UIDAI export email to {target_email}: {e}")
+        raise e
+

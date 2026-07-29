@@ -14,7 +14,7 @@ class UserProfile(Base):
     
     full_name: Mapped[str] = mapped_column(String(100), nullable=True)
     email: Mapped[str] = mapped_column(String(150), nullable=True)
-    phone: Mapped[str] = mapped_column(String(20), nullable=True)
+    phone: Mapped[str] = mapped_column(String(100), nullable=True)
     
     # We keep authorization/auth (like role and is_active) in the UserLogin table,
     # but we can link back to the user here.

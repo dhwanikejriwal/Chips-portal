@@ -13,7 +13,7 @@ class DCRemark(Base):
     __tablename__ = "dc_remark_table"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    r_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidate_table.r_id"), nullable=False)
+    request_id: Mapped[int] = mapped_column(Integer, ForeignKey("candidate_table.id"), nullable=False)
     remark: Mapped[str] = mapped_column(String(1000), nullable=False)
     time: Mapped[datetime] = mapped_column(DateTime, default=get_ist_now, nullable=False)
     

@@ -31,7 +31,7 @@ def upgrade() -> None:
         "districts"
     ]
     for table in unused_tables:
-        op.drop_table(table)
+        op.execute(f'DROP TABLE IF EXISTS "{table}" CASCADE')
 
     # 2. Create master_status table
     op.create_table(

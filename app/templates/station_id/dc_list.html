@@ -7,14 +7,25 @@
 {% endblock %}
 
 {% block content %}
+{% from 'partials/request_section.html' import request_section %}
 
+<!-- Jinja2 Metric Calculations -->
 {% set total_requests = requests | length %}
-{% set pending_count = requests | selectattr('status', 'equalto', 'PENDING') | list | length %}
-{% set reapplied_count = requests | selectattr('status', 'equalto', 'REAPPLIED') | list | length %}
-{% set approved_count = requests | selectattr('status', 'equalto', 'APPROVED') | list | length %}
-{% set reverted_count = requests | selectattr('status', 'equalto', 'REVERTED') | list | length %}
+{% set metrics = namespace(pending=0, reapplied=0, reverted=0, allotted=0) %}
+{% for r in requests %}
+{% set st = r.status | upper %}
+{% if st == 'PENDING' %}
+{% set metrics.pending = metrics.pending + 1 %}
+{% elif st == 'REAPPLIED' %}
+{% set metrics.reapplied = metrics.reapplied + 1 %}
+{% elif st == 'REVERTED' %}
+{% set metrics.reverted = metrics.reverted + 1 %}
+{% elif st == 'ALLOTTED' %}
+{% set metrics.allotted = metrics.allotted + 1 %}
+{% endif %}
+{% endfor %}
 
-<div class="chips-header-banner">
+<div class="chips-header-banner" style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
     <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
         <div style="display: flex; align-items: center; gap: 15px;">
             <div
@@ -41,43 +52,73 @@
             New Request
         </a>
     </div>
-    <div class="chips-banner-metrics">
+    <div class="chips-banner-metrics" style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-pending">{{
-                pending_count }}</div>
+                metrics.pending }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-reapplied">{{
-                reapplied_count }}</div>
+                metrics.reapplied }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied</div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-reverted">{{
-                reverted_count }}</div>
+                metrics.reverted }}</div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-approved">{{
-                approved_count }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+                metrics.allotted }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Allotted</div>
         </div>
         <div class="chips-metric-card">
             <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{
                 total_requests }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
-            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested
+                Kits</div>
         </div>
 
     </div>
 </div>
 
 
+<!-- Section tabs -->
+<div class="req-tabs" role="tablist">
+    <button type="button" class="req-tab active" data-tab="pending">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+            <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+            <path d="M12 11v6" />
+            <path d="M9 14h6" />
+        </svg>
+        <span>Pending Station ID requests</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="reverted">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>Reverted Station ID log</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved Station ID log</span>
+    </button>
+</div>
+
 <!-- Filter Bar -->
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
         <label>Search Request</label>
-        <input type="text" id="sid-search" class="filter-input" placeholder="Search by request ID, district, model…"
+        <input type="text" id="sid-search" class="filter-input" placeholder="Search by request ID, model..."
             oninput="filterAllTables()">
     </div>
     <div class="filter-group">
@@ -102,178 +143,222 @@
 </div>
 
 <!-- Pending Section -->
-<div class="section-heading">
-    <div class="section-heading-dot" style="background:#f59e0b;"></div>
-    <h3>Pending Station ID Requests</h3>
-    <span class="section-count" id="pending-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <select id="pending-status-filter" class="filter-input"
-            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
-            <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="reapplied">Reapplied</option>
-        </select>
-        <button class="btn btn-sm"
-            onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.csv')">Export to CSV</button>
-    </div>
-</div>
-<div class="sid-table-wrapper" style="margin-bottom: 28px;">
-    <table class="sid-table" id="pending-table">
-        <thead>
-            <tr>
-                <th style="width: 50px;">S.No</th>
-                <th>Request ID</th>
-                <th>District</th>
-                <th>Model</th>
-                <th>User Type</th>
-                <th>No. of Kits</th>
-                <th>Status</th>
-                <th>Submitted At</th>
-                <th>Updated At</th>
-                <th style="text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="pending-tbody">
-            {% set ns_p = namespace(count=1) %}
-            {% for r in requests if (r.status|upper) in ['PENDING', 'REAPPLIED'] %}
-            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
-                data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
-                data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
-                data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
-                data-remarks='{{ r.remarks_history | tojson | safe }}'>
-                <td>{{ ns_p.count }}</td>
-                <td><strong>{{ r.request_no }}</strong></td>
-                <td>{{ r.district_name }}</td>
-                <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
-                <td>
-                    {{ r.user_type | replace('_', ' ') | capitalize }}
-                </td>
-                <td><strong>{{ r.number_of_kits }}</strong></td>
-                <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">{{ r.status |
-                        replace('_', ' ') | title }}</span></td>
-                <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
-                <td>
-                    {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and (r.updated_at or r.reviewed_at) and
-                    (r.updated_at or r.reviewed_at) != '—' %}
-                    {{ (r.updated_at or r.reviewed_at)[:16] }}
-                    {% else %}
-                    —
-                    {% endif %}
-                </td>
-                <td style="text-align: center;">
-                    <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        Details
-                    </button>
-                </td>
-            </tr>
-            {% set ns_p.count = ns_p.count + 1 %}
-            {% endfor %}
-        </tbody>
-    </table>
-    <div id="pending-empty-msg" class="empty-state" style="display: none;">
-        <div class="empty-state-icon"></div>
-        <p>No pending request records found matching current scope.</p>
-    </div>
-</div>
+{% set pending_controls %}
+<select id="pending-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="pending">Pending</option>
+    <option value="reapplied">Reapplied</option>
+</select>
+<button class="rs-export"
+    onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.csv', true, true)">Export to
+    CSV</button>
+{% endset %}
+<div class="req-tabpanel active" data-panel="pending">
+    {% call request_section(
+    variant='pending',
+    title='Pending Station ID requests',
+    count='–', count_id='pending-count',
+    controls=pending_controls,
+    min_width=1050,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Model'},
+    {'label': 'User type'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='pending-table', body_id='pending-tbody',
+    empty_id='pending-empty-msg',
+    empty_message='No pending request records found matching current scope.') %}
+    {% set ns_p = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) in ['PENDING', 'REAPPLIED'] %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
+        data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
+        data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
+        data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+        data-remarks='{{ (r.remarks_history | default([])) | tojson | safe }}'>
+        <td>{{ ns_p.count }}</td>
+        <td><strong>{{ r.request_no }}</strong></td>
+        <td>{{ r.district_name }}</td>
+        <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
+        <td>
+            {{ r.user_type | replace('_', ' ') | capitalize }}
+        </td>
+        <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">{{ r.status |
+                replace('_', ' ') | title }}</span></td>
+        <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
+        <td>
+            {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and (r.updated_at or r.reviewed_at) and
+            (r.updated_at or r.reviewed_at) != '—' %}
+            {{ (r.updated_at or r.reviewed_at)[:16] }}
+            {% else %}
+            —
+            {% endif %}
+        </td>
+        <td style="text-align: center;">
+            <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Details
+            </button>
+        </td>
+    </tr>
+    {% set ns_p.count = ns_p.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel pending -->
 
-<hr style="border: 0; height: 1px; background: #e2e8f0; margin: 40px 0;">
+<!-- Approved History Section -->
+<!-- Reverted History Section -->
+{% set reverted_controls %}
+<button class="rs-export"
+    onclick="exportTableToExcel('reverted-table', 'reverted_station_id_history.csv', false, true, true)">Export to
+    CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="reverted">
+    {% call request_section(
+    variant='rejected',
+    title='Reverted Station ID log',
+    count='–', count_id='reverted-count-badge',
+    controls=reverted_controls,
+    min_width=1150,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Model'},
+    {'label': 'User type'},
+    {'label': 'No. of kits', 'align': 'right'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='reverted-table', body_id='reverted-tbody',
+    empty_id='reverted-empty-msg',
+    empty_message='No reverted/rejected request logs found.') %}
+    {% set ns_r = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) in ['REVERTED'] %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
+        data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
+        data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
+        data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+        data-assigned-station-id="{{ r.assigned_station_id or '' }}"
+        data-remarks='{{ (r.remarks_history | default([])) | tojson | safe }}'>
+        <td>{{ ns_r.count }}</td>
+        <td>
+            <strong>{{ r.request_no }}</strong>
+        </td>
+        <td>{{ r.district_name }}</td>
+        <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
+        <td>{{ r.user_type | replace('_', ' ') | capitalize }}</td>
+        <td><strong>{{ r.number_of_kits }}</strong></td>
+        <td><span class="sid-badge sid-badge-reverted">Reverted</span></td>
+        <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
+        <td>{{ r.reviewed_at[:16] if r.reviewed_at and r.reviewed_at != '—' else '—' }}</td>
+        <td style="text-align: center;">
+            <div style="display:flex; gap:6px; justify-content:center;">
+                <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns_r.count = ns_r.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel reverted -->
 
-<!-- History Section -->
-<div class="section-heading">
-    <div class="section-heading-dot" style="background:#16a34a;"></div>
-    <h3>Processed Log History</h3>
-    <span class="section-count" id="log-count">–</span>
-    <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
-        <select id="log-status-filter" class="filter-input"
-            style="width: 140px; margin: 0; padding: 6px 10px; font-size: 13px;" onchange="filterAllTables()">
-            <option value="all">All Statuses</option>
-            <option value="approved">Approved</option>
-            <option value="reverted">Reverted</option>
-        </select>
-        <button class="btn btn-sm" onclick="exportTableToExcel('log-table', 'processed_station_id_history.csv')">Export
-            to CSV</button>
-    </div>
-</div>
-<div class="sid-table-wrapper">
-    <table class="sid-table" id="log-table">
-        <thead>
-            <tr>
-                <th style="width: 50px;">S.No</th>
-                <th>Request ID</th>
-                <th>District</th>
-                <th>Model</th>
-                <th>User Type</th>
-                <th>No. of Kits</th>
-                <th>Status</th>
-                <th>Assigned ID</th>
-                <th>Submitted At</th>
-                <th>Updated At</th>
-                <th style="text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody id="log-tbody">
-            {% set ns_l = namespace(count=1) %}
-            {% for r in requests if (r.status|upper) in ['APPROVED', 'REVERTED'] %}
-            <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
-                data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
-                data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
-                data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
-                data-assigned-station-id="{{ r.assigned_station_id or '' }}"
-                data-remarks='{{ r.remarks_history | tojson | safe }}'>
-                <td>{{ ns_l.count }}</td>
-                <td>
-                    <strong>{{ r.request_no }}</strong>
-                </td>
-                <td>{{ r.district_name }}</td>
-                <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
-                <td>{{ r.user_type | replace('_', ' ') | capitalize }}</td>
-                <td><strong>{{ r.number_of_kits }}</strong></td>
-                <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">{{ r.status |
-                        replace('_', ' ') | title }}</span></td>
-                <td>
-                    {% if r.assigned_station_id %}
-                    {% set ids_list = r.assigned_station_id.split(',') %}
-                    {% if ids_list | length > 3 %}
-                    <strong style="color:#16a34a;">{{ ids_list[:3] | join(',') }}...</strong>
-                    <a href="javascript:void(0)"
-                        style="color: #0F7A50; font-size: 12px; font-weight: 600; text-decoration: underline; margin-left: 5px;"
-                        onclick="showAllStationIds('{{ r.assigned_station_id }}')">See All</a>
-                    {% else %}
-                    <strong style="color:#16a34a;">{{ r.assigned_station_id }}</strong>
-                    {% endif %}
-                    {% else %}
-                    <strong style="color:#16a34a;">—</strong>
-                    {% endif %}
-                </td>
-                <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
-                <td>{{ r.reviewed_at[:16] if r.reviewed_at and r.reviewed_at != '—' else '—' }}</td>
-                <td style="text-align: center;">
-                    <div style="display:flex; gap:6px; justify-content:center;">
-                        <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5">
-                                <circle cx="11" cy="11" r="8" />
-                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                            </svg>
-                            Details
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            {% set ns_l.count = ns_l.count + 1 %}
-            {% endfor %}
-        </tbody>
-    </table>
-    <div id="log-empty-msg" class="empty-state" style="display: none;">
-        <div class="empty-state-icon"></div>
-        <p>No historical request logs found matching current scope.</p>
-    </div>
-</div>
+<!-- Approved Section -->
+{% set approved_controls %}
+<button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_station_id_history.csv', true)">Export
+    to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="approved">
+    {% call request_section(
+    variant='approved',
+    title='Approved Station ID log',
+    count='–', count_id='approved-count-badge',
+    controls=approved_controls,
+    min_width=1150,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Model'},
+    {'label': 'User type'},
+    {'label': 'Type of slot'},
+    {'label': 'Status'},
+    {'label': 'Assigned ID'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='approved-table', body_id='approved-tbody',
+    empty_id='approved-empty-msg',
+    empty_message='No approved request logs found.') %}
+    {% set ns_a = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) in ['ALLOTTED'] %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no }}" data-district="{{ r.district_name }}"
+        data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
+        data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
+        data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+        data-assigned-station-id="{{ r.assigned_station_id or '' }}"
+        data-remarks='{{ (r.remarks_history | default([])) | tojson | safe }}'>
+        <td>{{ ns_a.count }}</td>
+        <td>
+            <strong>{{ r.request_no }}</strong>
+        </td>
+        <td>{{ r.district_name }}</td>
+        <td><span class="model-badge model-{{ r.model }}">{{ r.model }}</span></td>
+        <td>{{ r.user_type | replace('_', ' ') | capitalize }}</td>
+        <td>{{ (r.slot | title) if r.slot else '—' }}</td>
+        <td><span class="sid-badge sid-badge-allotted">Allotted</span></td>
+        <td>
+            {% if r.assigned_station_id %}
+            {% set ids_list = r.assigned_station_id.split(',') %}
+            {% if ids_list | length > 3 %}
+            <strong style="color:#16a34a;">{{ ids_list[:3] | join(',') }}...</strong>
+            <a href="javascript:void(0)"
+                style="color: #0F7A50; font-size: 12px; font-weight: 600; text-decoration: underline; margin-left: 5px;"
+                onclick="showAllStationIds('{{ r.assigned_station_id }}')">See All</a>
+            {% else %}
+            <strong style="color:#16a34a;">{{ r.assigned_station_id }}</strong>
+            {% endif %}
+            {% else %}
+            <strong style="color:#16a34a;">—</strong>
+            {% endif %}
+        </td>
+        <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
+        <td>{{ r.reviewed_at[:16] if r.reviewed_at and r.reviewed_at != '—' else '—' }}</td>
+        <td style="text-align: center;">
+            <div style="display:flex; gap:6px; justify-content:center;">
+                <button class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns_a.count = ns_a.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel approved -->
 
 
 <script>
@@ -301,7 +386,9 @@
         let badgeClass = 'badge-pending';
         let label = 'Pending';
 
-        if (s.includes('approve')) {
+        if (s.includes('allot')) {
+            badgeClass = 'badge-allotted'; label = 'Allotted';
+        } else if (s.includes('approve')) {
             badgeClass = 'badge-approved'; label = 'Approved';
         } else if (s.includes('revert')) {
             badgeClass = 'badge-reverted'; label = 'Reverted';
@@ -336,7 +423,7 @@
             if (statusAfter) {
                 statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
                 const sLower = statusAfter.toLowerCase();
-                if (sLower.includes('approve')) markerClass = 'marker-approved';
+                if (sLower.includes('allot') || sLower.includes('approve')) markerClass = 'marker-approved';
                 else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
                 else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
                 else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
@@ -371,7 +458,8 @@
 
     // Details/Reapply modal popup
     window.showStationIdDetails = function (d, activeView) {
-        const isReverted = (d.status || '').toLowerCase().replace(/ /g, '_') === 'reverted';
+        const normStatus = (d.status || '').trim().toLowerCase();
+        const isReverted = ['reverted', 'rejected', 'reverted by chips', 'reverted_by_chips'].includes(normStatus);
 
         const statusBadge = getStatusBadgeHtml(d.status);
 
@@ -381,8 +469,7 @@
                     <span style="font-size: 14px; color: #666;">Request ID: <strong>${d.reqNo}</strong></span>
                     <span>${statusBadge}</span>
                 </div>
-                <!-- Added Submitted At Info for normal views -->
-                <div style="font-size: 13px; color: #64748b; margin-top: -10px; margin-bottom: 15px;">
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
                     Submitted At: <strong>${d.submittedAt || '—'}</strong>
                 </div>
                 
@@ -457,7 +544,7 @@
                     <span style="font-size: 14px; color: #666;">Request: <strong>${d.reqNo}</strong></span>
                     <span>${statusBadge}</span>
                 </div>
-                <div style="font-size: 13px; color: #64748b; margin-top: -10px; margin-bottom: 15px;">
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
                     Submitted At: <strong>${d.submittedAt || '—'}</strong>
                 </div>
 
@@ -652,20 +739,17 @@
             sessionStorage.removeItem('dc_sid_search');
             sessionStorage.removeItem('dc_sid_date');
             sessionStorage.removeItem('dc_pending_status');
-            sessionStorage.removeItem('dc_log_status');
         }
 
-        // 🌟 FIXED: Read saved filters from sessionStorage on page load
+        // Read saved filters from sessionStorage on page load
         if (sessionStorage.getItem('dc_sid_search') !== null) {
             document.getElementById('sid-search').value = sessionStorage.getItem('dc_sid_search');
             document.getElementById('sid-date-filter').value = sessionStorage.getItem('dc_sid_date');
             document.getElementById('pending-status-filter').value = sessionStorage.getItem('dc_pending_status');
-            document.getElementById('log-status-filter').value = sessionStorage.getItem('dc_log_status');
         } else {
             document.getElementById('sid-search').value = '';
             document.getElementById('sid-date-filter').value = 'month';
             document.getElementById('pending-status-filter').value = 'all';
-            document.getElementById('log-status-filter').value = 'all';
         }
 
         window.filterAllTables = function () {
@@ -675,16 +759,14 @@
             const now = new Date();
 
             const pending_sf = document.getElementById('pending-status-filter').value;
-            const log_sf = document.getElementById('log-status-filter').value;
 
-            // 🌟 FIXED: Save current filter criteria to sessionStorage dynamically
+            // Save current filter criteria to sessionStorage dynamically
             sessionStorage.setItem('dc_sid_search', document.getElementById('sid-search').value);
             sessionStorage.setItem('dc_sid_date', df);
             sessionStorage.setItem('dc_pending_status', pending_sf);
-            sessionStorage.setItem('dc_log_status', log_sf);
 
-            ['pending', 'log'].forEach(sec => {
-                const sf = (sec === 'pending') ? pending_sf : log_sf;
+            ['pending', 'approved', 'reverted'].forEach(sec => {
+                const sf = (sec === 'pending') ? pending_sf : 'all';
                 const rows = document.querySelectorAll(`#${sec}-tbody tr[data-id]`);
                 let visible = 0;
                 rows.forEach(row => {
@@ -696,15 +778,15 @@
 
                     const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
                     const customReason = (row.getAttribute('data-custom-reason') || '').toLowerCase();
+                    const stationId = (row.getAttribute('data-assigned-station-id') || '').toLowerCase();
 
-                    const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || customReason.includes(q);
+                    const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || customReason.includes(q) || stationId.includes(q);
                     const matchStatus = (sf === 'all') || (status === sf);
 
                     let matchDate = true;
                     if (df === 'today') {
                         matchDate = created.startsWith(p.today);
                     } else if (df === 'week') {
-                        // Show entries from the last 7 days
                         if (!created) {
                             matchDate = false;
                         } else {
@@ -713,7 +795,6 @@
                             matchDate = rowDate >= sevenDaysAgo;
                         }
                     } else if (df === 'month') {
-                        // Show entries from the last 30 days
                         if (!created) {
                             matchDate = false;
                         } else {
@@ -726,30 +807,83 @@
                     row.style.display = show ? '' : 'none';
                     if (show) visible++;
                 });
-                const tbl = document.getElementById(`${sec}-table`);
                 const emg = document.getElementById(`${sec}-empty-msg`);
-                const cnt = document.getElementById(`${sec}-count`);
+                const cnt = document.getElementById(`${sec}-count`) || document.getElementById(`${sec}-count-badge`);
                 if (emg) emg.style.display = (visible === 0) ? 'block' : 'none';
                 if (cnt) cnt.textContent = visible;
             });
+
+            // Calculate and update metrics dynamically
+            let metricPending = 0;
+            let metricReapplied = 0;
+            let metricReverted = 0;
+            let metricAllotted = 0;
+
+            const allRowsForMetrics = document.querySelectorAll('#pending-tbody tr[data-id], #approved-tbody tr[data-id], #reverted-tbody tr[data-id]');
+            allRowsForMetrics.forEach(row => {
+                const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+                const dist = (row.getAttribute('data-district') || '').toLowerCase();
+                const model = (row.getAttribute('data-model') || '').toLowerCase();
+                const status = (row.getAttribute('data-status') || '').toLowerCase();
+                const created = row.getAttribute('data-created') || '';
+                const uType = (row.getAttribute('data-user-type') || '').toLowerCase().replace(/_/g, ' ');
+                const customReason = (row.getAttribute('data-custom-reason') || '').toLowerCase();
+                const stationId = (row.getAttribute('data-assigned-station-id') || '').toLowerCase();
+
+                const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || customReason.includes(q) || stationId.includes(q);
+
+                let matchDate = true;
+                if (df === 'today') {
+                    matchDate = created.startsWith(p.today);
+                } else if (df === 'week') {
+                    if (!created) {
+                        matchDate = false;
+                    } else {
+                        const rowDate = new Date(created.replace(' ', 'T'));
+                        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        matchDate = rowDate >= sevenDaysAgo;
+                    }
+                } else if (df === 'month') {
+                    if (!created) {
+                        matchDate = false;
+                    } else {
+                        const rowDate = new Date(created.replace(' ', 'T'));
+                        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        matchDate = rowDate >= thirtyDaysAgo;
+                    }
+                }
+
+                if (matchQ && matchDate) {
+                    if (status === 'pending') {
+                        metricPending++;
+                    } else if (status === 'reapplied') {
+                        metricReapplied++;
+                    } else if (status === 'reverted') {
+                        metricReverted++;
+                    } else if (status === 'allotted') {
+                        metricAllotted++;
+                    }
+                }
+            });
+
+            // Metric cards display all-time counts irrespective of active filters
         };
 
         window.clearAllFilters = function () {
             document.getElementById('sid-search').value = '';
             document.getElementById('pending-status-filter').value = 'all';
-            document.getElementById('log-status-filter').value = 'all';
             document.getElementById('sid-date-filter').value = 'month';
             sessionStorage.removeItem('dc_sid_search');
             filterAllTables();
         };
 
-        function sortLogTable() {
-            const tbody = document.getElementById('log-tbody');
+        function sortLogTable(tbodyId, dateCellIndex) {
+            const tbody = document.getElementById(tbodyId);
             if (!tbody) return;
             const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
             rows.sort((a, b) => {
-                const dateA = a.cells[9].innerText.trim();
-                const dateB = b.cells[9].innerText.trim();
+                const dateA = a.cells[dateCellIndex] ? a.cells[dateCellIndex].innerText.trim() : '—';
+                const dateB = b.cells[dateCellIndex] ? b.cells[dateCellIndex].innerText.trim() : '—';
                 if (dateA === '—' && dateB === '—') return 0;
                 if (dateA === '—') return 1;
                 if (dateB === '—') return -1;
@@ -757,13 +891,14 @@
             });
             rows.forEach(row => tbody.appendChild(row));
         }
-        sortLogTable();
+        sortLogTable('approved-tbody', 9);
+        sortLogTable('reverted-tbody', 8);
 
         window.filterAllTables();
     });
 
     // Export helper function to fetch Excel stream from backend
-    function exportTableToExcel(tableID, filename = 'export.xlsx') {
+    function exportTableToExcel(tableID, filename = 'export.xlsx', excludeKits = false, excludeSlot = false, excludeAssignedId = false) {
         const table = document.getElementById(tableID);
         if (!table) return;
 
@@ -781,7 +916,17 @@
             return;
         }
 
-        window.location.href = `/auth/station-id/export?ids=${ids.join(',')}`;
+        let url = `/auth/station-id/export?ids=${ids.join(',')}`;
+        if (excludeKits) {
+            url += `&exclude_kits=true`;
+        }
+        if (excludeSlot) {
+            url += `&exclude_slot=true`;
+        }
+        if (excludeAssignedId) {
+            url += `&exclude_assigned_id=true`;
+        }
+        window.location.href = url;
 
     }
     function showAllStationIds(idsStr) {
@@ -802,5 +947,25 @@
             customClass: { confirmButton: 'swal-btn-close' }
         });
     }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const now = new Date();
+        document.querySelectorAll('#reverted-tbody tr, [data-panel="reverted"] tr').forEach(row => {
+            let dateAttr = row.getAttribute('data-updated');
+            if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                dateAttr = row.getAttribute('data-created');
+            }
+            if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                if (!isNaN(dateObj)) {
+                    const diffTime = Math.abs(now - dateObj);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        row.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
+    });
 </script>
 {% endblock %}

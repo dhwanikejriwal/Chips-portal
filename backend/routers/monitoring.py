@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.database import get_db
-from backend.models import Candidate, District, LMS, LMSRemark, NSEITRequest, NSEITRemark, DCRemark
 from backend.models.base import StatusEnum
+from backend.utils.district_mapper import normalize_district_name
+from backend.models import Candidate, LMS, LMSRemark, NSEITRequest, NSEITRemark, District,DCRemark
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
@@ -23,8 +24,8 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
         districts = db.query(District).order_by(District.district_name.asc()).all()
         
         # Exclude skipped LMS and NSEIT requests
-        skipped_lms_ids = {r.lms_id for r in db.query(LMSRemark.lms_id).filter(LMSRemark.remark.like("%skipped%")).all()}
-        skipped_nseit_ids = {r.nseit_id for r in db.query(NSEITRemark.nseit_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
+        skipped_lms_ids = {r.request_id for r in db.query(LMSRemark.request_id).filter(LMSRemark.remark.like("%skipped%")).all()}
+        skipped_nseit_ids = {r.request_id for r in db.query(NSEITRemark.request_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
         
         now = get_ist_now()
         start_date = None
@@ -59,6 +60,119 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
                 total_seconds += (t_end - t_start).total_seconds()
             return total_seconds / (len(requests) * 3600)
 
+        from backend.models.user_login import UserLogin
+        from backend.models.master_user_role import MasterUserRole
+        from backend.models.user_profile import UserProfile
+        from sqlalchemy.orm import joinedload
+        
+        # Pre-fetch all DC users and their profiles to avoid N+1 queries
+        dc_users = db.query(UserLogin).join(MasterUserRole).filter(
+            (MasterUserRole.role == "DC") | (UserLogin.roleid == 2),
+            UserLogin.district_id.isnot(None),
+            UserLogin.is_active == 1
+        ).options(joinedload(UserLogin.profile), joinedload(UserLogin.district)).all()
+        
+        dc_lookup = {}
+        for user in dc_users:
+            profile = user.profile
+            dist_obj = user.district
+            info = {
+                "name": profile.full_name if profile and profile.full_name else "Not Assigned",
+                "email": profile.email if profile and profile.email else (user.username or "N/A"),
+                "phone": profile.phone if profile and profile.phone else "N/A"
+            }
+            if user.district_id:
+                dc_lookup[str(user.district_id).strip()] = info
+            if dist_obj:
+                if dist_obj.district_code:
+                    dc_lookup[str(dist_obj.district_code).strip()] = info
+                if dist_obj.id:
+                    dc_lookup[str(dist_obj.id)] = info
+                if dist_obj.district_name:
+                    dc_lookup[dist_obj.district_name.lower().strip()] = info
+            
+        import os
+        import glob
+        import pandas as pd
+        mbu_lookup = {}
+        reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "reports")
+        
+        # Find the latest MBU report
+        mbu_files = glob.glob(os.path.join(reports_dir, "report_mbu_district_wise_*.xlsx"))
+        mbu_file = max(mbu_files, key=os.path.getctime) if mbu_files else None
+        
+        if mbu_file and os.path.exists(mbu_file):
+            try:
+                mbu_df = pd.read_excel(mbu_file, sheet_name='Combined', engine='openpyxl')
+                # Find columns using flexible names
+                total_pending_col = next((c for c in mbu_df.columns if 'total pending' in str(c).lower()), None)
+                passed_yes_col = next((c for c in mbu_df.columns if 'passed(yes)' in str(c).lower() or 'verified-passed' in str(c).lower()), None)
+                not_app_col = next((c for c in mbu_df.columns if 'not applicable' in str(c).lower()), None)
+                total_student_aadhaar_col = next((c for c in mbu_df.columns if 'aadhaar provided' in str(c).lower() or 'total student' in str(c).lower()), None)
+                dist_col = next((c for c in mbu_df.columns if 'district' in str(c).lower() and 'name' not in str(c).lower()), None) or next((c for c in mbu_df.columns if 'district' in str(c).lower()), None)
+                
+                if dist_col and total_pending_col:
+                    for _, row in mbu_df.iterrows():
+                        dist_val = normalize_district_name(str(row[dist_col])).lower().strip()
+                        t_pending = int(row.get(total_pending_col, 0) or 0)
+                        if passed_yes_col:
+                            passed_val = int(row.get(passed_yes_col, 0) or 0)
+                            not_app_val = int(row.get(not_app_col, 0) or 0) if not_app_col else 0
+                            denom = max(0, passed_val - not_app_val)
+                        elif total_student_aadhaar_col:
+                            denom = int(row.get(total_student_aadhaar_col, 0) or 0)
+                        else:
+                            denom = 0
+                            
+                        mbu_lookup[dist_val] = {
+                            "total_pending": t_pending,
+                            "total_student_aadhaar": denom
+                        }
+            except Exception as e:
+                print(f"Error loading MBU data: {e}")
+
+        # NEW Logic for 18_plus
+        eighteen_plus_lookup = {}
+        eighteen_plus_files = glob.glob(os.path.join(reports_dir, "report_18_plus_pendency_*.xlsx"))
+        eighteen_plus_file = max(eighteen_plus_files, key=os.path.getctime) if eighteen_plus_files else None
+        if eighteen_plus_file and os.path.exists(eighteen_plus_file):
+            try:
+                ep_df = pd.read_excel(eighteen_plus_file, sheet_name='Combined', engine='openpyxl')
+                total_pending_col = next((c for c in ep_df.columns if 'total pending' in str(c).lower()), None)
+                total_requests_col = next((c for c in ep_df.columns if 'total requests' in str(c).lower()), None)
+                dist_col = next((c for c in ep_df.columns if 'district' in str(c).lower() and 'name' not in str(c).lower()), None) or next((c for c in ep_df.columns if 'district' in str(c).lower()), None)
+                
+                if dist_col and total_pending_col and total_requests_col:
+                    for _, row in ep_df.iterrows():
+                        dist_val = normalize_district_name(str(row[dist_col])).lower().strip()
+                        eighteen_plus_lookup[dist_val] = {
+                            "total_pending": int(row.get(total_pending_col, 0) or 0),
+                            "total_requests": int(row.get(total_requests_col, 0) or 0)
+                        }
+            except Exception as e:
+                print(f"Error loading 18+ data: {e}")
+
+        # NEW Logic for 100_plus (cenetarian)
+        hundred_plus_lookup = {}
+        hundred_plus_files = glob.glob(os.path.join(reports_dir, "report_cenetarian_district_report_*.xlsx"))
+        hundred_plus_file = max(hundred_plus_files, key=os.path.getctime) if hundred_plus_files else None
+        if hundred_plus_file and os.path.exists(hundred_plus_file):
+            try:
+                hp_df = pd.read_excel(hundred_plus_file, sheet_name='Combined', engine='openpyxl')
+                total_pending_col = next((c for c in hp_df.columns if 'pending total' in str(c).lower()), None)
+                total_requests_col = next((c for c in hp_df.columns if 'total requests' in str(c).lower()), None)
+                dist_col = next((c for c in hp_df.columns if 'district' in str(c).lower() and 'name' not in str(c).lower()), None) or next((c for c in hp_df.columns if 'district' in str(c).lower()), None)
+                
+                if dist_col and total_pending_col and total_requests_col:
+                    for _, row in hp_df.iterrows():
+                        dist_val = normalize_district_name(str(row[dist_col])).lower().strip()
+                        hundred_plus_lookup[dist_val] = {
+                            "total_pending": int(row.get(total_pending_col, 0) or 0),
+                            "total_requests": int(row.get(total_requests_col, 0) or 0)
+                        }
+            except Exception as e:
+                print(f"Error loading 100+ data: {e}")
+
         result = []
         for dist in districts:
             dist_code = dist.district_code
@@ -67,11 +181,11 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
             cands = filter_by_date(cands_q, Candidate).all()
             cand_holding_hours = calc_avg_holding(cands)
             
-            lms_reqs_q = db.query(LMS).join(Candidate, LMS.r_id == Candidate.r_id).filter(Candidate.district == dist_code)
+            lms_reqs_q = db.query(LMS).join(Candidate, LMS.request_id == Candidate.id).filter(Candidate.district == dist_code)
             lms_reqs = filter_by_date(lms_reqs_q, LMS).all()
             lms_holding_hours = calc_avg_holding(lms_reqs)
             
-            nseit_reqs_q = db.query(NSEITRequest).join(Candidate, NSEITRequest.r_id == Candidate.r_id).filter(Candidate.district == dist_code)
+            nseit_reqs_q = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id).filter(Candidate.district == dist_code)
             nseit_reqs = filter_by_date(nseit_reqs_q, NSEITRequest).all()
             nseit_holding_hours = calc_avg_holding(nseit_reqs)
 
@@ -117,12 +231,33 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
             rejected_total = sum(1 for c in cands if c.status_id == StatusEnum.REJECTED.value)
             reverted_total = op_act_reverts + st_id_reverts + l1_reverts + l2_reverts + react_reverts
 
+            norm_dist = normalize_district_name(dist.district_name).lower().strip()
+
+            mbu_stats = mbu_lookup.get(norm_dist, {}) or mbu_lookup.get(dist.district_name.lower().strip(), {})
+            mbu_total_pending = mbu_stats.get("total_pending", 0)
+            mbu_total_student = mbu_stats.get("total_student_aadhaar", 0)
+
+            ep_stats = eighteen_plus_lookup.get(norm_dist, {}) or eighteen_plus_lookup.get(dist.district_name.lower().strip(), {})
+            ep_total_pending = ep_stats.get("total_pending", 0)
+            ep_total_requests = ep_stats.get("total_requests", 0)
+
+            hp_stats = hundred_plus_lookup.get(norm_dist, {}) or hundred_plus_lookup.get(dist.district_name.lower().strip(), {})
+            hp_total_pending = hp_stats.get("total_pending", 0)
+            hp_total_requests = hp_stats.get("total_requests", 0)
+
+            dc_info = (
+                dc_lookup.get(str(dist.district_code).strip()) or
+                dc_lookup.get(str(dist.id)) or
+                dc_lookup.get(dist.district_name.lower().strip()) or
+                {}
+            )
+
             result.append({
                 "district_code": dist_code,
                 "district_name": dist.district_name,
-                "dc_name": dist.dc_name if hasattr(dist, "dc_name") else "Unknown",
-                "dc_email": dist.dc_email if hasattr(dist, "dc_email") else "",
-                "dc_phone": dist.dc_phone if hasattr(dist, "dc_phone") else "",
+                "dc_name": dc_info.get("name") or "Not Assigned",
+                "dc_email": dc_info.get("email") or "N/A",
+                "dc_phone": dc_info.get("phone") or "N/A",
                 "cand_holding_hours": cand_holding_hours,
                 "lms_holding_hours": lms_holding_hours,
                 "nseit_holding_hours": nseit_holding_hours,
@@ -142,13 +277,20 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
                 "pending_total": pending_total,
                 "rejected_total": rejected_total,
                 "reverted_total": reverted_total,
+                "mbu_total_pending": mbu_total_pending,
+                "mbu_total_student": mbu_total_student,
+                "eighteen_plus_total_pending": ep_total_pending,
+                "eighteen_plus_total_requests": ep_total_requests,
+                "hundred_plus_total_pending": hp_total_pending,
+                "hundred_plus_total_requests": hp_total_requests,
                 "health_status": health_status
             })
             
         return result
     except Exception as e:
         import traceback
-        return {"error": str(e), "traceback": traceback.format_exc()}
+        print(f"Error in get_dc_stats: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/district-detail/{district_code}")
@@ -158,8 +300,8 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="District not found")
         
     # Exclude skipped LMS and NSEIT requests
-    skipped_lms_ids = {r.lms_id for r in db.query(LMSRemark.lms_id).filter(LMSRemark.remark.like("%skipped%")).all()}
-    skipped_nseit_ids = {r.nseit_id for r in db.query(NSEITRemark.nseit_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
+    skipped_lms_ids = {r.request_id for r in db.query(LMSRemark.request_id).filter(LMSRemark.remark.like("%skipped%")).all()}
+    skipped_nseit_ids = {r.request_id for r in db.query(NSEITRemark.request_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
 
     # Get all candidates in district
     candidates = db.query(Candidate).filter(Candidate.district == district_code).order_by(
@@ -168,8 +310,8 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
     
     cand_list = []
     for c in candidates:
-        lms = db.query(LMS).filter(LMS.r_id == c.r_id).first()
-        nseit = db.query(NSEITRequest).filter(NSEITRequest.r_id == c.r_id).first()
+        lms = db.query(LMS).filter(LMS.request_id == c.id).first()
+        nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == c.id).first()
         
         lms_status = "Not Initiated"
         if lms:
@@ -186,7 +328,7 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
                 nseit_status = nseit.status
         
         cand_list.append({
-            "r_id": c.r_id,
+            "r_id": c.id,
             "request_code": c.request_code,
             "name": c.name,
             "mobile": c.mobile,
@@ -199,7 +341,7 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         })
         
     # Get LMS requests in district
-    lms_requests = db.query(LMS).join(Candidate, LMS.r_id == Candidate.r_id).filter(
+    lms_requests = db.query(LMS).join(Candidate, LMS.request_id == Candidate.id).filter(
         Candidate.district == district_code
     ).order_by(
         func.coalesce(LMS.updated_at, LMS.created_at).desc()
@@ -210,7 +352,7 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         if l.id in skipped_lms_ids:
             continue
         lms_list.append({
-            "r_id": l.candidate.r_id,
+            "r_id": l.candidate.id,
             "request_code": l.candidate.request_code,
             "name": l.candidate.name,
             "email": l.candidate.email,
@@ -221,7 +363,7 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         })
         
     # Get NSEIT requests in district
-    nseit_requests = db.query(NSEITRequest).join(Candidate, NSEITRequest.r_id == Candidate.r_id).filter(
+    nseit_requests = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id).filter(
         Candidate.district == district_code
     ).order_by(
         func.coalesce(NSEITRequest.updated_at, NSEITRequest.created_at).desc()
@@ -232,7 +374,7 @@ def get_district_detail(district_code: str, db: Session = Depends(get_db)):
         if n.id in skipped_nseit_ids:
             continue
         nseit_list.append({
-            "r_id": n.candidate.r_id,
+            "r_id": n.candidate.id,
             "request_code": n.candidate.request_code,
             "name": n.candidate.name,
             "email": n.candidate.email,
@@ -258,11 +400,11 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
         
     district_name = candidate.district_rel.district_name if candidate.district_rel else "Unknown"
     
-    lms = db.query(LMS).filter(LMS.r_id == candidate.r_id).first()
-    nseit = db.query(NSEITRequest).filter(NSEITRequest.r_id == candidate.r_id).first()
+    lms = db.query(LMS).filter(LMS.request_id == candidate.id).first()
+    nseit = db.query(NSEITRequest).filter(NSEITRequest.request_id == candidate.id).first()
     
-    skipped_lms_ids = {r.lms_id for r in db.query(LMSRemark.lms_id).filter(LMSRemark.remark.like("%skipped%")).all()}
-    skipped_nseit_ids = {r.nseit_id for r in db.query(NSEITRemark.nseit_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
+    skipped_lms_ids = {r.request_id for r in db.query(LMSRemark.request_id).filter(LMSRemark.remark.like("%skipped%")).all()}
+    skipped_nseit_ids = {r.request_id for r in db.query(NSEITRemark.request_id).filter(NSEITRemark.remark.like("%skipped%")).all()}
     
     lms_status = "Not Initiated"
     if lms:
@@ -292,7 +434,7 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
     })
     
     # 2. DC Remarks/Actions for Candidate Onboarding
-    remarks = db.query(DCRemark).filter(DCRemark.r_id == candidate.r_id).all()
+    remarks = db.query(DCRemark).filter(DCRemark.request_id == candidate.id).all()
     for r in remarks:
         role_name = r.author.role.role if r.author and r.author.role else "Admin"
         timeline.append({
@@ -308,7 +450,7 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
         
     # 3. LMS Remarks/Actions
     if lms and lms.id not in skipped_lms_ids:
-        lms_remarks = db.query(LMSRemark).filter(LMSRemark.lms_id == lms.id).all()
+        lms_remarks = db.query(LMSRemark).filter(LMSRemark.request_id == lms.id).all()
         for r in lms_remarks:
             sender_role = "Candidate"
             sender_username = "Candidate"
@@ -336,7 +478,7 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
             
     # 4. NSEIT Remarks/Actions
     if nseit and nseit.id not in skipped_nseit_ids:
-        nseit_remarks = db.query(NSEITRemark).filter(NSEITRemark.nseit_id == nseit.id).all()
+        nseit_remarks = db.query(NSEITRemark).filter(NSEITRemark.request_id == nseit.id).all()
         for r in nseit_remarks:
             sender_role = "Candidate"
             sender_username = "Candidate"
@@ -371,7 +513,7 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
         del t["timestamp"]
         
     return {
-        "r_id": candidate.r_id,
+        "r_id": candidate.id,
         "request_code": candidate.request_code,
         "name": candidate.name,
         "mobile": candidate.mobile,

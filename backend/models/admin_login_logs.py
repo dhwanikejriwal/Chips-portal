@@ -18,7 +18,7 @@ class AdminLoginLog(Base):
     )
     login_time: Mapped[datetime] = mapped_column(DateTime, default=get_ist_now, nullable=False)
     logout_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    is_current: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
 
     # Previous session's login_time for this same admin (or this session's own
     # login_time if there was no previous session) — the notification cutoff.

@@ -9,6 +9,7 @@ from flask import (
     Response,
     current_app,
 )
+import os
 import requests
 from app.utils.aging import parse_aging_filter, filter_by_aging
 
@@ -30,6 +31,159 @@ def backend_url():
 # ─────────────────────────────────────────────
 # DC ROUTES
 # ─────────────────────────────────────────────
+
+
+@operator_activation_bp.route("/dc/operator-activation/search", methods=["GET"])
+def search_eligible_candidates():
+    jwt_token = session.get("access_token")
+    if isinstance(jwt_token, dict):
+        jwt_token = jwt_token.get("token", "") or jwt_token.get("access_token", "")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    headers = {"Authorization": f"Bearer {str(jwt_token).strip()}"}
+    query = request.args.get("q", "")
+
+    try:
+        response = requests.get(
+            f"{backend_url()}/search-eligible-candidates",
+            params={"q": query},
+            headers=headers
+        )
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            return jsonify({"status": "error", "message": "Search failed"}), response.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({"status": "error", "message": "Backend offline"}), 500
+
+
+@operator_activation_bp.route("/dc/operator-activation/autofill-nseit", methods=["POST"])
+def autofill_from_certificate():
+    jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    
+    file_obj = request.files.get("nseit_certificate")
+    if not file_obj or not file_obj.filename:
+        return jsonify({"status": "error", "message": "No file uploaded"}), 400
+
+    files = {"nseit_certificate": (file_obj.filename, file_obj.read(), file_obj.content_type)}
+    data = {}
+    operator_name = request.form.get("operator_name")
+    if operator_name:
+        data["operator_name"] = operator_name
+
+    try:
+        response = requests.post(
+            f"{backend_url()}/autofill-from-certificate",
+            files=files,
+            data=data,
+            headers=headers
+        )
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            try:
+                err_detail = response.json().get("message") or response.json().get("detail") or "Autofill failed"
+            except Exception:
+                err_detail = response.text or "Autofill failed"
+            return jsonify({"status": "error", "message": err_detail}), response.status_code
+    except requests.exceptions.ConnectionError:
+        return jsonify({"status": "error", "message": "Backend offline"}), 500
+
+
+@operator_activation_bp.route("/dc/operator-activation/check-duplicate", methods=["GET"])
+def check_duplicate():
+    jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    params = {
+        "mobile": request.args.get("mobile"),
+        "email": request.args.get("email"),
+        "exclude_id": request.args.get("exclude_id")
+    }
+
+    try:
+        response = requests.get(
+            f"{backend_url()}/check-duplicate",
+            params=params,
+            headers=headers
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@operator_activation_bp.route("/dc/operator-activation/validate-document", methods=["POST"])
+def validate_single_document():
+    jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    
+    file_obj = request.files.get("file")
+    if not file_obj or not file_obj.filename:
+        return jsonify({"status": "error", "message": "No file uploaded"}), 400
+
+    files = {"file": (file_obj.filename, file_obj.read(), file_obj.content_type)}
+    
+    data = {
+        "doc_type": request.form.get("doc_type"),
+        "name_as_per_aadhaar": request.form.get("name_as_per_aadhaar", ""),
+        "operator_aadhaar": request.form.get("operator_aadhaar", ""),
+        "operator_pan": request.form.get("operator_pan", ""),
+        "operator_mobile": request.form.get("operator_mobile", ""),
+        "nseit_certificate_number": request.form.get("nseit_certificate_number", ""),
+    }
+
+    try:
+        response = requests.post(
+            f"{backend_url()}/validate-document",
+            files=files,
+            data=data,
+            headers=headers
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@operator_activation_bp.route("/dc/operator-activation/validate_ocr", methods=["POST"])
+def validate_ocr_proxy():
+    jwt_token = session.get("access_token")
+    if not jwt_token:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    file_obj = request.files.get("file")
+    if not file_obj or not file_obj.filename:
+        return jsonify({"success": False, "error": "No file uploaded"}), 400
+
+    files = {"file": (file_obj.filename, file_obj.read(), file_obj.content_type)}
+    data = {
+        "doc_type": request.form.get("doc_type"),
+        "name_as_per_aadhaar": request.form.get("name_as_per_aadhaar", ""),
+        "operator_aadhaar": request.form.get("operator_aadhaar", ""),
+        "operator_pan": request.form.get("operator_pan", ""),
+        "nseit_id": request.form.get("nseit_id", "") or request.form.get("nseit_certificate_number", ""),
+    }
+
+    try:
+        response = requests.post(
+            f"{backend_url()}/validate_ocr",
+            files=files,
+            data=data,
+            headers=headers
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @operator_activation_bp.route("/dc/operator-activation", methods=["GET"])
@@ -86,7 +240,10 @@ def dc_submit():
         if response.status_code == 200:
             return jsonify({"status": "success", "redirect_url": url_for("operator_activation.dc_requests_list")}), 200
         else:
-            detail = response.json().get("detail", "Submission failed.")
+            try:
+                detail = response.json().get("detail", "Submission failed.")
+            except Exception:
+                detail = f"Server Error: {response.status_code} - {response.text[:200]}"
             if isinstance(detail, dict) and "field_errors" in detail:
                 return jsonify({"status": "error", "field_errors": detail["field_errors"]}), 400
             else:
@@ -236,6 +393,7 @@ def chips_all_requests():
     except requests.exceptions.ConnectionError:
         requests_list = []
 
+    all_reqs = list(requests_list)
     aging_filter, aging_label = parse_aging_filter(request.args)
     if aging_filter:
         pending_subset = [
@@ -247,6 +405,7 @@ def chips_all_requests():
     return render_template(
         "operator_activation/chips_list.html",
         requests=requests_list,
+        unfiltered_requests=all_reqs,
         aging_filter=aging_filter,
         aging_label=aging_label,
     )
@@ -474,6 +633,43 @@ def chips_export_excel():
 
 
 @operator_activation_bp.route(
+    "/chips/operator-activation/export-and-mail/recipient", methods=["GET"]
+)
+def chips_export_mail_recipient():
+    jwt_token = session.get("access_token")
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    try:
+        response = requests.get(f"{backend_url()}/export-and-mail/recipient", headers=headers, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.RequestException:
+        pass
+    return {"recipient_email": (current_app.config.get("UIDAI_RECIPIENT_EMAIL") or os.getenv("UIDAI_RECIPIENT_EMAIL", "")).strip()}
+
+
+@operator_activation_bp.route(
+    "/chips/operator-activation/export-and-mail", methods=["POST"]
+)
+def chips_export_and_mail():
+    jwt_token = session.get("access_token")
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids") or request.form.get("ids", "")
+    email_to = data.get("email_to") or request.form.get("email_to", "")
+    
+    try:
+        response = requests.post(
+            f"{backend_url()}/export-and-mail",
+            json={"ids": ids, "email_to": email_to},
+            headers=headers,
+            timeout=25
+        )
+        return response.json(), response.status_code
+    except requests.exceptions.RequestException:
+        return {"detail": "Error connecting to backend API server."}, 500
+
+
+@operator_activation_bp.route(
     "/chips/operator-activation/export-excel/pending", methods=["GET"]
 )
 def chips_export_pending():
@@ -539,4 +735,18 @@ def dc_export_credentials():
         response.content,
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=credentials_log_history.csv"}
+    )
+
+@operator_activation_bp.route("/dc/operator-activation/export-excel/uidai", methods=["GET"])
+def dc_export_uidai():
+    jwt_token = session.get("access_token")
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    ids = request.args.get("ids", "")
+    params = {"ids": ids} if ids else {}
+    response = requests.get(f"{backend_url()}/export-excel/pending", headers=headers, params=params)
+    from flask import Response
+    return Response(
+        response.content,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=sent_to_uidai_activation_queue.csv"}
     )

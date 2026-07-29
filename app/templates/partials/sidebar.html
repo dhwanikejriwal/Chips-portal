@@ -1,26 +1,57 @@
 <!-- app/templates/partials/sidebar.html -->
 <style>
-    /* Sidebar navigation styles */
+    /* ============================================================
+       CHiPS sidebar — solid blue surface, expandable 260px <-> 60px rail.
+       All colours are CSS variables so the portal can be re-themed by
+       overriding these on .sidebar.
+       ============================================================ */
     .sidebar {
-        width: 260px;
+        --sb-bg: #1B2A56;
+        --sb-fg: rgba(255, 255, 255, 0.80);
+        /* WCAG AA floor on --sb-bg is 0.75 — never go below it. */
+        --sb-fg-active: #FFFFFF;
+        --sb-divider: rgba(255, 255, 255, 0.16);
+        --sb-mini: rgba(255, 255, 255, 0.55);
+        --sb-hover-bg: rgba(255, 255, 255, 0.10);
+        --sb-active-bg: rgba(255, 255, 255, 0.18);
+        --sb-pressed-bg: rgba(255, 255, 255, 0.24);
+        --sb-width-expanded: 260px;
+        --sb-width-collapsed: 60px;
+
+        width: var(--sb-width-expanded);
         flex-shrink: 0;
-        /* CRITICAL: Prevents sidebar from collapsing/shrinking on small windows */
-        background: white;
+        background: var(--sb-bg);
         box-shadow: 2px 0 10px rgba(0, 0, 0, 0.08);
-        padding-top: 20px;
-        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        overflow-x: hidden;
-        white-space: nowrap;
+        padding: 8px 0 12px;
         height: 100%;
+        overflow-x: hidden;
         overflow-y: auto;
+        white-space: nowrap;
+        transition: width 180ms ease-out;
+
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.30) transparent;
+    }
+
+    .sidebar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .sidebar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.30);
+        border-radius: 999px;
     }
 
     .sidebar.collapsed {
-        width: 0px;
-        padding-left: 0px;
-        padding-right: 0px;
-        border: none;
-        box-shadow: none;
+        width: var(--sb-width-collapsed);
+    }
+
+    .sidebar nav {
+        width: 100%;
     }
 
     .sidebar ul {
@@ -29,413 +60,789 @@
         margin: 0;
     }
 
-    .sidebar ul li {
-        padding: 15px 25px;
-        cursor: pointer;
-        transition: 0.3s;
-        font-weight: 600;
+    /* One consistent stroke width + size across the whole icon set. */
+    .sidebar svg.nav-icon {
+        width: 19px;
+        height: 19px;
+        stroke-width: 1.75;
+        flex-shrink: 0;
     }
 
-    .sidebar ul li:hover {
-        background: #eaf3ff;
-        color: #007bff;
+    .sidebar.collapsed svg.nav-icon {
+        width: 20px;
+        height: 20px;
     }
 
-    .sidebar ul li a {
-        color: inherit;
-        text-decoration: none;
+    /* ---- Toolbar (pin toggle) — expanded only ---- */
+    .sidebar-toolbar {
         display: flex;
-        align-items: center;
-        gap: 10px;
-        width: 100%;
-        height: 100%;
+        justify-content: flex-end;
+        padding: 0 12px 6px;
+        min-height: 32px;
     }
 
-    .menu-item:hover {
-        background: transparent !important;
-    }
-
-    .sidebar ul li.active {
-        background: #007bff;
-        color: white;
-    }
-
-    /* Sidebar details and summary */
-    .sidebar details {
-        width: 100%;
-    }
-
-    .sidebar details summary {
-        display: block;
-        /* Hide default list-item marker */
-        padding: 15px 25px;
-        font-size: 16px;
-        font-weight: 600;
-        color: inherit;
-        cursor: pointer;
-        outline: none;
-        transition: 0.3s;
-        position: relative;
-    }
-
-    .sidebar details summary:hover {
-        background: #eaf3ff;
-        color: #007bff;
-    }
-
-    /* Hide default marker in Safari and Chrome */
-    .sidebar details summary::-webkit-details-marker {
+    .sidebar.collapsed .sidebar-toolbar {
         display: none;
     }
 
-    /* Add custom toggle indicators (chevron down / right) */
-    .sidebar details summary::after {
-        content: '';
-        position: absolute;
-        right: 25px;
-        top: 50%;
-        width: 6px;
-        height: 6px;
-        border-right: 2px solid #64748b;
-        border-bottom: 2px solid #64748b;
-        transform: translateY(-50%) rotate(-45deg);
-        transition: transform 0.2s ease-in-out;
-    }
-
-    .sidebar details[open] summary::after {
-        transform: translateY(-75%) rotate(45deg);
-    }
-
-    /* Submenu list under details */
-    .sidebar ul.submenu {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-
-    .sidebar ul.submenu li.submenu-item {
-        padding: 12px 25px 12px 40px !important;
-        /* Indented with padding */
-        font-size: 15px;
-        font-weight: 600;
-        /* Bold weight like earlier */
+    .sidebar-pin {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        color: var(--sb-fg);
         cursor: pointer;
-        transition: 0.3s;
+        transition: background 0.15s ease, color 0.15s ease;
     }
 
-    .sidebar ul.submenu li.submenu-item:hover {
-        background: #eaf3ff;
-        color: #007bff;
+    .sidebar-pin:hover {
+        background: var(--sb-hover-bg);
+        color: var(--sb-fg-active);
     }
 
-    .sidebar ul.submenu li.submenu-item a {
+    .sidebar-pin.pinned {
+        background: var(--sb-active-bg);
+        color: var(--sb-fg-active);
+    }
+
+    /* ---- Leaf links + group summary rows share the row look ---- */
+    .sidebar .nav-link,
+    .sidebar .group-summary {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 11px;
+        width: auto;
+        margin: 2px 10px;
+        padding: 9px 12px;
+        border-radius: 8px;
+        border: none;
+        border-left: 3px solid transparent;
+        background: transparent;
+        color: var(--sb-fg);
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 1.2;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
     }
 
-    .sidebar ul.submenu li.submenu-item.active {
-        background: #007bff;
-        color: white;
+    .sidebar .group-summary {
+        width: calc(100% - 20px);
+        justify-content: flex-start;
     }
 
-    .sidebar ul.submenu li.submenu-item.active a {
-        color: white !important;
+    .sidebar .nav-link:hover,
+    .sidebar .group-summary:hover {
+        background: var(--sb-hover-bg);
+        color: var(--sb-fg-active);
     }
 
-    .sidebar ul li.menu-item {
-        padding: 0 !important;
+    .sidebar .nav-link:active,
+    .sidebar .group-summary:active {
+        background: var(--sb-pressed-bg);
     }
 
-    .sidebar ul li.menu-item:hover {
-        background: transparent !important;
+    /* Active leaf: solid fill, 3px white left bar, squared-off left edge. */
+    .sidebar .nav-link.active {
+        background: var(--sb-active-bg);
+        border-left-color: var(--sb-fg-active);
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+        color: var(--sb-fg-active);
+        font-weight: 500;
     }
 
+    /* A group whose child is active gets full-white text on its summary. */
+    .sidebar .nav-group.has-active>.group-summary {
+        color: var(--sb-fg-active);
+    }
+
+    .sidebar .nav-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+        opacity: 1;
+        /* Fade IN only after the width transition has finished expanding. */
+        transition: opacity 120ms ease 120ms, max-width 150ms ease;
+    }
+
+    .sidebar.collapsed .nav-label {
+        max-width: 0;
+        opacity: 0;
+        /* Fade OUT immediately, well inside the 180ms width shrink. */
+        transition: opacity 100ms ease, max-width 150ms ease;
+    }
+
+    /* Chevron on group summaries. */
+    .sidebar .group-chevron {
+        width: 16px;
+        height: 16px;
+        stroke-width: 1.75;
+        margin-left: auto;
+        transition: transform 0.18s ease, opacity 120ms ease;
+    }
+
+    .sidebar .nav-group.open>.group-summary .group-chevron {
+        transform: rotate(180deg);
+    }
+
+    /* ---- Children (expanded: indented accordion) ---- */
+    .sidebar .group-children {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .sidebar .nav-group:not(.open) .group-children {
+        display: none;
+    }
+
+    .sidebar .group-children .nav-link {
+        margin-left: 44px;
+        font-size: 14px;
+    }
+
+    /* ---- Group micro-label (collapsed rail only) ---- */
+    .sidebar .group-mini {
+        display: none;
+        text-align: center;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        color: var(--sb-mini);
+        padding: 6px 0 2px;
+        user-select: none;
+    }
+
+    /* ---- Divider between sections ---- */
+    .sidebar .nav-divider {
+        height: 1px;
+        background: var(--sb-divider);
+        margin: 8px 12px;
+        transition: margin 180ms ease-out;
+    }
+
+    /* ============================================================
+       COLLAPSED RAIL — flatten hierarchy to 60px icon rail.
+       Parent summary rows disappear; every leaf shows as an icon;
+       group micro-labels replace the parent rows.
+       ============================================================ */
+    .sidebar.collapsed .group-summary {
+        display: none;
+    }
+
+    .sidebar.collapsed .group-mini {
+        display: block;
+    }
+
+    .sidebar.collapsed .group-children {
+        display: block !important;
+    }
+
+    .sidebar.collapsed .nav-link,
+    .sidebar.collapsed .group-children .nav-link {
+        width: 44px;
+        height: 44px;
+        margin: 4px auto;
+        padding: 0;
+        justify-content: center;
+        gap: 0;
+    }
+
+    .sidebar.collapsed .nav-divider {
+        margin: 8px auto;
+        width: 32px;
+    }
+
+    /* ---- Keyboard focus ring: white on the blue surface, 2px offset ---- */
+    .sidebar a:focus-visible,
+    .sidebar button:focus-visible {
+        outline: 2px solid #ffffff;
+        outline-offset: 2px;
+    }
+
+    /* ============================================================
+       TOOLTIP — light surface on the page (portalled to <body>),
+       shown only in collapsed mode. Class lives here; the element is
+       created + positioned in JS so the sidebar's overflow can't clip it.
+       ============================================================ */
+    .sidebar-tooltip {
+        position: fixed;
+        z-index: 2000;
+        pointer-events: none;
+        background: #ffffff;
+        color: #17212B;
+        border: 0.5px solid rgba(15, 23, 42, 0.16);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+        border-radius: 8px;
+        padding: 5px 10px;
+        font-size: 13px;
+        white-space: nowrap;
+        transform: translateY(-50%);
+        opacity: 0;
+        transition: opacity 0.1s ease;
+    }
+
+    .sidebar-tooltip.visible {
+        opacity: 1;
+    }
+
+    /* ---- Mobile scrim behind the drawer ---- */
+    .sidebar-scrim {
+        display: none;
+        position: fixed;
+        inset: 0;
+        top: var(--header-height, 60px);
+        background: rgba(0, 0, 0, 0.40);
+        z-index: 998;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    /* ============================================================
+       NO CONTENT REFLOW — cap + centre the content column so the
+       extra 200px freed when the rail collapses becomes side
+       whitespace instead of resizing forms/tables under the cursor.
+       Wide tables still scroll inside their own containers.
+       ============================================================ */
+    @media (min-width: 769px) {
+        .content {
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* The CG map sizes itself to fill; don't cap it. */
+        body.cgmap-active .content {
+            max-width: none;
+        }
+    }
+
+    /* ---- Mobile: overlay drawer, no icon-rail state ---- */
     @media (max-width: 768px) {
         .sidebar {
             position: fixed;
             left: 0;
-            top: var(--header-height, 80px);
+            top: var(--header-height, 60px);
             bottom: 0;
-            width: 260px !important;
-            height: calc(100vh - var(--header-height, 80px)) !important;
+            width: var(--sb-width-expanded) !important;
+            height: calc(100vh - var(--header-height, 60px)) !important;
             z-index: 999;
             transform: translateX(0);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.15);
+            transition: transform 0.18s ease-out;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.25);
         }
 
+        /* On mobile "collapsed" simply means the drawer is hidden. */
         .sidebar.collapsed {
-            transform: translateX(-100%) !important;
-            width: 260px !important;
-            box-shadow: none !important;
+            transform: translateX(-100%);
+            width: var(--sb-width-expanded) !important;
+            box-shadow: none;
+        }
+
+        /* Ignore the rail entirely on mobile — always full labels. */
+        .sidebar.collapsed .nav-label {
+            max-width: 200px;
+            opacity: 1;
+        }
+
+        .sidebar.collapsed .group-summary {
+            display: flex;
+        }
+
+        .sidebar.collapsed .group-mini {
+            display: none;
+        }
+
+        .sidebar.collapsed .nav-group:not(.open) .group-children {
+            display: none;
+        }
+
+        .sidebar.collapsed .nav-link,
+        .sidebar.collapsed .group-children .nav-link {
+            width: auto;
+            height: auto;
+            margin: 2px 10px;
+            padding: 9px 12px;
+            justify-content: flex-start;
+            gap: 11px;
+        }
+
+        .sidebar.collapsed .group-children .nav-link {
+            margin-left: 44px;
+        }
+
+        .sidebar-toolbar {
+            display: none;
+        }
+
+        .sidebar-scrim.open {
+            display: block;
+            opacity: 1;
+        }
+    }
+
+    /* ---- Respect reduced motion ---- */
+    @media (prefers-reduced-motion: reduce) {
+
+        .sidebar,
+        .sidebar .nav-label,
+        .sidebar .nav-divider,
+        .sidebar .group-chevron,
+        .sidebar-tooltip,
+        .sidebar-scrim {
+            transition: none !important;
         }
     }
 </style>
 
-<aside class="sidebar">
-    <ul>
-        {% if session.get('role') == 'Admin' or session.get('role') == 'chips_admin' %}
-        <!-- CHiPS Admin Navigation Links -->
-        <li class="{% if request.path == '/auth/chips/dashboard' %}active{% endif %}">
-            <a href="/auth/chips/dashboard">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+{# ================= ICON MACRO =================
+One place to define every icon. Add a leaf/group to the config below
+with an existing icon name and nothing else needs to change. #}
+{% macro nav_icon(name) %}
+{% if name == 'dashboard' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <rect x="3" y="3" width="7" height="9" rx="1" />
+    <rect x="14" y="3" width="7" height="5" rx="1" />
+    <rect x="14" y="12" width="7" height="9" rx="1" />
+    <rect x="3" y="16" width="7" height="5" rx="1" />
+</svg>
+{% elif name == 'users' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+</svg>
+{% elif name == 'inbox' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+    <path
+        d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+</svg>
+{% elif name == 'key' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <circle cx="7.5" cy="15.5" r="5.5" />
+    <path d="m21 2-9.6 9.6" />
+    <path d="m15.5 7.5 3 3L22 7l-3-3" />
+</svg>
+{% elif name == 'award' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <circle cx="12" cy="8" r="6" />
+    <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+</svg>
+{% elif name == 'user-check' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <polyline points="16 11 18 13 22 9" />
+</svg>
+{% elif name == 'rotate-cw' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
+</svg>
+{% elif name == 'box' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <path
+        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+    <line x1="12" y1="22.08" x2="12" y2="12" />
+</svg>
+{% elif name == 'monitor' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+</svg>
+{% elif name == 'circle-1' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9" /><text x="12" y="12.5" text-anchor="middle" dominant-baseline="central"
+        font-size="11" font-weight="600" stroke="none" fill="currentColor">1</text>
+</svg>
+{% elif name == 'circle-2' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9" /><text x="12" y="12.5" text-anchor="middle" dominant-baseline="central"
+        font-size="11" font-weight="600" stroke="none" fill="currentColor">2</text>
+</svg>
+{% elif name == 'bar-chart' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <path d="M3 3v18h18" />
+    <path d="M18 17V9" />
+    <path d="M13 17V5" />
+    <path d="M8 17v-3" />
+</svg>
+{% elif name == 'servers' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <rect x="2" y="2" width="20" height="8" rx="2" />
+    <rect x="2" y="14" width="20" height="8" rx="2" />
+    <line x1="6" y1="6" x2="6.01" y2="6" />
+    <line x1="6" y1="18" x2="6.01" y2="18" />
+</svg>
+{% elif name == 'gear' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path
+        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+</svg>
+{% elif name == 'clipboard-check' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <rect x="8" y="2" width="8" height="4" rx="1" />
+    <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+    <path d="m9 14 2 2 4-4" />
+</svg>
+{% elif name == 'info' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="16" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12.01" y2="8" />
+</svg>
+{% elif name == 'lock' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+</svg>
+{% elif name == 'file-text' %}
+<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+    stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+    <polyline points="10 9 9 9 8 9" />
+</svg>
+{% endif %}
+{% endmacro %}
+
+{# ================= NAV CONFIG (per role) =================
+Each entry: { id, label, mini?, icon, href?, match?[], children?[] }.
+Groups have `children`; leaves have `href`. Dividers are rendered
+automatically between top-level sections. #}
+{% set role = session.get('role') %}
+{% if role == 'Admin' or role == 'chips_admin' %}
+{% set nav_items = [
+{'id': 'dashboard', 'label': 'Dashboard', 'icon': 'dashboard', 'href': '/auth/chips/dashboard'},
+{'id': 'dc-monitoring', 'label': 'DC monitoring', 'icon': 'servers', 'href': '/auth/chips/dc-monitoring'},
+{'id': 'operator', 'label': 'Operator registration', 'mini': 'OPR', 'icon': 'users', 'children': [
+{'id': 'lms', 'label': 'LMS credential', 'icon': 'key', 'href': '/auth/chips/lms'},
+{'id': 'nseit', 'label': 'NSEIT request', 'icon': 'award', 'href': '/auth/chips/nseit'},
+{'id': 'op-activation', 'label': 'Operator activation', 'icon': 'user-check', 'href':
+'/auth/chips/operator-activation'},
+{'id': 'op-reactivation', 'label': 'Operator reactivation', 'icon': 'rotate-cw', 'href': '/auth/chips/reactivation'}
+]},
+{'id': 'kit', 'label': 'Kit registration', 'mini': 'KIT', 'icon': 'box', 'children': [
+{'id': 'station-id', 'label': 'Station ID', 'icon': 'monitor', 'href': '/auth/chips/station-id'},
+{'id': 'l1', 'label': 'L1 registration', 'icon': 'circle-1', 'href': '/auth/chips/l1-registration'},
+        {'id': 'l2', 'label': 'L2 registration', 'icon': 'circle-2', 'href': '/auth/chips/l2-registration'},
+        {'id': 'kit-reg-status', 'label': 'Kit registration status', 'icon': 'box', 'href': '/auth/chips/kit-registration'}
+    ]},
+    {'id': 'settings', 'label': 'Registration settings', 'mini': 'SET', 'icon': 'gear', 'href': '/auth/chips/registration-settings'},
+    {'id': 'reports', 'label': 'Reports', 'icon': 'bar-chart', 'href': '/auth/reports'}
+    ] %}
+    {% elif role == 'Candidate' %}
+    {% set nav_items = [
+    {'id': 'overview', 'label': 'Overview', 'icon': 'info', 'href': '/auth/candidate/instructions'},
+    {'id': 'lms-cert', 'label': 'LMS certificate', 'icon': 'lock', 'href': '/auth/candidate/lms'},
+    {'id': 'nseit-cert', 'label': 'NSEIT certificate', 'icon': 'file-text', 'href': '/auth/candidate/nseit'}
+    ] %}
+    {% else %}
+    {% set nav_items = [
+    {'id': 'dashboard', 'label': 'Dashboard', 'icon': 'dashboard', 'href': '/auth/dc/dashboard'},
+    {'id': 'operator', 'label': 'Operator registration', 'mini': 'OPR', 'icon': 'users', 'children': [
+    {'id': 'candidate-requests', 'label': 'Candidate requests', 'icon': 'inbox', 'href': '/auth/dc/candidate-requests'},
+    {'id': 'lms', 'label': 'LMS credential', 'icon': 'key', 'href': '/auth/dc/lms'},
+    {'id': 'nseit', 'label': 'NSEIT request', 'icon': 'award', 'href': '/auth/dc/nseit'},
+    {'id': 'op-activation', 'label': 'Operator activation', 'icon': 'user-check', 'href':
+    '/auth/dc/operator-activation/list', 'match': ['/auth/dc/operator-activation']},
+    {'id': 'op-reactivation', 'label': 'Operator reactivation', 'icon': 'rotate-cw', 'href': '/auth/dc/reactivation'}
+    ]},
+    {'id': 'kit', 'label': 'Kit registration', 'mini': 'KIT', 'icon': 'box', 'children': [
+    {'id': 'station-id', 'label': 'Station ID', 'icon': 'monitor', 'href': '/auth/dc/station-id/list'},
+    {'id': 'l1', 'label': 'L1 registration', 'icon': 'circle-1', 'href': '/auth/dc/l1-registration'},
+    {'id': 'l2', 'label': 'L2 registration', 'icon': 'circle-2', 'href': '/auth/dc/l2-registration/list'}
+    ]},
+    {'id': 'actions', 'label': 'Action', 'mini': 'ACT', 'icon': 'clipboard-check', 'children': [
+    {'id': 'op-onboarding', 'label': 'Operator onboarding', 'icon': 'users', 'href': '/auth/dc/operator-onboarding'},
+    {'id': 'op-mapping', 'label': 'Operator mapping', 'icon': 'monitor', 'href': '/auth/dc/operator-mapping'}
+    ]},
+    {'id': 'reports', 'label': 'Reports', 'icon': 'bar-chart', 'href': '/auth/reports'}
+    ] %}
+    {% endif %}
+
+    {% if role == 'Candidate' %}{% set reports_visible = false %}{% else %}{% set reports_visible = true %}{% endif %}
+
+    <div class="sidebar-scrim" id="sidebar-scrim" aria-hidden="true"></div>
+
+    <aside class="sidebar" id="app-sidebar">
+        <div class="sidebar-toolbar">
+            <button type="button" id="sidebar-pin" class="sidebar-pin" aria-pressed="false"
+                aria-label="Pin sidebar open" title="Pin sidebar open">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
                     stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                </svg>
-                Dashboard
-            </a>
-        </li>
-
-        <li class="{% if request.path == '/auth/chips/dc-monitoring' %}active{% endif %}">
-            <a href="/auth/chips/dc-monitoring">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-                    <line x1="6" y1="6" x2="6.01" y2="6"></line>
-                    <line x1="6" y1="18" x2="6.01" y2="18"></line>
-                </svg>
-                DC Monitoring
-            </a>
-        </li>
-
-
-
-        <li class="menu-item">
-            <details open>
-                <summary>
-                    <span style="display: flex; align-items: center; gap: 10px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
-                        Operator Registration
-                    </span>
-                </summary>
-                <ul class="submenu">
-                    <li class="submenu-item {% if request.path == '/auth/chips/lms' %}active{% endif %}">
-                        <a href="/auth/chips/lms">
-                            LMS Credential
-                        </a>
-                    </li>
-                    <li class="submenu-item {% if request.path == '/auth/chips/nseit' %}active{% endif %}">
-                        <a href="/auth/chips/nseit">
-                            NSEIT Request
-                        </a>
-                    </li>
-                    <li
-                        class="submenu-item {% if request.path == '/auth/chips/operator-activation' %}active{% endif %}">
-                        <a href="/auth/chips/operator-activation">
-                            Operator Activation
-                        </a>
-                    </li>
-                    <li class="submenu-item {% if request.path == '/auth/chips/reactivation' %}active{% endif %}">
-                        <a href="/auth/chips/reactivation">
-                            Operator Reactivation
-                        </a>
-                    </li>
-                </ul>
-            </details>
-        </li>
-
-        <li class="menu-item">
-            <details open>
-                <summary>
-                    <span style="display: flex; align-items: center; gap: 10px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path
-                                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
-                            </path>
-                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                        </svg>
-                        Kit Registration
-                    </span>
-                </summary>
-                <ul class="submenu">
-                    <li class="submenu-item {% if request.path == '/auth/chips/station-id' %}active{% endif %}">
-                        <a href="/auth/chips/station-id">
-                            Station ID
-                        </a>
-                    </li>
-                    <li class="submenu-item {% if request.path == '/auth/chips/l1-registration' %}active{% endif %}">
-                        <a href="/auth/chips/l1-registration">
-                            L1 Registration
-                        </a>
-                    </li>
-                    <li class="submenu-item {% if request.path == '/auth/chips/l2-registration' %}active{% endif %}">
-                        <a href="/auth/chips/l2-registration">
-                            L2 Registration
-                        </a>
-                    </li>
-                </ul>
-            </details>
-        </li>
-
-        <li class="{% if request.path == '/auth/chips/registration-settings' %}active{% endif %}">
-            <a href="/auth/chips/registration-settings">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="3"></circle>
+                    <line x1="12" y1="17" x2="12" y2="22" />
                     <path
-                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-                    </path>
+                        d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z" />
                 </svg>
-                Registration Settings
-            </a>
-        </li>
+            </button>
+        </div>
 
-        {% elif session.get('role') == 'Candidate' %}
+        <nav aria-label="Main navigation">
+            <ul>
+                {% for item in nav_items %}
+                {% if not loop.first %}
+                <li class="nav-divider" aria-hidden="true"></li>
+                {% endif %}
 
-
-        <!-- Candidate Navigation Links -->
-        <li class="{% if request.path == '/auth/candidate/instructions' %}active{% endif %}">
-            <a href="/auth/candidate/instructions">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
-                Overview
-            </a>
-        </li>
-        <li class="{% if request.path == '/auth/candidate/lms' %}active{% endif %}">
-            <a href="/auth/candidate/lms">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                </svg>
-                LMS Certificate
-            </a>
-        </li>
-        <li class="{% if request.path == '/auth/candidate/nseit' %}active{% endif %}">
-            <a href="/auth/candidate/nseit">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-                NSEIT Certificate
-            </a>
-        </li>
-        {% else %}
-
-        <!-- District Coordinator (DC) Navigation Links -->
-        <li class="{% if request.path == '/auth/dc/dashboard' %}active{% endif %}">
-            <a href="/auth/dc/dashboard">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                </svg>
-                Dashboard
-            </a>
-        </li>
-
-        <li class="menu-item">
-            <details open>
-                <summary>
-                    <span style="display: flex; align-items: center; gap: 10px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                {% if item.children %}
+                {# ---- parent group ---- #}
+                {% set ns = namespace(active=false) %}
+                {% for child in item.children %}
+                {% if request.path == child.href or request.path in child.get('match', []) %}{% set ns.active = true
+                %}{%
+                endif %}
+                {% endfor %}
+                <li class="nav-group open {% if ns.active %}has-active{% endif %}">
+                    <div class="group-mini" aria-hidden="true">{{ item.mini }}</div>
+                    <button type="button" class="group-summary" aria-expanded="true"
+                        aria-controls="group-{{ item.id }}">
+                        {{ nav_icon(item.icon) }}
+                        <span class="nav-label">{{ item.label }}</span>
+                        <svg class="group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="m6 9 6 6 6-6" />
                         </svg>
-                        Operator Registration
-                    </span>
-                </summary>
-                <ul class="submenu">
-                    <li class="submenu-item {% if request.path == '/auth/dc/candidate-requests' %}active{% endif %}">
-                        <a href="/auth/dc/candidate-requests">
-                            Candidate Requests
-                        </a>
-                    </li>
-                    <li class="submenu-item {% if request.path == '/auth/dc/lms' %}active{% endif %}">
-                        <a href="/auth/dc/lms">
-                            LMS Credential
-                        </a>
-                    </li>
-                    <li class="submenu-item {% if request.path == '/auth/dc/nseit' %}active{% endif %}">
-                        <a href="/auth/dc/nseit">
-                            NSEIT Request
-                        </a>
-                    </li>
-                    <li
-                        class="submenu-item {% if request.path == '/auth/dc/operator-activation/list' or request.path == '/auth/dc/operator-activation' %}active{% endif %}">
-                        <a href="/auth/dc/operator-activation/list">
-                            Operator Activation
-                        </a>
-                    </li>
-                    <li class="submenu-item {% if request.path == '/auth/dc/reactivation' %}active{% endif %}">
-                        <a href="/auth/dc/reactivation">
-                            Operator Reactivation
-                        </a>
-                    </li>
-                </ul>
-            </details>
-        </li>
+                    </button>
+                    <ul class="group-children" id="group-{{ item.id }}">
+                        {% for child in item.children %}
+                        {% set child_active = request.path == child.href or request.path in child.get('match', []) %}
+                        <li>
+                            <a class="nav-link {% if child_active %}active{% endif %}" href="{{ child.href }}" {% if
+                                child_active %}aria-current="page" {% endif %} aria-label="{{ child.label }}"
+                                data-tooltip="{{ child.label }}">
+                                {{ nav_icon(child.icon) }}
+                                <span class="nav-label">{{ child.label }}</span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+                {% else %}
+                {# ---- top-level leaf ---- #}
+                {% if item.id == 'reports' and not reports_visible %}{% else %}
+                {% set leaf_active = request.path == item.href or request.path in item.get('match', []) %}
+                <li class="nav-leaf">
+                    <a class="nav-link {% if leaf_active %}active{% endif %}" href="{{ item.href }}" {% if leaf_active
+                        %}aria-current="page" {% endif %} aria-label="{{ item.label }}" data-tooltip="{{ item.label }}">
+                        {{ nav_icon(item.icon) }}
+                        <span class="nav-label">{{ item.label }}</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+            </ul>
+        </nav>
+    </aside>
 
-        <li class="menu-item">
-            <details open>
-                <summary>
-                    <span style="display: flex; align-items: center; gap: 10px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path
-                                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
-                            </path>
-                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                        </svg>
-                        Kit Registration
-                    </span>
-                </summary>
-                <ul class="submenu">
-                    <li class="submenu-item {% if request.path == '/auth/dc/station-id/list' %}active{% endif %}">
-                        <a href="/auth/dc/station-id/list">
-                            Station ID
-                        </a>
-                    </li>
-                    <li class="submenu-item {% if request.path == '/auth/dc/l1-registration' %}active{% endif %}">
-                        <a href="/auth/dc/l1-registration">
-                            L1 Registration
-                        </a>
-                    </li>
-                    <li class="submenu-item {% if request.path == '/auth/dc/l2-registration/list' %}active{% endif %}">
-                        <a href="/auth/dc/l2-registration/list">
-                            L2 Registration
-                        </a>
-                    </li>
-                </ul>
-            </details>
-        </li>
-        {% endif %}
+    <script>
+        (function () {
+            var sidebar = document.getElementById('app-sidebar');
+            if (!sidebar || sidebar.dataset.wired === '1') return;
+            sidebar.dataset.wired = '1';
 
-        {% if session.get('role') != 'Candidate' %}
-        <li>
-            <a href="#">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="20" x2="18" y2="10"></line>
-                    <line x1="12" y1="20" x2="12" y2="4"></line>
-                    <line x1="6" y1="20" x2="6" y2="14"></line>
-                </svg>
-                Reports
-            </a>
-        </li>
-        {% endif %}
-    </ul>
-</aside>
+            var STORAGE_KEY = 'chips.sidebar';
+            var TOOLTIP_DELAY = 400;
+            var scrim = document.getElementById('sidebar-scrim');
+            var pinBtn = document.getElementById('sidebar-pin');
+            var mql = window.matchMedia('(max-width: 768px)');
+
+            // ---- persisted state (guarded so a corrupt value can't crash) ----
+            function readState() {
+                try {
+                    var raw = localStorage.getItem(STORAGE_KEY);
+                    if (!raw) return { collapsed: false, pinned: false };
+                    var p = JSON.parse(raw);
+                    return {
+                        collapsed: typeof p.collapsed === 'boolean' ? p.collapsed : false,
+                        pinned: typeof p.pinned === 'boolean' ? p.pinned : false
+                    };
+                } catch (e) {
+                    return { collapsed: false, pinned: false };
+                }
+            }
+            function writeState(s) {
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) { }
+            }
+
+            var state = readState();
+
+            function isMobile() { return mql.matches; }
+
+            function reflectHamburger() {
+                var ham = document.getElementById('sidebar-toggle');
+                if (ham) {
+                    var expanded = isMobile() ? !sidebar.classList.contains('collapsed')
+                        : !sidebar.classList.contains('collapsed');
+                    ham.setAttribute('aria-expanded', String(expanded));
+                }
+            }
+
+            function applyState() {
+                sidebar.classList.toggle('collapsed', state.collapsed);
+                pinBtn.classList.toggle('pinned', state.pinned);
+                pinBtn.setAttribute('aria-pressed', String(state.pinned));
+                pinBtn.setAttribute('aria-label', state.pinned ? 'Unpin sidebar' : 'Pin sidebar open');
+                if (scrim) scrim.classList.toggle('open', isMobile() && !state.collapsed);
+                reflectHamburger();
+            }
+
+            // On mobile the sidebar is an overlay drawer; start hidden.
+            if (isMobile()) state.collapsed = true;
+            applyState();
+
+            function setCollapsed(collapsed) {
+                state.collapsed = collapsed;
+                if (!isMobile()) writeState(state);
+                applyState();
+            }
+
+            // ---- Hamburger (lives in the site header) toggles collapse/drawer ----
+            document.addEventListener('click', function (e) {
+                if (e.target.closest('#sidebar-toggle')) {
+                    setCollapsed(!state.collapsed);
+                }
+            });
+
+            // ---- Pin toggle ----
+            pinBtn.addEventListener('click', function () {
+                state.pinned = !state.pinned;
+                writeState(state);
+                applyState();
+            });
+
+            // ---- Sidebar clicks (single handler so behaviours can't fight) ----
+            sidebar.addEventListener('click', function (e) {
+                // Collapsed rail (desktop): a click on a specific icon (the same
+                // region the hover highlight outlines) opens that page directly,
+                // without expanding the rail. A click anywhere else — blank rail
+                // space, a divider, a group micro-label — is ambiguous about
+                // which page was meant, so it just expands the rail instead.
+                if (!isMobile() && sidebar.classList.contains('collapsed')) {
+                    var collapsedLink = e.target.closest('a.nav-link');
+                    if (collapsedLink) {
+                        hideTip();
+                        return; // let the navigation proceed; stay collapsed
+                    }
+                    e.preventDefault();
+                    hideTip();
+                    setCollapsed(false);
+                    return;
+                }
+
+                // Accordion toggle (expanded).
+                var summary = e.target.closest('.group-summary');
+                if (summary) {
+                    var group = summary.closest('.nav-group');
+                    var open = group.classList.toggle('open');
+                    summary.setAttribute('aria-expanded', String(open));
+                    return;
+                }
+
+                // Nav item selected (expanded): let navigation proceed, then collapse
+                // (or close the mobile drawer) unless the sidebar is pinned.
+                var link = e.target.closest('a.nav-link');
+                if (link) {
+                    if (isMobile() || !state.pinned) setCollapsed(true);
+                }
+            });
+
+            // ---- Auto-collapse: a click anywhere on the page collapses an unpinned,
+            //      expanded rail. Skipped when pinned, already collapsed, on mobile,
+            //      or when the click lands inside a modal/dialog/overlay. ----
+            document.addEventListener('mousedown', function (e) {
+                if (isMobile() || state.pinned || state.collapsed) return;
+                if (sidebar.contains(e.target)) return;
+                if (e.target.closest('#sidebar-toggle')) return;
+                if (e.target.closest('[role="dialog"], [role="alertdialog"], .swal2-container, [data-sidebar-ignore]')) return;
+                setCollapsed(true);
+            });
+
+            // ---- Scrim closes the mobile drawer ----
+            if (scrim) {
+                scrim.addEventListener('click', function () { setCollapsed(true); });
+            }
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && isMobile() && !state.collapsed) setCollapsed(true);
+            });
+
+            // ---- Tooltip (collapsed mode only), portalled to <body> ----
+            var tip = document.createElement('div');
+            tip.className = 'sidebar-tooltip';
+            tip.setAttribute('role', 'presentation');
+            document.body.appendChild(tip);
+            var tipTimer = null;
+
+            function showTip(el) {
+                var label = el.getAttribute('data-tooltip');
+                if (!label) return;
+                var r = el.getBoundingClientRect();
+                tip.textContent = label;
+                tip.style.top = (r.top + r.height / 2) + 'px';
+                tip.style.left = (r.right + 8) + 'px';
+                tip.classList.add('visible');
+            }
+            function hideTip() {
+                clearTimeout(tipTimer);
+                tip.classList.remove('visible');
+            }
+
+            sidebar.addEventListener('mouseover', function (e) {
+                if (!sidebar.classList.contains('collapsed') || isMobile()) return;
+                var link = e.target.closest('a.nav-link');
+                if (!link) return;
+                clearTimeout(tipTimer);
+                tipTimer = setTimeout(function () { showTip(link); }, TOOLTIP_DELAY);
+            });
+            sidebar.addEventListener('mouseout', function (e) {
+                var link = e.target.closest('a.nav-link');
+                if (link) hideTip();
+            });
+            // Never leave a tooltip up when scrolling the rail or leaving it.
+            sidebar.addEventListener('scroll', hideTip, true);
+            sidebar.addEventListener('mouseleave', hideTip);
+
+            // ---- Re-apply on breakpoint change (desktop rail <-> mobile drawer) ----
+            mql.addEventListener('change', function () {
+                hideTip();
+                if (isMobile()) {
+                    state.collapsed = true;
+                } else {
+                    state = readState();
+                }
+                applyState();
+            });
+        })();
+    </script>

@@ -40,6 +40,7 @@ class L2RegistrationRequest(Base):
     uidai_remarks = Column(Text, nullable=True)
 
     submitted_at = Column(DateTime, nullable=False, default=get_ist_time, index=True)
+    is_mailed = Column(Integer, default=0, nullable=True)
     # reviewed_at = Column(DateTime, nullable=True) # column does not exist in DB
     # completed_at = Column(DateTime, nullable=True) # column does not exist in DB
     # reviewed_by = Column(Integer, ForeignKey("user_login_table.id"), nullable=True) # column does not exist in DB
