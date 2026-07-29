@@ -1173,7 +1173,7 @@
         <div class="user-chip-wrap" style="position: relative;">
             <button type="button" id="identity-chip-btn" class="user-chip" aria-haspopup="menu" aria-expanded="false"
                 aria-controls="identity-menu">
-                <span class="user-avatar">
+                <span class="user-avatar notranslate" translate="no">
                     {% if role == 'Candidate' and status_data and status_data.photo_upload %}
                     <img src="{{ status_data.photo_upload }}" alt="User photo">
                     {% else %}
@@ -1181,7 +1181,7 @@
                     {% endif %}
                 </span>
                 <span class="user-text">
-                    <span class="user-name">{{ identity_name }}</span>
+                    <span class="user-name notranslate" translate="no">{{ identity_name }}</span>
                     <span class="user-meta">{{ identity_role_label }}</span>
                 </span>
                 <i class="ti ti-chevron-down user-chevron"></i>
@@ -1225,28 +1225,36 @@
        node. The active segment is kept in sync via the "langchange" event so
        any other switcher on the page stays consistent. */
     (function () {
-        var segs = document.querySelectorAll('#lang-toggle .lang-seg');
-        if (!segs.length || !window.i18n) return;
+        function setupLangToggle() {
+            var segs = document.querySelectorAll('#lang-toggle .lang-seg');
+            if (!segs.length || !window.i18n) return;
 
-        function reflect(lang) {
+            function reflect(lang) {
+                segs.forEach(function (seg) {
+                    var active = seg.getAttribute('data-lang') === lang;
+                    seg.classList.toggle('is-active', active);
+                    seg.setAttribute('aria-pressed', active ? 'true' : 'false');
+                });
+            }
+
+            reflect(window.i18n.getLang());
+
             segs.forEach(function (seg) {
-                var active = seg.getAttribute('data-lang') === lang;
-                seg.classList.toggle('is-active', active);
-                seg.setAttribute('aria-pressed', active ? 'true' : 'false');
+                seg.addEventListener('click', function () {
+                    window.i18n.setLang(seg.getAttribute('data-lang'));
+                });
+            });
+
+            document.addEventListener('langchange', function (e) {
+                reflect(e.detail.lang);
             });
         }
 
-        reflect(window.i18n.getLang());
-
-        segs.forEach(function (seg) {
-            seg.addEventListener('click', function () {
-                window.i18n.setLang(seg.getAttribute('data-lang'));
-            });
-        });
-
-        document.addEventListener('langchange', function (e) {
-            reflect(e.detail.lang);
-        });
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupLangToggle);
+        } else {
+            setupLangToggle();
+        }
     })();
 </script>
 

@@ -71,11 +71,21 @@
     if (dicts.en) buildReverse();
 
     function lookup(key) {
+        if (!key) return null;
         if (dicts[current] && Object.prototype.hasOwnProperty.call(dicts[current], key)) {
             return dicts[current][key];
         }
         if (dicts.en && Object.prototype.hasOwnProperty.call(dicts.en, key)) {
             return dicts.en[key];
+        }
+        var mappedKey = keyForText(String(key).trim());
+        if (mappedKey) {
+            if (dicts[current] && Object.prototype.hasOwnProperty.call(dicts[current], mappedKey)) {
+                return dicts[current][mappedKey];
+            }
+            if (dicts.en && Object.prototype.hasOwnProperty.call(dicts.en, mappedKey)) {
+                return dicts.en[mappedKey];
+            }
         }
         return null;
     }
@@ -136,7 +146,19 @@
         while ((n = walker.nextNode())) {
             var orig = nodeOriginals.get(n);
             var base = orig !== undefined ? orig : n.nodeValue;
-            var key = keyForText(base.trim());
+            var trimmed = base.trim();
+
+            // Auto-protect request codes, IDs, and email addresses (e.g. RPR-64946387C0004, REQ-10023, MAC-0012)
+            if (/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(trimmed) ||
+                (/^[A-Za-z0-9_-]{3,}$/.test(trimmed) && /[0-9]/.test(trimmed) && /[A-Za-z]/.test(trimmed))) {
+                if (n.parentNode && n.parentNode.nodeType === 1) {
+                    n.parentNode.classList.add('notranslate');
+                    n.parentNode.setAttribute('translate', 'no');
+                }
+                continue;
+            }
+
+            var key = keyForText(trimmed);
             if (!key) continue;
             var v = lookup(key);
             if (v === null) continue;
@@ -144,6 +166,10 @@
             var m = base.match(/^(\s*)[\s\S]*?(\s*)$/);
             var next = current === 'hi' ? (m[1] + v + m[2]) : (m[1] + base.trim() + m[2]);
             if (n.nodeValue !== next) n.nodeValue = next;
+            if (current === 'hi' && n.parentNode && n.parentNode.nodeType === 1) {
+                n.parentNode.classList.add('notranslate');
+                n.parentNode.setAttribute('translate', 'no');
+            }
         }
     }
 
@@ -184,6 +210,10 @@
             var v = lookup(el.getAttribute('data-i18n'));
             if (v !== null) {
                 if (el.textContent !== v) el.textContent = v;
+                if (current === 'hi') {
+                    el.classList.add('notranslate');
+                    el.setAttribute('translate', 'no');
+                }
             }
         });
 
@@ -205,6 +235,10 @@
             var v = districtName(el.getAttribute('data-i18n-district'));
             if (v) {
                 if (el.textContent !== v) el.textContent = v;
+                if (current === 'hi') {
+                    el.classList.add('notranslate');
+                    el.setAttribute('translate', 'no');
+                }
             }
         });
 
@@ -213,6 +247,10 @@
             if (!raw || !/slot/i.test(raw)) return;
             var v = current === 'hi' ? raw.replace(/slots?/i, t('value.slotSuffix')) : raw;
             if (el.textContent !== v) el.textContent = v;
+            if (current === 'hi') {
+                el.classList.add('notranslate');
+                el.setAttribute('translate', 'no');
+            }
         });
     }
 
@@ -274,9 +312,12 @@
                     if (n.nodeType === 1) apply(n);
                     else if (n.nodeType === 3) translateTextNodes(n);
                 }
+                if (muts[i].type === 'characterData' && muts[i].target) {
+                    translateTextNodes(muts[i].target);
+                }
             }
         });
-        mo.observe(document.body, { childList: true, subtree: true });
+        mo.observe(document.body, { childList: true, subtree: true, characterData: true });
     }
 
     /* ---- load dictionaries -------------------------------------------------- */
