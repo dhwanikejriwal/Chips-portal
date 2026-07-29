@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime
 from backend.database import get_db
 from backend.models.report import ReportHistory
+from backend.utils.district_mapper import normalize_district_name
 
 router = APIRouter(tags=["Reports"])
 REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "reports")
@@ -100,7 +101,7 @@ async def generate_report(
             
         # Filter specific columns based on report type
         if report_type == '18_plus_pendency':
-            desired = ['Total Pending', 'Pending at SubDistrict', 'Pending at District']
+            desired = ['Total Pending', 'Total Rejected', 'Total Approved']
             matched = []
             for d in desired:
                 for c in df.columns:
@@ -113,26 +114,31 @@ async def generate_report(
             
         elif report_type == 'mbu_district_wise':
             desired = [
+                'Total Student',
+                'Total Students AADHAAR Provided',
+                'AADHAAR Verified-Passed(Yes)',
+                'AADHAAR Verified-Failed(No)',
+                'AADHAAR Verified-To be Done',
                 'MBU Pending (Age 5-15)', 
                 'MBU Pending (Age 15 and above)',
-                'Status Check to be done',
                 'MBU Not Required',
-                'Total Student'
+                'MBU Not Applicable',
+                'Status Check to be done'
             ]
             matched = []
-            for d in desired:
-                for c in df.columns:
-                    c_clean = str(c).strip().lower()
+            for col in df.columns:
+                col_clean = str(col).strip().lower()
+                for d in desired:
                     d_clean = d.lower()
-                    if c_clean == d_clean or (d_clean == 'total student' and c_clean == 'total students'):
-                        matched.append(c)
+                    if col_clean == d_clean or (d_clean == 'total student' and col_clean in ['total student', 'total students']):
+                        matched.append(col)
                         break
-            if len(matched) < len(desired):
+            if not matched:
                 raise Exception(f"Invalid dataset uploaded for MBU District Wise. Please ensure you uploaded the correct dataset.")
             df = df[keep_cols + matched]
             
         elif report_type == 'cenetarian_district_report':
-            desired = ['Pending Total', 'Pending Sub District', 'Pending District']
+            desired = ['Pending Total', 'Not verifiable Total', 'Deceased Total', 'Alive Total']
             matched = []
             for d in desired:
                 for c in df.columns:
@@ -159,24 +165,69 @@ async def generate_report(
         df = df[keep_cols].dropna(subset=[dist_col])
 
         if report_type == 'mbu_district_wise' and numeric_cols:
-            df['Total Pending'] = df[numeric_cols].sum(axis=1)
+            if 'MBU Pending (Age 5-15)' in df.columns and 'MBU Pending (Age 15 and above)' in df.columns:
+                df['Total Pending'] = df['MBU Pending (Age 5-15)'] + df['MBU Pending (Age 15 and above)']
+            else:
+                df['Total Pending'] = df[numeric_cols].sum(axis=1)
             numeric_cols.append('Total Pending')
 
+        if report_type == 'cenetarian_district_report' and numeric_cols:
+            total_reqs = pd.Series(0, index=df.index)
+            for c in df.columns:
+                if str(c).strip().lower() in [d.lower() for d in ['Pending Total', 'Not verifiable Total', 'Deceased Total', 'Alive Total']]:
+                    total_reqs += df[c].fillna(0)
+            df['Total Requests'] = total_reqs
+            numeric_cols.append('Total Requests')
+
+        if report_type == '18_plus_pendency' and numeric_cols:
+            total_reqs_18 = pd.Series(0, index=df.index)
+            for c in df.columns:
+                if str(c).strip().lower() in [d.lower() for d in ['Total Pending', 'Total Rejected', 'Total Approved']]:
+                    total_reqs_18 += df[c].fillna(0)
+            df['Total Requests'] = total_reqs_18
+            numeric_cols.append('Total Requests')
+
+        df = df[~df[dist_col].astype(str).str.strip().isin(['(1)', '1', 'Total', 'TOTAL', ''])]
+        df[dist_col] = df[dist_col].apply(normalize_district_name)
+
         if district:
-            df = df[df[dist_col].astype(str).str.lower() == district.lower()]
+            df = df[df[dist_col].astype(str).str.lower() == normalize_district_name(district).lower()]
 
         # Write to multi-sheet excel
         with pd.ExcelWriter(output_filepath, engine='openpyxl') as writer:
+            
+            def add_derived_cols(summary_df):
+                if report_type == 'mbu_district_wise' and 'Total Pending' in summary_df.columns:
+                    passed_yes_col = next((c for c in summary_df.columns if 'passed(yes)' in str(c).lower() or 'verified-passed' in str(c).lower()), None)
+                    not_app_col = next((c for c in summary_df.columns if 'not applicable' in str(c).lower()), None)
+                    if passed_yes_col:
+                        denom = summary_df[passed_yes_col] - (summary_df[not_app_col] if not_app_col else 0)
+                    elif 'Total Students AADHAAR Provided' in summary_df.columns:
+                        denom = summary_df['Total Students AADHAAR Provided']
+                    else:
+                        denom = 1
+                    summary_df['MBU Pendency %'] = ((summary_df['Total Pending'] / denom.replace(0, 1)) * 100).round(2).astype(str) + '%'
+                elif report_type == 'cenetarian_district_report':
+                    pending_col = next((c for c in summary_df.columns if str(c).strip().lower() == 'pending total'), None)
+                    if 'Total Requests' in summary_df.columns and pending_col:
+                        summary_df['Pending %'] = ((summary_df[pending_col] / summary_df['Total Requests'].replace(0, 1)) * 100).round(2).astype(str) + '%'
+                elif report_type == '18_plus_pendency':
+                    pending_col = next((c for c in summary_df.columns if str(c).strip().lower() == 'total pending'), None)
+                    if 'Total Requests' in summary_df.columns and pending_col:
+                        summary_df['Pendency %'] = ((summary_df[pending_col] / summary_df['Total Requests'].replace(0, 1)) * 100).round(2).astype(str) + '%'
+                return summary_df
+
             # Combined Sheet
             combined_df = df.groupby(dist_col)[numeric_cols].sum().reset_index()
             
             # Ensure all master districts from DB appear in Combined sheet
             from backend.models.district import District
-            master_districts = [d.district_name for d in db.query(District).order_by(District.district_name.asc()).all() if d.district_name]
-            existing_dists = combined_df[dist_col].astype(str).str.strip().str.lower().tolist()
+            master_districts = [normalize_district_name(d.district_name) for d in db.query(District).order_by(District.district_name.asc()).all() if d.district_name]
+            master_districts = list(dict.fromkeys(master_districts))
+            existing_dists = combined_df[dist_col].astype(str).str.strip().tolist()
             missing_rows = []
             for md in master_districts:
-                if md.strip().lower() not in existing_dists:
+                if md not in existing_dists:
                     row_dict = {dist_col: md}
                     for nc in numeric_cols:
                         row_dict[nc] = 0
@@ -186,25 +237,66 @@ async def generate_report(
                 combined_df = pd.concat([combined_df, missing_df], ignore_index=True)
                 combined_df = combined_df.sort_values(by=[dist_col]).reset_index(drop=True)
 
+            combined_df = add_derived_cols(combined_df)
             combined_df.insert(0, 'S.No', range(1, len(combined_df) + 1))
-            combined_df.to_excel(writer, index=False, sheet_name='Combined')
+
+            def filter_mbu_cols(summary_df, main_col_name):
+                if report_type != 'mbu_district_wise':
+                    return summary_df
+                target_order = [
+                    'S.No',
+                    main_col_name,
+                    'Total Student',
+                    'Total Students AADHAAR Provided',
+                    'MBU Pending (Age 5-15)',
+                    'MBU Pending (Age 15 and above)',
+                    'Total Pending',
+                    'MBU Pendency %'
+                ]
+                avail = list(summary_df.columns)
+                final_cols = []
+                for t in target_order:
+                    for c in avail:
+                        c_clean = str(c).strip().lower()
+                        t_clean = str(t).strip().lower()
+                        if c_clean == t_clean or (t_clean == 'total student' and c_clean in ['total student', 'total students']):
+                            final_cols.append(c)
+                            break
+                return summary_df[final_cols]
+
+            combined_export = filter_mbu_cols(combined_df, dist_col)
+            combined_export.to_excel(writer, index=False, sheet_name='Combined')
             
-            # LWE Sheet
-            lwe_districts = ["dantewada", "bastar", "baster", "sukma", "narayanpur", "mohla-manpur-chowki", "mohla manpur ambagarh chowki", "mohla-manpur-ambagarh chouki", "bijapur", "kanker", "mohla-manpur", "mohla manpur"]
-            
-            # Helper to check if a string is LWE
-            def is_lwe(d_name):
-                d_str = str(d_name).lower().strip()
-                return any(lwe in d_str for lwe in lwe_districts)
-                
-            lwe_mask = df[dist_col].apply(is_lwe)
-            lwe_df = df[lwe_mask]
-            if not lwe_df.empty:
-                lwe_summary = lwe_df.groupby(dist_col)[numeric_cols].sum().reset_index()
-                lwe_summary.insert(0, 'S.No', range(1, len(lwe_summary) + 1))
-                lwe_summary.to_excel(writer, index=False, sheet_name='LWE')
-            else:
-                pd.DataFrame(columns=['S.No', dist_col] + numeric_cols).to_excel(writer, index=False, sheet_name='LWE')
+            # LWE and Division Sheets (matching Kit Tracker tabs: Combined, LWE, Bilaspur Div, Raipur Div, Durg Div, Bastar Div, Surguja Div)
+            if report_type in ['mbu_district_wise', 'cenetarian_district_report', '18_plus_pendency']:
+                lwe_mask = df[dist_col].apply(lambda d: is_lwe_district(d) == "Yes")
+                lwe_df = df[lwe_mask]
+                if not lwe_df.empty:
+                    lwe_summary = lwe_df.groupby(dist_col)[numeric_cols].sum().reset_index()
+                    lwe_summary = add_derived_cols(lwe_summary)
+                    lwe_summary.insert(0, 'S.No', range(1, len(lwe_summary) + 1))
+                    lwe_export = filter_mbu_cols(lwe_summary, dist_col)
+                    lwe_export.to_excel(writer, index=False, sheet_name='LWE')
+                else:
+                    pd.DataFrame(columns=['S.No', dist_col] + numeric_cols).to_excel(writer, index=False, sheet_name='LWE')
+
+                DIVISIONS_TABS = {
+                    "Bilaspur Div": ["bilaspur", "gaurella-pendra-marwahi", "gaurela-pendra-marwahi", "gpm", "janjgir-champa", "janjgir", "champa", "korba", "mungeli", "raigarh", "sakti", "sarangarh-bilaigarh", "sarangarh"],
+                    "Raipur Div": ["baloda bazar-bhatapara", "balodabazar", "baloda bazar", "dhamtari", "gariaband", "gariyaband", "mahasamund", "raipur"],
+                    "Durg Div": ["balod", "bemetara", "durg", "kabirdham (kawardha)", "kabirdham", "kawardha", "kabeerdham", "khairagarh-chhuikhadan-gandai", "khairagarh", "mohla-manpur-chowki", "mohla-manpur-ambagarh chowki", "mohla-manpur-ambagarh chouki", "mohla", "rajnandgaon"],
+                    "Bastar Div": ["bastar", "baster", "bijapur", "dakshin bastar (dantewada)", "dantewada", "uttar bastar (kanker)", "kanker", "kondagaon", "narayanpur", "sukma"],
+                    "Surguja Div": ["balrampur-ramanujganj", "balrampur", "jashpur", "koriya", "korea", "manendragarh-chirmiri-bharatpur", "manendragarh", "surajpur", "surguja"]
+                }
+
+                for div_name, allowed in DIVISIONS_TABS.items():
+                    div_mask = df[dist_col].apply(lambda d: any(a in str(d).lower().strip() or str(d).lower().strip() in a for a in allowed))
+                    div_df = df[div_mask]
+                    if not div_df.empty:
+                        div_summary = div_df.groupby(dist_col)[numeric_cols].sum().reset_index()
+                        div_summary = add_derived_cols(div_summary)
+                        div_summary.insert(0, 'S.No', range(1, len(div_summary) + 1))
+                        div_export = filter_mbu_cols(div_summary, dist_col)
+                        div_export.to_excel(writer, index=False, sheet_name=div_name)
             
             # Sheet per Academic Year
             if 'Academic Year' in df.columns:
@@ -212,9 +304,11 @@ async def generate_report(
                     if pd.notna(year):
                         year_df = df[df['Academic Year'] == year]
                         year_summary = year_df.groupby(dist_col)[numeric_cols].sum().reset_index()
+                        year_summary = add_derived_cols(year_summary)
                         year_summary.insert(0, 'S.No', range(1, len(year_summary) + 1))
+                        year_export = filter_mbu_cols(year_summary, dist_col)
                         safe_sheet_name = str(year).replace('/', '-').replace('*', '')[:31]
-                        year_summary.to_excel(writer, index=False, sheet_name=safe_sheet_name)
+                        year_export.to_excel(writer, index=False, sheet_name=safe_sheet_name)
 
         # Log to DB
         report_record = ReportHistory(
@@ -661,6 +755,10 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
             op_mapping = [m for m in mappings if m.operator_id == o.id]
             kit = next((k for k in kits if op_mapping and k.station_id == op_mapping[0].station_id), None)
             dist_name = kit.district if kit else dist_dict.get(o.district_id, "")
+            
+            mobile_str = str(o.mobile).strip() if o.mobile else ""
+            if mobile_str.endswith(".0"):
+                mobile_str = mobile_str[:-2]
             
             op_data.append({
                 "SR No.": sr_no,
