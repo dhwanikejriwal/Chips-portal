@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CHiPS Aadhaar Portal - Process Flowcharts (Light Theme)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #f8fafc;
+      color: #1e293b;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .diagram-container svg {
+      width: 100% !important;
+      height: auto !important;
+      max-height: 520px;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col p-6">
+
+  <!-- Request Selector Tabs -->
+  <div class="max-w-4xl w-full mx-auto mb-6">
+    <div class="bg-slate-200/60 p-1.5 rounded-xl border border-slate-200 flex flex-wrap gap-1.5" id="tabs-container">
+      <!-- Tabs populated via JS -->
+    </div>
+  </div>
+
+  <!-- Workspace Canvas (Full Width) -->
+  <main class="max-w-4xl w-full mx-auto flex-1">
+    <div
+      class="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 md:p-8 flex flex-col justify-between min-h-[520px]">
+      <div class="flex items-center justify-between mb-6 border-b border-slate-100 pb-3">
+        <h2 class="text-base font-bold text-slate-800" id="canvas-title">
+          Loading Diagram...
+        </h2>
+      </div>
+
+      <!-- Mermaid Diagram Destination -->
+      <div id="diagram-target" class="diagram-container flex items-center justify-center py-4 flex-1">
+        <!-- Rendered Flowchart SVG goes here -->
+      </div>
+    </div>
+  </main>
+
+  <!-- ESM Mermaid JS Loader & Setup Script -->
+  <script type="module">
+    import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+
+    // Configure Mermaid for light mode
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      themeVariables: {
+        darkMode: false,
+        fontSize: '12px',
+        fontFamily: 'Inter, sans-serif',
+        lineColor: '#4f46e5', // Indigo-600
+        textColor: '#334155', // Slate-700
+        primaryColor: '#f8fafc', // Slate-50
+        primaryTextColor: '#0f172a', // Slate-900
+        primaryBorderColor: '#cbd5e1', // Slate-300
+        secondaryColor: '#f1f5f9', // Slate-100
+        tertiaryColor: '#e0e7ff', // Indigo-100
+        edgeLabelBackground: '#ffffff',
+      },
+      flowchart: {
+        curve: 'basis',
+        padding: 15,
+        useMaxWidth: true
+      }
+    });
+
+    // DIAGRAM DATA DEFINITIONS
+    const REQUEST_PIPELINES = [
+      {
+        id: "candidate",
+        title: "Candidate Onboarding Request Flow",
+        diagram: `graph TD
+          subgraph Candidate ["Candidate Scope"]
+              A["Start Onboarding"] --> B["Verify Email OTP"]
+              B --> C["Submit Form & Uploads"]
+          end
+          subgraph DC ["DC Scope"]
+              C --> D{"DC Review Logs"}
+              D -- "Reject / Revert" --> E["Track Status & Re-submit"]
+              E --> C
+          end
+          subgraph System ["System Actions"]
+              D -- "Approve" --> F["Auto-generate login ID & pwd"]
+              F --> G["Send credentials email"]
+          end
+          subgraph Access ["Post-Login"]
+              G --> H["First Login: Force password reset"]
+          end`
+      },
+      {
+        id: "lms",
+        title: "LMS Credentials Request Flow",
+        diagram: `graph TD
+          subgraph Candidate ["Candidate Scope"]
+              A["Initiate LMS Request"] --> B["Submit request details to DC"]
+          end
+          subgraph DC ["DC Scope"]
+              B --> C["Review & Forward request to CHiPS"]
+          end
+          subgraph Admin ["Admin Scope"]
+              C --> D{"CHiPS Admin Review"}
+              D -- "Revert" --> E["DC / Candidate corrects details"]
+              E --> B
+              D -- "Approve" --> F["Assign LMS Login ID & Temp Password"]
+          end
+          subgraph System ["System Actions"]
+              F --> G["Update LMS_table status to ASSIGNED"]
+          end
+          subgraph Access ["Access"]
+              G --> H["View LMS credentials on Dashboard"]
+          end`
+      },
+      {
+        id: "nseit",
+        title: "NSEIT Certificate Request Flow",
+        diagram: `graph TD
+          subgraph Candidate ["Candidate Scope"]
+              A["Initiate NSEIT Verification"] --> B["Submit Certificate Info to DC"]
+          end
+          subgraph DC ["DC Scope"]
+              B --> C["Verify & Forward request to CHiPS"]
+          end
+          subgraph Admin ["Admin Scope"]
+              C --> D{"CHiPS Admin Review"}
+              D -- "Revert" --> E["DC / Candidate edits info"]
+              E --> B
+              D -- "Approve" --> F["Assign NSEIT ID & Certification Dates"]
+          end
+          subgraph System ["System Actions"]
+              F --> G["Update nseit_request_table status to ASSIGNED"]
+          end
+          subgraph Access ["Access"]
+              G --> H["Review NSEIT certification status on dashboard"]
+          end`
+      },
+      {
+        id: "station",
+        title: "Station ID Kit Request Flow",
+        diagram: `graph TD
+          subgraph DC ["DC Scope"]
+              A["Request Station ID & Kit Allocation"] --> B["Submit Model Type & kit size"]
+          end
+          subgraph Admin ["Admin Scope"]
+              B --> C{"Review Station Request"}
+              C -- "Revert" --> D["DC updates requirements"]
+              D --> A
+              C -- "Approve" --> E["Link pre-registered hardware kit"]
+              E --> F["Assign unique Station ID and serials"]
+          end
+          subgraph System ["System Actions"]
+              F --> G["Update station_kit_details to ALLOCATED"]
+          end`
+      },
+      {
+        id: "l1",
+        title: "L1 Registration Request Flow",
+        diagram: `graph TD
+          subgraph DC ["DC Scope"]
+              A["Submit L1 Configuration details"] --> B["Enter Machine ID & software metadata"]
+          end
+          subgraph Admin ["Admin Scope"]
+              B --> C{"Verify Machine Details"}
+              C -- "Revert" --> D["DC modifies configuration params"]
+              D --> A
+              C -- "Approve" --> E["Save configuration verification logs"]
+          end
+          subgraph System ["System Actions"]
+              E --> F["Set L1 request status to APPROVED"]
+          end`
+      },
+      {
+        id: "l2",
+        title: "L2 Registration Request Flow",
+        diagram: `graph TD
+          subgraph DC ["DC Scope"]
+              A["Submit L2 Migration Request"] --> B["Provide Old/New Machine & Station IDs"]
+          end
+          subgraph Admin ["Admin Scope"]
+              B --> C{"Verify Migration details"}
+              C -- "Revert" --> D["DC revises target machine logs"]
+              D --> A
+              C -- "Approve" --> E["Update station IDs & sync with UIDAI"]
+          end
+          subgraph System ["System Actions"]
+              E --> F["Set L2 Request status to APPROVED"]
+          end`
+      },
+      {
+        id: "activation",
+        title: "Operator Activation Request Flow",
+        diagram: `graph TD
+          subgraph DC ["DC Scope"]
+              A["Submit operator details for activation"] --> B["Upload PAN, Aadhaar & NSEIT proofs"]
+          end
+          subgraph Admin ["Admin Scope"]
+              B --> C{"Check identity documents"}
+              C -- "Revert" --> D["DC Corrects document copies"]
+              D --> A
+              C -- "Approve" --> E["Submit Activation payload to UIDAI"]
+          end
+          subgraph System ["System Actions"]
+              E --> F["Update activation status to ACTIVATED"]
+          end`
+      },
+      {
+        id: "reactivation",
+        title: "Operator Reactivation Request Flow",
+        diagram: `graph TD
+          subgraph DC ["DC Scope"]
+              A["Submit Reactivation Request"] --> B["Provide training dates & batch rosters"]
+          end
+          subgraph Admin ["Admin Scope"]
+              B --> C{"Verify training records"}
+              C -- "Revert" --> D["DC corrects roster logs"]
+              D --> A
+              C -- "Approve" --> E["Approve reactivation & unsuspend on UIDAI"]
+          end
+          subgraph System ["System Actions"]
+              E --> F["Set status of request to APPROVED"]
+          end`
+      }
+    ];
+
+    // RENDER NAVIGATION TABS
+    function buildTabs() {
+      const container = document.getElementById("tabs-container");
+      container.innerHTML = REQUEST_PIPELINES.map((pipe, index) => `
+        <button 
+          onclick="window.selectPipeline('${pipe.id}')" 
+          id="tab-btn-${pipe.id}" 
+          class="px-4 py-2 text-xs font-semibold rounded-lg transition-all ${index === 0
+          ? 'bg-indigo-600 text-white shadow-sm'
+          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/40'
+        }"
+        >
+          ${pipe.id.toUpperCase()}
+        </button>
+      `).join('');
+    }
+
+    // DRAW SELECT TARGET DIAGRAM
+    window.selectPipeline = async function (id) {
+      // Toggle button highlights
+      REQUEST_PIPELINES.forEach(pipe => {
+        const btn = document.getElementById(`tab-btn-${pipe.id}`);
+        if (btn) {
+          if (pipe.id === id) {
+            btn.className = "px-4 py-2 text-xs font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow-sm";
+          } else {
+            btn.className = "px-4 py-2 text-xs font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900 hover:bg-slate-300/40";
+          }
+        }
+      });
+
+      const pipe = REQUEST_PIPELINES.find(p => p.id === id);
+      if (!pipe) return;
+
+      // Update Heading
+      document.getElementById("canvas-title").innerText = pipe.title;
+
+      // Render Mermaid Diagram safely
+      const target = document.getElementById("diagram-target");
+      target.innerHTML = `<div class="text-xs text-slate-400 italic animate-pulse">Rendering flowchart...</div>`;
+
+      try {
+        const uniqueId = `mermaid-svg-${pipe.id}`;
+        const { svg } = await mermaid.render(uniqueId, pipe.diagram);
+        target.innerHTML = svg;
+      } catch (err) {
+        console.error(err);
+        target.innerHTML = `<div class="text-xs text-rose-500">Failed to render Mermaid SVG flowchart. Check browser console logs.</div>`;
+      }
+    };
+
+    // INIT
+    buildTabs();
+    // Default select first item
+    await window.selectPipeline(REQUEST_PIPELINES[0].id);
+
+  </script>
+</body>
+
+</html>

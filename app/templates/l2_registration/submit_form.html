@@ -1,0 +1,398 @@
+{% extends 'base.html' %}
+
+{% block title %}New L2 Registration Request — CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="/auth/dc/l2-registration/list"
+        style="background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; font-weight: 600; padding: 8px 16px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; text-decoration: none; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); transition: background 0.2s;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        Back to Dashboard
+    </a>
+</div>
+
+<h2>Submit L2 Registration Request</h2>
+
+<form id="l2-submit-form" method="POST" action="/auth/dc/l2-registration/new">
+    <div class="form-card-container">
+
+        <!-- Panel 1: Machine & Client Specs -->
+        <h2 class="container-sub-title">1. Client & Machine Specifications</h2>
+
+        <div class="form-grid-3x">
+            <div class="input-group">
+                <label>New Station ID <span class="required-star">*</span></label>
+                <select name="new_station_id" id="l2-station-id-select" class="form-control-input" required
+                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;"
+                    onchange="onL2StationSelected(this)">
+                    <option value="" disabled selected>Select an L1 Approved Station ID</option>
+                    {% for s in awaiting_l2 %}
+                    <option value="{{ s.station_id }}">{{ s.station_id }}</option>
+                    {% else %}
+                    <option value="" disabled>No L1 Approved Station IDs awaiting L2</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Client Software Version <span class="required-star">*</span></label>
+                <input type="text" name="client_version" required placeholder="e.g. 3.3.4.2/120-1"
+                    class="form-control-input">
+            </div>
+            <div class="input-group">
+                <label>Client Type <span class="required-star">*</span></label>
+                <select name="client_type" id="l2-client-type" required class="form-control-input"
+                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
+                    <option value="">Select Client Type</option>
+                    <option value="ECMP">ECMP (In house)</option>
+                    <option value="UCL">UCL</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>New Machine ID <span class="required-star">*</span></label>
+                <input type="text" name="new_machine_id" required placeholder="e.g. MAC-10292"
+                    class="form-control-input">
+            </div>
+            <div class="input-group">
+                <label>EA Code <span class="required-star">*</span></label>
+                <input type="text" name="ea_code" id="l2-ea-code" required placeholder="e.g. 2084"
+                    class="form-control-input">
+            </div>
+            <div class="input-group">
+                <label>Registrar Code <span class="required-star">*</span></label>
+                <input type="text" name="reg_code" value="986" readonly style="background:#f1f5f9; cursor:not-allowed;"
+                    required placeholder="e.g. 986" class="form-control-input">
+            </div>
+        </div>
+
+        <!-- Panel 2: Legacy details & Replaces -->
+        <h2 class="container-sub-title">2. Replacement & Reference Specifications</h2>
+
+        <div class="form-grid-2x">
+            <div class="input-group">
+                <label>Old Station ID <span style="font-weight: normal; color: #64748b;">(If Any)</span></label>
+                <input type="text" name="old_station_id" placeholder="e.g. 11009" class="form-control-input">
+            </div>
+            <div class="input-group">
+                <label>Old Machine ID <span style="font-weight: normal; color: #64748b;">(If Any)</span></label>
+                <input type="text" name="old_machine_id" placeholder="e.g. MAC-09292" class="form-control-input">
+            </div>
+            <div class="input-group span-two-columns">
+                <label>Reason For L2 Registration In Case of New Station Id is sent against the Old Station ID</label>
+                <textarea name="reason_for_l2_registration" placeholder="Provide reasons for replace details..."
+                    class="form-control-input" style="min-height: 80px; resize: vertical;"></textarea>
+            </div>
+            <div class="input-group span-two-columns">
+                <label>Tech Center Remarks</label>
+                <textarea name="tech_center_remarks" placeholder="Enter technical comments or specs..."
+                    class="form-control-input" style="min-height: 80px; resize: vertical;"></textarea>
+            </div>
+        </div>
+
+        <!-- Panel 3: Operator & Location Specs -->
+        <h2 class="container-sub-title">3. Operator & Location Specifications</h2>
+
+        <div class="form-grid-3x">
+            <div class="input-group">
+                <label>Operator Name <span class="required-star">*</span></label>
+                <input type="text" name="operator_name" required placeholder="Enter Operator Name" class="form-control-input">
+            </div>
+            <div class="input-group">
+                <label>Operator ID <span class="required-star">*</span></label>
+                <input type="text" name="operator_id" required placeholder="Enter Operator User ID" class="form-control-input">
+            </div>
+            <div class="input-group">
+                <label>Unique ID</label>
+                <input type="text" name="unique_id" placeholder="Enter Unique ID/Aadhaar Reference"
+                    class="form-control-input">
+            </div>
+            <div class="input-group">
+                <label>District <span class="required-star">*</span></label>
+                <select name="district" required disabled
+                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px; background:#f1f5f9; cursor:not-allowed;"
+                    class="form-control-input">
+                    <option value="{{ session.get('district_id') }}" selected>{{
+                        session.get('district_name', 'Select District') }}</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Block <span class="required-star">*</span></label>
+                <input type="text" name="block" required placeholder="Enter Block name" class="form-control-input">
+            </div>
+            <div class="input-group" style="grid-column: span 3;">
+                <label>Address of Govt Premises <span class="required-star">*</span></label>
+                <textarea name="address_of_govt_premises" required placeholder="Specify government premises address details..."
+                    class="form-control-input" style="min-height: 80px; resize: vertical;"></textarea>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex-actions-between" style="margin-top: 25px; align-items: center;">
+            <a href="/auth/dc/l2-registration/list"
+                onclick="if(typeof window.clearL2DraftAndForm === 'function') window.clearL2DraftAndForm();"
+                class="btn-cancel"
+                style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                Cancel
+            </a>
+            <div style="display: flex; gap: 12px;">
+                <button type="button" class="btn-secondary" onclick="clearL2Form();"
+                    style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">Clear
+                    Fields</button>
+                <button type="submit" class="btn-primary" id="submit-btn"
+                    style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        id="submit-icon" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Submit Request
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+<script>
+    // Auto fill EA Code based on Client Type
+    const clientTypeSelect = document.getElementById('l2-client-type');
+    const eaCodeInput = document.getElementById('l2-ea-code');
+    if (clientTypeSelect && eaCodeInput) {
+        clientTypeSelect.addEventListener('change', function () {
+            if (this.value === 'ECMP') {
+                eaCodeInput.value = '2084';
+            } else if (this.value === 'UCL') {
+                eaCodeInput.value = '4082';
+            } else {
+                eaCodeInput.value = '';
+            }
+        });
+    }
+
+    // Form Submit Handler
+    document.getElementById('l2-submit-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const btn = document.getElementById('submit-btn');
+        const icon = document.getElementById('submit-icon');
+        btn.disabled = true;
+        icon.innerHTML = '<circle cx="12" cy="12" r="10"/>';
+        icon.classList.add('spin');
+        btn.childNodes[2].textContent = ' Submitting…';
+
+        const formData = new FormData(this);
+        // Re-append district since disabled selects are omitted by default
+        formData.append('district_id', "{{ session.get('district_id', 1) }}");
+
+        // Also re-append new_station_id if the select is disabled!
+        const stationSelect = document.getElementById('l2-station-id-select');
+        if (stationSelect && stationSelect.disabled) {
+            formData.append('new_station_id', stationSelect.value);
+        }
+
+        fetch(this.action, {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                if ((data.status || '').toLowerCase().replace(/ /g, '_') === 'success') {
+                    Swal.fire({
+                        title: 'Request Submitted!',
+                        text: data.message,
+                        icon: 'success',
+                        confirmButtonColor: '#4f46e5',
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: true
+                    }).then(() => {
+                        if (typeof window.clearL2DraftAndForm === 'function') {
+                            window.clearL2DraftAndForm();
+                        } else if (typeof clearL2Form === 'function') {
+                            clearL2Form();
+                        }
+                        window.location.href = '/auth/dc/l2-registration/list';
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Submission Error',
+                        text: data.message || 'Error occurred.',
+                        icon: 'error',
+                        confirmButtonColor: '#4f46e5'
+                    });
+                    resetBtn();
+                }
+            })
+            .catch(err => {
+                // 🌟 FIXED: Safely stringifies error payloads to reveal the exact structural failure text
+                let displayErrorMessage = err.message || "Unknown processing exception.";
+                if (typeof err === 'object' && err !== null) {
+                    displayErrorMessage = JSON.stringify(err);
+                }
+
+                Swal.fire({
+                    title: 'System Error',
+                    text: 'Failed to process request: ' + displayErrorMessage,
+                    icon: 'error',
+                    confirmButtonColor: '#4f46e5'
+                });
+                resetBtn();
+            });
+    });
+
+    function resetBtn() {
+        const btn = document.getElementById('submit-btn');
+        const icon = document.getElementById('submit-icon');
+        btn.disabled = false;
+        icon.classList.remove('spin');
+        icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+        btn.childNodes[2].textContent = ' Submit Request';
+    }
+
+    function clearL2Form() {
+        sessionStorage.removeItem('l2_request_draft');
+        document.getElementById('l2-submit-form').reset();
+        const eaInput = document.getElementById('l2-ea-code');
+        if (eaInput) eaInput.value = '';
+    }
+
+    // Draft saving and restoring logic
+    const DRAFT_KEY = 'l2_request_draft';
+
+    window.saveL2Draft = function () {
+        const form = document.getElementById('l2-submit-form');
+        if (!form) return;
+        const formData = new FormData(form);
+        const draft = {};
+        for (let [key, value] of formData.entries()) {
+            if (value instanceof File) continue;
+            draft[key] = value;
+        }
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    };
+
+    window.loadL2Draft = function () {
+        const draftStr = sessionStorage.getItem(DRAFT_KEY);
+        if (!draftStr) return;
+        try {
+            const draft = JSON.parse(draftStr);
+            for (let key in draft) {
+                const el = document.getElementById(key) || document.getElementsByName(key)[0];
+                if (el && el.type !== 'file' && el.type !== 'hidden') {
+                    el.value = draft[key];
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+        } catch (e) {
+            console.error("Error loading draft", e);
+        }
+    };
+
+    window.clearL2DraftAndForm = function () {
+        sessionStorage.removeItem(DRAFT_KEY);
+        if (typeof clearL2Form === 'function') {
+            clearL2Form();
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('l2-submit-form');
+        if (form) {
+            form.addEventListener('input', window.saveL2Draft);
+            form.addEventListener('change', window.saveL2Draft);
+        }
+
+        let isReloadOrBack = false;
+        const navEntries = performance.getEntriesByType('navigation');
+        if (navEntries.length > 0) {
+            const navType = navEntries[0].type;
+            isReloadOrBack = (navType === 'reload' || navType === 'back_forward');
+        } else if (window.performance && window.performance.navigation) {
+            const t = window.performance.navigation.type;
+            isReloadOrBack = (t === 1 || t === 2);
+        }
+
+        if (isReloadOrBack) {
+            window.clearL2DraftAndForm();
+            return;
+        }
+
+        window.loadL2Draft();
+
+        // Define onL2StationSelected handler to prefill L2 form
+        window.onL2StationSelected = function (sel) {
+            const stationId = sel.value;
+            if (!stationId) return;
+
+            const fillable = ['new_machine_id', 'operator_name', 'operator_id', 'client_version', 'client_type'];
+
+            fetch(`/auth/dc/l2-registration/prefill/${encodeURIComponent(stationId)}`)
+                .then(res => res.ok ? res.json() : {})
+                .then(data => {
+                    if (!data || typeof data !== 'object') return;
+                    fillable.forEach(key => {
+                        const val = data[key];
+                        if (val === undefined || val === null || val === '') return;
+                        const el = document.getElementsByName(key)[0];
+                        if (!el) return;
+                        if (el.tagName === 'SELECT') {
+                            const match = Array.from(el.options).find(o => o.value === val);
+                            if (match) {
+                                el.value = val;
+                                el.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        } else {
+                            el.value = val;
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    });
+                    if (typeof window.saveL2Draft === 'function') window.saveL2Draft();
+                })
+                .catch(() => { /* prefill is best-effort; leave blanks */ });
+        };
+
+        // Pre-fill the L2 form when arriving from the "Awaiting L2 Registration" section via ?station_id=...
+        const presetStation = new URLSearchParams(window.location.search).get('station_id');
+        if (presetStation) {
+            const stationInput = document.getElementById('l2-station-id-select');
+            if (stationInput) {
+                let optionExists = Array.from(stationInput.options).some(o => o.value === presetStation);
+                if (!optionExists) {
+                    const opt = document.createElement('option');
+                    opt.value = presetStation;
+                    opt.textContent = presetStation;
+                    stationInput.appendChild(opt);
+                }
+                stationInput.value = presetStation;
+                stationInput.disabled = true;
+                stationInput.style.background = '#f1f5f9';
+                stationInput.style.cursor = 'not-allowed';
+                
+                // Trigger prefill
+                window.onL2StationSelected(stationInput);
+            }
+        }
+    });
+</script>
+{% endblock %}

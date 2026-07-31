@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Kit Registration Status — CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    .kit-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        font-size: 11.5px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .kit-badge::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        margin-right: 6px;
+        background-color: currentColor;
+    }
+    .kit-pending { background: #fef3c7; color: #b45309; }
+    .kit-done    { background: #dcfce7; color: #15803d; }
+    .kit-na      { background: #f1f5f9; color: #64748b; }
+
+    .pending-days {
+        font-weight: 700;
+        color: #b45309;
+    }
+    .pending-days.high { color: #b91c1c; }
+
+</style>
+{% endblock %}
+
+{% block content %}
+{% from 'partials/request_section.html' import request_section %}
+<!-- Header banner -->
+<div class="chips-header-banner">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div
+            style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+            </svg>
+        </div>
+        <div>
+            <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #fff;">Kit Registration Status</h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">L1 &amp; L2 registration progress for every allotted Station ID</p>
+        </div>
+    </div>
+</div>
+
+{% set kit_controls %}
+<button class="rs-export" onclick="exportKitTableToExcel()">Export to CSV</button>
+{% endset %}
+
+{% call request_section(
+    variant='progress',
+    title='Kit registration status',
+    count=requests|length,
+    controls=kit_controls,
+    min_width=1250,
+    columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request no'},
+        {'label': 'Station ID'},
+        {'label': 'District'},
+        {'label': 'Station ID provided'},
+        {'label': 'L1 status'},
+        {'label': 'L1 done date'},
+        {'label': 'L1 pending days', 'align': 'right'},
+        {'label': 'L2 status'},
+        {'label': 'L2 done date'},
+        {'label': 'L2 pending days', 'align': 'right'}
+    ],
+    table_id='kit-table', body_id='kit-tbody',
+    empty_message='No kit registrations yet. Rows appear here automatically once Station IDs are allotted.',
+    show_empty=(requests|length == 0)) %}
+            {% for r in requests %}
+            <tr data-id="{{ r.id }}">
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ r.request_no }}</strong></td>
+                <td>{{ r.station_id }}</td>
+                <td>{{ r.district }}</td>
+                <td>{{ r.station_id_provided_date }}</td>
+                <td>
+                    {% if r.l1_status and r.l1_status != '—' %}
+                    <span class="sid-badge sid-badge-{{ r.l1_status | lower | replace(' ', '_') }}">{{ r.l1_status }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>{{ r.l1_done_date }}</td>
+                <td>
+                    {% if r.l1_pending_days is not none %}
+                    <span class="pending-days {{ 'high' if r.l1_pending_days > 7 else '' }}">{{ r.l1_pending_days }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if r.l2_status == 'Not Started' %}
+                    <span class="sid-badge sid-badge-not_started">Not Started</span>
+                    {% else %}
+                    <span class="sid-badge sid-badge-{{ r.l2_status | lower | replace(' ', '_') }}">{{ r.l2_status }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ r.l2_done_date }}</td>
+                <td>
+                    {% if r.l2_pending_days is not none %}
+                    <span class="pending-days {{ 'high' if r.l2_pending_days > 7 else '' }}">{{ r.l2_pending_days }}</span>
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+{% endcall %}
+
+<script>
+    function exportKitTableToExcel() {
+        const ids = [];
+        const rows = document.querySelectorAll('#kit-tbody tr[data-id]');
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const id = row.getAttribute('data-id');
+                if (id) ids.push(id);
+            }
+        });
+
+        if (ids.length === 0) {
+            Swal.fire({
+                title: 'No Records Found',
+                text: 'There is no data loaded in this table queue to export.',
+                icon: 'info',
+                confirmButtonColor: '#4f46e5'
+            });
+            return;
+        }
+
+        window.location.href = `/auth/chips/kit-registration/export-excel?ids=${ids.join(',')}`;
+    }
+</script>
+{% endblock %}

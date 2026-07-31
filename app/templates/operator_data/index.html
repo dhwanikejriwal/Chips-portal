@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block title %}Operator Data Management — CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_data.css') }}?v=14">
+{% endblock %}
+
+{% block content %}
+{# search_only: the DC mount, which offers the Aadhar lookup and nothing else. #}
+{% set search_only = search_only|default(false) %}
+<div class="od-wrap" id="odRoot" data-can-reveal="{{ '1' if can_reveal else '0' }}"
+     data-api-base="{{ api_base|default('/auth/chips/operator-data') }}">
+
+  <!-- ============================ PAGE HEADER ============================ -->
+  <div class="od-banner">
+    <div class="od-banner-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+    </div>
+    <div>
+      <h1 class="od-banner-title">Operator Data Management</h1>
+      <p class="od-banner-sub">{% if search_only %}Look up an operator by Aadhar number{% else %}Upload operator records and look them up by Aadhar number{% endif %}</p>
+    </div>
+  </div>
+
+  {% if not search_only %}
+  <!-- ============================== TABS ============================== -->
+  <div class="od-tabs" id="odTabs" role="tablist">
+    <button class="od-tab{% if can_reveal %} active{% endif %}" data-tab="upload"
+            id="odTabUpload" role="tab" aria-controls="odPanelUpload"
+            aria-selected="{{ 'true' if can_reveal else 'false' }}">
+      <i class="ti ti-cloud-upload"></i> Upload data
+    </button>
+    <button class="od-tab{% if not can_reveal %} active{% endif %}" data-tab="search"
+            id="odTabSearch" role="tab" aria-controls="odPanelSearch"
+            aria-selected="{{ 'false' if can_reveal else 'true' }}">
+      <i class="ti ti-search"></i> Search operator
+    </button>
+  </div>
+
+  <!-- ========================== UPLOAD PANEL ========================== -->
+  <div class="od-panel" id="odPanelUpload" role="tabpanel" aria-labelledby="odTabUpload"
+       {% if not can_reveal %}hidden{% endif %}>
+    <section class="od-card" id="odUploadCard">
+      <div class="od-card-head">
+        <div class="od-card-icon"><i class="ti ti-cloud-upload"></i></div>
+        <div>
+          <h2 class="od-card-title">Upload Operator Data</h2>
+          <p class="od-card-sub">CSV or Excel. Each upload adds to the existing data.</p>
+        </div>
+      </div>
+
+      <div class="od-card-body">
+        {% if can_reveal %}
+        <form id="odUploadForm" autocomplete="off">
+          <label class="od-drop" id="odDrop" for="odFile" tabindex="0">
+            <input type="file" id="odFile" accept=".csv,.xlsx,.xls" hidden>
+            <span class="od-drop-icon"><i class="ti ti-file-spreadsheet"></i></span>
+            <span class="od-drop-title">Drag &amp; drop your file here</span>
+            <span class="od-drop-sub">or <b>browse</b> to choose a file</span>
+            <span class="od-drop-hint">Accepted: .csv, .xlsx, .xls &middot; max 10 MB</span>
+          </label>
+
+          <div class="od-file-chip" id="odFileChip" hidden>
+            <i class="ti ti-file-check"></i>
+            <span id="odFileName"></span>
+            <button type="button" class="od-file-clear" id="odFileClear" aria-label="Remove file">
+              <i class="ti ti-x"></i>
+            </button>
+          </div>
+
+          <div class="od-columns-hint">
+            <i class="ti ti-info-circle"></i>
+            <span>Required columns: <b>Name</b>, <b>Aadhar number</b>, <b>Registrar code</b>, <b>Operator code</b>, <b>Status</b>. Optional: <b>Agency</b>.</span>
+          </div>
+
+          <button type="submit" class="od-btn od-btn-primary od-btn-block" id="odUploadBtn" disabled>
+            <i class="ti ti-upload"></i> Upload &amp; process
+          </button>
+        </form>
+        {% else %}
+        <div class="od-locked">
+          <i class="ti ti-lock"></i>
+          <p>Uploading operator data is restricted to administrators.</p>
+        </div>
+        {% endif %}
+
+        <!-- Summary / empty state -->
+        <div class="od-summary" id="odSummary">
+          <div class="od-empty" id="odSummaryEmpty">
+            <i class="ti ti-report-analytics"></i>
+            <p class="od-empty-title">No file processed yet</p>
+            <p class="od-empty-sub">Upload a file to see how many records were added, skipped or rejected.</p>
+          </div>
+          <div class="od-summary-body" id="odSummaryBody" hidden>
+            <div class="od-stats">
+              <div class="od-stat od-stat-added">
+                <span class="od-stat-num" id="odStatAdded">0</span>
+                <span class="od-stat-label">New records added</span>
+              </div>
+              <div class="od-stat od-stat-dupe">
+                <span class="od-stat-num" id="odStatDupe">0</span>
+                <span class="od-stat-label">Duplicates skipped</span>
+              </div>
+              <div class="od-stat od-stat-bad">
+                <span class="od-stat-num" id="odStatBad">0</span>
+                <span class="od-stat-label">Invalid rows rejected</span>
+              </div>
+            </div>
+            <div class="od-invalid" id="odInvalidBlock" hidden>
+              <div class="od-invalid-head">
+                <span><i class="ti ti-alert-triangle"></i> Rejected rows</span>
+                <button type="button" class="od-btn od-btn-ghost od-btn-sm" id="odInvalidDownload">
+                  <i class="ti ti-download"></i> Download CSV
+                </button>
+              </div>
+              <div class="od-table-scroll">
+                <table class="od-table od-table-compact">
+                  <thead>
+                    <tr><th>Row</th><th>Name</th><th>Registrar code</th><th>Operator code</th><th>Status</th><th>Reason</th></tr>
+                  </thead>
+                  <tbody id="odInvalidBody"></tbody>
+                </table>
+              </div>
+              <p class="od-invalid-note" id="odInvalidNote" hidden></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  {% endif %}
+
+  <!-- ========================== SEARCH PANEL ========================== -->
+  <div class="od-panel" id="odPanelSearch" role="tabpanel" aria-labelledby="odTabSearch"
+       {% if can_reveal and not search_only %}hidden{% endif %}>
+    <section class="od-card" id="odSearchCard">
+      <div class="od-card-head">
+        <div class="od-card-icon od-card-icon-alt"><i class="ti ti-search"></i></div>
+        <div>
+          <h2 class="od-card-title">Search Operator</h2>
+        </div>
+      </div>
+
+      <div class="od-card-body">
+        <!-- Mode switcher -->
+        <div class="od-modes" id="odModes" role="tablist">
+          <button type="button" class="od-mode active" data-mode="aadhar" role="tab"
+                  aria-selected="true">Full Aadhar</button>
+          <button type="button" class="od-mode" data-mode="name" role="tab"
+                  aria-selected="false">Name + Last 4</button>
+        </div>
+
+        <!-- Mode 1: full Aadhar -->
+        <form class="od-searchbar" id="odSearchForm" autocomplete="off">
+          <div class="od-searchbar-input">
+            <i class="ti ti-id-badge-2"></i>
+            <input type="text" id="odSearchInput" inputmode="numeric" maxlength="14"
+                   placeholder="Enter 12-digit Aadhar number" aria-label="Aadhar number">
+          </div>
+          <button type="submit" class="od-btn od-btn-primary" id="odSearchBtn">
+            <i class="ti ti-search"></i> Search
+          </button>
+        </form>
+
+        <!-- Mode 2: name + last 4 -->
+        <form class="od-nameform" id="odNameForm" autocomplete="off" hidden>
+          <div class="od-nameform-row">
+            <div class="od-field od-grow">
+              <label for="odNameInput">Operator name</label>
+              <input type="text" id="odNameInput" maxlength="150"
+                     placeholder="Full or partial name, e.g. Vivek">
+            </div>
+            <div class="od-field">
+              <label for="odLast4Input">Last 4 digits</label>
+              <input type="text" id="odLast4Input" inputmode="numeric" maxlength="4"
+                     placeholder="1234" class="od-field-narrow">
+            </div>
+            <div class="od-field">
+              <label for="odCodeInput">Registrar / Operator code <span class="od-optional">(optional)</span></label>
+              <input type="text" id="odCodeInput" maxlength="100" placeholder="Narrow the results">
+            </div>
+            <button type="submit" class="od-btn od-btn-primary" id="odNameBtn">
+              <i class="ti ti-search"></i> Search
+            </button>
+          </div>
+          <p class="od-hint">
+            <i class="ti ti-info-circle"></i>
+            Name and last 4 digits are not unique — this may return several operators.
+          </p>
+        </form>
+
+        <p class="od-inline-error" id="odSearchError" hidden></p>
+
+        <div class="od-results" id="odResults">
+          <div class="od-empty" id="odResultsEmpty">
+            <i class="ti ti-user-search"></i>
+            <p class="od-empty-title" id="odEmptyTitle">Enter an Aadhar number to search</p>
+          </div>
+
+          <div class="od-no-data" id="odNoData" hidden>
+            <i class="ti ti-database-off"></i>
+            <p class="od-empty-title">No data available</p>
+            <p class="od-empty-sub" id="odNoDataSub">No operator record matches that Aadhar number.</p>
+          </div>
+
+          <div class="od-table-scroll" id="odResultsTableWrap" hidden>
+            <table class="od-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Agency</th>
+                  <th>Registrar code</th>
+                  <th>Operator code</th>
+                  <th>Status</th>
+                  <th>Aadhar</th>
+                  <th>Added on</th>
+                </tr>
+              </thead>
+              <tbody id="odResultsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/operator_data.js') }}?v=14"></script>
+{% endblock %}

@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+
+{% block title %}My Profile - Chips Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    .profile-card {
+        background: var(--bg-surface, #ffffff);
+        border: 1px solid var(--border-color, #e2e8f0);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+        max-width: 600px;
+        margin: 40px auto;
+        padding: 32px;
+    }
+    
+    .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        border-bottom: 1px solid var(--border-color, #e2e8f0);
+        padding-bottom: 24px;
+        margin-bottom: 28px;
+    }
+
+    .profile-avatar-circle {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    }
+
+    .profile-title h2 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text-primary, #1e293b);
+    }
+
+    .profile-title p {
+        margin: 4px 0 0 0;
+        font-size: 14px;
+        color: var(--text-secondary, #64748b);
+        font-weight: 500;
+    }
+
+    .form-group {
+        margin-bottom: 24px;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-secondary, #475569);
+        margin-bottom: 8px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        font-size: 14px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color, #cbd5e1);
+        background: var(--bg-surface, #ffffff);
+        color: var(--text-primary, #1e293b);
+        box-sizing: border-box;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-control:focus {
+        border-color: #4f46e5;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+
+    .form-control-readonly {
+        background-color: var(--bg-muted, #f8fafc);
+        border-color: var(--border-color, #e2e8f0);
+        color: var(--text-secondary, #64748b);
+        cursor: not-allowed;
+    }
+
+    .form-actions {
+        margin-top: 36px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 16px;
+    }
+
+    .btn-primary {
+        background: #4f46e5;
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .btn-primary:hover {
+        background: #3730a3;
+    }
+
+    .btn-secondary {
+        background: var(--bg-muted, #f1f5f9);
+        color: #475569;
+        border: 1px solid var(--border-color, #cbd5e1);
+        padding: 10px 24px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s, border-color 0.2s;
+    }
+
+    .btn-secondary:hover {
+        background: var(--border-color, #e2e8f0);
+    }
+
+    /* ── DARK THEME OVERRIDES ── */
+    html[data-theme="dark"] .profile-card {
+        background: var(--surface-card) !important;
+        border-color: var(--border-subtle) !important;
+        box-shadow: none !important;
+    }
+
+    html[data-theme="dark"] .profile-header {
+        border-bottom-color: var(--border-subtle) !important;
+    }
+
+    html[data-theme="dark"] .profile-title h2 {
+        color: var(--text-primary) !important;
+    }
+
+    html[data-theme="dark"] .profile-title p {
+        color: var(--text-secondary) !important;
+    }
+
+    html[data-theme="dark"] .form-group label {
+        color: var(--text-secondary) !important;
+    }
+
+    html[data-theme="dark"] .form-control {
+        background-color: var(--surface-input) !important;
+        border-color: var(--border-strong) !important;
+        color: var(--text-primary) !important;
+    }
+
+    html[data-theme="dark"] .form-control:focus {
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 0 3px var(--primary-light) !important;
+    }
+
+    html[data-theme="dark"] .form-control-readonly {
+        background-color: var(--surface-subtle) !important;
+        border-color: var(--border-subtle) !important;
+        color: var(--text-secondary) !important;
+    }
+
+    html[data-theme="dark"] .btn-secondary {
+        background-color: var(--surface-subtle) !important;
+        border-color: var(--border-subtle) !important;
+        color: var(--text-primary) !important;
+    }
+
+    html[data-theme="dark"] .btn-secondary:hover {
+        background-color: var(--surface-card) !important;
+        border-color: var(--border-strong) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-card">
+    <div class="profile-header">
+        <div class="profile-avatar-circle">
+            {% if profile_data.role == 'Admin' %}
+            AD
+            {% elif profile_data.role == 'EDM' %}
+            ED
+            {% else %}
+            DC
+            {% endif %}
+        </div>
+        <div class="profile-title">
+            <h2>{{ profile_data.full_name or profile_data.username }}</h2>
+            <p>{{ profile_data.role }} Profile Details</p>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('auth.profile') }}">
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" class="form-control form-control-readonly" value="{{ profile_data.username or '' }}" readonly>
+        </div>
+
+        <div class="form-group">
+            <label>Role</label>
+            <input type="text" class="form-control form-control-readonly" value="{{ profile_data.role or '' }}" readonly>
+        </div>
+
+        {% if profile_data.district_name %}
+        <div class="form-group">
+            <label>Assigned District</label>
+            <input type="text" class="form-control form-control-readonly" value="{{ profile_data.district_name }}" readonly>
+        </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label for="full_name">Full Name *</label>
+            <input type="text" id="full_name" name="full_name" class="form-control" value="{{ profile_data.full_name or '' }}" placeholder="Enter your full name" required>
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" class="form-control" value="{{ profile_data.email or '' }}" placeholder="Enter your email address">
+        </div>
+
+        <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input type="tel" id="phone" name="phone" class="form-control" value="{{ profile_data.phone or '' }}" placeholder="Enter your phone number">
+        </div>
+
+        <div class="form-actions">
+            {% if profile_data.role == 'Admin' %}
+            <a href="{{ url_for('dashboard.chips_dashboard') }}" class="btn-secondary">Cancel</a>
+            {% else %}
+            <a href="{{ url_for('dashboard.dc_dashboard') }}" class="btn-secondary">Cancel</a>
+            {% endif %}
+            <button type="submit" class="btn-primary">Save Changes</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

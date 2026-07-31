@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Request Detail — CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activation.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="oa-detail-box">
+    <h2>Operator Activation — Request Details</h2>
+
+    <div class="oa-detail-meta">
+        <span>Request ID: <strong>{{ r.request_no }}</strong></span>
+        <span class="oa-badge oa-badge-{{ r.status | lower | replace(" ", " _") }}">{{ r.status.replace("_", " ") |
+            title }}</span>
+    </div>
+    <div class="oa-detail-meta" style="margin-top:4px;">
+        <span>Submitted At: {{ r.submitted_at[:16] if r.submitted_at else '—' }}</span>
+    </div>
+
+    <div class="oa-detail-grid">
+        <div><label>Operator Name</label>
+            <p>{{ r.operator_name }}</p>
+        </div>
+        <div><label>Mobile</label>
+            <p>{{ r.operator_mobile }}</p>
+        </div>
+        <div><label>Aadhaar</label>
+            <p>{{ r.operator_aadhaar or '—' }}</p>
+        </div>
+        <div><label>PAN</label>
+            <p>{{ r.operator_pan or '—' }}</p>
+        </div>
+    </div>
+
+    <!-- Remarks History -->
+    <div class="oa-remarks-section">
+        <h3>Remarks History</h3>
+        {% if r.remarks_history %}
+        {% for rm in r.remarks_history %}
+        <div class="oa-remark-item oa-remark-{{ rm.author_role | lower }}">
+            <div class="oa-remark-header">
+                <span class="oa-remark-dot"></span>
+                <strong>{{ 'CHIPS Admin' if rm.author_role == 'CHIPS_ADMIN' else 'District Coordinator' }}</strong>
+                <span class="oa-remark-time">{{ rm.created_at }}</span>
+            </div>
+            <p class="oa-remark-text">{{ rm.remark }}</p>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="oa-empty">No remarks yet.</p>
+        {% endif %}
+    </div>
+
+    <a href="/auth/chips/operator-activation" class="oa-btn-secondary" style="margin-top:16px;display:inline-block;">←
+        Back</a>
+</div>
+{% endblock %}

@@ -1,0 +1,1339 @@
+{% extends 'base.html' %}
+
+{% block title %}L2 Registration Requests — CHIPS Admin{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    /* Scoped customizations for L2 Dashboard */
+    .oa-btn-export {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        background: #16a34a;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.18s;
+        white-space: nowrap;
+    }
+
+    .oa-btn-export:hover {
+        background: #15803d;
+    }
+
+    .oa-btn-export svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .btn-approve {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background: #16a34a;
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .btn-approve:hover {
+        background: #15803d;
+    }
+
+    .btn-revert {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        background: #fff;
+        color: #dc2626;
+        border: 1.5px solid #fca5a5;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .btn-revert:hover {
+        background: #fee2e2;
+        border-color: #dc2626;
+    }
+
+    .btn-issue {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background: var(--dc-primary, #378ADD);
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .btn-issue:hover {
+        background: var(--dc-primary-hover, #2C74BE);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% from 'partials/request_section.html' import request_section %}
+
+<!-- Jinja2 Metric Calculations -->
+{% set metric_source = unfiltered_requests if unfiltered_requests is defined else requests %}
+
+<!-- Standardized L2 Registration Dashboard Banner -->
+<div class="chips-header-banner" style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
+    <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+        <div
+            style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+        </div>
+        <div>
+            <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">L2 Registration Control Panel</h1>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Manage and process incoming L2 Registration
+                requests, forward to UIDAI, and track approvals</p>
+        </div>
+    </div>
+    <div class="chips-banner-metrics" style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
+        <div class="chips-metric-card">
+            <div id="stat-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metric_source | selectattr('status', 'in', ['PENDING', 'REAPPLIED']) | list | length }}</div>
+
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
+            </div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="stat-sent-to-uidai" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metric_source | selectattr('status', 'equalto', 'SENT_TO_UIDAI') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
+            </div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="stat-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metric_source | selectattr('status', 'equalto', 'REVERTED') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="stat-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metric_source | selectattr('status', 'equalto', 'REJECTED') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by UIDAI</div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="stat-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metric_source | selectattr('status', 'equalto', 'APPROVED') | list | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">L2 Done</div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="stat-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ metric_source | length }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested Kits</div>
+        </div>
+    </div>
+</div>
+
+<!-- Section tabs -->
+<div class="req-tabs" role="tablist">
+    <button type="button" class="req-tab active" data-tab="pending">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+            <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+            <path d="M12 11v6" />
+            <path d="M9 14h6" />
+        </svg>
+        <span>Pending L2 registration queue</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="uidai">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
+        <span>Sent to UIDAI queue</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="reverted">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>Reverted/Rejected log</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Approved log</span>
+    </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+                 SECTION 1 — PENDING L2 REGISTRATION QUEUE
+            ═══════════════════════════════════════════════════════ -->
+
+<div class="filter-bar">
+    <div class="filter-group filter-group-search">
+        <label>Search Request</label>
+        <input type="text" id="global-search" class="filter-input"
+            placeholder="Search by ID, Operator, Station, Client..." oninput="filterAllTables()">
+    </div>
+    <div class="filter-group">
+        <label>District</label>
+        <select id="global-district" class="filter-input" onchange="filterAllTables()">
+            <option value="all">All Districts</option>
+            {% for d in [
+            'Balod', 'Baloda Bazar-Bhatapara', 'Balrampur-Ramanujganj', 'Bastar', 'Bemetara',
+            'Bijapur', 'Bilaspur', 'Dantewada', 'Dhamtari', 'Durg', 'Gariaband',
+            'Gaurela-Pendra-Marwahi', 'Janjgir-Champa', 'Jashpur', 'Kabirdham', 'Kanker',
+            'Khairagarh-Chhuikhadan-Gandai', 'Kondagaon', 'Korba', 'Koriya', 'Mahasamund',
+            'Manendragarh-Chirmiri-Bharatpur', 'Mohla-Manpur-Ambagarh Chowki', 'Mungeli',
+            'Narayanpur', 'Raigarh', 'Raipur', 'Rajnandgaon', 'Sakti', 'Sarangarh-Bilaigarh',
+            'Sukma', 'Surajpur', 'Surguja'
+            ] %}
+            <option value="{{ d | lower | trim }}">{{ d }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Time Period</label>
+        <select id="global-date" class="filter-input" onchange="filterAllTables()">
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">Week</option>
+            <option value="month" selected>Month</option>
+        </select>
+    </div>
+    <div class="filter-group-button" style="flex: 0 0 auto;">
+        <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            Clear Filters
+        </button>
+    </div>
+</div>
+
+{% if aging_filter %}
+{% set pending_filtered = requests | selectattr('status', 'in', ['PENDING', 'REAPPLIED', 'pending', 'reapplied']) | list %}
+<div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+    <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ pending_filtered|length }} found)</span>
+    <a href="/auth/chips/l2-registration" style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+</div>
+{% endif %}
+
+{% set pending_controls %}
+<select id="pending-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="pending">Pending</option>
+    <option value="reapplied">Reapplied</option>
+</select>
+<button class="rs-export" onclick="exportSection('pending')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel active" data-panel="pending">
+    {% call request_section(
+    variant='pending',
+    title='Pending L2 registration queue',
+    count='–', count_id='pending-count',
+    controls=pending_controls,
+    min_width=1200,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Operator name'},
+    {'label': 'Operator ID'},
+    {'label': 'New station ID'},
+    {'label': 'Client version'},
+    {'label': 'Client type'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='pending-requests-table', body_id='pending-table-body',
+    empty_id='pending-empty-msg',
+    empty_message='No incoming pending requests match your filter.') %}
+    {% set ns_pending = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) in ['PENDING', 'REAPPLIED'] %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-operator-name="{{ r.operator_name }}"
+        data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
+        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}" data-old-station-id="{{ r.old_station_id or '' }}"
+        data-district="{{ r.district_name or 'Raipur' }}"
+        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}" data-status="{{ r.status }}">
+        <td>{{ ns_pending.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td>{{ r.district_name or '—' }}</td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_id }}</td>
+        <td><strong>{{ r.new_station_id }}</strong></td>
+        <td>{{ r.client_version }}</td>
+        <td>{{ r.client_type }}</td>
+        <td>
+            <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                {{ r.status | replace('_', ' ') | title }}
+            </span>
+        </td>
+        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+        <td>
+            {% if (r.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and r.updated_at and r.updated_at != '—' %}
+            {{ r.updated_at }}
+            {% else %}
+            —
+            {% endif %}
+        </td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-issue"
+                    onclick="showSendToUidaiModal('{{ r.id }}', '{{ r.request_no }}')">
+                    Send to UIDAI
+                </button>
+                <button type="button" class="btn-revert" onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">
+                    Revert
+                </button>
+                <button type="button" class="btn-details"
+                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns_pending.count = ns_pending.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel pending -->
+
+
+<!-- ═══════════════════════════════════════════════════════
+                 SECTION 2 — SENT TO UIDAI QUEUE
+            ═══════════════════════════════════════════════════════ -->
+{% set uidai_controls %}
+<select id="uidai-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="sent_to_uidai">Sent to UIDAI</option>
+</select>
+<button class="rs-export" onclick="exportSection('uidai')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="uidai">
+    {% call request_section(
+    variant='uidai',
+    title='Sent to UIDAI queue',
+    count='–', count_id='uidai-count',
+    controls=uidai_controls,
+    min_width=1100,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Operator name & ID'},
+    {'label': 'New station ID'},
+    {'label': 'Client version & type'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='uidai-requests-table', body_id='uidai-table-body',
+    empty_id='uidai-empty-msg',
+    empty_message='No requests sent to UIDAI match your filter.') %}
+    {% set ns_uidai = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) == 'SENT_TO_UIDAI' %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-operator-name="{{ r.operator_name }}"
+        data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
+        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}" data-old-station-id="{{ r.old_station_id or '' }}"
+        data-district="{{ r.district_name or 'Raipur' }}"
+        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}" data-status="{{ r.status }}">
+        <td>{{ ns_uidai.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td>{{ r.district_name or '—' }}</td>
+        <td>
+            <div style="font-weight: 600; color: #1e293b;">{{ r.operator_name }}</div>
+            <div style="font-size: 11px; color: #64748b;">ID: {{ r.operator_id }}</div>
+        </td>
+        <td><strong>{{ r.new_station_id }}</strong></td>
+        <td>{{ r.client_version }} ({{ r.client_type }})</td>
+        <td>
+            <span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">
+                {{ r.status | replace('_', ' ') | title }}
+            </span>
+        </td>
+        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+        <td>{% if r.updated_at %}{{ r.updated_at[:16] }}{% else %}—{% endif %}</td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-approve"
+                    onclick="showUidaiApproveModal('{{ r.id }}', '{{ r.request_no }}')">
+                    UIDAI Approved
+                </button>
+                <button type="button" class="btn-revert"
+                    onclick="showUidaiRejectModal('{{ r.id }}', '{{ r.request_no }}')">
+                    UIDAI Rejected
+                </button>
+                <button type="button" class="btn-details"
+                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns_uidai.count = ns_uidai.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel uidai -->
+
+
+{% set reverted_controls %}
+<select id="reverted-status-filter" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="reverted">Reverted</option>
+    <option value="rejected">Rejected</option>
+</select>
+<button class="rs-export" onclick="exportSection('reverted')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="reverted">
+    {% call request_section(
+    variant='rejected',
+    title='Reverted/Rejected log',
+    count='–', count_id='reverted-count',
+    controls=reverted_controls,
+    min_width=1200,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Operator name'},
+    {'label': 'Operator ID'},
+    {'label': 'New station ID'},
+    {'label': 'Client version'},
+    {'label': 'Client type'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='reverted-requests-table', body_id='reverted-table-body',
+    empty_id='reverted-empty-msg',
+    empty_message='No reverted/rejected logs found.') %}
+    {% set ns_reverted = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) in ['REJECTED', 'REVERTED'] %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-operator-name="{{ r.operator_name }}"
+        data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
+        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}" data-old-station-id="{{ r.old_station_id or '' }}"
+        data-district="{{ r.district_name or 'Raipur' }}" data-status="{{ r.status }}"
+        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
+        <td>{{ ns_reverted.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td>{{ r.district_name or '—' }}</td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_id }}</td>
+        <td><strong>{{ r.new_station_id }}</strong></td>
+        <td>{{ r.client_version }}</td>
+        <td>{{ r.client_type }}</td>
+        <td>
+            {% if (r.status|upper) == 'REJECTED' %}
+            <span class="sid-badge sid-badge-rejected">Rejected</span>
+            {% else %}
+            <span class="sid-badge sid-badge-reverted">Reverted</span>
+            {% endif %}
+        </td>
+        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+        <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% elif r.submitted_at %}{{ r.submitted_at[:16] }}{%
+            else %}—{% endif %}</td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-details"
+                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns_reverted.count = ns_reverted.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+                 SECTION 3 — PROCESSED LOG HISTORY
+            ═══════════════════════════════════════════════════════ -->
+{% set approved_controls %}
+<button class="rs-export" onclick="exportSection('approved')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="approved">
+    {% call request_section(
+    variant='approved',
+    title='Approved log',
+    count='–', count_id='creds-count',
+    controls=approved_controls,
+    min_width=1200,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Operator name'},
+    {'label': 'Operator ID'},
+    {'label': 'New station ID'},
+    {'label': 'Client version'},
+    {'label': 'Client type'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='approved-requests-table', body_id='approved-table-body',
+    empty_id='approved-empty-msg',
+    empty_message='No approved logs found.') %}
+    {% set ns_creds = namespace(count=1) %}
+    {% for r in requests if (r.status|upper) == 'APPROVED' %}
+    <tr data-id="{{ r.id }}" data-request-no="{{ r.request_no or '—' }}" data-operator-name="{{ r.operator_name }}"
+        data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
+        data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}" data-old-station-id="{{ r.old_station_id or '' }}"
+        data-district="{{ r.district_name or 'Raipur' }}" data-status="{{ r.status }}"
+        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}">
+        <td>{{ ns_creds.count }}</td>
+        <td><strong>{{ r.request_no or '—' }}</strong></td>
+        <td>{{ r.district_name or '—' }}</td>
+        <td>{{ r.operator_name }}</td>
+        <td>{{ r.operator_id }}</td>
+        <td><strong>{{ r.new_station_id }}</strong></td>
+        <td>{{ r.client_version }}</td>
+        <td>{{ r.client_type }}</td>
+        <td>
+            <span class="sid-badge sid-badge-approved">Approved</span>
+        </td>
+        <td>{% if r.submitted_at %}{{ r.submitted_at[:16] }}{% else %}—{% endif %}</td>
+        <td>{% if r.reviewed_at %}{{ r.reviewed_at[:16] }}{% elif r.submitted_at %}{{ r.submitted_at[:16] }}{%
+            else %}—{% endif %}</td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-details"
+                    onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% set ns_creds.count = ns_creds.count + 1 %}
+    {% endfor %}
+    {% endcall %}
+</div>
+
+<script>
+    const currentReviewerId = "{{ session.get('user_id') or '' }}";
+
+    // Date Period Prefixes helper
+    function getDatePrefixes() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = (now.getMonth() + 1).toString().padStart(2, '0');
+        const d = now.getDate().toString().padStart(2, '0');
+        // This Week calculation
+        const firstDayOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+        const yw = firstDayOfWeek.getFullYear();
+        const mw = (firstDayOfWeek.getMonth() + 1).toString().padStart(2, '0');
+        const dw = firstDayOfWeek.getDate().toString().padStart(2, '0');
+
+        return {
+            today: `${y}-${m}-${d}`,
+            weekStart: `${yw}-${mw}-${dw}`,
+            month: `${y}-${m}`,
+            year: `${y}`
+        };
+    }
+
+    function clearAllFilters() {
+        document.getElementById('global-search').value = '';
+        document.getElementById('global-district').value = 'all';
+        document.getElementById('global-date').value = 'month';
+        document.getElementById('pending-status-filter').value = 'all';
+        document.getElementById('uidai-status-filter').value = 'all';
+        if (document.getElementById('reverted-status-filter')) {
+            document.getElementById('reverted-status-filter').value = 'all';
+        }
+        filterAllTables();
+    }
+
+    function filterAllTables() {
+        const q = (document.getElementById('global-search').value || '').toLowerCase().trim();
+        const df = document.getElementById('global-date').value;
+        const selectedDistrict = document.getElementById('global-district').value;
+        const now = new Date();
+
+        const pending_sf = document.getElementById('pending-status-filter').value;
+        const uidai_sf = document.getElementById('uidai-status-filter').value;
+        const reverted_sf = document.getElementById('reverted-status-filter') ? document.getElementById('reverted-status-filter').value : 'all';
+
+        sessionStorage.setItem('chips_l2_search', document.getElementById('global-search').value);
+        sessionStorage.setItem('chips_l2_district', selectedDistrict);
+        sessionStorage.setItem('chips_l2_date', df);
+        sessionStorage.setItem('chips_l2_pending_status', pending_sf);
+        sessionStorage.setItem('chips_l2_uidai_status', uidai_sf);
+        sessionStorage.setItem('chips_l2_reverted_status', reverted_sf);
+
+        const sections = [
+            { id: 'pending', sf: pending_sf, tbody: 'pending-table-body', empty: 'pending-empty-msg', count: 'pending-count' },
+            { id: 'uidai', sf: uidai_sf, tbody: 'uidai-table-body', empty: 'uidai-empty-msg', count: 'uidai-count' },
+            { id: 'approved', sf: 'all', tbody: 'approved-table-body', empty: 'approved-empty-msg', count: 'creds-count' },
+            { id: 'reverted', sf: reverted_sf, tbody: 'reverted-table-body', empty: 'reverted-empty-msg', count: 'reverted-count' }
+        ];
+
+        sections.forEach(sec => {
+            const rows = document.querySelectorAll(`#${sec.tbody} tr[data-id]`);
+            let visibleIndex = 1;
+
+            rows.forEach(row => {
+                const name = (row.getAttribute('data-operator-name') || '').toLowerCase();
+                const opId = (row.getAttribute('data-operator-id') || '').toLowerCase();
+                const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+                const stationId = (row.getAttribute('data-new-station-id') || '').toLowerCase();
+                const oldStationId = (row.getAttribute('data-old-station-id') || '').toLowerCase();
+                const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+                const clientVer = (row.getAttribute('data-client-version') || '').toLowerCase();
+                const clientType = (row.getAttribute('data-client-type') || '').toLowerCase();
+                const created = row.getAttribute('data-created') || '';
+                const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+
+                const matchQuery = !q || name.includes(q) || opId.includes(q) || reqNo.includes(q) || stationId.includes(q) || oldStationId.includes(q) || dist.includes(q) || clientVer.includes(q) || clientType.includes(q);
+                const matchDistrict = selectedDistrict === 'all' || dist === selectedDistrict.toLowerCase();
+                const matchStatus = sec.sf === 'all' || rowStatus === sec.sf;
+
+                // 🌟 FIXED: Rolling lookback calculations matching your baseline modules
+                let matchDate = true;
+                if (created && created !== '—') {
+                    const rowDate = new Date(created.replace(' ', 'T'));
+                    if (df === 'today') {
+                        matchDate = rowDate.toDateString() === now.toDateString();
+                    } else if (df === 'week') {
+                        const threshold = new Date();
+                        threshold.setDate(now.getDate() - 7);
+                        matchDate = rowDate >= threshold;
+                    } else if (df === 'month') {
+                        const threshold = new Date();
+                        threshold.setDate(now.getDate() - 30);
+                        matchDate = rowDate >= threshold;
+                    }
+                }
+
+                if (matchQuery && matchDistrict && matchDate && matchStatus) {
+                    row.style.display = '';
+                    if (row.cells[0]) row.cells[0].innerText = visibleIndex++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const emptyEl = document.getElementById(sec.empty);
+            const countEl = document.getElementById(sec.count);
+
+            if (emptyEl) emptyEl.style.display = (visibleIndex === 1) ? 'block' : 'none';
+            if (countEl) countEl.textContent = visibleIndex - 1;
+        });
+
+        // Calculate and update metrics dynamically
+        let metricPending = 0;
+        let metricSentToUidai = 0;
+        let metricReverted = 0;
+        let metricRejected = 0;
+        let metricApproved = 0;
+
+        const allRowsForMetrics = document.querySelectorAll('#pending-table-body tr[data-id], #uidai-table-body tr[data-id], #approved-table-body tr[data-id], #reverted-table-body tr[data-id]');
+        allRowsForMetrics.forEach(row => {
+            const name = (row.getAttribute('data-operator-name') || '').toLowerCase();
+            const opId = (row.getAttribute('data-operator-id') || '').toLowerCase();
+            const reqNo = (row.getAttribute('data-request-no') || '').toLowerCase();
+            const stationId = (row.getAttribute('data-new-station-id') || '').toLowerCase();
+            const oldStationId = (row.getAttribute('data-old-station-id') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+            const clientVer = (row.getAttribute('data-client-version') || '').toLowerCase();
+            const clientType = (row.getAttribute('data-client-type') || '').toLowerCase();
+            const created = row.getAttribute('data-created') || '';
+            const rowStatus = (row.getAttribute('data-status') || '').toUpperCase();
+
+            const matchQuery = !q || name.includes(q) || opId.includes(q) || reqNo.includes(q) || stationId.includes(q) || oldStationId.includes(q) || dist.includes(q) || clientVer.includes(q) || clientType.includes(q);
+            const matchDistrict = selectedDistrict === 'all' || dist === selectedDistrict.toLowerCase();
+
+            let matchDate = true;
+            if (created && created !== '—') {
+                const rowDate = new Date(created.replace(' ', 'T'));
+                if (df === 'today') {
+                    matchDate = rowDate.toDateString() === now.toDateString();
+                } else if (df === 'week') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 7);
+                    matchDate = rowDate >= threshold;
+                } else if (df === 'month') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 30);
+                    matchDate = rowDate >= threshold;
+                }
+            }
+
+            if (matchQuery && matchDistrict && matchDate) {
+                if (rowStatus === 'PENDING' || rowStatus === 'REAPPLIED') {
+                    metricPending++;
+                } else if (rowStatus === 'SENT_TO_UIDAI') {
+                    metricSentToUidai++;
+                } else if (rowStatus === 'REVERTED') {
+                    metricReverted++;
+                } else if (rowStatus === 'REJECTED') {
+                    metricRejected++;
+                } else if (rowStatus === 'APPROVED') {
+                    metricApproved++;
+                }
+            }
+        });
+
+        // Metric cards display all-time counts irrespective of active filters
+    }
+
+    // 🌟 FIXED: Gathers ALL row references loaded into DOM arrays, bypassing client visual filters
+    function exportSection(section) {
+        let tbodyId, exportUrl;
+
+        if (section === 'pending') {
+            tbodyId = 'pending-table-body';
+            exportUrl = '/auth/chips/l2-registration/export-excel/pending';
+        } else if (section === 'uidai') {
+            tbodyId = 'uidai-table-body';
+            exportUrl = '/auth/chips/l2-registration/export-excel';
+        } else if (section === 'approved') {
+            tbodyId = 'approved-table-body';
+            exportUrl = '/auth/chips/l2-registration/export-excel/credentials';
+        } else if (section === 'reverted') {
+            tbodyId = 'reverted-table-body';
+            exportUrl = '/auth/chips/l2-registration/export-excel/credentials';
+        } else {
+            return;
+        }
+
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+
+        const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+
+        const ids = rows.filter(r => r.style.display !== 'none')
+            .map(r => r.getAttribute('data-id'))
+            .filter(Boolean);
+
+        if (ids.length === 0) {
+            Swal.fire({ title: 'No Data', text: 'No records found to export.', icon: 'warning', confirmButtonColor: '#4f46e5' });
+            return;
+        }
+
+        if (ids.length > 0) {
+            const separator = exportUrl.includes('?') ? '&' : '?';
+            exportUrl += separator + 'ids=' + ids.join(',');
+        }
+
+        window.location.href = exportUrl;
+    }
+
+    // Apply all filters on page load
+    window.addEventListener('load', () => {
+        const isActionReload = sessionStorage.getItem('chips_action_reloading') === 'true';
+        sessionStorage.removeItem('chips_action_reloading');
+
+        if (!isActionReload) {
+            sessionStorage.removeItem('chips_l2_search');
+            sessionStorage.removeItem('chips_l2_district');
+            sessionStorage.removeItem('chips_l2_date');
+            sessionStorage.removeItem('chips_l2_pending_status');
+            sessionStorage.removeItem('chips_l2_uidai_status');
+            sessionStorage.removeItem('chips_l2_reverted_status');
+        }
+
+        if (sessionStorage.getItem('chips_l2_search') !== null) {
+            document.getElementById('global-search').value = sessionStorage.getItem('chips_l2_search');
+            document.getElementById('global-district').value = sessionStorage.getItem('chips_l2_district');
+            document.getElementById('global-date').value = sessionStorage.getItem('chips_l2_date');
+            document.getElementById('pending-status-filter').value = sessionStorage.getItem('chips_l2_pending_status');
+            document.getElementById('uidai-status-filter').value = sessionStorage.getItem('chips_l2_uidai_status');
+            if (document.getElementById('reverted-status-filter') && sessionStorage.getItem('chips_l2_reverted_status')) {
+                document.getElementById('reverted-status-filter').value = sessionStorage.getItem('chips_l2_reverted_status');
+            }
+        } else {
+            document.getElementById('global-search').value = '';
+            document.getElementById('global-district').value = 'all';
+            document.getElementById('global-date').value = 'month';
+            document.getElementById('pending-status-filter').value = 'all';
+            document.getElementById('uidai-status-filter').value = 'all';
+            if (document.getElementById('reverted-status-filter')) {
+                document.getElementById('reverted-status-filter').value = 'all';
+            }
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const qDist = urlParams.get('district');
+        const qStatus = urlParams.get('status');
+
+        if (qDist) {
+            const distSelect = document.getElementById('global-district');
+            if (distSelect) {
+                const val = qDist.toLowerCase().trim();
+                let matched = false;
+                for (let opt of distSelect.options) {
+                    if (opt.value.toLowerCase().trim() === val || opt.text.toLowerCase().trim() === val) {
+                        distSelect.value = opt.value;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    document.getElementById('global-search').value = qDist;
+                }
+            }
+        }
+
+        if (qStatus) {
+            const st = qStatus.toLowerCase().trim();
+            let targetTab = null;
+            if (st === 'pending') targetTab = 'pending';
+            else if (st === 'approved') targetTab = 'approved';
+            else if (st === 'rejected' || st === 'reverted') targetTab = 'reverted';
+            else if (st === 'sent_to_uidai' || st === 'uidai') targetTab = 'uidai';
+
+            if (targetTab) {
+                const activeTabBtn = document.querySelector(`.req-tab[data-tab="${targetTab}"]`);
+                if (activeTabBtn) activeTabBtn.click();
+            }
+        }
+
+        filterAllTables();
+    });
+
+    // Form submit helper
+    function submitDynamicForm(action, fields) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = action;
+        Object.entries(fields).forEach(([name, value]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        });
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    // Send to UIDAI modal
+    function showSendToUidaiModal(requestId, requestNo) {
+        Swal.fire({
+            title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">Send to UIDAI</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Forwarding Request: <strong>${requestNo}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">NOTES FOR UIDAI (OPTIONAL)</label>
+                    <textarea id="uidai-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Add any contextual notes for UIDAI..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Send to UIDAI',
+            confirmButtonColor: '#4f46e5',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const notes = document.getElementById('uidai-remarks-area').value.trim();
+                const formData = new FormData();
+                formData.append('reviewed_by', currentReviewerId);
+                formData.append('uidai_remarks', notes);
+                return fetch(`/auth/chips/l2-registration/${requestId}/send-to-uidai`, {
+                    method: 'POST',
+                    body: formData
+                }).then(res => {
+                    if (!res.ok && res.status !== 302) throw new Error('Action failed. Please try again.');
+                    return true;
+                }).catch(err => {
+                    Swal.showValidationMessage(`Error: ${err.message}`);
+                    return false;
+                });
+            }
+        }).then(result => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Request Sent to UIDAI!',
+                    text: `Request ${requestNo} has been sent to UIDAI.`,
+                    icon: 'success',
+                    confirmButtonColor: '#4f46e5',
+                    showConfirmButton: true,
+                    timer: 2500,
+                    timerProgressBar: true
+                }).then(() => {
+                    sessionStorage.setItem('chips_action_reloading', 'true');
+                    window.location.reload();
+                });
+            }
+        });
+    }
+
+    // Revert request modal
+    function showRevertModal(requestId, requestNo) {
+        Swal.fire({
+            title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">Revert Request</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Reverting Request: <strong>${requestNo}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">REASON FOR REVERTING</label>
+                    <textarea id="revert-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter the reason for reverting this request..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Revert Request',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            preConfirm: () => {
+                const reason = document.getElementById('revert-remarks-area').value.trim();
+                if (!reason) {
+                    Swal.showValidationMessage('Please enter a reason.');
+                    return false;
+                }
+                const formData = new FormData();
+                formData.append('reviewed_by', currentReviewerId);
+                formData.append('revert_reason', reason);
+                return fetch(`/auth/chips/l2-registration/${requestId}/revert`, {
+                    method: 'POST',
+                    body: formData
+                }).then(res => {
+                    if (!res.ok && res.status !== 302) throw new Error('Action failed. Please try again.');
+                    return true;
+                }).catch(err => {
+                    Swal.showValidationMessage(`Error: ${err.message}`);
+                    return false;
+                });
+            }
+        }).then(result => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Request Reverted!',
+                    text: `Request ${requestNo} has been sent back to the District Coordinator.`,
+                    icon: 'success',
+                    confirmButtonColor: '#dc2626',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    sessionStorage.setItem('chips_action_reloading', 'true');
+                    window.location.reload();
+                });
+            }
+        });
+    }
+
+    // UIDAI Approve modal
+    function showUidaiApproveModal(requestId, requestNo) {
+        Swal.fire({
+            title: `<span style="color:#16a34a; font-family:'Inter',sans-serif; font-weight:800;">UIDAI Approve Request</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Approving Request: <strong>${requestNo}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">APPROVAL REMARKS (OPTIONAL)</label>
+                    <textarea id="approve-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Add any approval remarks..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Approve Activation',
+            confirmButtonColor: '#16a34a',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const remarks = document.getElementById('approve-remarks-area').value.trim();
+                const formData = new FormData();
+                formData.append('reviewed_by', currentReviewerId);
+                formData.append('uidai_remarks', remarks);
+                return fetch(`/auth/chips/l2-registration/${requestId}/uidai-approve`, {
+                    method: 'POST',
+                    body: formData
+                }).then(res => {
+                    if (!res.ok && res.status !== 302) throw new Error('Action failed. Please try again.');
+                    return true;
+                }).catch(err => {
+                    Swal.showValidationMessage(`Error: ${err.message}`);
+                    return false;
+                });
+            }
+        }).then(result => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Approved Successfully!',
+                    text: `Request ${requestNo} has been approved by UIDAI.`,
+                    icon: 'success',
+                    confirmButtonColor: '#16a34a',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    sessionStorage.setItem('chips_action_reloading', 'true');
+                    window.location.reload();
+                });
+            }
+        });
+    }
+
+    // UIDAI Reject modal
+    function showUidaiRejectModal(requestId, requestNo) {
+        Swal.fire({
+            title: `<span style="color:#dc2626; font-family:'Inter',sans-serif; font-weight:800;">UIDAI Reject Request</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Rejecting Request: <strong>${requestNo}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#c2410c;">REJECTION REMARKS (MANDATORY) *</label>
+                    <textarea id="reject-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter UIDAI rejection remarks..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Submit Rejection',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const remarks = document.getElementById('reject-remarks-area').value.trim();
+                if (!remarks) {
+                    Swal.showValidationMessage('Please enter rejection remarks.');
+                    return false;
+                }
+                const formData = new FormData();
+                formData.append('reviewed_by', currentReviewerId);
+                formData.append('uidai_remarks', remarks);
+                return fetch(`/auth/chips/l2-registration/${requestId}/uidai-reject`, {
+                    method: 'POST',
+                    body: formData
+                }).then(res => {
+                    if (!res.ok && res.status !== 302) throw new Error('Action failed. Please try again.');
+                    return true;
+                }).catch(err => {
+                    Swal.showValidationMessage(`Error: ${err.message}`);
+                    return false;
+                });
+            }
+        }).then(result => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Rejection Submitted!',
+                    text: `Request ${requestNo} has been rejected by UIDAI and the DC has been notified.`,
+                    icon: 'error',
+                    confirmButtonColor: '#dc2626',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    sessionStorage.setItem('chips_action_reloading', 'true');
+                    window.location.reload();
+                });
+            }
+        });
+    }
+
+    // Escape HTML helper
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ── Status badge helper (DC-style) ────────────────────────────────────────
+    function getStatusBadgeHtml(status) {
+        const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+        let badgeClass = 'badge-pending';
+        let label = 'Pending';
+        if (s.includes('approve')) {
+            badgeClass = 'badge-approved'; label = 'Approved';
+        } else if (s.includes('revert')) {
+            badgeClass = 'badge-reverted'; label = 'Reverted';
+        } else if (s === 'forwarded' || s.includes('uidai') || s === 'sent_to_uidai' || s === 'sent to uidai') {
+            badgeClass = 'badge-forwarded'; label = 'Sent to UIDAI';
+        } else if (s.includes('reappl')) {
+            badgeClass = 'badge-reapplied'; label = 'Reapplied';
+        } else if (s.includes('reject')) {
+            badgeClass = 'badge-reverted'; label = 'Rejected';
+        } else if (s === 'pending') {
+            // 🌟 Catches 'pending' and forces the "Pending" layout badge
+            badgeClass = 'badge-pending';
+            label = 'Pending';
+        }
+        return `<span class="badge ${badgeClass}">${label}</span>`;
+    }
+
+    // ── DC-style timeline remarks builder ─────────────────────────────────────
+    function buildRemarksHtml(remarks) {
+        if (!remarks || remarks.length === 0) {
+            return `<div style="text-align:center;padding:20px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;">No remarks or action history logged yet.</div>`;
+        }
+        let html = `<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">
+                <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div>
+                <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">`;
+        remarks.forEach(r => {
+            const author = r.sender_username || r.author || 'Unknown';
+            const role = (r.author_role || r.user_role || '').toString().toLowerCase();
+            const isChips = role.includes('chip') || role === 'chips' || (r.user_role && r.user_role !== 'dc');
+            const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
+            const senderClass = isChips ? 'chips' : 'dc';
+
+            const statusAfter = r.status_after || r.action || '';
+            let statusBadgeHtmlInline = '';
+            let markerClass = 'marker-pending';
+            if (statusAfter) {
+                statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
+                const sLower = statusAfter.toString().toLowerCase();
+                if (sLower.includes('approve')) markerClass = 'marker-approved';
+                else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+            }
+
+            const stepLabel = 'L2 Registration';
+            const time = r.timestamp || r.actioned_at || r.created_at || '';
+            let msg = r.remarks || r.remark || r.message || '';
+            // Provide default messages for actions that omit an explicit remark
+            if (!msg || msg.toString().trim() === '') {
+                const sLower = (statusAfter || '').toString().toLowerCase();
+                if (sLower.includes('forward') || sLower.includes('uidai') || sLower.includes('sent_to_uidai')) {
+                    msg = 'Request forwarded to UIDAI.';
+                } else if (sLower.includes('revert') || sLower.includes('reverted') || sLower.includes('revert_back')) {
+                    msg = 'Request reverted to District Coordinator with provided reason.';
+                } else if (sLower.includes('approve') || sLower.includes('approved')) {
+                    msg = 'Request approved.';
+                } else if (sLower.includes('reject') || sLower.includes('rejected')) {
+                    msg = 'Request rejected.';
+                } else {
+                    msg = 'Action recorded.';
+                }
+            }
+
+            const authorName = r.sender_username || r.author || '';
+            const hasUsername = authorName && authorName !== 'system';
+
+            html += `
+                <div class="timeline-item ${senderClass}">
+                    <div class="timeline-marker ${markerClass}"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-section-row">
+                            <span class="timeline-step-label">${stepLabel}</span>${statusBadgeHtmlInline}
+                        </div>
+                        <div class="timeline-by-row">
+                            <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(authorName) + ')' : ''}</span>
+                            <span class="timeline-time">${escapeHtml(time)}</span>
+                        </div>
+                        <div class="timeline-body">${escapeHtml(msg)}</div>
+                    </div>
+                </div>`;
+        });
+        html += `</div></div>`;
+        return html;
+    }
+
+    function showChipsDetailsModal(requestId, requestNo, status) {
+        Swal.fire({
+            html: `<div style="padding:40px;text-align:center;font-family:'Inter',sans-serif;">
+                    <div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+                    <div style="color:#94a3b8;font-size:14px;">Fetching request details…</div>
+                    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+                </div>`,
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            width: '600px',
+            padding: '0',
+            background: '#fff'
+        });
+
+        fetch(`/auth/chips/l2-registration/${requestId}/detail-json`)
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch details');
+                return res.json();
+            })
+            .then(d => {
+                window.showL2Details(d, 'details', requestId, requestNo, status);
+            })
+            .catch(err => {
+                Swal.fire({ title: 'Error', text: `Could not load request: ${err.message}`, icon: 'error' });
+            });
+    }
+
+    window.showL2Details = function (data, activeView, requestId, requestNo, status) {
+        const displayStatus = data.status || status;
+        const statusBadge = getStatusBadgeHtml(displayStatus);
+        const remarksHtml = buildRemarksHtml(data.remarks_history || []);
+        const displayStatusLower = (displayStatus || '').toString().toLowerCase();
+        const isRevertable = displayStatusLower.includes('revert') || displayStatusLower.includes('reject');
+        let latestRevertReason = '';
+        if (data) {
+            latestRevertReason = data.revert_reason || data.revert_reason_text || data.revert_reason_message || data.revert_note || '';
+        }
+        if (!latestRevertReason && data && Array.isArray(data.remarks_history) && data.remarks_history.length) {
+            const reversed = data.remarks_history.slice().reverse();
+            const found = reversed.find(r => {
+                const s = (r.status_after || r.action || r.action_after || '').toString().toLowerCase();
+                return s.includes('revert') || s.includes('reject');
+            }) || reversed[0];
+            if (found) latestRevertReason = found.remarks || found.remark || found.message || found.note || '';
+        }
+
+        if (activeView === 'details') {
+            function infoCell(label, value) {
+                const v = (value && value !== 'null' && value !== 'undefined') ? escapeHtml(String(value)) : '<span style="color:#cbd5e1;">—</span>';
+                return `
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${label}</div>
+                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${v}</div>
+                </div>`;
+            }
+
+            function sectionHead(title) {
+                return `<div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">${title}</div>`;
+            }
+
+            let htmlContent = `
+                <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                        <span style="font-size: 14px; color: #666; font-weight: 600;">Request: ${requestNo}</span>
+                        <span>${statusBadge}</span>
+                    </div>
+                    <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                        Submitted At: <strong>${data.submitted_at || '—'}</strong>
+                    </div>
+
+                    ${isRevertable ? `
+                    <!-- Revert Reason / Remark Box -->
+                    <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
+                        <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                            <span>💬</span> ${String(displayStatus).toLowerCase().includes('revert') ? 'REVERT REASON / REMARKS' : 'REJECT REASON / REMARKS'}
+                        </div>
+                        <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
+                            ${escapeHtml(latestRevertReason)}
+                        </div>
+                    </div>` : ''}
+
+                    ${sectionHead('Client & Machine Specifications')}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                        ${infoCell('Client Version & Type', `${data.client_version} (${data.client_type})`)}
+                        ${infoCell('New Station ID', data.new_station_id)}
+                        ${infoCell('New Machine ID', data.new_machine_id)}
+                        ${infoCell('EA Code', data.ea_code)}
+                        ${infoCell('Registrar Code', data.reg_code)}
+                        ${infoCell('Old Station ID', data.old_station_id || '—')}
+                        ${infoCell('Old Machine ID', data.old_machine_id || '—')}
+                    </div>
+
+                    ${sectionHead('Operator & Location')}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                        ${infoCell('Operator Name', `${data.operator_name} (ID: ${data.operator_id})`)}
+                        ${infoCell('Unique ID', data.unique_id || '—')}
+                        ${infoCell('District & Block', `${data.district_name} (Block: ${data.block || '—'})`)}
+                        <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Govt Premises Address</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(data.address_of_govt_premises)}</div>
+                        </div>
+                    </div>
+
+                    ${data.reason_for_l2_registration || data.tech_center_remarks ? `
+                    ${sectionHead('Registration Reason & Tech Remarks')}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                        ${data.reason_for_l2_registration ? `
+                        <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Reason for L2 Registration</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(data.reason_for_l2_registration)}</div>
+                        </div>` : ''}
+                        ${data.tech_center_remarks ? `
+                        <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Tech Center Remarks</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(data.tech_center_remarks)}</div>
+                        </div>` : ''}
+                    </div>` : ''}
+
+                    <!-- View Remarks Button -->
+                    <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                        <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
+                    </div>
+                </div>
+                `;
+
+            Swal.fire({
+                title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">L2 Request Details</span>`,
+                html: htmlContent,
+                showCancelButton: false,
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                customClass: {
+                    confirmButton: 'swal-btn-close'
+                },
+                width: '600px',
+                focusConfirm: false,
+                didOpen: () => {
+                    document.getElementById('btn-show-remarks').onclick = () => {
+                        window.showL2Details(data, 'remarks', requestId, requestNo, status);
+                    };
+                }
+            });
+        }
+        else if (activeView === 'remarks') {
+            let htmlContent = `
+                <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
+                        <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                        <span>${statusBadge}</span>
+                    </div>
+                    ${remarksHtml}
+                </div>
+                `;
+
+            Swal.fire({
+                title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+                html: htmlContent,
+                showCancelButton: false,
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+                showDenyButton: true,
+                denyButtonText: 'Back',
+                customClass: {
+                    confirmButton: 'swal-btn-close',
+                    denyButton: 'swal-btn-back'
+                },
+                width: '600px',
+                focusConfirm: false
+            }).then((result) => {
+                if (result.isDenied) {
+                    window.showL2Details(data, 'details', requestId, requestNo, status);
+                }
+            });
+        }
+    }
+</script>
+
+{% endblock %}

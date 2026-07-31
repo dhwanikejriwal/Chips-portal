@@ -1,0 +1,930 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if session.get('role') == 'EDM' %}EDM Dashboard{% else %}DC Dashboard{% endif %} - CHiPS Portal{%
+endblock %}
+
+{% block extra_css %}
+<!-- React, ReactDOM, and Babel Standalone for the redesigned dashboard -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- Tailwind CSS CDN with preflight disabled so the site's own styles survive -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = { corePlugins: { preflight: false } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+    .dashboard-wrapper {
+        max-width: 1240px;
+        margin: 0 auto;
+    }
+
+    /* ── Header + tab bar (mirrors CHiPS admin dashboard) ── */
+    .dash-header-container {
+        background: var(--surface-card);
+        border: 1px solid var(--border-strong);
+        border-radius: 16px;
+        margin-bottom: 22px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+        color: var(--text-primary);
+    }
+
+    .dash-header-tabs-row {
+        padding: 0 8px;
+    }
+
+    .tabs-container {
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+    }
+
+    .tabs-container::-webkit-scrollbar {
+        height: 0;
+    }
+
+    .tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px 20px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #64748b;
+        background: transparent;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.2s;
+    }
+
+    .tab-btn i {
+        font-size: 15px;
+    }
+
+    .tab-btn:hover {
+        color: #1e293b;
+    }
+
+    .tab-btn.active {
+        color: #1e3a8a;
+        border-bottom-color: #1e3a8a;
+        font-weight: 700;
+    }
+
+    .tab-content {
+        display: none;
+        animation: slideUp 0.3s ease-out;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
+    /* ── Slider / marquee notification bar ── */
+    .pending-alerts-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: linear-gradient(90deg, #FFFBEB 0%, #FEF9EC 100%);
+        border: 1px solid #FDE68A;
+        border-radius: 12px;
+        padding: 10px 14px;
+        margin: 0 0 18px 0;
+        box-shadow: 0 1px 3px rgba(180, 83, 9, 0.06);
+        overflow: hidden;
+    }
+
+    .pab-lead {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+        font-size: 12px;
+        font-weight: 800;
+        color: #92400E;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding-right: 14px;
+        border-right: 1px solid #FDE68A;
+    }
+
+    .pab-lead i {
+        color: #D97706;
+        font-size: 14px;
+        animation: pab-ring 3s ease-in-out infinite;
+        transform-origin: top center;
+    }
+
+    @keyframes pab-ring {
+
+        0%,
+        86%,
+        100% {
+            transform: rotate(0deg);
+        }
+
+        88% {
+            transform: rotate(12deg);
+        }
+
+        90% {
+            transform: rotate(-10deg);
+        }
+
+        92% {
+            transform: rotate(8deg);
+        }
+
+        94% {
+            transform: rotate(-6deg);
+        }
+
+        96% {
+            transform: rotate(3deg);
+        }
+    }
+
+    .pab-viewport {
+        flex: 1;
+        overflow: hidden;
+        min-width: 0;
+        -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+        mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+    }
+
+    .pab-track {
+        display: inline-flex;
+        align-items: center;
+        gap: 32px;
+        white-space: nowrap;
+        padding-right: 32px;
+        will-change: transform;
+        animation: pab-marquee var(--pab-duration, 30s) linear infinite;
+    }
+
+    .pending-alerts-bar:hover .pab-track {
+        animation-play-state: paused;
+    }
+
+    @keyframes pab-marquee {
+        from {
+            transform: translateX(0);
+        }
+
+        to {
+            transform: translateX(-50%);
+        }
+    }
+
+    .pab-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+        color: #78350F;
+        transition: opacity 0.15s;
+    }
+
+    .pab-item:hover {
+        opacity: 0.75;
+    }
+
+    .pab-ico {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: #fff;
+        flex-shrink: 0;
+    }
+
+    .pab-badge {
+        background: #92400E;
+        color: #FEF3C7;
+        font-size: 11px;
+        font-weight: 800;
+        padding: 1px 8px;
+        border-radius: 99px;
+        line-height: 1.5;
+    }
+
+    @media (max-width: 640px) {
+        .pab-lead span {
+            display: none;
+        }
+
+        .pab-lead {
+            padding-right: 10px;
+        }
+
+        /* ── Pending-alerts bar (styles in css/pending_alerts.css) ──
+       Cancel the content area's top padding + flash spacing so the bar sits
+       neatly below the header. */
+        .content {
+            padding-top: 0 !important;
+        }
+
+        .flash-container {
+            margin-bottom: 0 !important;
+        }
+
+        .trend-chart-tooltip {
+            position: absolute;
+            pointer-events: none;
+        }
+    }
+
+    /* Subtabbed Dashboard Active Tab styling overrides */
+    .subtab-container {
+        background: #f1f5f9 !important;
+        border-color: #cbd5e1 !important;
+    }
+    
+    html[data-theme="dark"] .subtab-container {
+        background: var(--surface-subtle) !important;
+        border-color: var(--border-subtle) !important;
+    }
+    
+    .subtab-btn {
+        background: transparent !important;
+        color: #475569 !important;
+    }
+    
+    .subtab-btn:hover {
+        color: #0f172a !important;
+    }
+    
+    .subtab-btn.subtab-active {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    }
+    
+    html[data-theme="dark"] .subtab-btn {
+        color: var(--text-secondary) !important;
+    }
+    
+    html[data-theme="dark"] .subtab-btn:hover {
+        color: var(--text-primary) !important;
+    }
+    
+    html[data-theme="dark"] .subtab-btn.subtab-active {
+        background: var(--surface-card) !important;
+        color: var(--text-primary) !important;
+        box-shadow: none !important;
+        border: 1px solid var(--border-strong) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+
+    <!-- ── Pending-alerts bar (reverted / rejected + new candidate requests) ── -->
+    <nav id="pending-alerts-bar" class="pab" aria-label="Pending alerts" style="display: none;">
+        <div class="pab-lead">
+            <i class="ti ti-bell-ringing" aria-hidden="true"></i>
+            <span class="pab-lead-text">Action required</span>
+        </div>
+        <div class="pab-track-wrap">
+            <ul class="pab-track" id="pab-track"></ul>
+        </div>
+    </nav>
+
+    <!-- ── Header + tab navigation ── -->
+    <div class="dash-header-container">
+        <div class="dash-header-tabs-row">
+            <div class="tabs-container">
+                <button class="tab-btn active" data-tab="credential-exam">
+                    <i class="fa-solid fa-id-badge"></i> Credential &amp; Exam Requests
+                </button>
+                <button class="tab-btn" data-tab="operator-requests">
+                    <i class="fa-solid fa-user-check"></i> Operator requests
+                </button>
+                <button class="tab-btn" data-tab="kit-requests">
+                    <i class="fa-solid fa-laptop-medical"></i> Kit request
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-content active" id="tab-credential-exam">
+        <div id="credential-react-root"></div>
+    </div>
+    <div class="tab-content" id="tab-operator-requests">
+        <div id="operator-react-root"></div>
+    </div>
+    <div class="tab-content" id="tab-kit-requests">
+        <div id="kit-react-root"></div>
+    </div>
+
+</div>
+
+<script id="stats-data" type="application/json">
+    {{ stats | tojson | safe }}
+</script>
+
+<script>
+    window.REAL_DATABASE_STATS = JSON.parse(document.getElementById('stats-data').textContent);
+</script>
+
+<!-- Tab switching -->
+<script>
+    document.querySelectorAll(".tab-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            document.querySelectorAll(".tab-btn").forEach(function (b) { b.classList.remove("active"); });
+            document.querySelectorAll(".tab-content").forEach(function (c) { c.classList.remove("active"); });
+            btn.classList.add("active");
+            document.getElementById("tab-" + btn.getAttribute("data-tab")).classList.add("active");
+        });
+    });
+</script>
+
+<!-- Slider notification bar builder -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var bar = document.getElementById("pending-alerts-bar");
+        var track = document.getElementById("pab-track");
+        if (!bar || !track) return;
+
+        var stats = window.REAL_DATABASE_STATS || {};
+        var lower = function (s) { return String(s || "").trim().toLowerCase(); };
+        var REV_REJ = ["reverted", "reverted_by_chips", "reverted by chips", "rejected"];
+
+        var revRej = function (arr) { return (arr || []).filter(function (x) { return REV_REJ.indexOf(lower(x.status)) !== -1; }); };
+        var pendingCred = function (arr) {
+            return (arr || []).filter(function (x) {
+                var s = lower(x.status);
+                return s === "pending" || s === "reapplied";
+            }).length;
+        };
+        var revRejOps = function (arr) {
+            return (arr || []).reduce(function (acc, x) {
+                return acc + (REV_REJ.indexOf(lower(x.status)) !== -1 ? (x.operator_count || 0) : 0);
+            }, 0);
+        };
+
+        // Sentence-case labels; the label block already says "action required".
+        var alerts = [
+            { label: "Pending LMS", count: pendingCred(stats.lms_requests), icon: "ti-id-badge-2", url: "/auth/dc/lms" },
+            { label: "Pending NSEIT", count: pendingCred(stats.nseit_requests), icon: "ti-award", url: "/auth/dc/nseit" },
+            { label: "Reverted Station ID", count: revRej(stats.station_id_requests).length, icon: "ti-device-desktop", url: "/auth/dc/station-id/list" },
+            { label: "Reverted L1", count: revRej(stats.l1_requests).length, icon: "ti-shield", url: "/auth/dc/l1-registration" },
+            { label: "Reverted L2", count: revRej(stats.l2_requests).length, icon: "ti-folder", url: "/auth/dc/l2-registration/list" },
+            { label: "Reverted operator activation", count: revRej(stats.activation_requests).length, icon: "ti-user-check", url: "/auth/dc/operator-activation/list" },
+            { label: "Reverted operator reactivation", count: revRejOps(stats.reactivation_requests), icon: "ti-refresh", url: "/auth/dc/reactivation" }
+        ];
+
+        if (!alerts.length) return;
+
+        var escapeHtml = function (s) {
+            return String(s).replace(/[&<>"']/g, function (c) {
+                return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+            });
+        };
+
+        // dup = the second, seamless-loop copy: hidden from AT and untabbable.
+        var mk = function (a, dup) {
+            var lbl = escapeHtml(a.label);
+            return '<li class="pab-item"' + (dup ? ' aria-hidden="true"' : '') + '>'
+                + '<a href="' + a.url + '"' + (dup ? ' tabindex="-1"' : ' aria-label="' + lbl + ', ' + a.count + ' to action"') + '>'
+                + '<i class="ti ' + a.icon + ' pab-item-ico" aria-hidden="true"></i>'
+                + '<span class="pab-item-label">' + lbl + '</span>'
+                + '<span class="pab-badge" aria-hidden="true">' + a.count + '</span>'
+                + '</a></li>';
+        };
+
+        var real = alerts.map(function (a) { return mk(a, false); }).join('');
+        var copy = alerts.map(function (a) { return mk(a, true); }).join('');
+        track.innerHTML = real + copy;   // duplicate for a seamless -50% loop
+        if (window.i18n && typeof window.i18n.apply === 'function') window.i18n.apply(track);
+        bar.style.display = "flex";
+
+        var halfWidth = track.scrollWidth / 2;
+        track.style.setProperty("--pab-duration", Math.max(18, Math.round(halfWidth / 55)) + "s");
+    });
+</script>
+
+<!-- React dashboards -->
+{% raw %}
+<script type="text/babel">
+    const { useState, useMemo, useRef, useEffect } = React;
+    const S = window.REAL_DATABASE_STATS || {};
+    const KPI_GRADIENT = 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #3b0764 100%)';
+
+    // ── Status mappers → { label } ──
+    const credStatus = (status) => {
+        const s = (status || '').toString().trim().toLowerCase();
+        if (s === 'approved') return { label: 'Approved' };
+        if (['reverted', 'reverted by chips', 'reverted_by_chips'].includes(s)) return { label: 'Reverted' };
+        if (s === 'rejected') return { label: 'Rejected' };
+        return { label: 'Pending' };
+    };
+    const activationStatus = (status) => {
+        const s = (status || '').toString().trim().toLowerCase();
+        if (['approved', 'reviewed', 'activated', 'assigned', 'uidai_approved'].includes(s)) return { label: 'Approved' };
+        if (['sent_to_uidai', 'sent to uidai'].includes(s)) return { label: 'Sent to UIDAI' };
+        if (['reverted', 'reverted_by_chips', 'reverted by chips'].includes(s)) return { label: 'Reverted' };
+        if (['rejected', 'uidai_rejected', 'rejected_by_uidai'].includes(s)) return { label: 'Rejected' };
+        return { label: 'Pending' };
+    };
+    const stationStatus = (status) => {
+        const s = (status || '').toString().trim().toLowerCase();
+        if (['approved', 'activated'].includes(s)) return { label: 'Approved' };
+        if (s === 'rejected') return { label: 'Rejected' };
+        if (['reverted', 'reverted_by_chips'].includes(s)) return { label: 'Reverted' };
+        return { label: 'Pending' };
+    };
+    const l1Status = (status) => {
+        const s = (status || '').toString().trim().toLowerCase();
+        if (['reviewed', 'approved', 'done', 'l1_done'].includes(s)) return { label: 'Approved' };
+        if (s === 'reverted') return { label: 'Reverted' };
+        return { label: 'Pending' };
+    };
+    const l2Status = (status) => {
+        const s = (status || '').toString().trim().toLowerCase();
+        if (['approved', 'activated'].includes(s)) return { label: 'Approved' };
+        if (['sent_to_uidai', 'sent to uidai'].includes(s)) return { label: 'Sent to UIDAI' };
+        if (s === 'rejected') return { label: 'Rejected' };
+        if (['reverted', 'reverted_by_chips'].includes(s)) return { label: 'Reverted' };
+        return { label: 'Pending' };
+    };
+
+    // ── Build a last-12-months trend from the row list ──
+    const computeTrend = (rows, mapFn, weightByOps) => {
+        const now = new Date();
+        const slots = [], idx = {};
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const k = d.getFullYear() + '-' + d.getMonth();
+            idx[k] = slots.length;
+            slots.push({ month: d.toLocaleString('en-US', { month: 'short' }), submissions: 0, approvals: 0, rejections: 0 });
+        }
+        (rows || []).forEach(r => {
+            if (!r.created_at) return;
+            const d = new Date(String(r.created_at).replace(' ', 'T'));
+            if (isNaN(d)) return;
+            const k = d.getFullYear() + '-' + d.getMonth();
+            if (!(k in idx)) return;
+            const slot = slots[idx[k]];
+            const w = weightByOps ? (r.operator_count || 0) : 1;
+            slot.submissions += w;
+            const lbl = mapFn(r.status).label;
+            if (lbl === 'Approved') slot.approvals += w;
+            else if (lbl === 'Rejected' || lbl === 'Reverted') slot.rejections += w;
+        });
+        return slots;
+    };
+
+    // ── Monthly trend combo chart (bars + line overlays) ──
+    function getOrCreateTrendTooltip(chart) {
+        let el = chart.canvas.parentNode.querySelector('.trend-chart-tooltip');
+        if (!el) {
+            el = document.createElement('div');
+            el.className = 'trend-chart-tooltip bg-slate-900/95 text-white backdrop-blur-sm shadow-xl p-3 rounded-xl border border-slate-800 text-xs';
+            el.style.position = 'absolute'; el.style.pointerEvents = 'none';
+            el.style.transition = 'opacity 0.1s ease'; el.style.zIndex = 50; el.style.minWidth = '150px';
+            chart.canvas.parentNode.appendChild(el);
+        }
+        return el;
+    }
+    function trendTooltipHandler(context) {
+        const { chart, tooltip } = context;
+        const el = getOrCreateTrendTooltip(chart);
+        if (tooltip.opacity === 0) { el.style.opacity = 0; return; }
+        if (tooltip.body) {
+            const monthLabel = (tooltip.title && tooltip.title[0]) || '';
+            const rows = tooltip.dataPoints.map(dp => {
+                const color = dp.dataset.borderColor || dp.dataset.backgroundColor;
+                return '<div class="flex items-center justify-between gap-6 mt-1"><span class="flex items-center gap-1.5 text-slate-300">'
+                    + '<span class="w-2 h-2 rounded-full" style="background:' + color + '"></span>' + dp.dataset.label
+                    + '</span><span class="font-bold text-white">' + dp.formattedValue + '</span></div>';
+            }).join('');
+            el.innerHTML = '<div class="font-semibold text-slate-200 border-b border-slate-700 pb-1 mb-1">' + monthLabel + '</div>' + rows;
+        }
+        const { offsetLeft: cx, offsetTop: cy } = chart.canvas;
+        el.style.opacity = 1; el.style.left = (cx + tooltip.caretX) + 'px';
+        el.style.top = (cy + tooltip.caretY) + 'px'; el.style.transform = 'translate(-50%, -110%)';
+    }
+
+    const MonthlyTrendChart = ({ data, title }) => {
+        const canvasRef = useRef(null), chartRef = useRef(null);
+        useEffect(() => {
+            if (!canvasRef.current || typeof Chart === 'undefined') return;
+            chartRef.current = new Chart(canvasRef.current, {
+                data: {
+                    labels: data.map(d => d.month),
+                    datasets: [
+                        {
+                            type: 'bar', label: 'Submissions', data: data.map(d => d.submissions || 0),
+                            backgroundColor: '#2563eb', borderRadius: { topLeft: 4, topRight: 4 }, barThickness: 26, order: 3
+                        },
+                        {
+                            type: 'line', label: 'Approvals', data: data.map(d => d.approvals || 0),
+                            borderColor: '#10b981', backgroundColor: '#10b981', borderWidth: 3, tension: 0.4,
+                            pointRadius: 4, pointBackgroundColor: '#10b981', pointBorderColor: '#fff', pointBorderWidth: 2, fill: false, order: 1
+                        },
+                        {
+                            type: 'line', label: 'Rejections/Reverts', data: data.map(d => d.rejections || 0),
+                            borderColor: '#f43f5e', backgroundColor: '#f43f5e', borderWidth: 2, borderDash: [4, 4], tension: 0.4,
+                            pointRadius: 3, pointBackgroundColor: '#f43f5e', pointBorderColor: '#fff', pointBorderWidth: 2, fill: false, order: 2
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    animation: { duration: 800, easing: 'easeOutQuart' },
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+                        y: { beginAtZero: true, ticks: { color: '#94a3b8', font: { size: 11 }, precision: 0 }, grid: { color: '#f1f5f9' } },
+                    },
+                    plugins: { legend: { display: false }, tooltip: { enabled: false, external: trendTooltipHandler } },
+                },
+            });
+            return () => {
+                const el = canvasRef.current && canvasRef.current.parentNode
+                    ? canvasRef.current.parentNode.querySelector('.trend-chart-tooltip') : null;
+                if (el) el.remove();
+                if (chartRef.current) chartRef.current.destroy();
+            };
+        }, [data]);
+        return (
+            <div className="bg-white shadow-sm rounded-2xl border border-slate-100 p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                    <h3 className="font-bold text-slate-800 text-base">{title}</h3>
+                    <div className="flex items-center gap-4 text-xs font-semibold text-slate-500">
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-600"></span>Submissions</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Approvals</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>Rejections/Reverts</span>
+                    </div>
+                </div>
+                <div className="relative w-full" style={{ height: '300px' }}><canvas ref={canvasRef}></canvas></div>
+            </div>
+        );
+    };
+
+    // ── Request aging report (clickable pending-age buckets) ──
+    const RequestAgingReport = ({ requests, targetUrl }) => {
+        const c03 = requests.filter(x => x.submitted_days_ago >= 0 && x.submitted_days_ago <= 3).length;
+        const c47 = requests.filter(x => x.submitted_days_ago >= 4 && x.submitted_days_ago <= 7).length;
+        const c815 = requests.filter(x => x.submitted_days_ago >= 8 && x.submitted_days_ago <= 15).length;
+        const c15 = requests.filter(x => x.submitted_days_ago > 15).length;
+        const maxCount = Math.max(c03, c47, c815, c15, 1);
+        const pct = (n) => `${Math.round((n / maxCount) * 100)}%`;
+        const buckets = [
+            { key: '0-3', label: '0-3 Days', count: c03, from: 'from-emerald-400', to: 'to-teal-500', shadow: 'rgba(16,185,129,0.2)' },
+            { key: '4-7', label: '4-7 Days', count: c47, from: 'from-amber-400', to: 'to-yellow-500', shadow: 'rgba(245,158,11,0.2)' },
+            { key: '8-15', label: '8-15 Days', count: c815, from: 'from-orange-400', to: 'to-orange-500', shadow: 'rgba(249,115,22,0.2)' },
+            { key: '15plus', label: '15+ Days', count: c15, from: 'from-rose-500', to: 'to-red-600', shadow: 'rgba(239,68,68,0.2)' },
+        ];
+        return (
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs flex flex-col gap-6 hover:shadow-md hover:border-slate-300/80 transition-all duration-300">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-800 leading-tight">Request Aging Report</h3>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Distribution of pending requests in queue</p>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md">Pending Items</span>
+                </div>
+                <div className="space-y-4">
+                    {buckets.map(b => {
+                        const isLast = b.key === '15plus';
+                        return (
+                            <div key={b.key}
+                                className="flex items-center justify-between gap-4 group cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition-all duration-200"
+                                onClick={() => window.location.href = `${targetUrl}?aging=${b.key}`}>
+                                <span className={`text-[10px] font-bold border px-2 py-1 rounded-md w-16 text-center select-none ${isLast ? 'text-rose-500 bg-rose-50 border-rose-100/40' : 'text-slate-500 bg-slate-50 border-slate-100/80'}`}>{b.label}</span>
+                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden relative">
+                                    <div className={`absolute left-0 top-0 h-full rounded-full bg-gradient-to-r ${b.from} ${b.to} transition-all duration-500`}
+                                        style={{ width: pct(b.count), boxShadow: `0 1px 2px ${b.shadow}` }} />
+                                </div>
+                                {isLast ? (
+                                    <span className="text-xs font-extrabold text-rose-600 w-20 text-right flex items-center justify-end gap-1.5">
+                                        <span className="relative flex h-1.5 w-1.5">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600"></span>
+                                        </span>{b.count} Requests
+                                    </span>
+                                ) : (
+                                    <span className="text-xs font-bold text-slate-700 w-20 text-right">{b.count} Requests</span>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
+    // ── Reverted-by-CHiPS report (replaces the aging report on Operator/Kit tabs) ──
+    const RevertedRequestsReport = ({ items, targetUrl }) => {
+        const go = (st) => {
+            const statusParam = (st && (st.toLowerCase().includes('reject') || st.toLowerCase() === 'rejected')) ? 'rejected' : 'reverted';
+            window.location.href = `${targetUrl}?status=${statusParam}`;
+        };
+        return (
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs flex flex-col gap-5 hover:shadow-md hover:border-slate-300/80 transition-all duration-300">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-rose-50 text-rose-500 rounded-lg"><i className="fa-solid fa-rotate-left text-sm"></i></div>
+                        <div>
+                            <h3 className="text-sm font-bold text-slate-800 leading-tight">Reverted by CHiPS</h3>
+                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Requests returned for correction — action required</p>
+                        </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-100/50 px-2 py-0.5 rounded-md cursor-pointer" onClick={() => go('reverted')}>{items.length} Item{items.length === 1 ? '' : 's'}</span>
+                </div>
+
+                {items.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center text-center py-10 gap-2">
+                        <div className="w-11 h-11 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center"><i className="fa-solid fa-check text-lg"></i></div>
+                        <div className="text-sm font-bold text-slate-700">Nothing reverted</div>
+                        <div className="text-[11px] text-slate-400">No requests have been sent back by CHiPS.</div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto pr-1">
+                        {items.map((it, i) => {
+                            const rejected = it._ui === 'Rejected';
+                            return (
+                                <div key={i} onClick={() => go(it._ui)}
+                                    className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-white hover:border-slate-300/70 cursor-pointer transition-all duration-200">
+                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${rejected ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                                        <i className={`fa-solid ${rejected ? 'fa-circle-xmark' : 'fa-rotate-left'} text-sm`}></i>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-[13px] font-bold text-slate-800 truncate">
+                                            {it.label}{it.operator_count ? <span className="font-medium text-slate-400"> · {it.operator_count} operator{it.operator_count === 1 ? '' : 's'}</span> : null}
+                                        </div>
+                                        <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                                            {it.revert_reason ? it.revert_reason : `Submitted ${it.submitted_days_ago} day${it.submitted_days_ago === 1 ? '' : 's'} ago`}
+                                        </div>
+                                    </div>
+                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-md flex-shrink-0 ${rejected ? 'text-rose-600 bg-rose-50 border border-rose-100' : 'text-amber-700 bg-amber-50 border border-amber-100'}`}>{it._ui}</span>
+                                    <i className="fa-solid fa-chevron-right text-[10px] text-slate-300 flex-shrink-0"></i>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // ── Generic sub-tabbed dashboard (shared by all three top tabs) ──
+    const KPI_STATUS_QUERY = {
+        Total: '', Pending: '?status=pending', SentToUidai: '?status=sent_to_uidai',
+        Approved: '?status=approved', Rejected: '?status=rejected', Reverted: '?status=reverted',
+        Forwarded: '?status=forwarded', RevertedByChips: '?status=reverted_by_chips',
+        Hold: '?status=hold', AwaitingL1: '?status=awaiting', AwaitingL2: '?status=awaiting'
+    };
+
+    const SubTabbedDashboard = ({ title, tabs, revertedMode }) => {
+        const [active, setActive] = useState(tabs[0].name);
+        const tab = tabs.find(t => t.name === active) || tabs[0];
+        const rows = tab.rows || [];
+        const isCredentialDashboard = title === "Credential & Exam Requests Overview";
+        const isOperatorDashboard = title === "Operator Requests Overview";
+        const isKitDashboard = title === "Kit Requests Overview";
+
+        const counts = useMemo(() => {
+            if (isCredentialDashboard) {
+                const c = { Total: 0, Pending: 0, Forwarded: 0, Reverted: 0, RevertedByChips: 0, Rejected: 0, Approved: 0 };
+                rows.forEach(x => {
+                    const w = tab.weightByOps ? (x.operator_count || 0) : 1;
+                    c.Total += w;
+                    const status = (x.status || '').toString().trim().toLowerCase();
+                    if (status === 'pending' || status === 'reapplied') c.Pending += w;
+                    else if (status === 'forwarded' || status === 'forwarded_again' || status === 'forwarded again') c.Forwarded += w;
+                    else if (status === 'reverted' || status === 'on hold' || status === 'hold' || status === 'on_hold') c.Reverted += w;
+                    else if (status === 'reverted_by_chips' || status === 'reverted by chips') c.RevertedByChips += w;
+                    else if (status === 'rejected') c.Rejected += w;
+                    else if (status === 'approved' || status === 'done') c.Approved += w;
+                    else c.Pending += w;
+                });
+                return c;
+            } else if (isOperatorDashboard) {
+                const c = { Total: 0, Pending: 0, SentToUidai: 0, Reverted: 0, Rejected: 0, Approved: 0 };
+                rows.forEach(x => {
+                    const w = tab.weightByOps ? ((x.operator_count != null && x.operator_count > 0) ? x.operator_count : 1) : 1;
+                    c.Total += w;
+                    const status = (x.status || '').toString().trim().toLowerCase();
+                    if (status === 'pending' || status === 'reapplied' || status === 'sent_to_chips' || status === 'forwarded') c.Pending += w;
+                    else if (status === 'sent_to_uidai' || status === 'sent to uidai') c.SentToUidai += w;
+                    else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'reverted by chips') c.Reverted += w;
+                    else if (status === 'rejected' || status === 'uidai_rejected' || status === 'rejected_by_uidai') c.Rejected += w;
+                    else if (['approved', 'reviewed', 'activated', 'assigned', 'uidai_approved'].includes(status)) c.Approved += w;
+                    else c.Pending += w;
+                });
+                return c;
+            } else if (isKitDashboard) {
+                const c = { Total: 0, Pending: 0, AwaitingL1: 0, AwaitingL2: 0, SentToUidai: 0, Reverted: 0, Rejected: 0, Approved: 0 };
+                rows.forEach(x => {
+                    const w = tab.weightByOps ? (x.operator_count || 0) : 1;
+                    const status = (x.status || '').toString().trim().toLowerCase();
+                    if (status === 'awaiting_l1' || status === 'awaiting l1') c.AwaitingL1 += w;
+                    else if (status === 'awaiting_l2' || status === 'awaiting l2') c.AwaitingL2 += w;
+                    else {
+                        c.Total += w;
+                        if (status === 'pending' || status === 'reapplied') c.Pending += w;
+                        else if (status === 'sent_to_uidai' || status === 'sent to uidai') c.SentToUidai += w;
+                        else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'reverted by chips') c.Reverted += w;
+                        else if (status === 'rejected' || status === 'uidai_rejected' || status === 'rejected_by_uidai') c.Rejected += w;
+                        else if (['approved', 'reviewed', 'activated', 'allotted', 'done', 'l1_done'].includes(status)) c.Approved += w;
+                        else c.Pending += w;
+                    }
+                });
+                return c;
+            } else {
+                const c = { Total: 0, Pending: 0, SentToUidai: 0, Approved: 0, Rejected: 0, Reverted: 0 };
+                rows.forEach(x => {
+                    const w = tab.weightByOps ? (x.operator_count || 0) : 1;
+                    c.Total += w;
+                    const lbl = tab.map(x.status).label;
+                    if (lbl === 'Pending') c.Pending += w;
+                    else if (lbl === 'Sent to UIDAI') c.SentToUidai += w;
+                    else if (lbl === 'Approved') c.Approved += w;
+                    else if (lbl === 'Rejected') c.Rejected += w;
+                    else if (lbl === 'Reverted') c.Reverted += w;
+                });
+                return c;
+            }
+        }, [rows, active]);
+
+        const kpiCards = useMemo(() => {
+            if (isCredentialDashboard) {
+                if (tab.name === 'Candidate Selection') {
+                    return [
+                        { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                        { label: 'On Hold', count: counts.Reverted, key: 'Hold' },
+                        { label: 'Rejected', count: counts.Rejected, key: 'Rejected' },
+                        { label: 'Approved', count: counts.Approved, key: 'Approved' },
+                    ];
+                }
+                return [
+                    { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                    { label: 'Forwarded to CHiPS', count: counts.Forwarded, key: 'Forwarded' },
+                    { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                    { label: 'Reverted by CHiPS', count: counts.RevertedByChips, key: 'RevertedByChips' },
+                    { label: 'Approved', count: counts.Approved, key: 'Approved' },
+                ];
+            } else if (isOperatorDashboard) {
+                return [
+                    { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                    { label: 'Sent to UIDAI', count: counts.SentToUidai, key: 'SentToUidai' },
+                    { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                    { label: 'Rejected by UIDAI', count: counts.Rejected, key: 'Rejected' },
+                    { label: 'Approved', count: counts.Approved, key: 'Approved' },
+                ];
+            } else if (isKitDashboard) {
+                if (tab.name === 'L1 Requests') {
+                    return [
+                        { label: 'Awaiting L1', count: counts.AwaitingL1, key: 'AwaitingL1' },
+                        { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                        { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                        { label: 'L1 Done', count: counts.Approved, key: 'Approved' },
+                    ];
+                } else if (tab.name === 'L2 Requests') {
+                    return [
+                        { label: 'Awaiting L2', count: counts.AwaitingL2, key: 'AwaitingL2' },
+                        { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                        { label: 'Sent to UIDAI', count: counts.SentToUidai, key: 'SentToUidai' },
+                        { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                        { label: 'Rejected by UIDAI', count: counts.Rejected, key: 'Rejected' },
+                        { label: 'L2 Done', count: counts.Approved, key: 'Approved' },
+                    ];
+                }
+                return [
+                    { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                    { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                    { label: 'Allotted', count: counts.Approved, key: 'Approved' },
+                ];
+            } else {
+                return [
+                    { label: 'Total Requests', count: counts.Total, key: 'Total' },
+                    { label: 'Pending (at CHiPS)', count: counts.Pending, key: 'Pending' },
+                    ...(tab.hasUidai ? [{ label: 'Sent to UIDAI', count: counts.SentToUidai, key: 'SentToUidai' }] : []),
+                    { label: 'Approved', count: counts.Approved, key: 'Approved' },
+                    { label: 'Rejected', count: counts.Rejected, key: 'Rejected' },
+                    { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
+                ];
+            }
+        }, [counts, active]);
+
+        const pending = useMemo(() => rows.filter(x => tab.map(x.status).label === 'Pending'), [rows, active]);
+        const trend = useMemo(() => revertedMode ? [] : computeTrend(rows, tab.map, tab.weightByOps), [rows, active]);
+        const reverted = useMemo(() => rows
+            .map(x => ({ ...x, _ui: tab.map(x.status).label }))
+            .filter(x => x._ui === 'Reverted' || x._ui === 'Rejected'), [rows, active]);
+        const gridCols = isCredentialDashboard
+            ? (tab.name === 'Candidate Selection' ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-5')
+            : isOperatorDashboard 
+            ? 'grid-cols-2 md:grid-cols-5' 
+            : isKitDashboard 
+            ? (kpiCards.length === 6 ? 'grid-cols-2 md:grid-cols-6' : (kpiCards.length === 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-3')) 
+            : (kpiCards.length === 6 ? 'grid-cols-2 md:grid-cols-6' : 'grid-cols-2 md:grid-cols-5');
+
+        return (
+            <div className="w-full font-sans antialiased text-slate-800">
+                <div className="mb-2"><h2 className="text-xl font-bold text-slate-900 tracking-tight m-0">{title}</h2></div>
+
+                {/* Sub-navigation */}
+                <div className={`subtab-container grid bg-slate-100/90 rounded-xl p-1 border border-slate-200/50 mb-4 select-none overflow-hidden`}
+                    style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+                    {tabs.map(t => {
+                        const isActive = active === t.name;
+                        return (
+                            <button key={t.name} onClick={() => setActive(t.name)}
+                                className={`subtab-btn py-3 text-sm font-semibold transition-all duration-200 cursor-pointer border-none rounded-lg ${isActive ? 'subtab-active bg-white text-slate-950 shadow-sm font-bold' : 'bg-transparent text-slate-600 hover:text-slate-950'}`}>
+                                {t.name}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* KPI strip */}
+                <div className="w-full rounded-2xl mb-6 select-none relative overflow-hidden"
+                    style={{ background: KPI_GRADIENT, padding: '22px 28px' }}>
+                    <div className="absolute rounded-full bg-white/5 pointer-events-none" style={{ right: '-20px', top: '-30px', width: '160px', height: '160px' }}></div>
+                    <div className={`grid gap-4 relative ${gridCols}`}>
+                        {kpiCards.map(card => (
+                            <a key={card.key} href={tab.url + (KPI_STATUS_QUERY[card.key] || '')}
+                                className="rounded-[10px] border border-white/15 bg-white/10 cursor-pointer transition-all duration-200 hover:bg-white/20 hover:border-white/50 flex flex-col items-center justify-center text-center no-underline"
+                                style={{ padding: '14px 18px' }}>
+                                <div className="text-[22px] font-extrabold tracking-tight text-white leading-none">{card.count}</div>
+                                <div className="text-[11px] text-white/65 mt-1">{card.label}</div>
+                            </a>
+                        ))}
+                    </div>
+                    {(isCredentialDashboard || isOperatorDashboard || isKitDashboard) && (
+                        <div className="w-full mt-4">
+                            <a href={tab.url}
+                                className="rounded-[10px] border border-white/15 bg-white/10 cursor-pointer transition-all duration-200 hover:bg-white/20 hover:border-white/50 flex flex-col items-center justify-center text-center no-underline w-full"
+                                style={{ padding: '14px 18px' }}>
+                                <div className="text-[22px] font-extrabold tracking-tight text-white leading-none">{counts.Total}</div>
+                                <div className="text-[11px] text-white/65 mt-1">{isKitDashboard ? 'Total Requested Kits' : 'Total Requests'}</div>
+                            </a>
+                        </div>
+                    )}
+                </div>
+
+                {/* Bottom section: Operator/Kit show reverted requests; Credential shows aging + trend */}
+                {revertedMode ? (
+                    <RevertedRequestsReport items={reverted} targetUrl={tab.url} />
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <RequestAgingReport requests={pending} targetUrl={tab.url} />
+                        <MonthlyTrendChart data={trend} title={tab.trendTitle} />
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // ── Mount the three tabs ──
+    ReactDOM.createRoot(document.getElementById('credential-react-root')).render(
+        <SubTabbedDashboard title="Credential & Exam Requests Overview" tabs={[
+            { name: 'Candidate Selection', rows: S.cand_requests, map: credStatus, url: '/auth/dc/candidate-requests', hasUidai: false, trendTitle: 'Monthly Candidate Selection Trend (Last 12 Months)' },
+            { name: 'LMS Credentials', rows: S.lms_requests, map: credStatus, url: '/auth/dc/lms', hasUidai: false, trendTitle: 'Monthly LMS Credential Trend (Last 12 Months)' },
+            { name: 'NSEIT Certificate', rows: S.nseit_requests, map: credStatus, url: '/auth/dc/nseit', hasUidai: false, trendTitle: 'Monthly NSEIT Certificate Trend (Last 12 Months)' },
+        ]} />
+    );
+
+    ReactDOM.createRoot(document.getElementById('operator-react-root')).render(
+        <SubTabbedDashboard title="Operator Requests Overview" revertedMode={true} tabs={[
+            { name: 'Operator Activation', rows: S.activation_requests, map: activationStatus, url: '/auth/dc/operator-activation/list', hasUidai: true, trendTitle: 'Monthly Operator Activation Trend (Last 12 Months)' },
+            { name: 'Operator Re-activation', rows: S.reactivation_requests, map: activationStatus, url: '/auth/dc/reactivation', hasUidai: true, weightByOps: true, trendTitle: 'Monthly Operator Re-activation Trend (Last 12 Months)' },
+        ]} />
+    );
+
+    ReactDOM.createRoot(document.getElementById('kit-react-root')).render(
+        <SubTabbedDashboard title="Kit Requests Overview" revertedMode={true} tabs={[
+            { name: 'Station ID', rows: S.station_id_requests, map: stationStatus, url: '/auth/dc/station-id/list', hasUidai: false, trendTitle: 'Monthly Station ID Trend (Last 12 Months)' },
+            { name: 'L1 Requests', rows: S.l1_requests, map: l1Status, url: '/auth/dc/l1-registration', hasUidai: false, trendTitle: 'Monthly L1 Registration Trend (Last 12 Months)' },
+            { name: 'L2 Requests', rows: S.l2_requests, map: l2Status, url: '/auth/dc/l2-registration/list', hasUidai: true, trendTitle: 'Monthly L2 Registration Trend (Last 12 Months)' },
+        ]} />
+    );
+</script>
+{% endraw %}
+{% endblock %}

@@ -1,0 +1,408 @@
+/* ==========================================================================
+   RequestSection — one unified card per request queue.
+   Header band + table head + rows + footer live inside a SINGLE bordered,
+   rounded, overflow-hidden card. Inner blocks carry no border/radius/shadow
+   of their own, so there is never a double border or a gap between the
+   section header and its table.
+   ========================================================================== */
+
+:root {
+    /* Navy ramp — the portal's neutral. Same hue throughout, saturation drops
+       as it lightens so the pale steps read as neutral paper, not blue. */
+    --navy-900: #151C3A;
+    --navy-700: #3C466E;
+    --navy-500: #626B93;
+    --navy-400: #98A0BD;
+    --navy-300: #C9D0E2;
+    --navy-200: #E0E3ED;
+    --navy-100: #DDE2EF;
+    --navy-50: #F6F8FC;
+
+    /* Surfaces — tone steps DOWN from the section header to the rows */
+    --section-header-bg: var(--navy-100);
+    --table-head-bg: var(--navy-50);
+    --row-bg: #FFFFFF;
+    --footer-bg: var(--navy-50);
+    --row-hover-bg: var(--navy-50);
+
+    /* Text + borders (navy ramp) */
+    --text-strong: var(--navy-900);
+    --text-label: var(--navy-700);
+    --text-muted: var(--navy-500);
+    --text-faint: var(--navy-400);
+    --border: var(--navy-300);       /* card border, header band divider — heavier */
+    --border-light: var(--navy-200); /* row/table-head/footer dividers — lighter */
+
+    /* Action colour — clickable things ONLY */
+    --action: #378ADD;
+
+    /* Section rails — the only per-section chrome difference */
+    --rail-pending: #F59E0B;   /* amber-yellow — needs the coordinator's action */
+    --rail-progress: #2563EB; /* blue — submitted, awaiting an external party */
+    --rail-uidai: #7C3AED;   /* purple — sent to UIDAI/CHiPS, awaiting response */
+    --rail-rejected: #DC2626; /* red — reverted or rejected */
+    --rail-approved: #16A34A; /* green — approved / allotted / done */
+    --rail-done: var(--navy-400);
+}
+
+/* ── The card ── */
+.rs-card {
+    background: var(--row-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+/* ── Header band ── */
+.rs-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    /* Slim title band — compact like a table caption. */
+    padding: 7px 16px;
+    background: var(--section-header-bg);
+    border-bottom: 1px solid var(--border);
+}
+
+.rs-head-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.rs-rail {
+    width: 3px;
+    height: 16px;
+    border-radius: 99px;
+    flex-shrink: 0;
+    background: var(--rail-progress);
+}
+
+.rs-head--pending .rs-rail {
+    background: var(--rail-pending);
+}
+
+.rs-head--progress .rs-rail {
+    background: var(--rail-progress);
+}
+
+.rs-head--uidai .rs-rail {
+    background: var(--rail-uidai);
+}
+
+.rs-head--rejected .rs-rail {
+    background: var(--rail-rejected);
+}
+
+.rs-head--approved .rs-rail {
+    background: var(--rail-approved);
+}
+
+.rs-head--done .rs-rail {
+    background: var(--rail-done);
+}
+
+.rs-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rs-count {
+    background: var(--surface-input);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 9px;
+    border-radius: 99px;
+    flex-shrink: 0;
+}
+
+/* Batch (request-card) headers use a lighter band than the section header,
+   so a batch reads as a sub-unit of its enclosing group/section. */
+.rs-card.request-card > .rs-head {
+    background: var(--surface-band);
+}
+
+.rs-head-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* ── Scroll wrapper (the table overflows here, NOT the card) ── */
+.rs-scroll {
+    overflow-x: auto;
+}
+
+/* ── Table ── */
+.rs-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--row-bg);
+}
+
+.rs-table thead th {
+    background: var(--table-head-bg);
+    text-align: center;
+    vertical-align: middle;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-label);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border-light);
+}
+
+/* First/last cell padding matches the header band's 20px so the title lines
+   up with S.No and the controls line up with the last column. */
+.rs-table thead th:first-child,
+.rs-table tbody td:first-child {
+    padding-left: 20px;
+}
+
+.rs-table thead th:last-child,
+.rs-table tbody td:last-child {
+    padding-right: 20px;
+}
+
+.rs-table tbody td {
+    padding: 13px 12px;
+    font-size: 14px;
+    color: var(--text-strong);
+    border-top: 1px solid var(--border-light);
+    white-space: nowrap;
+    vertical-align: middle;
+    text-align: center;
+}
+
+/* The thead's bottom border already draws the line above the first row. */
+.rs-table tbody tr:first-child td {
+    border-top: none;
+}
+
+.rs-table tbody tr:hover td {
+    background: var(--row-hover-bg);
+}
+
+/* Column helpers */
+.rs-col-num {
+    text-align: right;
+}
+
+.rs-col-sno {
+    width: 52px;
+    color: var(--text-muted);
+}
+
+.rs-faint {
+    color: var(--text-faint);
+}
+
+/* ── Footer strip ── */
+.rs-foot {
+    padding: 9px 20px;
+    background: var(--footer-bg);
+    border-top: 1px solid var(--border-light);
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* ── Empty state (card keeps its header + footer) ── */
+.rs-empty {
+    padding: 32px 20px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* ── Controls: Export button + status filter ── */
+.rs-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--action);
+    color: #fff;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.rs-export:hover {
+    filter: brightness(0.95);
+}
+
+.rs-filter {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface-input);
+    color: var(--text-strong);
+    cursor: pointer;
+}
+
+/* ── Action buttons inside a table row: keep on one line, evenly spaced,
+   uniform size (the table scrolls horizontally instead of cramming). ── */
+.rs-card .action-group {
+    display: inline-flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
+}
+
+.rs-card .action-group button {
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    line-height: 1.4;
+    height: auto;
+}
+
+/* ── Status pills (independent of the section they sit in) ── */
+.rs-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 99px;
+    padding: 3px 9px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.rs-pill svg,
+.rs-pill i {
+    font-size: 11px;
+    width: 11px;
+    height: 11px;
+}
+
+.rs-pill--pending {
+    background: var(--st-pending-bg);
+    color: var(--st-pending-fg);
+}
+
+.rs-pill--progress {
+    background: var(--st-progress-bg);
+    color: var(--st-progress-fg);
+}
+
+.rs-pill--done {
+    background: var(--st-approved-bg);
+    color: var(--st-approved-fg);
+}
+
+.rs-pill--rejected {
+    background: var(--st-rejected-bg);
+    color: var(--st-rejected-fg);
+}
+
+/* ── Slim, hover-only scrollbar (no arrow buttons) ── */
+.scroll {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+.scroll:hover {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.scroll::-webkit-scrollbar {
+    height: 7px;
+}
+
+.scroll::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 99px;
+}
+
+.scroll:hover::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+}
+
+/* ── Group container ──
+   Encloses a section header + several sub-section cards inside one bordered box.
+   Used where a queue is split into multiple cards (e.g. "Pending Reactivation
+   Requests" holding one card per batch). The inner .rs-card cards sit on a soft
+   tint so they read as sub-sections. */
+.rs-group {
+    background: var(--row-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.rs-group-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    /* Slim title band — matches .rs-head. */
+    padding: 7px 16px;
+    background: var(--section-header-bg);
+    border-bottom: 1px solid var(--border);
+}
+
+.rs-group--pending .rs-rail {
+    background: var(--rail-pending);
+}
+
+.rs-group--pending .rs-rail {
+    background: var(--rail-pending);
+}
+
+.rs-group--progress .rs-rail {
+    background: var(--rail-progress);
+}
+
+.rs-group--uidai .rs-rail {
+    background: var(--rail-uidai);
+}
+
+.rs-group--rejected .rs-rail {
+    background: var(--rail-rejected);
+}
+
+.rs-group--approved .rs-rail {
+    background: var(--rail-approved);
+}
+
+.rs-group--done .rs-rail {
+    background: var(--rail-done);
+}
+
+.rs-group-body {
+    padding: 16px 16px 2px;
+    background: var(--surface-subtle);
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* Inner cards inside a group keep their own border but drop the extra outer
+   margin so they space evenly within the group body. */
+.rs-group-body .rs-card {
+    margin-bottom: 16px;
+}
+
+.rs-group-body .rs-card:last-of-type {
+    margin-bottom: 14px;
+}

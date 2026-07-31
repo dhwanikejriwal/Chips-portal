@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}Expired NSEIT Certificates - CHIPS Admin Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chips/chips_lms.css') }}">
+<style>
+    .nseit-expiry-page-title {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .nseit-expiry-page-subtitle {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--text-secondary);
+    }
+
+    .nseit-expiry-notice {
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        background: var(--st-rejected-bg);
+        border-left: 4px solid var(--st-rejected-fg);
+        color: var(--st-rejected-fg);
+    }
+
+    .nseit-expiry-table-wrapper {
+        background: var(--surface-card);
+        border-radius: 8px;
+        border: 1px solid var(--border-subtle);
+        overflow-x: auto;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+
+    .nseit-expiry-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+
+    .nseit-expiry-table thead {
+        background: var(--surface-band);
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nseit-expiry-table th {
+        padding: 12px 15px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-label);
+    }
+
+    .nseit-expiry-table td {
+        padding: 12px 15px;
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .nseit-expiry-table tr {
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nseit-expiry-table .nseit-expiry-empty {
+        padding: 30px;
+        text-align: center;
+        color: var(--text-secondary);
+    }
+
+    .nseit-expiry-overdue {
+        color: var(--st-rejected-fg);
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1200px; margin: 0 auto;">
+
+    <div
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <h1 class="nseit-expiry-page-title">Expired NSEIT Certificates</h1>
+            <p class="nseit-expiry-page-subtitle">{{ count }} operators are blocked from activation</p>
+        </div>
+        <a href="{{ url_for('dashboard.chips_dashboard') }}" class="btn btn-sm" style="text-decoration: none;">&larr;
+            Back to Dashboard</a>
+    </div>
+
+    <div class="nseit-expiry-notice">
+        Portal gateway blocked. These operators cannot proceed to activation until certificates are renewed.
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <input type="text" id="searchInput" placeholder="Search by name or request no..." class="table-input"
+            style="width: 280px;" onkeyup="filterTable()">
+    </div>
+
+    <div class="nseit-expiry-table-wrapper">
+        <table class="nseit-expiry-table" id="nseitTable">
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>Request No</th>
+                    <th>Operator Name</th>
+                    <th>Mobile</th>
+                    <th>Email</th>
+                    <th>Aadhaar</th>
+                    <th>District</th>
+                    <th>Certificate No</th>
+                    <th>Cert Date</th>
+                    <th>Expiry Date</th>
+                    <th>Days Overdue</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in records %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td><strong>{{ rec.request_no }}</strong></td>
+                    <td>{{ rec.name_as_per_aadhaar }}</td>
+                    <td>{{ rec.operator_mobile }}</td>
+                    <td>{{ rec.primary_email or 'N/A' }}</td>
+                    <td>{{ 'XXXX XXXX ' ~ rec.operator_aadhaar if rec.operator_aadhaar else 'N/A' }}</td>
+                    <td>{{ rec.district_name }}</td>
+                    <td>{{ rec.nseit_certificate_number or 'N/A' }}</td>
+                    <td>{{ rec.nseit_certification_date or 'N/A' }}</td>
+                    <td>{{ rec.nseit_certificate_expiry_date or 'N/A' }}</td>
+                    <td class="nseit-expiry-overdue">{{ rec.days_overdue }} days</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="11" class="nseit-expiry-empty">No records found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function filterTable() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        document.querySelectorAll('#nseitTable tbody tr').forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+</script>
+{% endblock %}

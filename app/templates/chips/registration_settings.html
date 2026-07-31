@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+{% block title %}Registration Settings | CHiPS Admin{% endblock %}
+
+{% block extra_css %}
+<!-- Flatpickr for Date/Time selection -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+
+<style>
+    .settings-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .settings-table th,
+    .settings-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .settings-table th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #475569;
+        text-transform: uppercase;
+        font-size: 12px;
+    }
+
+    .settings-table tbody tr:hover {
+        background-color: #f1f5f9;
+    }
+
+    /* Toggle Switch CSS */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #cbd5e1;
+        transition: .3s;
+        border-radius: 24px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+    }
+
+    input:checked+.slider {
+        background-color: #10b981;
+    }
+
+    input:focus+.slider {
+        box-shadow: 0 0 1px #10b981;
+    }
+
+    input:checked+.slider:before {
+        transform: translateX(20px);
+    }
+
+    .date-input {
+        padding: 6px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        font-size: 13px;
+        font-family: inherit;
+    }
+
+    .save-btn {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 12px;
+        transition: 0.2s;
+    }
+
+    .save-btn:hover {
+        background-color: #2563eb;
+    }
+
+    .save-btn:disabled {
+        background-color: #94a3b8;
+        cursor: not-allowed;
+    }
+
+    /* ── DARK THEME OVERRIDES ── */
+    html[data-theme="dark"] .settings-table {
+        background: var(--surface-card) !important;
+        border-color: var(--border-subtle) !important;
+        box-shadow: none !important;
+    }
+
+    html[data-theme="dark"] .settings-table th {
+        background-color: var(--surface-subtle) !important;
+        color: var(--text-secondary) !important;
+    }
+
+    html[data-theme="dark"] .settings-table td {
+        border-bottom-color: var(--border-subtle) !important;
+        color: var(--text-primary) !important;
+    }
+
+    html[data-theme="dark"] .settings-table tbody tr:hover {
+        background-color: var(--surface-subtle) !important;
+    }
+
+    html[data-theme="dark"] .settings-table td strong {
+        color: var(--text-primary) !important;
+    }
+
+    html[data-theme="dark"] .date-input {
+        background-color: var(--surface-input) !important;
+        border-color: var(--border-strong) !important;
+        color: var(--text-primary) !important;
+    }
+
+    html[data-theme="dark"] #districtSearch {
+        background-color: var(--surface-input) !important;
+        border-color: var(--border-strong) !important;
+        color: var(--text-primary) !important;
+    }
+
+    html[data-theme="dark"] #statusFilter {
+        background-color: var(--surface-input) !important;
+        border-color: var(--border-strong) !important;
+        color: var(--text-primary) !important;
+    }
+
+    html[data-theme="dark"] .btn-clear-filters {
+        background-color: var(--surface-subtle) !important;
+        border-color: var(--border-subtle) !important;
+        color: var(--text-primary) !important;
+    }
+
+    html[data-theme="dark"] .slider {
+        background-color: var(--border-strong) !important;
+    }
+
+    html[data-theme="dark"] .slider:before {
+        background-color: var(--text-primary) !important;
+    }
+
+    html[data-theme="dark"] input:checked+.slider {
+        background-color: #10b981 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Standardized Registration Settings Dashboard Banner -->
+<div class="chips-header-banner" style="margin-bottom: 25px;">
+    <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+        <div
+            style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+        </div>
+        <div>
+            <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">District Registration Settings</h1>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Control candidate registration access per district</p>
+        </div>
+    </div>
+</div>
+
+<div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center;">
+    <input type="text" id="districtSearch" onkeyup="filterDistricts()" placeholder="Search by district name..."
+        style="flex: 1; max-width: 300px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+    <select id="statusFilter" onchange="filterDistricts()"
+        style="padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white; cursor: pointer;">
+        <option value="all">All Statuses</option>
+        <option value="open">Open</option>
+        <option value="closed">Closed</option>
+    </select>
+    <button type="button" class="btn-clear-filters" onclick="clearFilters()"
+        style="padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background: white; color: #475569; transition: background 0.15s, color 0.15s;"
+        onmouseover="this.style.background='#f1f5f9'; this.style.color='#1e293b';" onmouseout="this.style.background='white'; this.style.color='#475569';">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        Clear Filters
+    </button>
+</div>
+
+<table class="settings-table">
+    <thead>
+        <tr>
+            <th style="width: 25%">District</th>
+            <th style="width: 15%; text-align: center;">Registration Open</th>
+            <th style="width: 25%">Start Date (Optional)</th>
+            <th style="width: 25%">End Date (Optional)</th>
+            <th style="width: 10%; text-align: center;">Action</th>
+        </tr>
+    </thead>
+    <tbody id="districts-tbody">
+        <tr>
+            <td colspan="5" style="text-align: center; padding: 20px;">Loading districts...</td>
+        </tr>
+    </tbody>
+</table>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        fetchDistricts();
+    });
+
+    async function fetchDistricts() {
+        try {
+            const baseUrl = "{{ config.BACKEND_API_URL }}".replace(/\/api\/?$/, "");
+            const response = await fetch(`${baseUrl}/dashboard/districts/settings`);
+            if (!response.ok) throw new Error("Failed to fetch settings");
+            const data = await response.json();
+            renderTable(data.districts);
+        } catch (err) {
+            Swal.fire("Error", err.message, "error");
+        }
+    }
+
+    function renderTable(districts) {
+        const tbody = document.getElementById("districts-tbody");
+        tbody.innerHTML = "";
+
+        districts.forEach(d => {
+            const tr = document.createElement("tr");
+            tr.className = "district-row";
+            tr.setAttribute("data-name", d.district_name.toLowerCase());
+            tr.setAttribute("data-status", d.registration_open ? "open" : "closed");
+            tr.innerHTML = `
+                <td><strong>${d.district_name}</strong></td>
+                <td style="text-align: center;">
+                    <label class="switch">
+                        <input type="checkbox" id="open_${d.district_code}" ${d.registration_open ? 'checked' : ''} onchange="enableSave('${d.district_code}')">
+                        <span class="slider"></span>
+                    </label>
+                </td>
+                <td>
+                    <input type="text" class="date-input" id="start_${d.district_code}" value="${d.registration_start_date || ''}" placeholder="Select start date">
+                </td>
+                <td>
+                    <input type="text" class="date-input" id="end_${d.district_code}" value="${d.registration_end_date || ''}" placeholder="Select end date">
+                </td>
+                <td style="text-align: center;">
+                    <button class="save-btn" id="btn_${d.district_code}" disabled onclick="saveSettings('${d.district_code}')">Save</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+
+            flatpickr(`#start_${d.district_code}`, {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                onChange: () => enableSave(d.district_code)
+            });
+            flatpickr(`#end_${d.district_code}`, {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                onChange: () => enableSave(d.district_code)
+            });
+        });
+    }
+
+    function enableSave(code) {
+        document.getElementById(`btn_${code}`).disabled = false;
+    }
+
+    function filterDistricts() {
+        const q = document.getElementById("districtSearch").value.toLowerCase().trim();
+        const sf = document.getElementById("statusFilter").value;
+        const rows = document.querySelectorAll(".district-row");
+
+        rows.forEach(row => {
+            const name = row.getAttribute("data-name");
+            const status = row.getAttribute("data-status");
+
+            const matchQ = !q || name.includes(q);
+            const matchStatus = sf === "all" || status === sf;
+
+            if (matchQ && matchStatus) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
+    }
+
+    function clearFilters() {
+        document.getElementById("districtSearch").value = "";
+        document.getElementById("statusFilter").value = "all";
+        filterDistricts();
+    }
+
+    async function saveSettings(code) {
+        const btn = document.getElementById(`btn_${code}`);
+        btn.disabled = true;
+        btn.innerText = "Saving...";
+
+        const payload = {
+            district_code: code,
+            registration_open: document.getElementById(`open_${code}`).checked,
+            registration_start_date: document.getElementById(`start_${code}`).value || null,
+            registration_end_date: document.getElementById(`end_${code}`).value || null
+        };
+
+        try {
+            const baseUrl = "{{ config.BACKEND_API_URL }}".replace(/\/api\/?$/, "");
+            const response = await fetch(`${baseUrl}/dashboard/districts/${code}/settings`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                Swal.fire({
+                    title: "Success",
+                    text: "Settings updated successfully!",
+                    icon: "success",
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                btn.innerText = "Save";
+                btn.disabled = false;
+
+                const tr = btn.closest("tr");
+                if (tr) {
+                    tr.setAttribute("data-status", payload.registration_open ? "open" : "closed");
+                    filterDistricts();
+                }
+            } else {
+                throw new Error(data.detail || data.error || "Failed to update");
+            }
+        } catch (err) {
+            Swal.fire("Error", err.message, "error");
+            btn.disabled = false;
+            btn.innerText = "Save";
+        }
+    }
+</script>
+{% endblock %}

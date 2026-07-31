@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+
+{% block title %}Operator Activity — CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/operator_activity.css') }}?v=26">
+{% endblock %}
+
+{% block content %}
+<!-- Missing daily-upload reminder — pinned to the very top, just under the header -->
+<div class="oa-reminder oa-reminder-top" id="oaReminder" hidden></div>
+<div class="oa-wrap" id="oaRoot">
+
+  <!-- Header -->
+  <header class="oa-header">
+    <div>
+      <h1 class="oa-title">Operator Activity</h1>
+      <p class="oa-subtitle" id="oaRangeLabel">Loading…</p>
+    </div>
+    <div class="oa-header-actions">
+      <button class="oa-btn oa-btn-ghost" id="oaExportBtn"><i class="ti ti-download"></i> Export CSV</button>
+      <button class="oa-btn oa-btn-primary" id="oaUploadBtn"><i class="ti ti-upload"></i> Upload Data</button>
+    </div>
+  </header>
+
+  <!-- ============================= ACTIVITY SECTION ============================= -->
+  <section id="sectionActivity">
+
+    <!-- Section tabs: all operators vs. anomalies -->
+    <div class="oa-viewtoggle oa-sectiontabs" id="oaSectionTabs">
+      <button class="oa-chip active" data-view="all">All operators</button>
+      <button class="oa-chip" data-view="anomalies">Operator Anomalies</button>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="oa-filters" id="oaFilters">
+      <div class="oa-filter-group" id="oaFromGroup">
+        <label>From</label>
+        <input type="date" id="oaFrom">
+      </div>
+      <div class="oa-filter-group" id="oaToGroup">
+        <label>To</label>
+        <input type="date" id="oaTo">
+      </div>
+      <div class="oa-filter-group">
+        <label>District</label>
+        <select id="oaDistrict">
+          <option value="">All districts</option>
+        </select>
+      </div>
+      <div class="oa-filter-group" id="oaModelGroup">
+        <label>Model</label>
+        <select id="oaModel">
+          <option value="">All models</option>
+          <option value="ecmp">ECMP (in Kit Tracker)</option>
+          <option value="vle">VLE (not in Kit Tracker)</option>
+        </select>
+      </div>
+      <div class="oa-filter-group oa-grow">
+        <label>Search</label>
+        <input type="text" id="oaSearch" placeholder="Operator ID, station, name…">
+      </div>
+      <div class="oa-filter-group">
+        <button class="oa-link" id="oaReset">Reset filters</button>
+      </div>
+    </div>
+
+    <div id="oaMainView">
+    <!-- Summary cards -->
+    <div class="oa-cards" id="oaCards"></div>
+
+    <!-- View toggle -->
+    <div class="oa-viewbar">
+      <div class="oa-viewtoggle" id="oaGroupByToggle">
+        <button class="oa-chip active" data-groupby="operator">Aggregated by operator</button>
+        <button class="oa-chip" data-groupby="daily">Daily rows</button>
+      </div>
+      <div class="oa-pagesize">
+        Rows:
+        <select id="oaPageSize">
+          <option>25</option><option selected>50</option><option>100</option><option>200</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="oa-table-wrap">
+      <table class="oa-table" id="oaTable">
+        <thead id="oaThead"></thead>
+        <tbody id="oaTbody"></tbody>
+        <tfoot id="oaTfoot"></tfoot>
+      </table>
+      <div class="oa-empty" id="oaEmpty" hidden></div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="oa-pager" id="oaPager"></div>
+    </div><!-- /#oaMainView -->
+
+    <!-- ─────────────────── SUBSECTION: OPERATOR ANOMALIES ─────────────────── -->
+    <div id="oaAnomView" hidden>
+      <div class="oa-subsection-head">
+        <h2 class="oa-subsection-title">Operator Anomalies</h2>
+        <p class="oa-subsection-sub">
+          Operator/station records from the uploaded logs that do not reconcile with the
+          Kit Tracker. Stations present in the Kit Tracker are <b>Inhouse</b>; stations
+          absent from it are <b>VLE</b>. Records that reconcile cleanly are not listed.
+        </p>
+      </div>
+
+      <div class="oa-cards" id="oaAnomCards"></div>
+      <div class="oa-anom-legend" id="oaAnomLegend"></div>
+
+      <div class="oa-viewbar">
+        <div class="oa-pagesize">
+          Rows:
+          <select id="oaAnomPageSize">
+            <option>25</option><option selected>50</option><option>100</option><option>200</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="oa-table-wrap oa-anom-wrap">
+        <table class="oa-table oa-anom-table" id="oaAnomTable">
+          <thead id="oaAnomThead"></thead>
+          <tbody id="oaAnomTbody"></tbody>
+          <tfoot id="oaAnomTfoot"></tfoot>
+        </table>
+        <div class="oa-empty" id="oaAnomEmpty" hidden></div>
+      </div>
+
+      <div class="oa-pager" id="oaAnomPager"></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============================= UPLOAD MODAL ============================= -->
+<div class="oa-modal-backdrop" id="oaUploadModal" hidden>
+  <div class="oa-modal" role="dialog" aria-modal="true" aria-label="Upload data">
+    <div class="oa-modal-head">
+      <h2 id="oaUploadTitle">Upload RegistrarEA Data</h2>
+      <button class="oa-icon-btn" id="oaUploadClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="oa-modal-body">
+      <input type="hidden" id="oaUploadSource" value="registrar_ea">
+      <div class="oa-reminder" id="oaUploadNote">
+        <i class="ti ti-info-circle"></i>
+        <span>Each file should contain a single day's activity data. You can select multiple files to upload several days at once.</span>
+      </div>
+      <div class="oa-dropzone" id="oaDropzone">
+        <i class="ti ti-cloud-upload"></i>
+        <p>Drag &amp; drop one or more <b>.xlsx / .xls / .csv</b> files here, or <label class="oa-link" for="oaFileInput">browse</label></p>
+        <input type="file" id="oaFileInput" accept=".xlsx,.xls,.csv" multiple hidden>
+        <p class="oa-filename" id="oaFileName"></p>
+      </div>
+      <div class="oa-progress" id="oaProgress" hidden>
+        <div class="oa-progress-bar"><div id="oaProgressFill"></div></div>
+        <p class="oa-stage" id="oaStage"></p>
+      </div>
+      <div class="oa-upload-summary" id="oaUploadSummary" hidden></div>
+
+      <h3 class="oa-hist-title">Upload History</h3>
+      <div class="oa-hist-wrap">
+        <table class="oa-table oa-hist"><thead>
+          <tr><th>File</th><th>By</th><th>At</th><th>Status</th><th>Rows</th><th>Range</th><th></th></tr>
+        </thead><tbody id="oaHistBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= DRILL-DOWN SLIDE-OVER ============================= -->
+<div class="oa-slide-backdrop" id="oaSlideBackdrop" hidden></div>
+<aside class="oa-slide" id="oaSlide" role="dialog" aria-modal="true" aria-label="Operator detail" hidden>
+  <header class="oa-slide-head">
+    <div class="oa-slide-id">
+      <div class="oa-avatar" id="oaSlideAvatar"></div>
+      <div>
+        <h2 id="oaSlideName">Operator</h2>
+        <p id="oaSlideSid" class="oa-mono"></p>
+      </div>
+      <span class="oa-status-pill" id="oaSlideStatus"></span>
+    </div>
+    <button class="oa-icon-btn" id="oaSlideClose" aria-label="Close">&times;</button>
+  </header>
+  <nav class="oa-slide-tabs">
+    <button class="oa-slide-tab active" data-tab="profile">Profile</button>
+    <button class="oa-slide-tab" data-tab="activity">Activity</button>
+    <button class="oa-slide-tab" data-tab="stations">Stations</button>
+  </nav>
+  <div class="oa-slide-body">
+    <div id="oaTabProfile"></div>
+    <div id="oaTabActivity" hidden></div>
+    <div id="oaTabStations" hidden></div>
+  </div>
+</aside>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/operator_activity.js') }}?v=26"></script>
+{% endblock %}

@@ -1,0 +1,515 @@
+/* Operator Data Management — upload + Aadhar search.
+   Follows the portal idiom used by operator_activity.css: 22px page title,
+   13px body copy, 11.5px uppercase table heads, flat 1px borders, 8–11px
+   radii. All colour comes from tokens.css so light/dark both work. */
+
+/* The `hidden` attribute must always win. Rules below set display:flex on
+   .od-empty / .od-no-data / .od-file-chip, which would otherwise override the
+   UA `[hidden]{display:none}` rule and leave the placeholder panels stacked
+   above real results. */
+[hidden] { display: none !important; }
+
+.od-wrap { padding: 3px 22px 60px; max-width: 100%; color: var(--text-primary); }
+
+/* ------------------------------ banner ------------------------------
+   Matches the .chips-header-banner used by the NSEIT / DC pages: same
+   gradient token, 12px radius, 25px padding, icon tile + 22px white title. */
+.od-banner {
+    background: var(--banner-bg);
+    border: 1px solid var(--banner-border);
+    border-radius: 12px;
+    padding: 25px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-bottom: 3px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .1);
+}
+
+.od-banner-icon {
+    background: rgba(255, 255, 255, .1);
+    padding: 12px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #cbd5e1;
+}
+
+.od-banner-title { margin: 0; font-size: 22px; font-weight: 700; color: #fff; }
+.od-banner-sub { margin: 4px 0 0; font-size: 13px; color: #94a3b8; }
+
+/* ------------------------------- tabs ------------------------------- */
+.od-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 3px;
+}
+
+.od-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: none;
+    background: none;
+    padding: 10px 16px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.od-tab:hover { color: var(--text-primary); }
+.od-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+.od-tab i { font-size: 16px; }
+
+/* Panels span the full content width, like every other portal page. */
+.od-panel { width: 100%; }
+
+/* ------------------------------- cards ------------------------------ */
+.od-card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 11px;
+    overflow: hidden;
+}
+
+.od-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 13px 15px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Keep the head text next to the icon instead of wrapping under it. */
+.od-card-head > div:last-child { min-width: 0; }
+
+.od-card-icon {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(37, 99, 235, .1);
+    color: #2563eb;
+    font-size: 17px;
+}
+
+.od-card-icon-alt { background: rgba(100, 116, 139, .14); color: var(--text-secondary); }
+
+.od-card-title { margin: 0; font-size: 15px; font-weight: 650; }
+
+.od-card-sub {
+    margin: 2px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.od-card-body {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* --------------------------- drop zone ------------------------------ */
+.od-drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 26px 20px;
+    border: 2px dashed var(--border-strong);
+    border-radius: 12px;
+    background: var(--surface-subtle);
+    cursor: pointer;
+    text-align: center;
+    transition: border-color .15s ease, background .15s ease;
+}
+
+.od-drop:hover,
+.od-drop:focus-visible,
+.od-drop.is-dragging {
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, .05);
+    outline: none;
+}
+
+.od-drop-icon { font-size: 30px; color: #2563eb; line-height: 1; margin-bottom: 4px; }
+.od-drop-title { font-size: 14px; font-weight: 650; }
+.od-drop-sub { font-size: 12.5px; color: var(--text-secondary); }
+.od-drop-sub b { color: #2563eb; }
+.od-drop-hint { margin-top: 3px; font-size: 11.5px; color: var(--text-secondary); }
+
+.od-file-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 11px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--surface-subtle);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.od-file-chip i { color: #16a34a; font-size: 15px; }
+.od-file-chip span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.od-file-clear {
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 5px;
+    display: grid;
+    place-items: center;
+}
+
+.od-file-clear:hover { background: var(--surface-hover); color: var(--text-primary); }
+
+/* ------------------------------ fields ------------------------------ */
+.od-field { display: flex; flex-direction: column; gap: 4px; }
+
+.od-field > label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--text-secondary);
+}
+
+.od-optional { font-weight: 500; text-transform: none; letter-spacing: 0; opacity: .85; }
+
+.od-field input,
+.od-searchbar-input input {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    background: var(--surface-input);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.od-field input:focus,
+.od-searchbar-input input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, .15);
+}
+
+.od-columns-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 9px 11px;
+    border-radius: 8px;
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.od-columns-hint i { color: #2563eb; font-size: 14px; flex: 0 0 auto; margin-top: 1px; }
+
+/* ------------------------------ buttons ----------------------------- */
+.od-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-card);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.od-btn-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+.od-btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+.od-btn-ghost { background: transparent; }
+.od-btn-ghost:hover { background: var(--surface-hover); }
+.od-btn:disabled { opacity: .45; cursor: not-allowed; }
+.od-btn-block { width: 100%; }
+.od-btn-sm { padding: 5px 10px; font-size: 11.5px; }
+
+/* ------------------------------ search ------------------------------ */
+.od-searchbar { display: flex; gap: 9px; flex-wrap: wrap; }
+.od-searchbar-input { position: relative; flex: 1 1 240px; display: flex; align-items: center; }
+
+.od-searchbar-input i {
+    position: absolute;
+    left: 10px;
+    font-size: 15px;
+    color: var(--icon-muted);
+    pointer-events: none;
+}
+
+.od-searchbar-input input {
+    padding-left: 32px;
+    padding-block: 8px;
+    font-size: 14px;
+    letter-spacing: .03em;
+}
+
+/* Segmented mode switcher, mirroring the portal's .oa-viewtoggle chips. */
+.od-modes {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 8px;
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    align-self: flex-start;
+}
+
+.od-mode {
+    border: none;
+    background: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.od-mode.active {
+    background: var(--surface-card);
+    color: #2563eb;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+}
+
+/* Mode 2 — name + last 4 */
+.od-nameform { display: flex; flex-direction: column; gap: 8px; }
+
+.od-nameform-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.od-nameform-row .od-field { flex: 0 1 auto; }
+.od-field.od-grow { flex: 1 1 220px; }
+.od-field-narrow { max-width: 110px; letter-spacing: .12em; text-align: center; }
+
+.od-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+}
+
+.od-hint i { font-size: 13px; color: #b45309; }
+
+.od-inline-error {
+    margin: -6px 0 0;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #dc2626;
+}
+
+/* --------------------- empty / locked states ------------------------ */
+.od-empty,
+.od-no-data {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    text-align: center;
+    padding: 34px 20px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    background: var(--surface-subtle);
+}
+
+.od-empty i,
+.od-no-data i { font-size: 26px; color: var(--icon-muted); opacity: .65; margin-bottom: 6px; }
+
+.od-empty-title { margin: 0; font-size: 13.5px; font-weight: 650; }
+
+.od-empty-sub {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    max-width: 320px;
+    line-height: 1.5;
+}
+
+.od-locked {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 15px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 9px;
+    background: var(--surface-subtle);
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.od-locked i { font-size: 18px; color: var(--icon-muted); }
+.od-locked p { margin: 0; }
+
+/* ---------------------- summary / results panes --------------------- */
+.od-summary,
+.od-results,
+.od-summary-body { display: flex; flex-direction: column; gap: 12px; }
+
+/* ------------------------------ stats ------------------------------- */
+.od-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+.od-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 12px 13px;
+    border-radius: 10px;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-card);
+}
+
+.od-stat-num { font-size: 22px; font-weight: 700; line-height: 1.1; }
+
+.od-stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    color: var(--text-secondary);
+    line-height: 1.3;
+}
+
+.od-stat-added .od-stat-num { color: #16a34a; }
+.od-stat-dupe  .od-stat-num { color: #b45309; }
+.od-stat-bad   .od-stat-num { color: #dc2626; }
+
+/* --------------------------- invalid rows --------------------------- */
+.od-invalid { display: flex; flex-direction: column; gap: 8px; }
+
+.od-invalid-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12.5px;
+    font-weight: 650;
+    color: var(--text-secondary);
+}
+
+.od-invalid-head i { color: #b45309; margin-right: 5px; }
+.od-invalid-note { margin: 0; font-size: 11.5px; color: var(--text-secondary); }
+
+/* ------------------------------ tables ------------------------------ */
+.od-table-scroll {
+    overflow-x: auto;
+    max-height: 330px;
+    overflow-y: auto;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: var(--surface-card);
+}
+
+.od-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+
+.od-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface-subtle);
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.od-table tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border-subtle); }
+.od-table tbody tr:last-child td { border-bottom: 0; }
+.od-table tbody tr:hover { background: var(--surface-hover); }
+.od-table-compact { font-size: 12.5px; white-space: normal; }
+.od-table-compact tbody td { padding: 7px 12px; }
+
+.od-name { font-weight: 600; }
+.od-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+.od-agency-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.od-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+
+.od-status-on      { background: #dcfce7; color: #166534; }
+.od-status-off     { background: #fee2e2; color: #991b1b; }
+.od-status-neutral { background: #f1f5f9; color: #475569; }
+
+.od-aadhar-cell { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.od-aadhar-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; font-weight: 600; }
+
+.od-reveal {
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-card);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.od-reveal:hover { color: #2563eb; border-color: #2563eb; }
+
+/* ----------------------------- responsive --------------------------- */
+@media (max-width: 640px) {
+    .od-wrap { padding: 3px 14px 40px; }
+    .od-banner { padding: 18px; }
+    .od-banner-title { font-size: 19px; }
+    .od-tab { padding: 10px 12px; font-size: 13px; }
+    .od-stats { grid-template-columns: 1fr; }
+    .od-searchbar button { width: 100%; }
+}

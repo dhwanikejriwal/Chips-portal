@@ -1,0 +1,2445 @@
+{% extends 'base.html' %}
+
+{% block title %}CHIPS Admin - Reactivation Control Panel{% endblock %}{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dc/dc_style.css') }}">
+<style>
+    /* Specialized UI sub-elements for individual profile matrix rows inside the SweetAlert modal */
+    .swal-operator-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        font-size: 13px;
+        text-align: left;
+    }
+
+    .swal-operator-table th {
+        background-color: #f1f5f9;
+        color: #475569;
+        padding: 10px;
+        font-weight: 600;
+        border-bottom: 2px solid #cbd5e1;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+    }
+
+    .swal-operator-table td {
+        padding: 10px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #334155;
+        vertical-align: middle;
+    }
+
+    .action-toggle-btn {
+        padding: 5px 10px;
+        border: none;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        text-transform: uppercase;
+    }
+
+    .btn-activate-op {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background-color: #16a34a;
+        color: #ffffff;
+        border: none;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+        text-transform: none;
+    }
+
+    .btn-activate-op:hover {
+        background-color: #15803d;
+    }
+
+    .btn-revert-op {
+        background-color: #ef4444;
+        color: white;
+    }
+
+    .btn-revert-op:hover {
+        background-color: #dc2626;
+    }
+
+    .op-pill {
+        padding: 3px 8px;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .op-active {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .op-staged {
+        background-color: #e2e8f0;
+        color: #475569;
+    }
+
+    .btn-issue {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background: var(--action, #378ADD);
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+        white-space: nowrap;
+    }
+
+    .btn-issue:hover {
+        background: #2C74BE;
+    }
+
+    .btn-revert {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        background: #fff;
+        color: #DC2626;
+        border: 1.5px solid #DC2626;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+        opacity: 0.85;
+    }
+
+    .btn-revert:hover {
+        background: #FEE2E2;
+        opacity: 1;
+    }
+
+    /* ── Responsive Layout ── */
+
+    /* Section headings with right-side controls (status filter + export button) */
+    .section-heading {
+        flex-wrap: wrap;
+    }
+
+    .section-heading>div[style*="margin-left: auto"],
+    .section-heading>div[style*="margin-left:auto"] {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    /* Action buttons inside table cells — let them wrap instead of overflowing */
+    .action-group {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    /* Make main content area padding shrink on small screens */
+    @media (max-width: 992px) {
+        .content {
+            padding: 16px !important;
+        }
+
+        .section-heading {
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .section-heading>div[style*="margin-left: auto"],
+        .section-heading>div[style*="margin-left:auto"] {
+            width: 100%;
+            margin-left: 0 !important;
+            justify-content: flex-start;
+        }
+
+        /* Export & filter row in section headings */
+        .section-heading select.filter-input {
+            width: 150px;
+            min-width: unset;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .content {
+            padding: 12px !important;
+        }
+
+        /* Banner header: stack icon+title above metrics */
+        .chips-header-banner>div:first-child {
+            flex-wrap: wrap;
+        }
+
+        /* Filter bar: single-column stacked */
+        .filter-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .filter-group,
+        .filter-group-search {
+            min-width: unset !important;
+            width: 100%;
+        }
+
+        .filter-group-button {
+            margin-top: 0 !important;
+            width: 100%;
+        }
+
+        .btn-clear-filters {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Section headings: stack title row and action row */
+        .section-heading {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .section-heading>div[style*="margin-left: auto"],
+        .section-heading>div[style*="margin-left:auto"] {
+            width: 100%;
+            margin-left: 0 !important;
+            flex-wrap: wrap;
+        }
+
+        .section-heading select.filter-input {
+            width: 100%;
+            min-width: unset;
+        }
+
+        .section-heading .btn,
+        .section-heading .btn-sm {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Action buttons in table cells: wrap them vertically */
+        .action-group {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 5px;
+        }
+
+        .action-group button {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Prevent form-card from having too much padding */
+        .form-card-container {
+            padding: 12px;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .content {
+            padding: 8px !important;
+        }
+
+        .chips-banner-metrics {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            width: 100%;
+            gap: 8px;
+        }
+
+        .chips-metric-card {
+            min-width: unset !important;
+        }
+
+        /* Section title text shrink */
+        .section-heading h2 {
+            font-size: 15px !important;
+        }
+
+        .section-heading h3 {
+            font-size: 14px !important;
+        }
+
+        /* Table export button: full width */
+        .btn-sm {
+            width: 100%;
+            text-align: center;
+        }
+    }
+
+    /* Custom button classes for SweetAlert popup windows */
+    .swal-btn-action-blue {
+        background-color: #378ADD !important;
+        color: white !important;
+        font-weight: 700 !important;
+        border-radius: 6px !important;
+        padding: 10px 24px !important;
+        font-size: 14px !important;
+        border: none !important;
+        cursor: pointer !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    }
+
+    .swal-btn-action-blue:hover {
+        background-color: #2C74BE !important;
+    }
+
+    .swal-btn-action-cancel {
+        background-color: #64748b !important;
+        color: white !important;
+        font-weight: 700 !important;
+        border-radius: 6px !important;
+        padding: 10px 24px !important;
+        font-size: 14px !important;
+        border: none !important;
+        cursor: pointer !important;
+    }
+
+    .swal-btn-action-cancel:hover {
+        background-color: #475569 !important;
+    }
+</style>
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}
+{% block content %}
+{% from 'partials/request_section.html' import request_section %}
+<div style="background-color: var(--app-bg);">
+    <!-- Jinja2 Metric Calculations -->
+    {% set ns_m = namespace(pending=0, reapplied=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0) %}
+    {% set metric_source = full_history if full_history is defined and full_history else (requests_history if requests_history is defined and requests_history else requests) %}
+    {% if metric_source %}
+      {% for req in metric_source %}
+        {% if req.operators and req.operators|length > 0 %}
+          {% for op in req.operators %}
+            {% set s = (op.status or req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+            {% set ns_m.total = ns_m.total + 1 %}
+            {% if 'UIDAI' in s and 'REJECT' not in s %}
+              {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
+            {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+              {% set ns_m.approved = ns_m.approved + 1 %}
+            {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+              {% set ns_m.rejected = ns_m.rejected + 1 %}
+            {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+              {% set ns_m.reverted = ns_m.reverted + 1 %}
+            {% elif s in ['REAPPLIED'] %}
+              {% set ns_m.reapplied = ns_m.reapplied + 1 %}
+            {% else %}
+              {% set ns_m.pending = ns_m.pending + 1 %}
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          {% set s = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+          {% set cnt = req.operator_count or 1 %}
+          {% set ns_m.total = ns_m.total + cnt %}
+          {% if 'UIDAI' in s and 'REJECT' not in s %}
+            {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + cnt %}
+          {% elif s in ['APPROVED', 'REVIEWED', 'ACTIVATED', 'ACTIVE', 'ASSIGNED'] %}
+            {% set ns_m.approved = ns_m.approved + cnt %}
+          {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+            {% set ns_m.rejected = ns_m.rejected + cnt %}
+          {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+            {% set ns_m.reverted = ns_m.reverted + cnt %}
+          {% elif s in ['REAPPLIED'] %}
+            {% set ns_m.reapplied = ns_m.reapplied + cnt %}
+          {% else %}
+            {% set ns_m.pending = ns_m.pending + cnt %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    <!-- Reactivation Control Panel Banner -->
+    <div class="chips-header-banner" style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
+        <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+            <div
+                style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+            </div>
+            <div>
+                <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">Operator Reactivation
+                    Dashboard
+                </h1>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Manage and review reactivation
+                    requests</p>
+            </div>
+        </div>
+        <div class="chips-banner-metrics"
+            style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
+            <div class="chips-metric-card">
+                <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.pending }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-reapplied" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
+                    {{ ns_m.reapplied }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-sent-to-uidai"
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.sent_to_uidai }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to
+                    UIDAI</div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
+                    {{ ns_m.reverted }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
+                    {{ ns_m.rejected }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by
+                    UIDAI
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
+                    {{ ns_m.approved }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div id="metric-total-requests"
+                    style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.total }}
+                </div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
+                    Requests</div>
+            </div>
+        </div>
+    </div>
+    <div class="form-card-container"
+        style="border:none; padding:0; background:transparent; box-shadow:none; margin-bottom:3px;">
+        {% if aging_filter %}
+        <div class="aging-filter-notice"
+            style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+            <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ requests|length }}
+                found)</span>
+            <a href="/auth/chips/reactivation" class="aging-filter-notice-link"
+                style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+        </div>
+        {% endif %}
+
+        <!-- Section tabs -->
+        <div class="req-tabs" role="tablist">
+            <button type="button" class="req-tab active" data-tab="pending">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="8" y="2" width="8" height="4" rx="1" />
+                    <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+                    <path d="M12 11v6" />
+                    <path d="M9 14h6" />
+                </svg>
+                <span>Pending reactivation requests</span>
+            </button>
+            <button type="button" class="req-tab" data-tab="uidai">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+                <span>Sent to UIDAI queue</span>
+            </button>
+            <button type="button" class="req-tab" data-tab="reverted">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>Reverted/Rejected log</span>
+            </button>
+            <button type="button" class="req-tab" data-tab="approved">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Approved log</span>
+            </button>
+        </div>
+
+        <!-- Global Filter Bar -->
+        <div class="filter-bar">
+            <div class="filter-group filter-group-search">
+                <label>Search Operator</label>
+                <input type="text" id="admin-search-input" oninput="filterAdminQueues()"
+                    placeholder="Search by Request ID, District, Name..." class="filter-input">
+            </div>
+            <div class="filter-group">
+                <label>District</label>
+                <select id="admin-district-filter" onchange="filterAdminQueues()" class="filter-input">
+                    <option value="all">All Districts</option>
+                    {% for d in [
+                    'Balod', 'Baloda Bazar-Bhatapara', 'Balrampur-Ramanujganj', 'Bastar', 'Bemetara',
+                    'Bijapur', 'Bilaspur', 'Dantewada', 'Dhamtari', 'Durg', 'Gariaband',
+                    'Gaurela-Pendra-Marwahi', 'Janjgir-Champa', 'Jashpur', 'Kabirdham', 'Kanker',
+                    'Khairagarh-Chhuikhadan-Gandai', 'Kondagaon', 'Korba', 'Koriya', 'Mahasamund',
+                    'Manendragarh-Chirmiri-Bharatpur', 'Mohla-Manpur-Ambagarh Chowki', 'Mungeli',
+                    'Narayanpur', 'Raigarh', 'Raipur', 'Rajnandgaon', 'Sakti', 'Sarangarh-Bilaigarh',
+                    'Sukma', 'Surajpur', 'Surguja'
+                    ] %}
+                    <option value="{{ d | lower | trim }}">{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Time Period</label>
+                <select id="admin-date-filter" onchange="filterAdminQueues()" class="filter-input">
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">Week</option>
+                    <option value="month" selected>Month</option>
+                </select>
+            </div>
+            <div class="filter-group-button" style="flex: 0 0 auto;">
+                <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Clear Filters
+                </button>
+            </div>
+        </div>
+
+        <!-- ── PENDING REACTIVATION (group box holding one card per batch) ── -->
+        <div class="req-tabpanel active" data-panel="pending">
+            <div class="rs-group rs-group--pending">
+                <div class="rs-group-head">
+                    <span class="rs-rail" aria-hidden="true"></span>
+                    <h3 class="rs-title">Pending reactivation requests</h3>
+                    <span class="rs-count" id="pending-count">–</span>
+                    <div class="rs-head-controls" style="margin-left: auto;">
+                        <select id="admin-pending-status-filter" onchange="filterAdminQueues()" class="rs-filter">
+                            <option value="all">All statuses</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="REAPPLIED">Reapplied</option>
+                        </select>
+                        <button class="rs-export"
+                            onclick="exportTableToCSV('admin-pending-table', 'incoming_reactivation_batches.csv')">Export
+                            to CSV</button>
+                    </div>
+                </div>
+                <div class="rs-group-body" id="pending-cards-container">
+                    {% if requests %}
+                    {% set pending_found = namespace(val=false) %}
+                    {% for req in requests %}
+                    {% set has_pending_op = namespace(val=false) %}
+                    {% for op in req.operators %}
+                    {% if op.status|upper in ['PENDING', 'REAPPLIED'] %}
+                    {% set has_pending_op.val = true %}
+                    {% set pending_found.val = true %}
+                    {% endif %}
+                    {% endfor %}
+                    {% if has_pending_op.val %}
+                    {% set batch_controls %}
+                    <span
+                        style="font-size: 12px; color: var(--text-secondary); white-space: nowrap; margin-right: 4px;">Submitted:
+                        <strong style="color:var(--text-primary);">{{ req.created_at or "—" }}</strong> ·
+                        Updated: <strong style="color:var(--text-primary);">{{ req.updated_at or "—"
+                            }}</strong></span>
+                    <button type="button" onclick="viewBatchDocuments('{{ req.request_code }}')"
+                        style="background: var(--surface-input); color: var(--text-primary); border: 1px solid var(--border-strong); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">View
+                        Documents</button>
+                    <button type="button" onclick="dispatchBatchToUidaiPipeline('{{ req.request_code }}')"
+                        style="background: var(--action, #378ADD); color: white; border: 1px solid var(--action, #378ADD); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Send
+                        All</button>
+                    <button type="button" onclick="processBatchRevertModal('{{ req.request_code }}')"
+                        style="background: #DC2626; color: white; border: 1px solid #DC2626; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Revert
+                        All</button>
+                    {% endset %}
+                    {% call request_section(
+                    variant='pending',
+                    title='Request ID: ' ~ req.request_code,
+                    count=(req.operators|length ~ ' operators in batch' if req.operators is defined and req.operators else '0 operators in batch'),
+                    card_classes='pending-card request-card',
+                    card_data={'request-id': req.request_code|upper, 'code': req.request_code|upper, 'district':
+                    req.district_name|lower, 'created': req.created_at, 'status': req.status, 'training-date':
+                    req.training_date},
+                    controls=batch_controls,
+                    min_width=1040,
+                    columns=[
+                    {'label': 'S.No', 'cls': 'rs-col-sno'},
+                    {'label': 'Operator name'},
+                    {'label': 'Mobile'},
+                    {'label': 'Email'},
+                    {'label': 'Status'},
+                    {'label': 'Action', 'align': 'center'}
+                    ]) %}
+                    {% for op in req.operators %}
+                    {% set op_status_upper = op.status|upper %}
+                    {% if op_status_upper in ['PENDING', 'REAPPLIED'] %}
+                    <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+                        data-mobile="{{ op.operator_mobile }}"
+                        data-email="{{ op.email_id | lower | default('', true) }}" data-status="{{ op.status | upper }}"
+                        data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+                        data-created="{{ req.created_at }}" data-training-date="{{ req.training_date }}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ op.operator_name }}</td>
+                        <td>{{ op.operator_mobile }}</td>
+                        <td>{{ op.email_id or '—' }}</td>
+                        <td>
+                            {% if op_status_upper == 'REAPPLIED' %}
+                            <span class="badge badge-reapplied">Reapplied</span>
+                            {% else %}
+                            <span class="badge badge-pending">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                            <div class="action-group"
+                                style="gap: 5px; display: flex; align-items: center; justify-content: center;">
+                                <button type="button" class="btn-issue"
+                                    onclick="executeIndividualUidai('{{ op.id }}', '{{ req.request_code }}', this)">
+                                    Send to UIDAI
+                                </button>
+                                <button type="button" class="btn-revert"
+                                    onclick="executeIndividualReversion('{{ op.id }}', '{{ req.request_code }}', this)">
+                                    Revert
+                                </button>
+                                <button type="button" class="btn-details"
+                                    onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">
+                                    Details
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                    {% endcall %}
+                    {% endif %}
+                    {% endfor %}
+                    {% if not pending_found.val %}
+                    <div id="pending-empty-msg" class="empty-state">
+                        <p>No pending requests</p>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div id="pending-empty-msg" class="empty-state">
+                        <p>No pending requests</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div><!-- /panel pending -->
+    </div>
+
+    <!-- ── SENT TO UIDAI (flat operator table) ── -->
+    <div class="req-tabpanel" data-panel="uidai">
+        {% set uidai_controls %}
+        <button class="rs-export"
+            onclick="exportTableToCSV('admin-uidai-table', 'uidai_reactivation_operators.csv')">Export to CSV</button>
+        {% endset %}
+        {% call request_section(
+        variant='uidai',
+        title='Sent to UIDAI queue',
+        count='–', count_id='uidai-count',
+        controls=uidai_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'District'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email'},
+        {'label': 'Status'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='admin-uidai-table', body_id='uidai-tbody',
+        empty_id='uidai-empty-msg', empty_message='No UIDAI requests') %}
+        {% set uidai_ns = namespace(i=1) %}
+        {% for req in requests %}
+        {% for op in req.operators %}
+        {% if 'UIDAI' in op.status|upper %}
+        <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+            data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
+            data-status="{{ op.status | upper }}" data-district="{{ req.district_name }}"
+            data-code="{{ req.request_code }}" data-created="{{ req.created_at }}"
+            data-training-date="{{ req.training_date }}">
+            <td>{{ uidai_ns.i }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.district_name }}</td>
+            <td>{{ op.operator_name }}</td>
+            <td>{{ op.operator_mobile }}</td>
+            <td>{{ op.email_id or '—' }}</td>
+            <td><span class="badge badge-forwarded">Sent to UIDAI</span></td>
+            <td style="text-align: center;">
+                <div class="action-group"
+                    style="gap: 5px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" class="btn-activate-op action-toggle-btn"
+                        onclick="executeIndividualActivation('{{ op.id }}', '{{ req.request_code }}', this)">UIDAI
+                        Approved</button>
+                    <button type="button" class="btn-revert"
+                        onclick="executeIndividualRejection('{{ op.id }}', '{{ req.request_code }}', this)">UIDAI
+                        Rejected</button>
+                    <button type="button" class="btn-details"
+                        onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">Details</button>
+                </div>
+            </td>
+        </tr>
+        {% set uidai_ns.i = uidai_ns.i + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel uidai -->
+
+    {% set reverted_controls %}
+    <select id="admin-reverted-status-filter" onchange="filterAdminQueues()" class="rs-filter">
+        <option value="all">All statuses</option>
+        <option value="REVERTED">Reverted</option>
+        <option value="REJECTED">Rejected</option>
+    </select>
+    <button class="rs-export"
+        onclick="exportTableToCSV('admin-reverted-table', 'reactivation_reverted_logs.csv')">Export to
+        CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="reverted">
+        {% call request_section(
+        variant='rejected',
+        title='Reverted/Rejected log',
+        count='–', count_id='reverted-count',
+        controls=reverted_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'District'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email'},
+        {'label': 'Status'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='admin-reverted-table', body_id='reverted-tbody',
+        empty_id='reverted-empty-msg', empty_message='No reverted/rejected requests') %}
+        {% set reverted_ns = namespace(i=1) %}
+        {% for req in requests %}
+        {% for op in req.operators %}
+        {% set op_status_upper = op.status|upper %}
+        {% if op_status_upper in ['REVERTED', 'REVERT BACK', 'REJECTED'] %}
+        <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+            data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
+            data-status="{{ op_status_upper }}" data-district="{{ req.district_name }}"
+            data-code="{{ req.request_code }}" data-created="{{ req.created_at }}"
+            data-training-date="{{ req.training_date }}">
+            <td>{{ reverted_ns.i }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.district_name }}</td>
+            <td>{{ op.operator_name }}</td>
+            <td>{{ op.operator_mobile }}</td>
+            <td>{{ op.email_id or '—' }}</td>
+            <td>
+                {% if op_status_upper in ['REVERTED', 'REVERT BACK'] %}
+                <span class="badge badge-reverted">Reverted</span>
+                {% elif op_status_upper == 'REJECTED' %}
+                <span class="badge badge-rejected">Rejected</span>
+                {% endif %}
+            </td>
+            <td style="text-align: center;">
+                <div class="action-group"
+                    style="gap: 5px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" class="btn-details"
+                        onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">Details</button>
+                </div>
+            </td>
+        </tr>
+        {% set reverted_ns.i = reverted_ns.i + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% endcall %}
+    </div>
+
+    <!-- ── REACTIVATION LOG HISTORY (flat operator table) ── -->
+    {% set approved_controls %}
+    <button class="rs-export"
+        onclick="exportTableToCSV('admin-approved-table', 'reactivation_approved_logs.csv')">Export to
+        CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="approved">
+        {% call request_section(
+        variant='approved',
+        title='Approved log',
+        count='–', count_id='approved-count',
+        controls=approved_controls,
+        min_width=1050,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'District'},
+        {'label': 'Operator name'},
+        {'label': 'Mobile'},
+        {'label': 'Email'},
+        {'label': 'Status'},
+        {'label': 'Action', 'align': 'center'}
+        ],
+        table_id='admin-approved-table', body_id='approved-tbody',
+        empty_id='approved-empty-msg', empty_message='No approved requests') %}
+        {% set approved_ns = namespace(i=1) %}
+        {% for req in requests %}
+        {% for op in req.operators %}
+        {% set op_status_upper = op.status|upper %}
+        {% if op_status_upper == 'APPROVED' %}
+        <tr class="op-row-item" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
+            data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
+            data-status="APPROVED" data-district="{{ req.district_name }}" data-code="{{ req.request_code }}"
+            data-created="{{ req.created_at }}" data-training-date="{{ req.training_date }}">
+            <td>{{ approved_ns.i }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.district_name }}</td>
+            <td>{{ op.operator_name }}</td>
+            <td>{{ op.operator_mobile }}</td>
+            <td>{{ op.email_id or '—' }}</td>
+            <td>
+                <span class="badge badge-approved">Approved</span>
+            </td>
+            <td style="text-align: center;">
+                <div class="action-group"
+                    style="gap: 5px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" class="btn-details"
+                        onclick="showIndividualOperatorDetails('{{ op.id }}', '{{ req.request_code }}', this.closest('.op-row-item'))">Details</button>
+                </div>
+            </td>
+        </tr>
+        {% set approved_ns.i = approved_ns.i + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% endcall %}
+    </div>
+
+</div>
+
+<script>
+    function clearAllFilters() {
+        document.getElementById('admin-search-input').value = '';
+        document.getElementById('admin-district-filter').value = 'all';
+        document.getElementById('admin-date-filter').value = 'month';
+        document.getElementById('admin-pending-status-filter').value = 'all';
+        if (document.getElementById('admin-reverted-status-filter')) {
+            document.getElementById('admin-reverted-status-filter').value = 'all';
+        }
+        filterAdminQueues();
+    }
+
+    function filterAdminQueues() {
+        const query = (document.getElementById('admin-search-input').value || '').toLowerCase().trim();
+        const district = document.getElementById('admin-district-filter').value.toLowerCase().trim();
+        const dateFilter = document.getElementById('admin-date-filter').value;
+        const pendingStatusFilter = document.getElementById('admin-pending-status-filter').value.toUpperCase().trim();
+        const revertedStatusFilter = document.getElementById('admin-reverted-status-filter') ? document.getElementById('admin-reverted-status-filter').value.toUpperCase().trim() : 'ALL';
+        const now = new Date();
+
+        // Save current filter criteria to sessionStorage dynamically
+        sessionStorage.setItem('chips_react_search', document.getElementById('admin-search-input').value);
+        sessionStorage.setItem('chips_react_district', document.getElementById('admin-district-filter').value);
+        sessionStorage.setItem('chips_react_date', document.getElementById('admin-date-filter').value);
+        sessionStorage.setItem('chips_react_pending_status', document.getElementById('admin-pending-status-filter').value);
+        sessionStorage.setItem('chips_react_reverted_status', revertedStatusFilter);
+
+        let opPendingCount = 0;
+        let opReappliedCount = 0;
+        let opSentToUidaiCount = 0;
+        let opRevertedCount = 0;
+        let opRejectedCount = 0;
+        let opApprovedCount = 0;
+
+        // 1. Filter PENDING cards
+        let pendingIndex = 0;
+        let totalPendingOperators = 0;
+        document.querySelectorAll('#pending-cards-container .pending-card').forEach(card => {
+            const cardDistrict = (card.getAttribute('data-district') || '').toLowerCase();
+            const cardCode = (card.getAttribute('data-request-id') || '').toLowerCase();
+            const cardCreated = card.getAttribute('data-created') || '';
+
+            let matchesDistrict = district === 'all' || cardDistrict === district;
+            let matchesDate = checkDateFilterMatches(cardCreated, dateFilter, now);
+
+            let visibleOpsCount = 0;
+            const opRows = card.querySelectorAll('.op-row-item');
+            opRows.forEach(opRow => {
+                const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
+                const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
+                const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
+                const opStatus = (opRow.getAttribute('data-status') || 'PENDING').toUpperCase();
+
+                const matchesQuery = cardCode.includes(query) || cardDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
+                const matchesPendingStatus = pendingStatusFilter === 'ALL' || opStatus === pendingStatusFilter;
+
+                if (matchesDistrict && matchesDate && matchesQuery) {
+                    if (opStatus === 'PENDING') opPendingCount++;
+                    else if (opStatus === 'REAPPLIED') opReappliedCount++;
+                }
+
+                if (matchesDistrict && matchesDate && matchesQuery && matchesPendingStatus) {
+                    opRow.style.display = '';
+                    visibleOpsCount++;
+                } else {
+                    opRow.style.display = 'none';
+                }
+            });
+
+            if (visibleOpsCount > 0) {
+                card.style.display = '';
+                pendingIndex++;
+                totalPendingOperators += visibleOpsCount;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // 2. Filter SENT TO UIDAI (flat operator rows)
+        let totalUidaiOperators = 0;
+        document.querySelectorAll('#uidai-tbody .op-row-item').forEach(opRow => {
+            const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
+            const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
+            const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
+            const opDistrict = (opRow.getAttribute('data-district') || '').toLowerCase();
+            const opCode = (opRow.getAttribute('data-code') || '').toLowerCase();
+            const opCreated = opRow.getAttribute('data-created') || '';
+
+            const matchesDistrict = district === 'all' || opDistrict === district;
+            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
+
+            if (matchesDistrict && matchesDate && matchesQuery) {
+                opSentToUidaiCount++;
+                opRow.style.display = '';
+                totalUidaiOperators++;
+            } else {
+                opRow.style.display = 'none';
+            }
+        });
+
+        // 3. Filter LOG HISTORY - APPROVED (flat operator rows)
+        let totalApprovedOperators = 0;
+        document.querySelectorAll('#approved-tbody .op-row-item').forEach(opRow => {
+            const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
+            const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
+            const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
+            const opDistrict = (opRow.getAttribute('data-district') || '').toLowerCase();
+            const opCode = (opRow.getAttribute('data-code') || '').toLowerCase();
+            const opCreated = opRow.getAttribute('data-created') || '';
+
+            const matchesDistrict = district === 'all' || opDistrict === district;
+            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
+
+            if (matchesDistrict && matchesDate && matchesQuery) {
+                opApprovedCount++;
+                opRow.style.display = '';
+                totalApprovedOperators++;
+                opRow.cells[0].innerText = totalApprovedOperators;
+            } else {
+                opRow.style.display = 'none';
+            }
+        });
+
+        // 4. Filter LOG HISTORY - REVERTED/REJECTED (flat operator rows)
+        let totalRevertedOperators = 0;
+        document.querySelectorAll('#reverted-tbody .op-row-item').forEach(opRow => {
+            const opName = (opRow.getAttribute('data-name') || '').toLowerCase();
+            const opMobile = (opRow.getAttribute('data-mobile') || '').toLowerCase();
+            const opEmail = (opRow.getAttribute('data-email') || '').toLowerCase();
+            const opDistrict = (opRow.getAttribute('data-district') || '').toLowerCase();
+            const opCode = (opRow.getAttribute('data-code') || '').toLowerCase();
+            const opCreated = opRow.getAttribute('data-created') || '';
+            let opStatus = (opRow.getAttribute('data-status') || '').toUpperCase();
+
+            const matchesDistrict = district === 'all' || opDistrict === district;
+            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
+
+            if (matchesDistrict && matchesDate && matchesQuery) {
+                if (['REVERTED', 'REVERT_BACK'].includes(opStatus)) opRevertedCount++;
+                else if (opStatus === 'REJECTED') opRejectedCount++;
+            }
+
+            if (['REVERTED', 'REVERT_BACK'].includes(opStatus)) { opStatus = 'REVERTED'; }
+            else if (opStatus === 'REJECTED') { opStatus = 'REJECTED'; }
+
+            const matchesRevertedStatus = revertedStatusFilter === 'ALL' || opStatus === revertedStatusFilter;
+
+            if (matchesDistrict && matchesDate && matchesQuery && matchesRevertedStatus) {
+                opRow.style.display = '';
+                totalRevertedOperators++;
+                opRow.cells[0].innerText = totalRevertedOperators;
+            } else {
+                opRow.style.display = 'none';
+            }
+        });
+
+        const pendingCountEl = document.getElementById('pending-count');
+        if (pendingCountEl) pendingCountEl.textContent = totalPendingOperators;
+        const pendingEmptyMsg = document.getElementById('pending-empty-msg');
+        if (pendingEmptyMsg) pendingEmptyMsg.style.display = (pendingIndex === 0) ? 'block' : 'none';
+
+        const uidaiCountEl = document.getElementById('uidai-count');
+        if (uidaiCountEl) uidaiCountEl.textContent = totalUidaiOperators;
+        const uidaiEmptyMsg = document.getElementById('uidai-empty-msg');
+        if (uidaiEmptyMsg) uidaiEmptyMsg.style.display = (totalUidaiOperators === 0) ? 'block' : 'none';
+
+        const approvedCountEl = document.getElementById('approved-count');
+        if (approvedCountEl) approvedCountEl.textContent = totalApprovedOperators;
+        const approvedEmptyMsg = document.getElementById('approved-empty-msg');
+        if (approvedEmptyMsg) approvedEmptyMsg.style.display = (totalApprovedOperators === 0) ? 'block' : 'none';
+
+        const revertedCountEl = document.getElementById('reverted-count');
+        if (revertedCountEl) revertedCountEl.textContent = totalRevertedOperators;
+        const revertedEmptyMsg = document.getElementById('reverted-empty-msg');
+        if (revertedEmptyMsg) revertedEmptyMsg.style.display = (totalRevertedOperators === 0) ? 'block' : 'none';
+
+        // Metric cards display all-time counts irrespective of active filters
+    }
+
+    function checkDateFilterMatches(dateStr, filterVal, now) {
+        if (filterVal === 'all') return true;
+        if (!dateStr || dateStr === '—') return true;
+        const d = new Date(dateStr.replace(' ', 'T'));
+        if (filterVal === 'today') {
+            return d.toDateString() === now.toDateString();
+        } else if (filterVal === 'week') {
+            const threshold = new Date();
+            threshold.setDate(now.getDate() - 7);
+            return d >= threshold;
+        } else if (filterVal === 'month') {
+            const threshold = new Date();
+            threshold.setDate(now.getDate() - 30);
+            return d >= threshold;
+        }
+        return true;
+    }
+
+    window.showReactivationDetails = function (operatorId, requestCode, rowElement, isReadOnly) {
+        if (isReadOnly === undefined) isReadOnly = false;
+        rowElement = rowElement || document.querySelector(`[data-code="${requestCode}"]`);
+        // Clean direct proxy endpoint map pattern
+        fetch(`/auth/dc/reactivation/operators/${requestCode}?_t=${Date.now()}`)
+            .then(res => {
+                if (!res.ok) throw new Error("Failed to extract target profile array rows.");
+                return res.json();
+            })
+            .then(payload => {
+                Swal.close();
+
+                const operators = payload.operators || [];
+                const timelineLogs = payload.timeline_logs || [];
+
+                const district = rowElement.getAttribute('data-district');
+                const trainingDate = rowElement.getAttribute('data-training-date');
+                const batchStatus = (rowElement.getAttribute('data-status') || 'PENDING').toUpperCase().replace(/ /g, '_');
+
+                let tableRowsHtml = '';
+                operators.forEach((op, index) => {
+                    let statusBadgeHtml = '';
+                    let actionsHtml = '';
+
+                    let reasonHtml = op.status.toUpperCase() === 'REVERTED' ? `<span style="color:#b91c1c; font-weight:600;">${escapeHtml(op.reject_reason)}</span>` : '<span style="color:#94a3b8; font-style:italic;">—</span>';
+
+                    if (op.status.toUpperCase() === 'APPROVED') {
+                        statusBadgeHtml = `<span style="background-color: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Approved</span>`;
+                    } else if (op.status.toUpperCase() === 'REVERTED') {
+                        statusBadgeHtml = `<span style="background-color: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; display: inline-block; white-space: nowrap;">Reverted</span>`;
+                    } else if (op.status.toUpperCase() === 'SENT_TO_UIDAI' || op.status === 'Sent to UIDAI') {
+                        statusBadgeHtml = `<span style="background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Sent to UIDAI</span>`;
+                    } else {
+                        statusBadgeHtml = `<span style="background-color: #e2e8f0; color: #475569; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; white-space: nowrap;">Pending</span>`;
+                    }
+
+                    if (!isReadOnly) {
+                        let actionButtonsHtml = '';
+                        if (batchStatus === 'PENDING' || batchStatus === 'REAPPLIED') {
+                            if (op.status.toUpperCase() !== 'SENT_TO_UIDAI' && op.status !== 'Sent to UIDAI') {
+                                actionButtonsHtml += `
+                                        <button class="action-toggle-btn btn-send-uidai-op"
+                                                onclick="executeIndividualUidai('${op.id}', '${requestCode}', this)"
+                                                style="background-color: #0284c7; color: #ffffff; border: none; padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+                                            Sent to UIDAI
+                                        </button>
+                                    `;
+                            }
+                            if (op.status.toUpperCase() !== 'REVERTED') {
+                                actionButtonsHtml += `
+                                        <button class="action-toggle-btn btn-revert-op"
+                                                onclick="executeIndividualReversion('${op.id}', '${requestCode}', this)"
+                                                style="background-color: #dc2626; color: #ffffff; border: none; padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+                                            Revert
+                                        </button>
+                                    `;
+                            }
+                        } else if (batchStatus === 'SENT_TO_UIDAI' || batchStatus === 'SENT TO UIDAI') {
+                            if (op.status.toUpperCase() !== 'APPROVED') {
+                                actionButtonsHtml += `
+                                        <button class="action-toggle-btn btn-activate-op"
+                                                onclick="executeIndividualActivation('${op.id}', '${requestCode}', this)"
+                                                style="background-color: #10b981; color: #ffffff; border: none; padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+                                            Activate
+                                        </button>
+                                    `;
+                            }
+                            if (op.status.toUpperCase() !== 'REVERTED') {
+                                actionButtonsHtml += `
+                                        <button class="action-toggle-btn btn-revert-op"
+                                                onclick="executeIndividualReversion('${op.id}', '${requestCode}', this)"
+                                                style="background-color: #dc2626; color: #ffffff; border: none; padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; cursor: pointer;">
+                                            Revert
+                                        </button>
+                                    `;
+                            }
+                        }
+
+                        actionsHtml = `
+                                <td class="action-cell" style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0; text-align:center;">
+                                    <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
+                                        ${actionButtonsHtml}
+                                    </div>
+                                </td>`;
+                    }
+
+                    tableRowsHtml += `
+                            <tr style="transition: background-color 0.2s ease;">
+                                <td style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0; color: #64748b;">${index + 1}</td>
+                                <td style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0; color: #1e293b;"><strong>${escapeHtml(op.operator_name)}</strong></td>
+                                <td style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0; color: #475569;">${escapeHtml(op.operator_mobile) || 'N/A'}</td>
+                                <td style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0; color: #475569;">${op.aadhaar_number ? 'XXXX-XXXX-' + escapeHtml(op.aadhaar_number.slice(-4)) : 'N/A'}</td>
+                                <td class="status-cell" style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0;">${statusBadgeHtml}</td>
+                                <td class="reason-cell" style="padding: 12px 10px; border-bottom: 1px solid #e2e8f0;">${reasonHtml}</td>
+                                ${actionsHtml}
+                            </tr>`;
+                });
+
+                let docsDownloadHtml = `
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px;">
+                            <div style="font-weight: 700; color: #1e293b; font-size: 14px; text-transform: uppercase;">Uploaded Documents</div>
+                            <a href="/auth/dc/reactivation/export/${requestCode}" class="btn btn-sm" style="background-color: #2563eb; color: white; text-decoration: none; padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">
+                                 Download Operators Excel
+                            </a>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                <span style="font-weight: 600; color: #475569; font-size: 13px;"> Group Training Photo</span>
+                                <div style="display: flex; gap: 12px; align-items: center;">
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/training_photo" target="_blank" style="text-decoration: none; font-size: 14px;">👁️ View</a>
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/training_photo" download style="text-decoration: none; font-size: 14px; color: #10b981;">⬇️ Download</a>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                <span style="font-weight: 600; color: #475569; font-size: 13px;"> District Nodal Letter</span>
+                                <div style="display: flex; gap: 12px; align-items: center;">
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/nodal_letter" target="_blank" style="text-decoration: none; font-size: 14px;">👁️ View</a>
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/nodal_letter" download style="text-decoration: none; font-size: 14px; color: #10b981;">⬇️ Download</a>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                <span style="font-weight: 600; color: #475569; font-size: 13px;"> Office Memorandum (OM)</span>
+                                <div style="display: flex; gap: 12px; align-items: center;">
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/om_letter" target="_blank" style="text-decoration: none; font-size: 14px;">👁️ View</a>
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/om_letter" download style="text-decoration: none; font-size: 14px; color: #10b981;">⬇️ Download</a>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                <span style="font-weight: 600; color: #475569; font-size: 13px;"> Operator Attendance</span>
+                                <div style="display: flex; gap: 12px; align-items: center;">
+                                    <a href="/auth/reactivation/requests/${requestCode}/files/attendance_list" download style="text-decoration: none; font-size: 14px; color: #10b981;">⬇️ Download</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+
+                // Store timeline logs globally so "View Remarks" can access them
+                window._currentBatchTimelineLogs = timelineLogs;
+                window._currentBatchRequestCode = requestCode;
+
+                let htmlContent = `
+                    <div style="text-align: left; max-height: 75vh; overflow-y: auto; padding-right: 5px;">
+                        <p style="font-size: 13px; color: #64748b; margin-bottom: 15px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                            District: <strong style="color: #1e293b;">${district}</strong> | Training Completion: <strong style="color: #1e293b;">${trainingDate}</strong>
+                        </p>
+                        ${docsDownloadHtml}
+
+                        <div style="font-weight: 700; font-size: 14px; color: #1e293b; margin-bottom: 8px;">List of Operators</div>
+                        <div style="overflow-x:auto; width:100%; border:1px solid #e2e8f0; border-radius:6px;">
+                            <table style="width: 100%; min-width:650px; border-collapse: collapse; font-size: 13px;">
+                                <thead style="background-color: #f1f5f9;">
+                                    <tr>
+                                        <th style="padding:10px;">S.No</th>
+                                        <th style="padding:10px;">Operator Name</th>
+                                        <th style="padding:10px;">Mobile Number</th>
+                                        <th style="padding:10px;">Aadhaar Number</th>
+                                        <th style="padding:10px;">Status</th>
+                                        <th style="padding:10px;">Remarks / Revert Reason</th>
+                                        ${!isReadOnly ? '<th style="text-align:center; padding:10px;">Action Override</th>' : ''}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRowsHtml || `<tr><td colspan="${!isReadOnly ? '6' : '5'}" style="text-align:center; padding: 20px; color:#64748b;">No profiles linked.</td></tr>`}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- View Remarks Button Row -->
+                        <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                            <button type="button"
+                                onclick="viewBatchRemarks('${requestCode}')"
+                                style="padding: 8px 20px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s;"
+                                onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                View Remarks
+                            </button>
+                        </div>
+
+                        ${!isReadOnly ? `
+                        <div style="margin-top:15px; border-top:1px dashed #e2e8f0; padding-top:15px;">
+                            <button type="button" class="btn" style="background-color:#10b981; color:#ffffff; width:100%; border:none; padding:10px; border-radius:6px; font-weight:600; cursor:pointer;" onclick="finalizeBatchCloseout('${requestCode}')">
+                                Finalize Batch Review &amp; Complete Reactivation
+                            </button>
+                        </div>` : ''}
+                    </div>`;
+
+                Swal.fire({
+                    title: `<span style="font-family:inherit; font-weight:800;">Batch Reactivation Details</span>`,
+                    html: htmlContent,
+                    width: '95vw',
+                    showConfirmButton: true,
+                    confirmButtonText: 'Close Window',
+                    customClass: {
+                        confirmButton: 'swal-btn-close'
+                    }
+                });
+            })
+            .catch(err => {
+                Swal.fire('Data Pipeline Drop', err.message, 'error');
+            });
+    }; // end showReactivationDetails
+
+    // VIEW REMARKS — opens a separate modal with the audit timeline
+    window.viewBatchRemarks = function (requestCode) {
+        const timelineLogs = window._currentBatchTimelineLogs || [];
+
+        let timelineItemsHtml = '';
+        if (timelineLogs.length > 0) {
+            timelineLogs.forEach(log => {
+                const isDC = log.sender_role === 'DC';
+                const sender = isDC ? 'District Coordinator' : 'CHiPS Admin';
+                const senderClass = isDC ? 'dc' : 'chips';
+                const username = log.sender_username || '';
+                const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+                const dateObj = new Date(log.timestamp.replace(' ', 'T'));
+                const formattedTime = dateObj.toLocaleDateString('en-GB') + ' ' + dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+                const msgLower = (log.message || '').toLowerCase();
+                let markerClass = 'marker-pending';
+                if (msgLower.includes('approve') || msgLower.includes('active') || msgLower.includes('activate') || msgLower.includes('finalized')) {
+                    markerClass = 'marker-approved';
+                } else if (msgLower.includes('revert') || msgLower.includes('reject')) {
+                    markerClass = 'marker-reverted';
+                } else if (msgLower.includes('uidai') || msgLower.includes('sent')) {
+                    markerClass = 'marker-forwarded';
+                } else if (msgLower.includes('reappl')) {
+                    markerClass = 'marker-reapplied';
+                }
+
+                let cleanMessage = (log.message || '').trim();
+
+
+                timelineItemsHtml += `
+                    <div class="timeline-item ${senderClass}">
+                        <div class="timeline-marker ${markerClass}"></div>
+                        <div class="timeline-content" style="padding: 10px 14px;">
+                            <div class="timeline-section-row">
+                                <span class="timeline-step-label">Reactivation</span>
+                            </div>
+                            <div class="timeline-by-row">
+                                <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
+                                <span class="timeline-time">${formattedTime}</span>
+                            </div>
+                            <div class="timeline-body">${escapeHtml(log.message)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        const remarksHtml = `
+            <div style="text-align: left; max-height: 65vh; display: flex; flex-direction: column; padding: 0 5px; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
+                    <span style="font-size: 14px; color: #666;">Batch Request: <strong style="color: #1e293b;">${requestCode}</strong></span>
+                </div>
+                ${timelineItemsHtml.length > 0 ? `
+                <div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">
+                    <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">Audit Action History Log</div>
+                    <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">
+                        ${timelineItemsHtml}
+                    </div>
+                </div>` : `
+                <div style="text-align:center; padding: 30px; font-style: italic; color: #94a3b8; font-size: 13px; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; flex: 0 0 auto;">
+                    No timeline logs / remarks available for this batch.
+                </div>`}
+            </div>
+        `;
+
+        Swal.fire({
+            title: `<span style="font-family:inherit; font-weight:800;">Audit Remarks History</span>`,
+            html: remarksHtml,
+            width: '600px',
+            showConfirmButton: true,
+            showDenyButton: true,
+            confirmButtonText: 'Close',
+            denyButtonText: 'Back',
+            customClass: {
+                confirmButton: 'swal-btn-close',
+                denyButton: 'swal-btn-back'
+            },
+            focusConfirm: false
+        }).then(result => {
+            if (result.isDenied) {
+                const mainRow = document.querySelector(`[data-code="${requestCode}"]`);
+                if (mainRow) {
+                    showReactivationDetails(null, requestCode, mainRow, false);
+                }
+            }
+        });
+    };
+
+    // Helper to extract operator name from click context
+    function findOperatorName(buttonEl) {
+        if (!buttonEl) return 'Operator';
+        const opRow = buttonEl.closest('.op-row-item');
+        if (opRow) {
+            const nameAttr = opRow.getAttribute('data-name');
+            if (nameAttr) {
+                return nameAttr.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            }
+            const span = opRow.querySelector('span[style*="color: #334155"]');
+            if (span) return span.innerText.trim();
+        }
+        const tr = buttonEl.closest('tr');
+        if (tr) {
+            const strong = tr.querySelector('strong');
+            if (strong) return strong.innerText.trim();
+        }
+        return 'Operator';
+    }
+
+    // Action routes bound directly to standardized backend configurations
+    window.executeIndividualActivation = function (operatorId, requestCode, buttonEl) {
+        const operatorName = findOperatorName(buttonEl);
+
+        Swal.fire({
+            title: `<span style="color:#16a34a; font-family:'Inter',sans-serif; font-weight:800;">UIDAI Approve Operator</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Approving Operator: <strong>${operatorName}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">APPROVAL REMARKS (OPTIONAL)</label>
+                    <textarea id="approve-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Add any approval remarks..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Approve Activation',
+            confirmButtonColor: '#16a34a',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const remarks = document.getElementById('approve-remarks-area').value.trim();
+                const payload = new URLSearchParams();
+                if (remarks) {
+                    payload.append('reason', remarks);
+                }
+                return fetch(`/auth/reactivation/operator/${operatorId}/activate`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server error while activating');
+                        return true;
+                    }).catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
+                    });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                buttonEl.disabled = true;
+                Swal.fire({
+                    title: 'Approved Successfully!',
+                    text: `Operator ${operatorName} has been approved by UIDAI.`,
+                    icon: 'success',
+                    confirmButtonColor: '#16a34a',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            }
+        });
+    };
+
+    window.executeIndividualUidai = function (operatorId, requestCode, buttonEl) {
+        const operatorName = findOperatorName(buttonEl);
+
+        Swal.fire({
+            title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">Send to UIDAI</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Forwarding Operator: <strong>${operatorName}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">NOTES FOR UIDAI (OPTIONAL)</label>
+                    <textarea id="uidai-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Add any contextual notes for UIDAI..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Send to UIDAI',
+            confirmButtonColor: '#2563eb',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const remark = document.getElementById('uidai-remarks-area').value.trim();
+                const payload = new URLSearchParams();
+                if (remark) {
+                    payload.append('remarks', remark);
+                }
+                return fetch(`/auth/reactivation/operator/${operatorId}/send-to-uidai`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server error while sending to UIDAI');
+                        return true;
+                    }).catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
+                    });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                buttonEl.disabled = true;
+                Swal.fire({
+                    title: 'Operator Sent to UIDAI!',
+                    text: `Operator ${operatorName} has been sent to UIDAI.`,
+                    icon: 'success',
+                    confirmButtonColor: '#2563eb',
+                    showConfirmButton: true,
+                    timer: 2500,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            }
+        });
+    };
+
+    window.executeIndividualReversion = function (operatorId, requestCode, buttonEl) {
+        const operatorName = findOperatorName(buttonEl);
+
+        Swal.fire({
+            title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">Revert Operator</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Reverting Operator: <strong>${operatorName}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">REASON FOR REVERTING</label>
+                    <textarea id="revert-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter the reason for reverting this operator..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Revert Operator',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const value = document.getElementById('revert-remarks-area').value.trim();
+                if (!value) {
+                    Swal.showValidationMessage('Please enter a reason.');
+                    return false;
+                }
+                const payload = new URLSearchParams();
+                payload.append('reason', value);
+                return fetch(`/auth/reactivation/operator/${operatorId}/revert`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server error while reverting');
+                        return true;
+                    }).catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
+                    });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                buttonEl.disabled = true;
+                Swal.fire({
+                    title: 'Operator Reverted!',
+                    text: `Operator ${operatorName} has been sent back to the District Coordinator.`,
+                    icon: 'success',
+                    confirmButtonColor: '#dc2626',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            }
+        });
+    };
+
+    window.executeIndividualRejection = function (operatorId, requestCode, buttonEl) {
+        const operatorName = findOperatorName(buttonEl);
+
+        Swal.fire({
+            title: `<span style="color:#dc2626; font-family:'Inter',sans-serif; font-weight:800;">UIDAI Reject Operator</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Rejecting Operator: <strong>${operatorName}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#c2410c;">REJECTION REMARKS (MANDATORY) *</label>
+                    <textarea id="reject-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter UIDAI rejection remarks..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Submit Rejection',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const value = document.getElementById('reject-remarks-area').value.trim();
+                if (!value) {
+                    Swal.showValidationMessage('Please enter rejection remarks.');
+                    return false;
+                }
+                const payload = new URLSearchParams();
+                payload.append('reason', value);
+                return fetch(`/auth/reactivation/operator/${operatorId}/reject`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server error while rejecting');
+                        return true;
+                    }).catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
+                    });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                buttonEl.disabled = true;
+                Swal.fire({
+                    title: 'Rejection Submitted!',
+                    text: `Operator ${operatorName} has been rejected by UIDAI and the DC has been notified.`,
+                    icon: 'error',
+                    confirmButtonColor: '#dc2626',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            }
+        });
+    };
+
+    window.finalizeBatchCloseout = function (requestCode) {
+        fetch(`/auth/reactivation/requests/${requestCode}/finalize`, { method: 'POST' })
+            .then(res => {
+                if (!res.ok) throw new Error('Server request failed');
+                return res.json();
+            })
+            .then(() => Swal.fire({
+                title: 'Completed',
+                text: 'Batch processing finalized successfully.',
+                icon: 'success',
+                confirmButtonColor: '#16a34a',
+                showConfirmButton: true,
+                timer: 2500,
+                timerProgressBar: true
+            }).then(() => {
+                sessionStorage.setItem('chips_action_reloading', 'true');
+                window.location.reload();
+            }))
+            .catch(err => Swal.fire('Error', err.message, 'error'));
+    };
+
+    function processBatchRevertModal(requestCode) {
+        Swal.fire({
+            title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">Revert Entire Batch</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Reverting all operators in batch: <strong>${requestCode}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">REASON FOR REVERTING</label>
+                    <textarea id="revert-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter the reason for reverting this batch..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Revert Batch',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const value = document.getElementById('revert-remarks-area').value.trim();
+                if (!value) {
+                    Swal.showValidationMessage('Please enter a reason.');
+                    return false;
+                }
+                const payload = new URLSearchParams();
+                payload.append('revert_reason', value);
+                return fetch(`/auth/reactivation/requests/${requestCode}/revert`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server error while reverting batch');
+                        return true;
+                    }).catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
+                    });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Batch Package Reverted!',
+                    text: `Reactivation package ${requestCode} has been reverted back to the District Coordinator.`,
+                    icon: 'success',
+                    confirmButtonColor: '#dc2626',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    sessionStorage.setItem('chips_action_reloading', 'true');
+                    window.location.reload();
+                });
+            }
+        });
+    }
+
+    function dispatchBatchToUidaiPipeline(requestCode) {
+        Swal.fire({
+            title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">Send Batch to UIDAI</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Forwarding all operators in batch: <strong>${requestCode}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">NOTES FOR UIDAI (OPTIONAL)</label>
+                    <textarea id="uidai-remarks-area" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Add any contextual notes for UIDAI..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Send to UIDAI',
+            confirmButtonColor: '#2563eb',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const remarks = document.getElementById('uidai-remarks-area').value.trim();
+                const payload = new URLSearchParams();
+                if (remarks) {
+                    payload.append('remarks', remarks);
+                } else {
+                    payload.append('remarks', 'Sent to UIDAI');
+                }
+                return fetch(`/auth/reactivation/requests/${requestCode}/send-to-uidai`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server request failed');
+                        return true;
+                    })
+                    .catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
+                    });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Batch Sent to UIDAI!',
+                    text: `Reactivation package ${requestCode} has been forwarded to UIDAI.`,
+                    icon: 'success',
+                    confirmButtonColor: '#2563eb',
+                    showConfirmButton: true,
+                    timer: 2500,
+                    timerProgressBar: true
+                }).then(() => {
+                    sessionStorage.setItem('chips_action_reloading', 'true');
+                    window.location.reload();
+                });
+            }
+        });
+    }
+
+    function executeBatchApprove(requestCode) {
+        Swal.fire({
+            title: `<span style="color:#16a34a; font-family:'Inter',sans-serif; font-weight:800;">UIDAI Approve All Operators</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Approving all operators in batch: <strong>${requestCode}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#475569;">APPROVAL REMARKS (OPTIONAL)</label>
+                    <textarea id="swal-textarea-batch-approve" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Add any approval remarks for all operators..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Approve All',
+            confirmButtonColor: '#16a34a',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const remarks = document.getElementById('swal-textarea-batch-approve').value.trim();
+                const payload = new URLSearchParams();
+                if (remarks) {
+                    payload.append('reason', remarks);
+                }
+                return fetch(`/auth/reactivation/requests/${requestCode}/approve-all`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server error while activating batch');
+                        return true;
+                    }).catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
+                    });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Approved Successfully!',
+                    text: `All operators in batch ${requestCode} have been approved by UIDAI.`,
+                    icon: 'success',
+                    confirmButtonColor: '#16a34a',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            }
+        });
+    }
+
+    function executeBatchReject(requestCode) {
+        Swal.fire({
+            title: `<span style="color:#dc2626; font-family:'Inter',sans-serif; font-weight:800;">UIDAI Reject All Operators</span>`,
+            html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                    <div style="font-size:13px; color:#475569; margin-bottom:12px;">Rejecting all operators in batch: <strong>${requestCode}</strong></div>
+                    <label style="font-weight:600; font-size:12px; color:#c2410c;">REJECTION REMARKS (MANDATORY) *</label>
+                    <textarea id="swal-textarea-batch-reject" class="swal2-textarea" style="width:100%; height:80px; margin:4px 0 0 0; padding:8px; font-size:14px; box-sizing:border-box;" placeholder="Enter UIDAI rejection remarks for all operators..."></textarea>
+                </div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Submit Rejection',
+            confirmButtonColor: '#dc2626',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const remarks = document.getElementById('swal-textarea-batch-reject').value.trim();
+                if (!remarks) {
+                    Swal.showValidationMessage('Please enter rejection remarks.');
+                    return false;
+                }
+                const payload = new URLSearchParams();
+                payload.append('reason', remarks);
+                return fetch(`/auth/reactivation/requests/${requestCode}/reject-all`, { method: 'POST', body: payload })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Server error while rejecting batch');
+                        return true;
+                    }).catch(err => {
+                        Swal.showValidationMessage(`Error: ${err.message}`);
+                    });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Rejection Submitted!',
+                    text: `All operators in batch ${requestCode} have been rejected by UIDAI.`,
+                    icon: 'error',
+                    confirmButtonColor: '#dc2626',
+                    showConfirmButton: true,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.reload();
+                });
+            }
+        });
+    }
+
+    function viewDocument(title, fileUrl, extension) {
+        if (!fileUrl) return;
+
+        const ext = (extension || '').toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || fileUrl.startsWith('data:image/');
+
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100vw';
+        overlay.style.height = '100vh';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.zIndex = '99999';
+
+        const modal = document.createElement('div');
+        modal.style.width = '90%';
+        modal.style.maxWidth = '800px';
+        modal.style.height = '85vh';
+        modal.style.maxHeight = '700px';
+        modal.style.backgroundColor = 'white';
+        modal.style.borderRadius = '12px';
+        modal.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.overflow = 'hidden';
+        modal.style.animation = 'swal2-show 0.3s ease-out';
+
+        const header = document.createElement('div');
+        header.style.backgroundColor = '#1e3a8a';
+        header.style.padding = '12px 20px';
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.color = 'white';
+
+        const headerTitle = document.createElement('span');
+        headerTitle.innerText = title;
+        headerTitle.style.fontWeight = '700';
+        headerTitle.style.fontSize = '16px';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        closeBtn.style.border = 'none';
+        closeBtn.style.width = '32px';
+        closeBtn.style.height = '32px';
+        closeBtn.style.borderRadius = '50%';
+        closeBtn.style.display = 'flex';
+        closeBtn.style.alignItems = 'center';
+        closeBtn.style.justifyContent = 'center';
+        closeBtn.style.cursor = 'pointer';
+        closeBtn.style.color = 'white';
+        closeBtn.style.transition = 'background 0.2s';
+        closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+        closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        closeBtn.onclick = () => document.body.removeChild(overlay);
+        closeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+        header.appendChild(headerTitle);
+        header.appendChild(closeBtn);
+
+        const body = document.createElement('div');
+        body.style.flex = '1';
+        body.style.padding = '20px';
+        body.style.backgroundColor = '#f8fafc';
+        body.style.display = 'flex';
+        body.style.justifyContent = 'center';
+        body.style.alignItems = 'center';
+        body.style.overflow = 'hidden';
+
+        if (isImage) {
+            const img = document.createElement('img');
+            img.src = fileUrl;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = '4px';
+            body.appendChild(img);
+        } else {
+            const iframe = document.createElement('iframe');
+            iframe.src = fileUrl;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.style.borderRadius = '4px';
+            body.appendChild(iframe);
+        }
+
+        const footer = document.createElement('div');
+        footer.style.padding = '12px 20px';
+        footer.style.borderTop = '1px solid #edf2f7';
+        footer.style.display = 'flex';
+        footer.style.justifyContent = 'flex-end';
+        footer.style.alignItems = 'center';
+        footer.style.gap = '12px';
+        footer.style.backgroundColor = 'white';
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = fileUrl;
+        downloadLink.download = title;
+        downloadLink.style.display = 'inline-flex';
+        downloadLink.style.alignItems = 'center';
+        downloadLink.style.gap = '6px';
+        downloadLink.style.padding = '8px 16px';
+        downloadLink.style.borderRadius = '8px';
+        downloadLink.style.backgroundColor = '#ecfdf5';
+        downloadLink.style.color = '#10b981';
+        downloadLink.style.fontWeight = '600';
+        downloadLink.style.fontSize = '14px';
+        downloadLink.style.textDecoration = 'none';
+        downloadLink.style.cursor = 'pointer';
+        downloadLink.style.transition = 'background-color 0.2s';
+        downloadLink.onmouseenter = () => downloadLink.style.backgroundColor = '#d1fae5';
+        downloadLink.onmouseleave = () => downloadLink.style.backgroundColor = '#ecfdf5';
+        downloadLink.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download';
+
+        const closeBtnFooter = document.createElement('button');
+        closeBtnFooter.type = 'button';
+        closeBtnFooter.style.padding = '8px 24px';
+        closeBtnFooter.style.borderRadius = '8px';
+        closeBtnFooter.style.backgroundColor = '#4f46e5';
+        closeBtnFooter.style.color = 'white';
+        closeBtnFooter.style.fontWeight = '600';
+        closeBtnFooter.style.fontSize = '14px';
+        closeBtnFooter.style.border = 'none';
+        closeBtnFooter.style.cursor = 'pointer';
+        closeBtnFooter.style.transition = 'background-color 0.2s';
+        closeBtnFooter.onmouseenter = () => closeBtnFooter.style.backgroundColor = '#4338ca';
+        closeBtnFooter.onmouseleave = () => closeBtnFooter.style.backgroundColor = '#4f46e5';
+        closeBtnFooter.onclick = () => document.body.removeChild(overlay);
+        closeBtnFooter.innerText = 'Close';
+
+        footer.appendChild(downloadLink);
+        footer.appendChild(closeBtnFooter);
+
+        modal.appendChild(header);
+        modal.appendChild(body);
+        modal.appendChild(footer);
+        overlay.appendChild(modal);
+
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        };
+
+        document.body.appendChild(overlay);
+    }
+
+    function buildDocumentCard(title, fileUrl, defaultName) {
+        if (!fileUrl) return '';
+
+        const extension = (defaultName || '').split('.').pop().toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) || fileUrl.startsWith('data:image/');
+
+        let previewHtml = '';
+        let previewButtonHtml = '';
+
+        if (isImage) {
+            previewHtml = `<img src="${fileUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')">`;
+            previewButtonHtml = `
+                <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+            `;
+        } else {
+            const isExcel = ['xls', 'xlsx'].includes(extension);
+            const clickAttr = isExcel ? '' : `onclick="viewDocument('${title}', '${fileUrl}', '${extension}')"`;
+            const cursorStyle = isExcel ? 'default' : 'pointer';
+
+            previewHtml = `
+                <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #f8fafc; border-radius: 8px; cursor: ${cursorStyle};" ${clickAttr}>
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+            `;
+
+            if (!isExcel) {
+                previewButtonHtml = `
+                    <button type="button" onclick="viewDocument('${title}', '${fileUrl}', '${extension}')" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 6px; background-color: #eff6ff; color: #3b82f6; cursor: pointer; transition: background-color 0.2s;" title="Preview">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                `;
+            }
+        }
+
+        const shortFileName = defaultName.length > 22 ? defaultName.substring(0, 19) + '...' : defaultName;
+
+        return `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="height: 100px; width: 100%; background: #f8fafc; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #edf2f7;">
+                    ${previewHtml}
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px;">
+                    <div style="text-align: left; overflow: hidden; flex-grow: 1; min-width: 0;">
+                        <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
+                        <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${defaultName}">${shortFileName}</div>
+                    </div>
+                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                        ${previewButtonHtml}
+                        <a href="${fileUrl}" download="${defaultName}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background-color: #ecfdf5; color: #10b981; text-decoration: none; cursor: pointer; transition: background-color 0.2s;" title="Download">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function viewBatchDocuments(requestCode) {
+        const trainingPhotoUrl = `/auth/reactivation/requests/${requestCode}/files/training_photo`;
+        const nodalLetterUrl = `/auth/reactivation/requests/${requestCode}/files/nodal_letter`;
+        const omLetterUrl = `/auth/reactivation/requests/${requestCode}/files/om_letter`;
+        const attendanceListUrl = `/auth/reactivation/requests/${requestCode}/files/attendance_list`;
+
+        let htmlContent = `
+        <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto;">
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px;">
+                ${buildDocumentCard('Training Photo', trainingPhotoUrl, 'training_photo.jpg')}
+                ${buildDocumentCard('District Nodal Endorsement Letter', nodalLetterUrl, 'nodal_endorsement_letter.pdf')}
+                ${buildDocumentCard('Office Memorandum (OM) Letter', omLetterUrl, 'office_memorandum.pdf')}
+                ${buildDocumentCard('Operator Attendance List', attendanceListUrl, 'attendance_list.xlsx')}
+            </div>
+        </div>
+        `;
+
+        Swal.fire({
+            title: `<span style="font-family:inherit; font-weight:800; font-size: 18px;">Uploaded Batch Documents</span>`,
+            html: htmlContent,
+            showCancelButton: false,
+            showConfirmButton: true,
+            confirmButtonText: 'Close',
+            customClass: {
+                confirmButton: 'swal-btn-close'
+            },
+            width: '600px',
+            focusConfirm: false
+        });
+    }
+
+    // Helper to get styled badge
+    function getStatusBadgeHtml(status) {
+        const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
+        let badgeClass = 'badge-pending';
+        let label = 'Pending';
+        if (s.includes('approve') || s.includes('activat')) { badgeClass = 'badge-approved'; label = 'Approved'; }
+        else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
+        else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Sent to UIDAI Again' : 'Sent to UIDAI'; }
+        else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
+        else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
+
+        return `<span class="badge ${badgeClass}">${label}</span>`;
+    }
+
+    function showIndividualOperatorDetails(operatorId, requestCode, status, viewMode = 'details') {
+        let resolvedStatus = '';
+        if (typeof status === 'string') {
+            resolvedStatus = status.toLowerCase().replace(/ /g, '_');
+        } else if (status && typeof status === 'object' && typeof status.getAttribute === 'function') {
+            resolvedStatus = (status.getAttribute('data-status') || '').toLowerCase().replace(/ /g, '_');
+        }
+
+        Swal.fire({
+            title: 'Loading Data...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        fetch(`/auth/dc/reactivation/operators/${requestCode}?_t=${Date.now()}`)
+            .then(res => res.json())
+            .then(payload => {
+                Swal.close();
+
+                const timelineLogs = payload.timeline_logs || [];
+                const operators = payload.operators || [];
+
+                // Find the specific operator from the returned operators array
+                const d = operators.find(o => o.id == operatorId) || {};
+
+                const cardEl = document.querySelector(`[data-code="${requestCode}"]`);
+                const submittedAt = cardEl ? cardEl.getAttribute('data-created') || '—' : '—';
+
+                const opStatus = (d.status || resolvedStatus || '').toUpperCase().trim();
+                const isRevertable = (opStatus === 'REVERTED' || opStatus === 'REVERT BACK');
+                const isRejected = (opStatus === 'REJECTED');
+
+                let htmlContent = '';
+
+                if (viewMode === 'details') {
+                    htmlContent = `
+                    <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-size: 14px; color: #666;">Request ID: <strong>${requestCode}</strong></span>
+                            <span>${getStatusBadgeHtml(d.status || resolvedStatus)}</span>
+                        </div>
+                        <div style="font-size: 12px; color: #64748b; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                            Submitted At: <strong style="color: #475569;">${submittedAt}</strong>
+                        </div>
+
+
+                        ${(isRevertable || isRejected) && d.reject_reason ? `
+                        <div style="background-color: #fef2f2; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; text-align: left;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#991b1b" stroke-width="2.5">
+                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                                </svg>
+                                <span style="font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">${String(d.status || resolvedStatus || '').toLowerCase().includes('revert') ? 'REVERT REASON / REMARKS' : 'REJECT REASON / REMARKS'}</span>
+                            </div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.reject_reason)}</div>
+                        </div>
+                        ` : ''}
+
+                        <!-- Personal Information Card -->
+                        <div style="margin-bottom: 20px;">
+                            <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Personal Information</div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                                <div style="grid-column: 1/-1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Full Name</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_name || 'N/A')}</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Mobile Number</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_mobile || 'N/A')}</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Primary Email ID</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.email_id || 'N/A')}</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                     <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Aadhaar Number</div>
+                                     <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.aadhaar_number ? 'XXXX-XXXX-' + escapeHtml(d.aadhaar_number.slice(-4)) : 'N/A'}</div>
+                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Work & Certification Card -->
+                        <div style="margin-bottom: 20px;">
+                            <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Work &amp; Certification</div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Role Profile</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.role || 'Supervisor')}</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Registrar Code</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.registrar_code || '986')}</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">EA Code</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.ea_code || 'N/A')}</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">User Code</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.user_code || 'N/A')}</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Model Type</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.model_type || 'ECMP')}</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">LMS Certificate ID</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;"><span style="font-family: monospace; font-weight: 700; color: #2563eb;">${escapeHtml(d.lms_certificate_id || 'N/A')}</span></div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certificate #</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.certificate_number || 'N/A')}</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Certification Date</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.certification_date || 'N/A')}</div>
+                                </div>
+                                <div style="grid-column: 1/-1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Remarks</div>
+                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.remarks || '—')}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- View Action Buttons -->
+                        <div style="display: flex; justify-content: center; gap: 12px; margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                            <button type="button" id="btn-show-remarks" style="padding: 8px 20px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">
+                                View Remarks
+                            </button>
+                        </div>
+                    </div>
+                    `;
+
+                    Swal.fire({
+                        title: `<span style="font-family:inherit; font-weight:800; font-size: 22px;">Submitted Operator Details</span>`,
+                        html: htmlContent,
+                        showCancelButton: false,
+                        showConfirmButton: true,
+                        confirmButtonText: 'Close',
+                        customClass: {
+                            confirmButton: 'swal-btn-close'
+                        },
+                        width: '650px',
+                        focusConfirm: false,
+                        didOpen: () => {
+                            document.getElementById('btn-show-remarks').onclick = () => {
+                                showIndividualOperatorDetails(operatorId, requestCode, resolvedStatus, 'remarks');
+                            };
+                        }
+                    });
+
+                } else if (viewMode === 'remarks') {
+                    // Remarks Timeline Logic
+                    const operatorLogs = timelineLogs.filter(log => {
+                        const msg = log.message || '';
+                        // Include batch level remarks (don't contain "Operator '") OR remarks for this specific operator
+                        return !msg.includes("Operator '") || msg.includes(`Operator '${d.operator_name}'`);
+                    });
+
+                    let latestStatus = '';
+                    if (operatorLogs.length > 0) {
+                        latestStatus = operatorLogs[0].status_after || '';
+                        const msg = operatorLogs[0].message || '';
+
+                        // Fallback override for older logs
+                        if (latestStatus.toUpperCase() === 'PENDING' || !latestStatus) {
+                            const m = msg.toLowerCase();
+                            if (m.includes('reject')) latestStatus = 'REJECTED';
+                            else if (m.includes('revert')) latestStatus = 'REVERTED';
+                            else if ((m.includes('approve') && !m.includes('uidai'))) latestStatus = 'APPROVED';
+                            else if (m.includes('uidai')) latestStatus = 'SENT_TO_UIDAI';
+                        }
+                    }
+
+                    let htmlContent = `
+                    <div style="text-align: left; max-height: 450px; display: flex; flex-direction: column; padding-right: 15px; margin-top: -10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex: 0 0 auto;">
+                            <div style="font-size: 15px; color: #64748b;">Request: <strong style="color: #475569;">${escapeHtml(requestCode)}</strong></div>
+                            ${latestStatus ? getStatusBadgeHtml(latestStatus) : ''}
+                        </div>
+                        <div style="border-top: 1px dashed #e2e8f0; margin-bottom: 25px; flex: 0 0 auto;"></div>
+                    `;
+
+                    if (operatorLogs.length === 0) {
+                        htmlContent += `<div style="text-align:center;padding:20px;font-style:italic;color:#94a3b8;font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;flex: 0 0 auto;">No remarks or action history logged yet.</div>`;
+                    } else {
+                        htmlContent += `<div class="remarks-timeline" style="display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto;">
+                            <div class="timeline-title" style="flex: 0 0 auto; margin-bottom: 10px;">AUDIT ACTION HISTORY LOG</div>
+                            <div class="timeline-track" style="flex: 1 1 auto; overflow-y: auto; padding-right: 5px; padding-left: 35px !important; margin-left: 0 !important; border-left: none !important; background: linear-gradient(to right, transparent 12px, #e2e8f0 12px, #e2e8f0 14px, transparent 14px); background-attachment: local;">`;
+
+                        operatorLogs.forEach(log => {
+                            const senderRoleRaw = log.sender_role || '';
+                            const isChips = senderRoleRaw.toLowerCase().includes('chips');
+                            const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
+                            const senderClass = isChips ? 'chips' : 'dc';
+                            const username = log.sender_username || '';
+                            const hasUsername = username && username !== sender && username.toLowerCase() !== 'candidate' && username !== 'Candidate';
+
+                            let statusAfter = log.status_after || '';
+                            const msg = log.message || '';
+
+                            // Fallback override for older logs where status_after was incorrectly logged as PENDING
+                            if (statusAfter.toUpperCase() === 'PENDING' || !statusAfter) {
+                                const m = msg.toLowerCase();
+                                if (m.includes('reject')) statusAfter = 'REJECTED';
+                                else if (m.includes('revert')) statusAfter = 'REVERTED';
+                                else if (m.includes('approve')) statusAfter = 'APPROVED';
+                                else if (m.includes('uidai')) statusAfter = 'SENT_TO_UIDAI';
+                            }
+
+                            let statusBadgeHtmlInline = '';
+                            let markerClass = 'marker-pending';
+                            if (statusAfter) {
+                                statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
+                                const sLower = statusAfter.toLowerCase();
+                                if (sLower.includes('approve') || sLower.includes('activat')) markerClass = 'marker-approved';
+                                else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                                else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
+                                else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
+                            }
+
+                            htmlContent += `
+                                <div class="timeline-item ${senderClass}">
+                                    <div class="timeline-marker ${markerClass}"></div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-section-row">
+                                            <span class="timeline-step-label">REACTIVATION</span>${statusBadgeHtmlInline}
+                                        </div>
+                                        <div class="timeline-by-row">
+                                            <span class="timeline-by">By: <strong>${sender}</strong>${hasUsername ? ' (' + escapeHtml(username) + ')' : ''}</span>
+                                            <span class="timeline-time">${escapeHtml(log.timestamp || '')}</span>
+                                        </div>
+                                        <div class="timeline-body">${escapeHtml(log.message || '')}</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        htmlContent += `</div></div>`;
+                    }
+
+                    htmlContent += `</div>`;
+
+                    Swal.fire({
+                        title: `<span style="font-family:inherit; font-weight:800;">Action History</span>`,
+                        html: htmlContent,
+                        width: '600px',
+                        showConfirmButton: true,
+                        showDenyButton: true,
+                        confirmButtonText: 'Close',
+                        denyButtonText: 'Back',
+                        customClass: {
+                            confirmButton: 'swal-btn-close',
+                            denyButton: 'swal-btn-back'
+                        },
+                        focusConfirm: false
+                    }).then((result) => {
+                        if (result.isDenied) {
+                            showIndividualOperatorDetails(operatorId, requestCode, resolvedStatus, 'details');
+                        }
+                    });
+                }
+            });
+    }
+
+    function exportTableToCSV(tableID, filename = 'export.csv') {
+        let selector = '';
+        if (tableID === 'admin-pending-table') {
+            selector = '#pending-cards-container .op-row-item';
+        } else if (tableID === 'admin-uidai-table') {
+            selector = '#uidai-tbody .op-row-item';
+        } else if (tableID === 'admin-approved-table') {
+            selector = '#approved-tbody .op-row-item';
+        } else if (tableID === 'admin-reverted-table') {
+            selector = '#reverted-tbody .op-row-item';
+        }
+
+        const opRows = document.querySelectorAll(selector);
+        const ids = [];
+        opRows.forEach(row => {
+            const card = row.closest('.request-card');
+            if (row.style.display !== 'none' && (!card || card.style.display !== 'none')) {
+                const opId = row.getAttribute('data-id');
+                if (opId && !ids.includes(opId)) ids.push(opId);
+            }
+        });
+
+        if (ids.length === 0) {
+            Swal.fire({
+                title: 'No Data Found',
+                text: 'There are no active operator records loaded in this queue to export.',
+                icon: 'warning',
+                confirmButtonColor: '#4f46e5'
+            });
+            return;
+        }
+
+        // Map correct endpoint router execution paths based on tableID target
+        let endpoint = '/auth/reactivation/export-csv-all';
+        if (tableID === 'admin-uidai-table') {
+            endpoint = '/auth/reactivation/export-csv-uidai';
+        }
+
+        // Triggers immediate streaming browser download of complete fields
+        window.location.href = `${endpoint}?ids=${ids.join(',')}`;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    window.addEventListener('load', function () {
+        const isActionReload = sessionStorage.getItem('chips_action_reloading') === 'true';
+        sessionStorage.removeItem('chips_action_reloading');
+
+        const navEntries = performance.getEntriesByType("navigation");
+        const isReload = navEntries.length > 0 && navEntries[0].type === "reload";
+
+        if (isReload && !isActionReload) {
+            clearAllFilters();
+            return;
+        }
+
+        if (!isActionReload) {
+            sessionStorage.removeItem('chips_react_search');
+            sessionStorage.removeItem('chips_react_district');
+            sessionStorage.removeItem('chips_react_date');
+            sessionStorage.removeItem('chips_react_pending_status');
+            sessionStorage.removeItem('chips_react_reverted_status');
+        }
+
+        if (sessionStorage.getItem('chips_react_search') !== null) {
+            document.getElementById('admin-search-input').value = sessionStorage.getItem('chips_react_search');
+            document.getElementById('admin-district-filter').value = sessionStorage.getItem('chips_react_district');
+            document.getElementById('admin-date-filter').value = sessionStorage.getItem('chips_react_date');
+            document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('chips_react_pending_status');
+            if (document.getElementById('admin-reverted-status-filter') && sessionStorage.getItem('chips_react_reverted_status')) {
+                document.getElementById('admin-reverted-status-filter').value = sessionStorage.getItem('chips_react_reverted_status');
+            }
+        } else {
+            document.getElementById('admin-search-input').value = '';
+            document.getElementById('admin-district-filter').value = 'all';
+            document.getElementById('admin-date-filter').value = 'month';
+            document.getElementById('admin-pending-status-filter').value = 'all';
+            if (document.getElementById('admin-reverted-status-filter')) {
+                document.getElementById('admin-reverted-status-filter').value = 'all';
+            }
+        }
+
+        // ── URL Query Parameters Parsing ────────────────────────────────
+        const urlParams = new URLSearchParams(window.location.search);
+        const qDist = urlParams.get('district');
+        const qStatus = urlParams.get('status');
+
+        if (qDist) {
+            const distSelect = document.getElementById('admin-district-filter');
+            let matched = false;
+            if (distSelect) {
+                const val = qDist.toLowerCase().trim();
+                for (let opt of distSelect.options) {
+                    if (opt.value.toLowerCase().trim() === val) {
+                        distSelect.value = opt.value;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (!matched) {
+                const searchInput = document.getElementById('admin-search-input');
+                if (searchInput) {
+                    searchInput.value = qDist;
+                }
+            }
+        }
+
+        if (qStatus) {
+            const st = qStatus.toLowerCase().trim();
+            let targetTab = null;
+            if (st === 'pending') targetTab = 'pending';
+            else if (st === 'approved') targetTab = 'approved';
+            else if (st === 'rejected' || st === 'reverted') targetTab = 'reverted';
+            else if (st === 'sent_to_uidai' || st === 'uidai') targetTab = 'uidai';
+
+            if (targetTab) {
+                const activeTabBtn = document.querySelector(`.req-tab[data-tab="${targetTab}"]`);
+                if (activeTabBtn) activeTabBtn.click();
+            }
+        }
+
+        filterAdminQueues();
+
+        // Populate any dynamic districts from data attributes (from Mayur's branch/general compatibility)
+        const districts = new Set();
+        document.querySelectorAll('[data-district]').forEach(row => {
+            const d = row.getAttribute('data-district');
+            if (d) districts.add(d.trim());
+        });
+        const select = document.getElementById('admin-district-filter');
+        if (select) {
+            const existingValues = new Set(Array.from(select.options).map(o => o.value.toLowerCase().trim()));
+            districts.forEach(d => {
+                const val = d.toLowerCase().trim();
+                if (val && !existingValues.has(val)) {
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = d;
+                    select.appendChild(opt);
+                }
+            });
+        }
+
+        // ── Deep-link scroll ──────────────────────────
+        if (qDist || qStatus) {
+            const statusL = (qStatus || '').toLowerCase().trim();
+            setTimeout(() => {
+                let scrollTarget;
+                if (!statusL || statusL === 'pending') {
+                    scrollTarget = document.getElementById('admin-pending-table') || document.getElementById('pending-cards-container');
+                } else if (statusL === 'sent_to_uidai') {
+                    scrollTarget = document.getElementById('admin-uidai-table') || document.getElementById('uidai-cards-container');
+                } else if (statusL === 'approved') {
+                    scrollTarget = document.getElementById('admin-approved-table') || document.getElementById('approved-cards-container');
+                } else {
+                    scrollTarget = document.getElementById('admin-reverted-table') || document.getElementById('reverted-cards-container');
+                }
+                if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 200);
+        }
+    });
+</script>
+{% endblock %}

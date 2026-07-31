@@ -1,0 +1,84 @@
+{#
+  RequestSection — one unified card per request queue.
+
+  The macro renders the card chrome: header band (rail + title + count +
+  controls), the <thead> built from a `columns` config, the scroll wrapper,
+  the empty-state element, and the footer. The page supplies the <tbody> rows
+  as the {% call %} body, so every existing data-* attribute, action button and
+  JS hook is preserved untouched.
+
+  Usage:
+    {% set my_controls %}
+      <select id="pending-status-filter" class="rs-filter" onchange="filterStatus(this.value)">...</select>
+      <button class="rs-export" onclick="exportCSV()">Export to CSV</button>
+    {% endset %}
+
+    {% call request_section(
+        variant='progress',
+        title='Pending L2 requests',
+        count='–', count_id='pending-count',
+        controls=my_controls,
+        columns=[
+          {'label': 'S.No', 'cls': 'rs-col-sno'},
+          {'label': 'Request ID'},
+          {'label': 'No. of kits', 'align': 'right'},
+          {'label': 'Actions', 'align': 'center'},
+        ],
+        table_id='pending-table', body_id='pending-tbody',
+        empty_id='pending-empty-msg', empty_message='No pending requests',
+        show_empty=false, min_width=900,
+        footer_text='2 requests awaiting your action') %}
+        {% for r in rows %}
+        <tr data-status="{{ r.status }}" ...> ... </tr>
+        {% endfor %}
+    {% endcall %}
+
+  variant: 'pending' (coral, needs coordinator action)
+         | 'progress' (blue, waiting on an external party)
+         | 'done' (slate, processed / archived)
+#}
+{#
+  i18n: pass `title_key` / `empty_key` (resource keys from static/i18n/*.json)
+  and a per-column `key` to stamp data-i18n attributes so the client-side
+  runtime can re-render these strings on language switch. All optional —
+  omitted keys render exactly as before.
+#}
+{% macro request_section(variant='progress', title='', title_key='', count=none, count_id='',
+                         controls='', columns=[], min_width=900,
+                         footer_text='', empty_message='No records found',
+                         empty_key='',
+                         empty_id='', body_id='', table_id='', show_empty=false,
+                         card_classes='', card_data={}) %}
+<section class="rs-card{% if card_classes %} {{ card_classes }}{% endif %}"{% for k, v in card_data.items() %} data-{{ k }}="{{ v }}"{% endfor %}>
+    <div class="rs-head rs-head--{{ variant }}">
+        <div class="rs-head-title">
+            <span class="rs-rail" aria-hidden="true"></span>
+            <h3 class="rs-title"{% if title_key %} data-i18n="{{ title_key }}"{% endif %}>{{ title }}</h3>
+            {% if count is not none %}<span class="rs-count"{% if count_id %} id="{{ count_id }}"{% endif %}>{{ count }}</span>{% endif %}
+        </div>
+        {% if controls %}<div class="rs-head-controls">{{ controls }}</div>{% endif %}
+    </div>
+    <div class="rs-scroll scroll">
+        {% set table_style = 'style="min-width: ' ~ min_width ~ 'px;"' if min_width else '' %}
+        <table class="rs-table"{% if table_id %} id="{{ table_id }}"{% endif %} {{ table_style }}>
+            <thead>
+                <tr>
+                    {% for c in columns -%}
+                        {%- set styles = [] -%}
+                        {%- if c.align %}{% set _ = styles.append('text-align:' ~ c.align) %}{% endif -%}
+                        {%- if c.width %}{% set _ = styles.append('width:' ~ c.width) %}{% endif -%}
+                        {%- set style_str = styles|join(';') if styles else '' -%}
+                        {%- set th_style = 'style="' ~ style_str ~ '"' if style_str else '' -%}
+                        <th{% if c.cls %} class="{{ c.cls }}"{% endif %}{% if c.key %} data-i18n="{{ c.key }}"{% endif %} {{ th_style }}>{{ c.label }}</th>
+                    {%- endfor %}
+                </tr>
+            </thead>
+            <tbody{% if body_id %} id="{{ body_id }}"{% endif %}>
+                {{ caller() }}
+            </tbody>
+        </table>
+        <div class="rs-empty"{% if empty_id %} id="{{ empty_id }}"{% endif %}{% if empty_key %} data-i18n="{{ empty_key }}"{% endif %}{% if not show_empty %} style="display:none;"{% endif %}>{{ empty_message }}</div>
+    </div>
+    {% if footer_text %}<div class="rs-foot">{{ footer_text }}</div>{% endif %}
+</section>
+{% endmacro %}
