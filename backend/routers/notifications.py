@@ -29,9 +29,21 @@ def get_notifications_summary(
         raise HTTPException(status_code=403, detail="No active session found")
 
     admin_type = "chips_admin" if current_user.role.role == "Admin" else "dc_admin"
-    return compute_notification_snapshot(
+    snapshot = compute_notification_snapshot(
         admin_type,
         current_user.district_id if admin_type == "dc_admin" else None,
         current_session.baseline_at,
         db,
     )
+
+    # Operator-activity daily-upload reminder (Admin/EDM only). A missing day
+    # in the RegistrarEA uploads surfaces here so it is not silently forgotten.
+    if current_user.role.role in ("Admin", "EDM"):
+        try:
+            from backend.services.missing_dates import build_reminder
+            reminder = build_reminder(db)
+            if reminder:
+                snapshot.setdefault("reminders", []).append(reminder)
+        except Exception:
+            pass
+    return snapshot

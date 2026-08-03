@@ -1,10 +1,13 @@
 import os
 import sys
+
+# Ensure root project directory is in python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.getcwd())
+
 import pandas as pd
 from datetime import datetime
 import numpy as np
-
-sys.path.append(os.getcwd())
 
 from backend.database import SessionLocal
 from backend.models.kit_registration import KitRegistration
@@ -133,6 +136,17 @@ def seed_tracker():
     db.commit()
     db.close()
     print(f"Kit Tracker Seeding Complete! Seeded {len(inserted_kits)} kits and {len(inserted_ops)} operators.")
+
+    # Also populate kit_tracker ETL table for ECMP / VLE classification
+    try:
+        from backend.services.kit_tracker_ingest import process_kit_tracker_upload
+        excel_path = 'sample reports/Kit Tracker Chips.xlsx'
+        if os.path.exists(excel_path):
+            print("Populating kit_tracker ETL master table...")
+            process_kit_tracker_upload("seed_batch", excel_path)
+            print("Successfully populated kit_tracker ETL master table!")
+    except Exception as e:
+        print(f"Warning populating kit_tracker ETL table: {e}", file=sys.stderr)
 
 if __name__ == "__main__":
     seed_tracker()

@@ -7,6 +7,7 @@ from backend.database import get_db
 from backend.models.user_login import UserLogin
 from backend.models.operator import Operator
 from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
+from backend.models.operator_station_mapping import OperatorStationMapping
 from backend.models.l2_registration import L2RegistrationRequest
 from backend.routers.auth import get_current_user
 
@@ -97,7 +98,15 @@ def confirm_onboarding(
                 raise HTTPException(status_code=404, detail="Operator associated with this L2 request is not activated or found.")
                 
             # Create a new mapping record on the fly
+            station_map = OperatorStationMapping(
+                operator_id=operator.id,
+                station_id=payload.station_id
+            )
+            db.add(station_map)
+            db.flush()
+
             mapping = OperatorOnboardingDetail(
+                mapping_id=station_map.id,
                 operator_id=operator.id,
                 station_id=payload.station_id,
                 onboarding_status="Mapped",

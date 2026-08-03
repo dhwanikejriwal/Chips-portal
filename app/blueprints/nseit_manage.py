@@ -209,7 +209,6 @@ def approve_nseit(r_id):
 
     if not remark:
         remark = ""
-
     backend_url = f"{current_app.config['BACKEND_API_URL']}/nseit_manage/approve/{r_id}"
     try:
         response = requests.post(backend_url, json={

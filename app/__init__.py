@@ -13,7 +13,8 @@ def create_app():
 
     # Register blueprints (Friend's / Shared)
     from app.blueprints.auth import auth_bp
-    from app.blueprints.dashboard import dashboard_bp
+    from app.blueprints.dc_dashboard import dc_dashboard_bp
+    from app.blueprints.chips_dashboard import chips_dashboard_bp
     from app.blueprints.candidate_register import candidate_register_bp
     from app.blueprints.selection import selection_bp
     from app.blueprints.candidate import candidate_bp
@@ -29,9 +30,12 @@ def create_app():
     from app.blueprints.operator_onboarding import operator_onboarding_bp
     from app.blueprints.report import report_bp
     from app.blueprints.kit_registration import kit_registration_bp
+    from app.blueprints.operator_activity_dashboard import operator_activity_dashboard_bp
+    from app.blueprints.operator_data import operator_data_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
-    app.register_blueprint(dashboard_bp, url_prefix="/auth")
+    app.register_blueprint(dc_dashboard_bp, url_prefix="/auth")
+    app.register_blueprint(chips_dashboard_bp, url_prefix="/auth")
     app.register_blueprint(candidate_register_bp, url_prefix="/auth")
     app.register_blueprint(selection_bp, url_prefix="/auth")
     app.register_blueprint(candidate_bp, url_prefix="/auth")
@@ -47,6 +51,8 @@ def create_app():
     app.register_blueprint(operator_onboarding_bp, url_prefix="/auth")
     app.register_blueprint(report_bp, url_prefix="/auth")
     app.register_blueprint(kit_registration_bp, url_prefix="/auth")
+    app.register_blueprint(operator_activity_dashboard_bp, url_prefix="/auth")
+    app.register_blueprint(operator_data_bp, url_prefix="/auth")
 
     # Start periodic background temp file cleaner (purging files older than 1 hour)
     import os

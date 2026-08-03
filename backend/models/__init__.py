@@ -34,6 +34,17 @@ from backend.models.station_id_master import StationIDMaster
 from backend.models.operator_station_mapping import OperatorStationMapping
 from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
 
+from backend.models.operator_master import OperatorMaster
+
+from backend.models.kit_tracker import KitTracker
+from backend.models.operator_daily_activity import (
+    OperatorDailyActivity,
+    ActivityStation,
+    OperatorActivityMaster,
+    ActivityUploadBatch,
+    ActivityDailyUploadLog,
+)
+
 __all__ = [
     "Base",
     "get_ist_time",
@@ -72,4 +83,12 @@ __all__ = [
     "StationIDMaster",
     "OperatorStationMapping",
     "OperatorOnboardingDetail",
+
+    "OperatorMaster",
+    "KitTracker",
+    "OperatorDailyActivity",
+    "ActivityStation",
+    "OperatorActivityMaster",
+    "ActivityUploadBatch",
+    "ActivityDailyUploadLog",
 ]

@@ -8,6 +8,7 @@ from backend.models.user_login import UserLogin
 from backend.models.operator import Operator
 from backend.models.station_id import StationIDRequest
 from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
+from backend.models.operator_station_mapping import OperatorStationMapping
 from backend.routers.auth import get_current_user
 
 router = APIRouter(
@@ -101,8 +102,17 @@ def create_mapping(
     if existing_station_mapping:
         raise HTTPException(status_code=400, detail="This Station ID is already mapped to another operator.")
 
-    # Map the operator using OperatorOnboardingDetail
+    # 1. Create OperatorStationMapping record to satisfy mapping_id foreign key constraint
+    station_mapping = OperatorStationMapping(
+        operator_id=operator.id,
+        station_id=payload.station_id
+    )
+    db.add(station_mapping)
+    db.flush()
+
+    # 2. Map the operator using OperatorOnboardingDetail referencing mapping_id
     new_mapping = OperatorOnboardingDetail(
+        mapping_id=station_mapping.id,
         operator_id=operator.id,
         station_id=payload.station_id,
         onboarding_status="Mapped",
@@ -165,6 +175,11 @@ def delete_mapping(
     mapping = db.query(OperatorOnboardingDetail).filter(OperatorOnboardingDetail.operator_id == operator_id).first()
     if mapping:
         db.delete(mapping)
+
+    # Delete corresponding OperatorStationMapping record
+    st_mappings = db.query(OperatorStationMapping).filter(OperatorStationMapping.operator_id == operator_id).all()
+    for sm in st_mappings:
+        db.delete(sm)
 
     valid_reasons = {"Inactive", "Suspended", "Resigned"}
     if reason not in valid_reasons:

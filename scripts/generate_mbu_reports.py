@@ -58,7 +58,7 @@ def generate_mbu_reports(input_file=None):
         files = glob.glob('MBU_Entry_Status_District_Wise*.xlsx')
         if not files:
             # check the parent directory if run from scripts/
-            files = glob.glob('../MBU_Entry_Status_District_Wise*.xlsx')
+            files = glob.glob('sample reports/MBU_Entry_Status_District_Wise*.xlsx')
             if not files:
                 print("No MBU Excel file found in current directory.")
                 return
@@ -123,8 +123,8 @@ def generate_mbu_reports(input_file=None):
     df_final_aggregated['Division'] = df_final_aggregated['District Name'].apply(get_division)
     
     # Create the reports
-    os.makedirs('reports', exist_ok=True)
-    out_file = 'reports/MBU_Reports.xlsx'
+    os.makedirs('scripts/reports', exist_ok=True)
+    out_file = 'scripts/reports/MBU_Reports.xlsx'
     
     # 1. District-wise
     df_district = df_final_aggregated.copy()

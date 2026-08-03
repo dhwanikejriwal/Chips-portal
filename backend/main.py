@@ -48,17 +48,18 @@ from backend.routers.reactivation import router as reactivation_router
 from backend.routers.l2_registration import router as l2_registration_router
 from backend.routers.operator_activation import router as operator_activation_router
 from backend.models.station_id import StationIDRequest, StationIDRemark
+
 from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
 from backend.routers.station_id import router as station_id_router
 from backend.routers.operator_mapping import router as operator_mapping_router
 from backend.routers.operator_onboarding import router as operator_onboarding_router
 from backend.routers.notifications import router as notifications_router
-from backend.routers.dashboard import router as dashboard_router
+from backend.routers.dc_dashboard import router as dc_dashboard_router
+from backend.routers.chips_dashboard import router as chips_dashboard_router
 from backend.routers.report import router as report_router
-from backend.routers.station_id import router as station_id_router
 from backend.routers.kit_registration import router as kit_registration_router
-from backend.routers.notifications import router as notifications_router
-from backend.routers.dashboard import router as dashboard_router
+from backend.routers.operator_activity import router as operator_activity_router
+from backend.routers.operator_data import router as operator_data_router
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
@@ -75,10 +76,12 @@ app.include_router(operator_activation_router, prefix="/operator-activation")
 app.include_router(station_id_router, prefix="/station-id")
 app.include_router(operator_mapping_router, prefix="/operator-mapping")
 app.include_router(operator_onboarding_router, prefix="/operator-onboarding")
-app.include_router(dashboard_router, prefix="/dashboard")
+app.include_router(dc_dashboard_router)
+app.include_router(chips_dashboard_router)
 app.include_router(report_router, prefix="/api/reports")
 app.include_router(kit_registration_router, prefix="/kit-registration")
-app.include_router(dashboard_router, prefix="/dashboard")
+app.include_router(operator_activity_router, prefix="/operator-activity")
+app.include_router(operator_data_router, prefix="/operator-data")
 
 
 
@@ -129,6 +132,24 @@ def run_migrations():
             print("Success: Database schema automatically synchronized to latest revision!")
         except Exception as e:
             print(f"Alembic upgrade failed: {e}", file=sys.stderr)
+
+        # Automatic Database Seeding Pipeline (runs on fresh setup when UserLogin is empty)
+        try:
+            from backend.database import SessionLocal
+            from backend.models.user_login import UserLogin
+            db = SessionLocal()
+            try:
+                if db.query(UserLogin).count() == 0:
+                    print("\n[Auto-Init] Fresh database detected! Automatically executing complete database seeding pipeline...")
+                    import seed
+                    seed.main()
+                    print("[Auto-Init] Success: Full database auto-seeding completed!\n")
+            except Exception as se:
+                print(f"Auto-seed pipeline warning: {se}", file=sys.stderr)
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"Auto-seed check failed: {e}", file=sys.stderr)
     except Exception as e:
         print(f"Migration error: {e}", file=sys.stderr)
 

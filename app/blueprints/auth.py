@@ -33,9 +33,9 @@ def login():
                 
                 # Redirect based on user role
                 if data["role"] == "Admin":
-                    return redirect(url_for("dashboard.chips_dashboard"))
+                    return redirect(url_for("chips_dashboard.chips_dashboard"))
                 elif data["role"] in ["DC", "EDM"]:
-                    return redirect(url_for("dashboard.dc_dashboard"))
+                    return redirect(url_for("dc_dashboard.dc_dashboard"))
                 elif data["role"] == "Candidate":
                     session["r_id"] = data.get("r_id")
                     session["has_changed_password"] = data.get("has_changed_password", True)
@@ -137,8 +137,8 @@ def change_password():
                 flash("Password changed successfully!", "success")
                 role = session.get("role")
                 if role == "Admin":
-                    return redirect(url_for("dashboard.chips_dashboard"))
-                return redirect(url_for("dashboard.dc_dashboard"))
+                    return redirect(url_for("chips_dashboard.chips_dashboard"))
+                return redirect(url_for("dc_dashboard.dc_dashboard"))
             else:
                 flash(data.get("detail", "Failed to change password."), "danger")
         except requests.exceptions.RequestException:
@@ -192,11 +192,11 @@ def proxy_backend_excel_export(module_endpoint):
             except Exception:
                 err_detail = f"Server returned status code {response.status_code}"
             flash(f"Export Compilation Error: {err_detail}", "danger")
-            return redirect(request.referrer or url_for("dashboard.dc_dashboard"))
+            return redirect(request.referrer or url_for("dc_dashboard.dc_dashboard"))
 
     except requests.exceptions.RequestException as e:
         flash(f"Unable to reach the backend export engine service: {str(e)}", "danger")
-        return redirect(request.referrer or url_for("dashboard.dc_dashboard"))
+        return redirect(request.referrer or url_for("dc_dashboard.dc_dashboard"))
 
 @auth_bp.route('/admin-dc/export-l2/<string:module_endpoint>')
 def proxy_l2_excel_export(module_endpoint):
@@ -223,11 +223,11 @@ def proxy_l2_excel_export(module_endpoint):
             except Exception:
                 err_detail = f"Server returned status code {response.status_code}"
             flash(f"Export Compilation Error: {err_detail}", "danger")
-            return redirect(request.referrer or url_for("dashboard.dc_dashboard"))
+            return redirect(request.referrer or url_for("dc_dashboard.dc_dashboard"))
 
     except requests.exceptions.RequestException as e:
         flash(f"Unable to reach the backend export engine service: {str(e)}", "danger")
-        return redirect(request.referrer or url_for("dashboard.dc_dashboard"))
+        return redirect(request.referrer or url_for("dc_dashboard.dc_dashboard"))
 
 
 def _headers():
