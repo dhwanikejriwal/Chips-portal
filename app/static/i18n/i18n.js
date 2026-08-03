@@ -122,6 +122,17 @@
         return;
     }
 
+    function isNoTranslate(el) {
+        var cur = el;
+        while (cur && cur.nodeType === 1) {
+            if (cur.classList && cur.classList.contains('notranslate')) return true;
+            if (cur.getAttribute && cur.getAttribute('translate') === 'no') return true;
+            if (cur.hasAttribute && cur.hasAttribute('data-no-i18n')) return true;
+            cur = cur.parentNode;
+        }
+        return false;
+    }
+
     /* ---- auto: text nodes -------------------------------------------------- */
     function translateTextNodes(root) {
         if (!reverse || !nodeOriginals) return;
@@ -131,6 +142,7 @@
             acceptNode: function (n) {
                 var p = n.parentNode;
                 if (!p || p.nodeType !== 1) return NodeFilter.FILTER_REJECT;
+                if (isNoTranslate(p)) return NodeFilter.FILTER_REJECT;
                 var tag = p.nodeName;
                 if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'TEXTAREA') {
                     return NodeFilter.FILTER_REJECT;
@@ -148,9 +160,9 @@
             var base = orig !== undefined ? orig : n.nodeValue;
             var trimmed = base.trim();
 
-            // Auto-protect request codes, IDs, and email addresses (e.g. RPR-64946387C0004, REQ-10023, MAC-0012)
+            // Auto-protect email addresses and technical codes with digits & letters (e.g. RPR-64946387C0004, REQ-10023, MAC-0012)
             if (/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(trimmed) ||
-                (/^[A-Za-z0-9_-]{3,}$/.test(trimmed) && /[0-9]/.test(trimmed) && /[A-Za-z]/.test(trimmed))) {
+                (/^[A-Za-z0-9_-]{5,}$/.test(trimmed) && /[0-9]/.test(trimmed) && /[A-Za-z]/.test(trimmed))) {
                 if (n.parentNode && n.parentNode.nodeType === 1) {
                     n.parentNode.classList.add('notranslate');
                     n.parentNode.setAttribute('translate', 'no');

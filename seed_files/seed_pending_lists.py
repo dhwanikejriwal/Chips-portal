@@ -1,10 +1,13 @@
 import os
 import sys
+
+# Ensure root project directory is in python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.getcwd())
+
 import pandas as pd
 from datetime import datetime
 import numpy as np
-
-sys.path.append(os.getcwd())
 
 from backend.database import SessionLocal
 from backend.models.kit_registration import KitRegistration

@@ -97,7 +97,7 @@ The project uses a decoupled microservice-like architecture:
     ```
 
 5.  **Initialize & Seed the Database**:
-    Run the seeder script to build schemas and insert baseline test accounts:
+    Run the master seeder script to build schemas and execute all 4 database seeders in `seed_files/`:
     ```bash
     python seed.py
     ```

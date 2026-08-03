@@ -92,12 +92,14 @@ DISTRICT_ALIAS_MAP = {
     # Mahasamund
     "mahasamund": "Mahasamund",
     
-    # Manendragarh-Chirmiri-Bharatpur(M C B)
-    "manendragarh-chirmiri-bharatpur": "Manendragarh-Chirmiri-Bharatpur(M C B)",
-    "manendragarh-chirmiri-bharatpur(m c b)": "Manendragarh-Chirmiri-Bharatpur(M C B)",
-    "manendragarh chirmiri bharatpur": "Manendragarh-Chirmiri-Bharatpur(M C B)",
-    "manendragarh": "Manendragarh-Chirmiri-Bharatpur(M C B)",
-    "mcb": "Manendragarh-Chirmiri-Bharatpur(M C B)",
+    # Manendragarh-Chirmiri-Bharatpur (MCB)
+    "manendragarh-chirmiri-bharatpur": "Manendragarh-Chirmiri-Bharatpur (MCB)",
+    "manendragarh-chirmiri-bharatpur (mcb)": "Manendragarh-Chirmiri-Bharatpur (MCB)",
+    "manendragarh-chirmiri-bharatpur(m c b)": "Manendragarh-Chirmiri-Bharatpur (MCB)",
+    "manendragarh-chirmiri-bharatpur(mcb)": "Manendragarh-Chirmiri-Bharatpur (MCB)",
+    "manendragarh chirmiri bharatpur": "Manendragarh-Chirmiri-Bharatpur (MCB)",
+    "manendragarh": "Manendragarh-Chirmiri-Bharatpur (MCB)",
+    "mcb": "Manendragarh-Chirmiri-Bharatpur (MCB)",
     
     # Mohla-Manpur-Ambagarh Chouki
     "mohla-manpur-chowki": "Mohla-Manpur-Ambagarh Chouki",
@@ -152,5 +154,16 @@ def normalize_district_name(district_name: str) -> str:
     """
     if not district_name:
         return ""
-    clean_val = str(district_name).strip().lower()
-    return DISTRICT_ALIAS_MAP.get(clean_val, str(district_name).strip().title())
+    clean_val = str(district_name).strip()
+    # Normalize Mojibake UTF-8 artifacts (â€“) and Unicode dashes (–, —) to ASCII hyphens (-)
+    clean_val = clean_val.replace('â€“', '-').replace('â€”', '-').replace('â€', '')
+    clean_val = clean_val.replace('–', '-').replace('—', '-').strip().lower()
+    clean_val = ' '.join(clean_val.split())
+
+    mapped = DISTRICT_ALIAS_MAP.get(clean_val)
+    if mapped:
+        return mapped
+
+    result = str(district_name).strip()
+    result = result.replace('â€“', '-').replace('â€”', '-').replace('â€', '').replace('–', '-').replace('—', '-')
+    return ' '.join(result.split()).title()

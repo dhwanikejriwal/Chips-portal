@@ -107,21 +107,21 @@
 {% set metric_source = unfiltered_requests if unfiltered_requests is defined else requests %}
 {% set ns_m = namespace(pending=0, processing=0, sent_to_uidai=0, reverted=0, rejected=0, approved=0, total=0) %}
 {% for r in metric_source %}
-  {% set st = (r.status or 'PENDING') | upper %}
-  {% set ns_m.total = ns_m.total + 1 %}
-  {% if r.is_mailed == 1 and st in ['PENDING', 'REAPPLIED'] %}
-    {% set ns_m.processing = ns_m.processing + 1 %}
-  {% elif st in ['PENDING', 'REAPPLIED'] %}
-    {% set ns_m.pending = ns_m.pending + 1 %}
-  {% elif st == 'SENT_TO_UIDAI' %}
-    {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
-  {% elif st in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
-    {% set ns_m.reverted = ns_m.reverted + 1 %}
-  {% elif st == 'REJECTED' %}
-    {% set ns_m.rejected = ns_m.rejected + 1 %}
-  {% elif st in ['APPROVED', 'L2_DONE'] %}
-    {% set ns_m.approved = ns_m.approved + 1 %}
-  {% endif %}
+{% set st = (r.status or 'PENDING') | upper %}
+{% set ns_m.total = ns_m.total + 1 %}
+{% if r.is_mailed == 1 and st in ['PENDING', 'REAPPLIED'] %}
+{% set ns_m.processing = ns_m.processing + 1 %}
+{% elif st in ['PENDING', 'REAPPLIED'] %}
+{% set ns_m.pending = ns_m.pending + 1 %}
+{% elif st == 'SENT_TO_UIDAI' %}
+{% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
+{% elif st in ['REVERTED', 'REVERTED_BY_CHIPS'] %}
+{% set ns_m.reverted = ns_m.reverted + 1 %}
+{% elif st == 'REJECTED' %}
+{% set ns_m.rejected = ns_m.rejected + 1 %}
+{% elif st in ['APPROVED', 'L2_DONE'] %}
+{% set ns_m.approved = ns_m.approved + 1 %}
+{% endif %}
 {% endfor %}
 
 <!-- Standardized L2 Registration Dashboard Banner -->
@@ -327,7 +327,8 @@
         data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
         data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}"
         data-old-station-id="{{ r.old_station_id or '' }}" data-district="{{ r.district_name or 'Raipur' }}"
-        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}" data-updated="{% if r.updated_at %}{{ r.updated_at }}{% endif %}" data-status="{{ r.status }}">
+        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}"
+        data-updated="{% if r.updated_at %}{{ r.updated_at }}{% endif %}" data-status="{{ r.status }}">
         <td>{{ ns_pending.count }}</td>
         <td><strong>{{ r.request_no or '—' }}</strong></td>
         <td>{{ r.district_name or '—' }}</td>
@@ -351,7 +352,8 @@
         </td>
         <td>
             <div class="action-group" style="justify-content: center;">
-                <button type="button" class="btn-approve" style="background: #16a34a;" onclick="exportAndMailSingle('{{ r.id }}', '{{ r.request_no }}')">
+                <button type="button" class="btn-approve" style="background: #16a34a;"
+                    onclick="exportAndMailSingle('{{ r.id }}', '{{ r.request_no }}')">
                     Mail
                 </button>
                 <button type="button" class="btn-revert" onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">
@@ -410,7 +412,9 @@
         data-operator-id="{{ r.operator_id }}" data-client-version="{{ r.client_version }}"
         data-client-type="{{ r.client_type }}" data-new-station-id="{{ r.new_station_id }}"
         data-old-station-id="{{ r.old_station_id or '' }}" data-district="{{ r.district_name or 'Raipur' }}"
-        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}" data-updated="{% if r.updated_at %}{{ r.updated_at }}{% endif %}" data-status="{{ r.status }}" data-is-mailed="1">
+        data-created="{% if r.submitted_at %}{{ r.submitted_at }}{% endif %}"
+        data-updated="{% if r.updated_at %}{{ r.updated_at }}{% endif %}" data-status="{{ r.status }}"
+        data-is-mailed="1">
         <td>{{ ns_proc.count }}</td>
         <td><strong>{{ r.request_no or '—' }}</strong></td>
         <td>{{ r.district_name or '—' }}</td>
@@ -988,7 +992,7 @@
                     let data = null;
                     try {
                         data = await response.json();
-                    } catch (e) {}
+                    } catch (e) { }
 
                     if (response.ok && data && data.success) {
                         sessionStorage.setItem('chips_action_reloading', 'true');

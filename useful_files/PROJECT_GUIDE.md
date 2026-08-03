@@ -60,8 +60,11 @@ graph TD
     *   `dc_dashboard.css`: Form row structures and validation styling for the DC panels.
     *   `chips_dashboard.css`: Mini-form layouts, table search inputs, and Issue button styles.
 
-#### 3. Root Level
-*   **[seed.py](file:///d:/project/Chips-portal/seed.py)**: Populates baseline database records (creates Raipur, Bilaspur, Durg districts, and default `dc_raipur` and `chips_admin` profiles).
+#### 3. Seed Files Directory (`seed_files/`)
+*   **[seed_login_districts_profiles.py](file:///d:/project/Chips-II/seed_files/seed_login_districts_profiles.py)**: Baseline database records (33 districts, roles, admin & DC logins).
+*   **[seed_station_id_master.py](file:///d:/project/Chips-II/seed_files/seed_station_id_master.py)**: District next station ID counter series.
+*   **[seed_kit_tracker.py](file:///d:/project/Chips-II/seed_files/seed_kit_tracker.py)**: Master kit registrations, operators, and station mappings.
+*   **[seed_pending_lists.py](file:///d:/project/Chips-II/seed_files/seed_pending_lists.py)**: Pending L1/L2 hardware verification and onboarding queues.
 *   **[.gitignore](file:///d:/project/Chips-portal/.gitignore)** & **[.env.example](file:///d:/project/Chips-portal/.env.example)**: Ensure credential settings are ignored by Git, leaving a clean variable configuration template for developers.
 
 ---

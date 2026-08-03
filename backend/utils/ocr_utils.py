@@ -194,7 +194,6 @@ def validate_pan(extracted_text: str, operator_name: str, operator_pan: str = No
     keywords = ["INCOME TAX DEPARTMENT", "PERMANENT ACCOUNT NUMBER", "GOVT. OF INDIA", "SIGNATURE", "PAN"]
     if sum(1 for kw in keywords if kw in extracted_text) < 1:
         return "Validation Error: The uploaded document does not appear to be a valid PAN Card."
-
     if operator_pan:
         clean_pan = operator_pan.upper().strip()
         if clean_pan and clean_pan not in extracted_text.replace(" ", ""):

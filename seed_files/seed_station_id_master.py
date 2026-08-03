@@ -2,6 +2,13 @@
 
 Idempotent: upserts by district_code. Skips codes not present in district_table.
 """
+import os
+import sys
+
+# Ensure root project directory is in python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.getcwd())
+
 import pandas as pd
 from backend.database import SessionLocal
 from backend.models.station_id_master import StationIDMaster

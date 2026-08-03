@@ -956,7 +956,7 @@ def approve_request(
     r.status_id = StatusEnum.APPROVED.value
 
     r.reviewed_by = reviewed_by
-
+    r.chips_remarks = chips_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)  # IST
 
     remark_text = chips_remarks.strip() if chips_remarks else "Request successfully approved."
@@ -1002,7 +1002,7 @@ def reject_request(
     r.status_id = StatusEnum.REVERTED.value
 
     r.reviewed_by = reviewed_by
-
+    r.chips_remarks = chips_remarks
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)  # IST
 
     # Create a remark record so DC can see the rejection reason
