@@ -203,7 +203,7 @@ def get_awaiting_l2(dc_id: int, db: Session = Depends(get_db)):
     L1_DONE_STATES = [
         StatusEnum.L1_DONE.value,
         StatusEnum.APPROVED.value,
-        StatusEnum.REVIEWED.value,
+        StatusEnum.APPROVED.value,
     ]
 
     user = db.query(User).filter(User.id == dc_id).first()
@@ -754,6 +754,12 @@ def export_creds_excel(ids: str = None, db: Session = Depends(get_db)):
 class ExportAndMailL2Request(BaseModel):
     ids: str | None = None
     email_to: str | None = None
+    email_cc: str | None = None
+    email_bcc: str | None = None
+    subject: str | None = None
+    body_html: str | None = None
+    attach_csv: bool = True
+    custom_files: list[dict] | None = None
 
 @router.get("/export-and-mail/recipient")
 def get_l2_export_mail_recipient():
@@ -797,7 +803,13 @@ def export_and_mail_l2_to_uidai(
             record_count=len(reqs),
             module_name="L2 Registration",
             filename="l2_registration_sent_to_uidai.csv",
-            email_to=target_email
+            email_to=target_email,
+            email_cc=payload.email_cc,
+            email_bcc=payload.email_bcc,
+            custom_subject=payload.subject,
+            custom_body_html=payload.body_html,
+            attach_csv=payload.attach_csv,
+            custom_files=payload.custom_files
         ))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to email CSV export: {str(e)}")

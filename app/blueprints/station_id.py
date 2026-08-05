@@ -80,7 +80,7 @@ def dc_list():
         else:
             all_time_metrics["pending"] += kits
 
-    return render_template("station_id/dc_list.html", requests=requests_list, metrics=all_time_metrics, total_requests=total_kits)
+    return render_template("station_id/dc_station_id.html", requests=requests_list, metrics=all_time_metrics, total_requests=total_kits)
 
 
 @station_id_bp.route("/dc/station-id/new", methods=["GET"])
@@ -169,7 +169,7 @@ def chips_list():
         requests_list = filter_by_aging(pending_subset, aging_filter, "submitted_at")
 
     return render_template(
-        "station_id/chips_list.html",
+        "station_id/chips_station_id.html",
         requests=requests_list,
         unfiltered_requests=all_reqs,
         aging_filter=aging_filter,

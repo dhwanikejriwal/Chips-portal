@@ -309,7 +309,16 @@ def list_activity(
                           model=model, multi_station=multiStationOnly, db=db)
         q = q.group_by(ODA.session_operator_id)
         order_col = {"days_active": "days_active", "stations_count": "stations_count"}.get(sortBy)
-        q = q.order_by(direction(order_col) if order_col else direction(sortBy))
+        if order_col:
+            q = q.order_by(direction(order_col))
+        elif sortBy in MEASURES or sortBy == "session_operator_id":
+            q = q.order_by(direction(sortBy))
+        else:
+            sort_attr = getattr(ODA, sortBy, None)
+            if sort_attr is not None:
+                q = q.order_by(direction(func.max(sort_attr)))
+            else:
+                q = q.order_by(direction("Total_Enrollment_and_Updates"))
     else:
         cols = [
             ODA.activity_date, ODA.session_operator_id, ODA.station_ea_code,
@@ -321,7 +330,7 @@ def list_activity(
                           model=model, multi_station=multiStationOnly, db=db)
         q = q.order_by(direction(sortBy))
 
-    total_rows = q.count()
+    total_rows = q.order_by(None).count()
     page_rows = q.offset((page - 1) * pageSize).limit(pageSize).all()
 
     # Attach operator names (for the current page only).

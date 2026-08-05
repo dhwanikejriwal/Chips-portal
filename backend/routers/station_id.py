@@ -143,7 +143,7 @@ def get_dc_station_requests(dc_id: int, db: Session = Depends(get_db)):
     compiled_list = []
     for r in requests:
         dist_name = r.district.district_name if r.district else f"District {r.district_id}"
-        clean_status = str(r.status or "sent_to_chips").strip().lower()
+        clean_status = str(r.status or "pending").strip().lower()
 
         
         revert_reason = ""

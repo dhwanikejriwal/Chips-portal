@@ -70,7 +70,7 @@ def dc_list():
     total_requests = len(requests_list)
 
     return render_template(
-        "l2_registration/dc_list.html",
+        "l2_registration/dc_l2.html",
         requests=requests_list,
         awaiting_l2=awaiting_l2,
         metrics=all_time_metrics,
@@ -221,7 +221,7 @@ def chips_list():
         requests_list = filter_by_aging(pending_subset, aging_filter, "submitted_at")
 
     return render_template(
-        "l2_registration/chips_list.html",
+        "l2_registration/chips_l2.html",
         requests=requests_list,
         unfiltered_requests=all_reqs,
         aging_filter=aging_filter,
@@ -410,15 +410,13 @@ def chips_l2_export_and_mail():
     jwt_token = get_valid_token()
     headers = {"Authorization": f"Bearer {jwt_token}"}
     data = request.get_json(silent=True) or {}
-    ids = data.get("ids") or request.form.get("ids", "")
-    email_to = data.get("email_to") or request.form.get("email_to", "")
 
     try:
         response = requests.post(
             f"{BACKEND}/export-and-mail",
-            json={"ids": ids, "email_to": email_to},
+            json=data,
             headers=headers,
-            timeout=15,
+            timeout=35,
         )
         return response.json(), response.status_code
     except requests.exceptions.RequestException as e:

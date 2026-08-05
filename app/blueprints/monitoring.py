@@ -10,6 +10,7 @@ def dc_monitoring():
         return redirect(url_for("auth.login"))
         
     timeframe = request.args.get("timeframe", "all")
+    selected_district = request.args.get("district", "ALL")
     backend_url = f"{current_app.config['BACKEND_API_URL']}/monitoring/dc-stats?timeframe={timeframe}"
     districts_stats = []
     try:
@@ -26,9 +27,10 @@ def dc_monitoring():
         flash("Error connecting to backend API server.", "danger")
         
     return render_template(
-        "chips/dc_monitoring.html",
+        "dashboards/dc_monitoring.html",
         districts_stats=districts_stats,
-        current_timeframe=timeframe
+        current_timeframe=timeframe,
+        current_district=selected_district
     )
 
 @monitoring_bp.route("/chips/dc-monitoring/district-detail/<district_code>")

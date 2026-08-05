@@ -1,0 +1,472 @@
+{% extends 'base.html' %}
+
+{% block title %}Aadhaar Operator Request Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/user/home.css') }}">
+{% endblock %}
+
+{% block sidebar %}{% endblock %}
+
+{% block page_wrapper %}
+<!-- LATEST UPDATES TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker-label" title="Latest Updates">
+    <i class="ti ti-bell-ringing ticker-bell-icon"></i>
+    <span class="ticker-label-text">Latest Updates</span>
+  </div>
+  <div style="flex: 1; display: flex; align-items: center; padding: 0 20px; position: relative;">
+    <marquee behavior="scroll" direction="left" scrollamount="5"
+      style="font-size: 14px; display: flex; align-items: center; font-weight: 500;">
+      <a href="{{ url_for('open_districts_page') }}" class="ticker-link">
+        {% if open_districts %}
+        <span style="color: #2ECC71; margin-right: 6px;">●</span> Registrations are currently <strong
+          class="ticker-status-text">OPEN in {{ open_districts_count }} districts</strong>. Click here to view details
+        and
+        registration dates.
+        {% if recently_opened_count and recently_opened_count > 0 %}
+        <span class="ticker-recent-text" style="font-weight: 700; margin-left: 10px;">★ {{ recently_opened_count }}
+          districts
+          registrations are opened recently.</span>
+        {% endif %}
+        {% else %}
+        <span style="color: #EF4444; margin-right: 6px;">●</span> No district registrations are currently open. Check
+        back later for new registration periods.
+        {% endif %}
+      </a>
+    </marquee>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <a href="{{ url_for('open_districts_page') }}" class="hero-eyebrow"
+    style="text-decoration: none; cursor: pointer; transition: all 0.2s ease;">
+    {% if open_districts %}
+    <span class="eyebrow-dot"></span>
+    Registrations open — Chhattisgarh 2026
+    <span class="eyebrow-action">Click to view details</span>
+    {% else %}
+    <span class="eyebrow-dot" style="background: #EF4444;"></span>
+    Registrations Closed — Check back later
+    {% endif %}
+    <span class="eyebrow-arrow">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14"></path>
+        <path d="m12 5 7 7-7 7"></path>
+      </svg>
+    </span>
+  </a>
+  <h1>Become a Certified<br><span>Aadhaar Operator</span></h1>
+  <p class="hero-sub">Register, complete your LMS training, pass the NSEIT exam, and get activated as an official
+    Aadhaar enrollment operator in your district.</p>
+  <div class="hero-cta" style="margin-bottom: 20px;">
+    <!-- 🌟 LINKED TO YOUR REGISTRATION FLOW -->
+    <a href="{{ url_for('candidate_register.eligibility') }}" class="btn-cta-primary">
+      Start Registration
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M5 12h14M12 5l7 7-7 7" />
+      </svg>
+    </a>
+    <!-- 🌟 LINKED TO YOUR LOGIN FLOW -->
+    <a href="{{ url_for('auth.login', mode='candidate') }}" class="btn-cta-secondary">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 8v4l3 3" />
+      </svg>
+      Candidate Login
+    </a>
+  </div>
+  <div class="hero-status-check" style="margin-bottom: 40px; font-size: 15px; color: #5A5F7A; font-weight: 500;">
+    If already registered, check your status
+    <a href="javascript:void(0)" onclick="openTrackModal()" class="hero-status-link"
+      style="color: #5540C8; font-weight: 600; text-decoration: underline; cursor: pointer; display: inline-block;">
+      here.
+    </a>
+  </div>
+  <div class="hero-trust">
+    <div class="trust-item">
+      <div class="trust-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+          stroke-width="3">
+          <polyline points="20 6 9 17 4 12" />
+        </svg></div>
+      Free registration
+    </div>
+    <div class="trust-item">
+      <div class="trust-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+          stroke-width="3">
+          <polyline points="20 6 9 17 4 12" />
+        </svg></div>
+      33 districts covered
+    </div>
+  </div>
+</section>
+
+<!-- STATS STRIP -->
+<div class="stats-strip">
+  <div class="stat">
+    <div class="stat-number">{{ open_districts_count }}</div>
+    <div class="stat-label">Districts open for registration</div>
+  </div>
+  <div class="stat">
+    <div class="stat-number">{{ activated_count|safe }}</div>
+    <div class="stat-label">Operators activated</div>
+  </div>
+  <div class="stat">
+    <div class="stat-number">3 <span style="font-size:20px">yrs</span></div>
+    <div class="stat-label">Certificate validity</div>
+  </div>
+  <div class="stat">
+    <div class="stat-number">100<span>%</span></div>
+    <div class="stat-label">UIDAI certified</div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS PROCESS SECTIONS -->
+<section class="section">
+  <h2 class="section-title">How it works</h2>
+  <p class="section-sub" style="max-width: 800px;">Five steps from your initial application to receiving your official
+    UIDAI Aadhaar Operator ID.
+  </p>
+  <div class="steps-grid">
+    <div class="step-card step-1">
+      <div class="step-num">1</div>
+      <div class="step-title">Register &amp; verify</div>
+      <div class="step-desc">Fill the form, verify mobile OTP, upload your documents.</div>
+    </div>
+    <div class="step-card step-2">
+      <div class="step-num">2</div>
+      <div class="step-title">Selection</div>
+      <div class="step-desc">Administrator reviews your application and selects candidates.</div>
+    </div>
+    <div class="step-card step-3">
+      <div class="step-num">3</div>
+      <div class="step-title">LMS training</div>
+      <div class="step-desc">Complete all mandatory UIDAI e-learning modules online.</div>
+    </div>
+    <div class="step-card step-4">
+      <div class="step-num">4</div>
+      <div class="step-title">NSEIT exam</div>
+      <div class="step-desc">Book and pass the 100-question certification exam.</div>
+    </div>
+    <div class="step-card step-5">
+      <div class="step-num">5</div>
+      <div class="step-title">Activation</div>
+      <div class="step-desc">Submit final douments and receive your UIDAI Operator ID.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ELIGIBILITY QUICK LOOKUP SECTION -->
+<div class="elig-section">
+  <section class="section">
+    <p class="section-label">Who can apply</p>
+    <h2 class="section-title">Eligibility at a glance</h2>
+    <p class="section-sub">Check these requirements before starting your application.</p>
+    <div class="elig-grid">
+      <div class="elig-card">
+        <div class="elig-card-head">
+          <div class="elig-icon" style="background:#F0EDFF">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5540C8" stroke-width="2">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+              <path d="M6 12v5c3 3 9 3 12 0v-5" />
+            </svg>
+          </div>
+          <h4>Educational qualification</h4>
+        </div>
+        <ul class="elig-list">
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>12th pass or 3-year diploma (general)</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>10th pass for ASHA or Anganwadi workers</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Original certificate required</li>
+        </ul>
+      </div>
+      <div class="elig-card">
+        <div class="elig-card-head">
+          <div class="elig-icon" style="background:#E6FAF0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F7A50" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+          <h4>Personal eligibility</h4>
+        </div>
+        <ul class="elig-list">
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Minimum age 18 years</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Valid Aadhaar card mandatory</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Not previously debarred by UIDAI</li>
+        </ul>
+      </div>
+      <div class="elig-card">
+        <div class="elig-card-head">
+          <div class="elig-icon" style="background:#FFF4E5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B56F00" stroke-width="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </div>
+          <h4>District &amp; vacancy</h4>
+        </div>
+        <ul class="elig-list">
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Apply only in your home district</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Vacancy must exist in district</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>One application per mobile number</li>
+        </ul>
+      </div>
+      <div class="elig-card">
+        <div class="elig-card-head">
+          <div class="elig-icon" style="background:#E8F2FF">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1655A8" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+          </div>
+          <h4>Documents to upload</h4>
+        </div>
+        <ul class="elig-list">
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Aadhaar card scan or photo</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>PAN card and bank passbook</li>
+          <li><span class="elig-tick"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0F7A50"
+                stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg></span>Qualification certificate and photograph</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- BOTTOM CTA ACTION STRIP -->
+<div class="cta-strip" style="padding-bottom: 0;">
+  <div style="padding-bottom: 64px;">
+    <h2>Ready to apply?</h2>
+    <p>Check eligibility and submit your application in under 10 minutes. (Currently open in <strong>{{
+        open_districts_count }}</strong> districts)</p>
+    <div class="cta-strip-actions">
+      <!-- 🌟 MAPS DIRECTLY TO ELIGIBILITY ENTRY ENDPOINT -->
+      <a href="{{ url_for('candidate_register.eligibility') }}" class="btn-white">Check eligibility &amp; register</a>
+      <!-- 🌟 MAPS DIRECTLY TO SYSTEM INTERFACE ROLE LOGIN PORTAL -->
+      <a href="{{ url_for('auth.login', mode='staff') }}" class="btn-ghost-white">DC / CHIPS Login</a>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer"
+    style="text-align: center; padding: 24px 20px; border-top: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); font-size: 14px;">
+    <p style="margin: 0;">© 2026 CHiPS | Government of Chhattisgarh | CHiPS | UIDAI Integrated System</p>
+  </div>
+</div>
+
+<!-- TRACK APPLICATION MODAL -->
+<style>
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-box {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  }
+
+  .modal-close {
+    float: right;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--color-text-muted);
+  }
+
+  .track-result {
+    margin-top: 24px;
+    padding: 16px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    display: none;
+  }
+
+  .track-status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+</style>
+
+<div id="trackModal" class="modal-overlay">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeTrackModal()">&times;</button>
+    <h2 style="font-size: 20px; margin-bottom: 8px;">Track Application</h2>
+    <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 24px;">
+      Enter your Acknowledgment ID or registered mobile number to check your status.
+    </p>
+
+    <div id="trackError" style="color: #ef4444; font-size: 14px; margin-bottom: 12px; display: none;"></div>
+
+    <div class="form-group" style="margin-bottom: 16px;">
+      <input type="text" id="trackIdentifier" class="form-control" placeholder="Acknowledgment ID or Mobile Number"
+        style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+    </div>
+
+    <button id="btnTrack" onclick="submitTrack()" class="btn-cta-primary"
+      style="width: 100%; justify-content: center; border: none; padding: 12px; cursor: pointer;">
+      Check Status
+    </button>
+
+    <div id="trackResult" class="track-result">
+      <div style="font-size: 13px; color: var(--color-text-muted);">Applicant Name</div>
+      <div id="resName" style="font-weight: 600; margin-bottom: 12px;"></div>
+
+      <div style="font-size: 13px; color: var(--color-text-muted);">Acknowledgment ID</div>
+      <div id="resRequestCode" style="font-weight: 600; margin-bottom: 12px;"></div>
+
+      <div style="font-size: 13px; color: var(--color-text-muted);">Status</div>
+      <div id="resStatusBadge" class="track-status-badge"></div>
+
+      <div id="resStatusNote" style="font-size: 13px; margin-top: 12px; font-weight: normal; display: none;"></div>
+
+      <div id="resRejectReasonWrapper" style="display: none; margin-top: 12px;">
+        <div style="font-size: 13px; color: var(--color-text-muted);">Reject Reason</div>
+        <div id="resRejectReason"
+          style="font-size: 14px; color: #991b1b; background-color: #fee2e2; padding: 8px; border-radius: 4px; margin-top: 4px;">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openTrackModal() {
+    document.getElementById('trackModal').style.display = 'flex';
+    document.getElementById('trackIdentifier').value = '';
+    document.getElementById('trackResult').style.display = 'none';
+    document.getElementById('trackError').style.display = 'none';
+  }
+
+  function closeTrackModal() {
+    document.getElementById('trackModal').style.display = 'none';
+  }
+
+  async function submitTrack() {
+    const identifier = document.getElementById('trackIdentifier').value;
+    if (!identifier) return;
+
+    const btn = document.getElementById('btnTrack');
+    const err = document.getElementById('trackError');
+    const res = document.getElementById('trackResult');
+
+    btn.disabled = true;
+    btn.textContent = "Checking...";
+    err.style.display = 'none';
+    res.style.display = 'none';
+
+    try {
+      const response = await fetch("{{ url_for('candidate_register.track') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: identifier })
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        document.getElementById('resName').textContent = data.name;
+        document.getElementById('resRequestCode').textContent = data.request_code;
+
+        const badge = document.getElementById('resStatusBadge');
+        badge.textContent = data.status;
+
+        const note = document.getElementById('resStatusNote');
+        const rejectWrapper = document.getElementById('resRejectReasonWrapper');
+
+        note.style.display = 'none';
+        rejectWrapper.style.display = 'none';
+
+        if (data.status.toLowerCase() === 'approved') {
+          badge.style.backgroundColor = '#dcfce7'; badge.style.color = '#166534';
+          note.textContent = "Please check your registered email for credentials to login into the portal. (If not received ,please check your Spam or Junk folder!)";
+          note.style.color = '#166534';
+          note.style.display = 'block';
+        } else if (data.status.toLowerCase() === 'rejected') {
+          badge.style.backgroundColor = '#fee2e2'; badge.style.color = '#991b1b';
+          if (data.reject_reason) {
+            document.getElementById('resRejectReason').textContent = data.reject_reason;
+            rejectWrapper.style.display = 'block';
+          }
+        } else if (data.status.toLowerCase() === 'on hold') {
+          badge.style.backgroundColor = '#f3f4f6'; badge.style.color = '#374151';
+          note.textContent = "Your onboarding request is currently on hold. Reason: " + (data.reject_reason || "No remark provided.");
+          note.style.color = '#374151';
+          note.style.display = 'block';
+        } else {
+          badge.style.backgroundColor = '#fef9c3'; badge.style.color = '#854d0e';
+          if (data.status.toLowerCase() === 'pending') {
+            note.textContent = "Please wait while administration looks into your application.";
+            note.style.color = '#854d0e';
+            note.style.display = 'block';
+          }
+        }
+
+        res.style.display = 'block';
+      } else {
+        err.textContent = data.detail || "Application not found.";
+        err.style.display = 'block';
+      }
+    } catch (e) {
+      err.textContent = "Network error. Please try again.";
+      err.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Check Status";
+    }
+  }
+</script>
+{% endblock %}

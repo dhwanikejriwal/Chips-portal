@@ -73,7 +73,7 @@ def dc_l1_portal():
             pending_cnt += 1
 
     return render_template(
-        "dc/dc_l1_registration.html",
+        "l1_registration/dc_l1.html",
         requests=requests_data,
         allotted_stations=allotted_stations,
         pending_count=pending_cnt,
@@ -124,7 +124,7 @@ def chips_l1_portal():
         requests_data = filter_by_aging(pending_subset, aging_filter, "submitted_at")
 
     return render_template(
-        "chips/chips_l1_registration.html",
+        "l1_registration/chips_l1.html",
         requests=requests_data,
         unfiltered_requests=all_reqs,
         aging_filter=aging_filter,

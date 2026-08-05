@@ -28,7 +28,7 @@ def index():
     user_district = session.get('district_name') or session.get('district_id') or ''
     is_dc = role in ['DC', 'EDM']
         
-    return render_template('report/upload.html', history=history, districts=districts, user_role=role, user_district=user_district, is_dc=is_dc)
+    return render_template('report/reports_dash.html', history=history, districts=districts, user_role=role, user_district=user_district, is_dc=is_dc)
 
 @report_bp.route('/reports/download/<int:report_id>', methods=['GET'])
 def download(report_id):

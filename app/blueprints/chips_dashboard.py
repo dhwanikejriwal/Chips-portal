@@ -31,7 +31,7 @@ def registration_settings():
     token = session.get("access_token")
     res = _get("/dashboard/districts/settings", token)
     districts = res.get("districts", []) if isinstance(res, dict) else []
-    return render_template("chips/registration_settings.html", districts=districts)
+    return render_template("portal_settings/registration_settings.html", districts=districts)
 
 
 @chips_dashboard_bp.route("/chips/registration-settings/update", methods=["POST"])
@@ -108,7 +108,7 @@ def chips_dashboard():
             "l2_analysis": _empty_trend.copy(),
         }
 
-    return render_template("chips/chips_dash.html", stats=stats, funnel=operator_funnel)
+    return render_template("dashboards/chips_dash.html", stats=stats, funnel=operator_funnel)
 
 
 @chips_dashboard_bp.route("/chips/cg-map")
@@ -116,7 +116,7 @@ def cg_map():
     if "access_token" not in session or session.get("role") != "Admin":
         flash("Unauthorized access. Please log in.", "danger")
         return redirect(url_for("auth.login"))
-    return render_template("chips/cg_map.html")
+    return render_template("dashboards/cg_map.html")
 
 
 @chips_dashboard_bp.route("/chips/cg-map-data")

@@ -149,9 +149,6 @@ def change_password():
 # =========================================================================
 # 🌟 CENTRALIZED SECURE DATA EXPORT TUNNEL ROUTE
 # =========================================================================
-# =========================================================================
-# 🌟 UPDATE THIS STRING AT THE BOTTOM OF app/blueprints/auth.py
-# =========================================================================
 @auth_bp.route('/admin-dc/export/<string:module_endpoint>')
 def proxy_backend_excel_export(module_endpoint):
     if not session.get("access_token"):
@@ -285,5 +282,5 @@ def profile():
     except Exception:
         flash("Error connecting to backend API.", "danger")
 
-    return render_template("auth/profile.html", profile_data=profile_data)
+    return render_template("auth/admin_dc_profile.html", profile_data=profile_data)
 

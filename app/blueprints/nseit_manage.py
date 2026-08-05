@@ -40,7 +40,7 @@ def dc_nseit():
         pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
         
     return render_template(
-        "dc/dc_nseit.html",
+        "nseit/dc_nseit.html",
         pending_requests=pending_requests,
         processed_requests=processed_requests,
         sent_to_chips_requests=sent_to_chips_requests,
@@ -117,7 +117,7 @@ def chips_nseit():
         aging_filter = None
         
     return render_template(
-        "chips/chips_nseit.html",
+        "nseit/chips_nseit.html",
         pending_requests=pending_requests,
         processed_requests=processed_requests,
         approved_requests=processed_requests,
@@ -141,7 +141,7 @@ def chips_nseit_expiring():
         records = []
 
     return render_template(
-        "chips/nseit_expiring.html",
+        "nseit/nseit_expiry.html",
         records=records,
         count=len(records),
         page_type="expiring",
@@ -163,7 +163,7 @@ def chips_nseit_expired():
         records = []
 
     return render_template(
-        "chips/nseit_expired.html",
+        "nseit/nseit_expiry.html",
         records=records,
         count=len(records),
         page_type="expired",

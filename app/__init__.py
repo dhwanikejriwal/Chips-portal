@@ -86,7 +86,7 @@ def create_app():
         except Exception:
             pass
         recently_opened_count = sum(1 for d in open_districts if d.get("is_recently_opened"))
-        return render_template("home.html", activated_count=activated_count, open_districts_count=open_districts_count, open_districts=open_districts, recently_opened_count=recently_opened_count)
+        return render_template("home/home.html", activated_count=activated_count, open_districts_count=open_districts_count, open_districts=open_districts, recently_opened_count=recently_opened_count)
         
     @app.route("/open-districts")
     def open_districts_page():
@@ -102,7 +102,7 @@ def create_app():
         except Exception:
             pass
             
-        return render_template("open_districts.html", open_districts=open_districts)
+        return render_template("home/open_districts.html", open_districts=open_districts)
 
     @app.route('/favicon.ico')
     def favicon():

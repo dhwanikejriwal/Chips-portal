@@ -1,0 +1,731 @@
+{% extends 'base.html' %}
+
+{% block title %}CHiPS Admin - L1 Registration Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}">
+<style>
+    /* Scoped button enhancements for this dashboard */
+    .btn-approve {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background: #16a34a;
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .btn-approve:hover {
+        background: #15803d;
+    }
+
+    .btn-revert {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        background: #fff;
+        color: #dc2626;
+        border: 1.5px solid #fca5a5;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .btn-revert:hover {
+        background: #fee2e2;
+        border-color: #dc2626;
+    }
+
+    .delayed-row {
+        background-color: #fee2e2 !important;
+    }
+
+    .delayed-row:hover {
+        background-color: #fecaca !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% from 'partials/request_section.html' import request_section %}
+
+<!-- Jinja2 Metric Calculations -->
+{% set metric_source = unfiltered_requests if unfiltered_requests is defined else requests %}
+{% set total_requests = metric_source|length %}
+{% set metrics = namespace(pending=0, approved=0, reverted=0) %}
+{% for req in metric_source %}
+{% if (req.status|upper) in ['PENDING', 'REAPPLIED'] %}
+{% set metrics.pending = metrics.pending + 1 %}
+{% elif (req.status|upper) in ['DONE', 'APPROVED', 'REVIEWED'] %}
+{% set metrics.approved = metrics.approved + 1 %}
+{% elif (req.status|upper) == 'REVERTED' %}
+{% set metrics.reverted = metrics.reverted + 1 %}
+{% endif %}
+{% endfor %}
+
+<!-- Standardized L1 Registration Control Panel Banner -->
+<div class="chips-header-banner">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div
+            style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+        </div>
+        <div>
+            <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">L1 Registration Control Panel</h1>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Review, approve and assign L1 registrations
+                to DC requests</p>
+        </div>
+    </div>
+    <div class="chips-banner-metrics">
+        <div class="chips-metric-card">
+            <div id="stat-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metrics.pending }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
+            </div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="stat-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metrics.reverted }}
+            </div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="stat-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                metrics.approved }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">L1 Done</div>
+        </div>
+        <div class="chips-metric-card">
+            <div id="stat-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
+                total_requests }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested
+                Kits</div>
+        </div>
+    </div>
+</div>
+
+<!-- Section tabs -->
+<div class="req-tabs" role="tablist">
+    <button type="button" class="req-tab active" data-tab="pending">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+            <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+            <path d="M12 11v6" />
+            <path d="M9 14h6" />
+        </svg>
+        <span>Pending L1 registration requests</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="reverted">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>Reverted log</span>
+    </button>
+    <button type="button" class="req-tab" data-tab="approved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>L1 Done log</span>
+    </button>
+</div>
+
+<!-- Global Filter Bar -->
+<div class="form-card-container" style="border:none; padding:0; margin-bottom:18px; background:transparent;">
+    <div class="filter-bar">
+        <div class="filter-group filter-group-search">
+            <label>Search Request</label>
+            <input type="text" id="global-search" class="filter-input" placeholder="Search by request ID or model..."
+                oninput="filterAllTables()">
+        </div>
+        <div class="filter-group">
+            <label>District</label>
+            <select id="global-district" class="filter-input" onchange="filterAllTables()">
+                <option value="all">All Districts</option>
+                {% for d in [
+                'Balod', 'Baloda Bazar-Bhatapara', 'Balrampur-Ramanujganj', 'Bastar', 'Bemetara',
+                'Bijapur', 'Bilaspur', 'Dantewada', 'Dhamtari', 'Durg', 'Gariaband',
+                'Gaurela-Pendra-Marwahi', 'Janjgir-Champa', 'Jashpur', 'Kabirdham', 'Kanker',
+                'Khairagarh-Chhuikhadan-Gandai', 'Kondagaon', 'Korba', 'Koriya', 'Mahasamund',
+                'Manendragarh-Chirmiri-Bharatpur', 'Mohla-Manpur-Ambagarh Chowki', 'Mungeli',
+                'Narayanpur', 'Raigarh', 'Raipur', 'Rajnandgaon', 'Sakti', 'Sarangarh-Bilaigarh',
+                'Sukma', 'Surajpur', 'Surguja'
+                ] %}
+                <option value="{{ d | lower | trim }}">{{ d }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Time Period</label>
+            <select id="global-date" class="filter-input" onchange="filterAllTables()">
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">Week</option>
+                <option value="this_month" selected>Month</option>
+            </select>
+        </div>
+        <div class="filter-group-button" style="flex: 0 0 auto; align-self: flex-end;">
+            <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+            <i class="ti ti-x" style="font-size: 15px; stroke-width: 2.5px; margin-right: 4px;"></i>
+            Clear Filters
+        </button>
+        </div>
+    </div>
+</div>
+
+{% if aging_filter %}
+<div class="aging-filter-notice"
+    style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px 14px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #1e3a8a; display: flex; justify-content: space-between; align-items: center;">
+    <span>Filtered: pending requests aged <strong>{{ aging_label }}</strong> ({{ requests|length }} found)</span>
+    <a href="{{ url_for('l1_registration.chips_l1_portal') }}"
+        style="color: #2563EB; font-weight: 600; text-decoration: none;">Clear filter &times;</a>
+</div>
+{% endif %}
+
+{% set pending_controls %}
+<select id="pending-status" class="rs-filter" onchange="filterAllTables()">
+    <option value="all">All statuses</option>
+    <option value="pending">Pending</option>
+    <option value="reapplied">Reapplied</option>
+</select>
+<button class="rs-export" onclick="exportSection('pending')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel active" data-panel="pending">
+    {% call request_section(
+    variant='pending',
+    title='Pending L1 registration requests',
+    count='–', count_id='pending-count',
+    controls=pending_controls,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Station ID'},
+    {'label': 'Model'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='pending-table', body_id='pending-tbody',
+    empty_id='pending-empty-msg',
+    empty_message='No pending L1 registration requests in queue.') %}
+    {% set pending_count = 0 %}
+    {% for req in requests %}
+    {% if (req.status|upper) in ['PENDING', 'REAPPLIED'] %}
+    {% set pending_count = pending_count + 1 %}
+    <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}" data-district="{{ req.district_name or '' }}"
+        data-station-id="{{ req.station_id or '' }}" data-model="{{ req.model_type or '' }}"
+        data-status="{{ req.status | upper }}" data-created="{{ req.created_at or '' }}"
+        data-updated="{{ req.updated_at or '' }}">
+        <td>{{ pending_count }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.district_name }}</td>
+        <td>{{ req.station_id }}</td>
+        <td>{{ req.model_type }}</td>
+        <td>
+            {% if (req.status|upper) == 'REAPPLIED' %}
+            <span class="sid-badge sid-badge-reapplied">Reapplied</span>
+            {% else %}
+            <span class="sid-badge sid-badge-pending">Pending</span>
+            {% endif %}
+        </td>
+        <td>{{ req.created_at|string|truncate(16, True, '') if req.created_at else '—' }}</td>
+        <td>
+            {% if (req.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and req.updated_at and req.updated_at
+            != '—' %}
+            {{ req.updated_at|string|truncate(16, True, '') }}
+            {% else %}
+            —
+            {% endif %}
+        </td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-approve" onclick="approveL1Request('{{ req.request_code }}')">
+                    Approve
+                </button>
+                <button type="button" class="btn-revert" onclick="revertL1Request('{{ req.request_code }}')">
+                    Revert
+                </button>
+                <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    {% endcall %}
+</div><!-- /panel pending -->
+
+{% set reverted_controls %}
+<button class="rs-export" onclick="exportSection('reverted')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="reverted">
+    {% call request_section(
+    variant='rejected',
+    title='Reverted log',
+    count='–', count_id='reverted-count',
+    controls=reverted_controls,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Station ID'},
+    {'label': 'Model'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='reverted-table', body_id='reverted-tbody',
+    empty_id='reverted-empty-msg',
+    empty_message='No reverted L1 registration logs found.') %}
+    {% set reverted_count_loop = 0 %}
+    {% for req in requests %}
+    {% if (req.status|upper) not in ['PENDING', 'REAPPLIED'] and (req.status|upper) == 'REVERTED' %}
+    {% set reverted_count_loop = reverted_count_loop + 1 %}
+    <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}" data-district="{{ req.district_name or '' }}"
+        data-station-id="{{ req.station_id or '' }}" data-model="{{ req.model_type or '' }}" data-status="REVERTED"
+        data-created="{{ req.created_at or '' }}">
+        <td>{{ reverted_count_loop }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.district_name }}</td>
+        <td>{{ req.station_id }}</td>
+        <td>{{ req.model_type }}</td>
+        <td>
+            <span class="sid-badge sid-badge-reverted">Reverted</span>
+        </td>
+        <td>{{ req.submitted_at[:16] if req.submitted_at else '—' }}</td>
+        <td>{{ req.updated_at[:16] if req.updated_at else '—' }}</td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    {% endcall %}
+</div>
+
+{% set approved_controls %}
+<button class="rs-export" onclick="exportSection('approved')">Export to CSV</button>
+{% endset %}
+<div class="req-tabpanel" data-panel="approved">
+    {% call request_section(
+    variant='approved',
+    title='L1 Done log',
+    count='–', count_id='approved-count',
+    controls=approved_controls,
+    columns=[
+    {'label': 'S.No', 'cls': 'rs-col-sno'},
+    {'label': 'Request ID'},
+    {'label': 'District'},
+    {'label': 'Station ID'},
+    {'label': 'Model'},
+    {'label': 'Status'},
+    {'label': 'Submitted at'},
+    {'label': 'Updated at'},
+    {'label': 'Action', 'align': 'center'}
+    ],
+    table_id='approved-table', body_id='approved-tbody',
+    empty_id='approved-empty-msg',
+    empty_message='No approved L1 registration logs found.') %}
+    {% set approved_count_loop = 0 %}
+    {% for req in requests %}
+    {% if (req.status|upper) not in ['PENDING', 'REAPPLIED'] and (req.status|upper) in ['DONE', 'L1_DONE', 'L1 DONE',
+    'APPROVED', 'REVIEWED']
+    %}
+    {% set approved_count_loop = approved_count_loop + 1 %}
+    <tr data-id="{{ req.id }}" data-request-no="{{ req.request_code }}" data-district="{{ req.district_name or '' }}"
+        data-station-id="{{ req.station_id or '' }}" data-model="{{ req.model_type or '' }}" data-status="L1_DONE"
+        data-created="{{ req.created_at or '' }}">
+        <td>{{ approved_count_loop }}</td>
+        <td><strong>{{ req.request_code }}</strong></td>
+        <td>{{ req.district_name }}</td>
+        <td>{{ req.station_id }}</td>
+        <td>{{ req.model_type }}</td>
+        <td>
+            <span class="sid-badge sid-badge-done">L1 Done</span>
+        </td>
+        <td>{{ req.submitted_at[:16] if req.submitted_at else '—' }}</td>
+        <td>{{ req.updated_at[:16] if req.updated_at else '—' }}</td>
+        <td>
+            <div class="action-group" style="justify-content: center;">
+                <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Details
+                </button>
+            </div>
+        </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    {% endcall %}
+</div>
+
+<script src="{{ url_for('static', filename='js/chips_l1_registration.js') }}?v=1.6"></script>
+<script>
+    function getDatePrefixes() {
+        const now = new Date(), y = now.getFullYear(),
+            m = (now.getMonth() + 1).toString().padStart(2, '0'),
+            d = now.getDate().toString().padStart(2, '0');
+        return { today: `${y}-${m}-${d}`, month: `${y}-${m}`, year: `${y}` };
+    }
+
+    function clearAllFilters() {
+        document.getElementById('global-search').value = '';
+        document.getElementById('global-district').value = 'all';
+        document.getElementById('global-date').value = 'this_month';
+        document.getElementById('pending-status').value = 'all';
+        filterAllTables();
+    }
+
+    function filterAllTables() {
+        const q = (document.getElementById('global-search').value || '').toLowerCase().trim();
+        const df = document.getElementById('global-date').value;
+        const selectedDistrict = document.getElementById('global-district').value;
+        const now = new Date();
+
+        const pending_sf = document.getElementById('pending-status').value.toLowerCase().trim();
+
+        sessionStorage.setItem('chips_l1_search', document.getElementById('global-search').value);
+        sessionStorage.setItem('chips_l1_district', selectedDistrict);
+        sessionStorage.setItem('chips_l1_date', df);
+        sessionStorage.setItem('chips_l1_pending_status', pending_sf);
+
+        // Process Pending Table
+        let pendingIdx = 1;
+        document.querySelectorAll('#pending-tbody tr[data-id]').forEach(row => {
+            const reqCode = (row.getAttribute('data-request-no') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+            const stationId = (row.getAttribute('data-station-id') || '').toLowerCase().trim();
+            const model = (row.getAttribute('data-model') || '').toLowerCase().trim();
+            const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
+            const created = row.getAttribute('data-created') || '';
+
+            const matchQ = !q || reqCode.includes(q) || dist.includes(q) || stationId.includes(q) || model.includes(q);
+            const matchDist = (selectedDistrict === 'all') || (dist === selectedDistrict.toLowerCase().trim());
+            const matchStatus = (pending_sf === 'all') || (status === pending_sf);
+
+            let matchDate = true;
+            if (created && df !== 'all') {
+                const rowDate = new Date(created.replace(' ', 'T'));
+                if (df === 'today') {
+                    matchDate = rowDate.toDateString() === now.toDateString();
+                } else if (df === 'week') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 7);
+                    matchDate = rowDate >= threshold;
+                } else if (df === 'this_month') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 30);
+                    matchDate = rowDate >= threshold;
+                }
+            }
+
+            if (matchQ && matchDist && matchStatus && matchDate) {
+                row.style.display = '';
+                if (row.cells[0]) row.cells[0].innerText = pendingIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        if (document.getElementById('pending-count')) document.getElementById('pending-count').textContent = pendingIdx - 1;
+        if (document.getElementById('pending-empty-msg')) document.getElementById('pending-empty-msg').style.display = (pendingIdx === 1) ? 'block' : 'none';
+
+        // Process Approved Table
+        let approvedIdx = 1;
+        document.querySelectorAll('#approved-tbody tr[data-id]').forEach(row => {
+            const reqCode = (row.getAttribute('data-request-no') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+            const stationId = (row.getAttribute('data-station-id') || '').toLowerCase().trim();
+            const model = (row.getAttribute('data-model') || '').toLowerCase().trim();
+            const created = row.getAttribute('data-created') || '';
+
+            const matchQ = !q || reqCode.includes(q) || dist.includes(q) || stationId.includes(q) || model.includes(q);
+            const matchDist = (selectedDistrict === 'all') || (dist === selectedDistrict.toLowerCase().trim());
+
+            let matchDate = true;
+            if (created && df !== 'all') {
+                const rowDate = new Date(created.replace(' ', 'T'));
+                if (df === 'today') {
+                    matchDate = rowDate.toDateString() === now.toDateString();
+                } else if (df === 'week') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 7);
+                    matchDate = rowDate >= threshold;
+                } else if (df === 'this_month') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 30);
+                    matchDate = rowDate >= threshold;
+                }
+            }
+
+            if (matchQ && matchDist && matchDate) {
+                row.style.display = '';
+                if (row.cells[0]) row.cells[0].innerText = approvedIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        if (document.getElementById('approved-count')) document.getElementById('approved-count').textContent = approvedIdx - 1;
+        if (document.getElementById('approved-empty-msg')) document.getElementById('approved-empty-msg').style.display = (approvedIdx === 1) ? 'block' : 'none';
+
+        // Process Reverted Table
+        let revertedIdx = 1;
+        document.querySelectorAll('#reverted-tbody tr[data-id]').forEach(row => {
+            const reqCode = (row.getAttribute('data-request-no') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+            const stationId = (row.getAttribute('data-station-id') || '').toLowerCase().trim();
+            const model = (row.getAttribute('data-model') || '').toLowerCase().trim();
+            const created = row.getAttribute('data-created') || '';
+
+            const matchQ = !q || reqCode.includes(q) || dist.includes(q) || stationId.includes(q) || model.includes(q);
+            const matchDist = (selectedDistrict === 'all') || (dist === selectedDistrict.toLowerCase().trim());
+
+            let matchDate = true;
+            if (created && df !== 'all') {
+                const rowDate = new Date(created.replace(' ', 'T'));
+                if (df === 'today') {
+                    matchDate = rowDate.toDateString() === now.toDateString();
+                } else if (df === 'week') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 7);
+                    matchDate = rowDate >= threshold;
+                } else if (df === 'this_month') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 30);
+                    matchDate = rowDate >= threshold;
+                }
+            }
+
+            if (matchQ && matchDist && matchDate) {
+                row.style.display = '';
+                if (row.cells[0]) row.cells[0].innerText = revertedIdx++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        if (document.getElementById('reverted-count')) document.getElementById('reverted-count').textContent = revertedIdx - 1;
+        if (document.getElementById('reverted-empty-msg')) document.getElementById('reverted-empty-msg').style.display = (revertedIdx === 1) ? 'block' : 'none';
+
+        // Calculate metrics dynamically based on filters
+        let metricPending = 0;
+        let metricReverted = 0;
+        let metricApproved = 0;
+
+        const allRows = document.querySelectorAll('#pending-tbody tr[data-id], #approved-tbody tr[data-id], #reverted-tbody tr[data-id]');
+        allRows.forEach(row => {
+            const reqCode = (row.getAttribute('data-request-no') || '').toLowerCase();
+            const dist = (row.getAttribute('data-district') || '').toLowerCase().trim();
+            const stationId = (row.getAttribute('data-station-id') || '').toLowerCase().trim();
+            const model = (row.getAttribute('data-model') || '').toLowerCase().trim();
+            const status = (row.getAttribute('data-status') || '').toUpperCase().trim();
+            const created = row.getAttribute('data-created') || '';
+
+            const matchQ = !q || reqCode.includes(q) || dist.includes(q) || stationId.includes(q) || model.includes(q);
+            const matchDist = (selectedDistrict === 'all') || (dist === selectedDistrict.toLowerCase().trim());
+
+            let matchDate = true;
+            if (created && df !== 'all') {
+                const rowDate = new Date(created.replace(' ', 'T'));
+                if (df === 'today') {
+                    matchDate = rowDate.toDateString() === now.toDateString();
+                } else if (df === 'week') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 7);
+                    matchDate = rowDate >= threshold;
+                } else if (df === 'this_month') {
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 30);
+                    matchDate = rowDate >= threshold;
+                }
+            }
+
+            if (matchQ && matchDist && matchDate) {
+                if (status === 'PENDING' || status === 'REAPPLIED') {
+                    metricPending++;
+                } else if (status === 'REVERTED') {
+                    metricReverted++;
+                } else if (['DONE', 'L1_DONE', 'L1 DONE', 'APPROVED', 'REVIEWED'].includes(status)) {
+                    metricApproved++;
+                }
+            }
+        });
+
+        // Metric cards display all-time counts irrespective of active filters
+    }
+
+    function exportSection(section) {
+        const ids = [];
+        let selector = '';
+        if (section === 'pending') {
+            selector = '#pending-tbody tr[data-id]';
+        } else if (section === 'approved') {
+            selector = '#approved-tbody tr[data-id]';
+        } else if (section === 'reverted') {
+            selector = '#reverted-tbody tr[data-id]';
+        }
+
+        document.querySelectorAll(selector).forEach(row => {
+            if (row.style.display !== 'none') {
+                const id = row.getAttribute('data-id');
+                if (id) ids.push(id);
+            }
+        });
+
+        if (ids.length === 0) {
+            Swal.fire({ title: 'No Data Mapped', text: 'There are no request entries loaded in this view queue to export.', icon: 'info', confirmButtonColor: '#4f46e5' });
+            return;
+        }
+
+        window.location.href = `/auth/l1-registration/export?ids=${ids.join(',')}`;
+    }
+
+    window.addEventListener('load', function () {
+        const isActionReload = sessionStorage.getItem('chips_action_reloading') === 'true';
+        sessionStorage.removeItem('chips_action_reloading');
+
+        if (!isActionReload) {
+            sessionStorage.removeItem('chips_l1_search');
+            sessionStorage.removeItem('chips_l1_district');
+            sessionStorage.removeItem('chips_l1_date');
+            sessionStorage.removeItem('chips_l1_pending_status');
+        }
+
+        if (sessionStorage.getItem('chips_l1_search') !== null) {
+            document.getElementById('global-search').value = sessionStorage.getItem('chips_l1_search');
+            document.getElementById('global-district').value = sessionStorage.getItem('chips_l1_district');
+            document.getElementById('global-date').value = sessionStorage.getItem('chips_l1_date');
+            if (document.getElementById('pending-status')) document.getElementById('pending-status').value = sessionStorage.getItem('chips_l1_pending_status');
+        } else {
+            document.getElementById('global-search').value = '';
+            document.getElementById('global-district').value = 'all';
+            document.getElementById('global-date').value = 'this_month';
+            if (document.getElementById('pending-status')) document.getElementById('pending-status').value = 'all';
+        }
+        filterAllTables();
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const now = new Date();
+        document.querySelectorAll('#pending-tbody tr').forEach(row => {
+            let dateAttr = row.getAttribute('data-updated');
+            if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                dateAttr = row.getAttribute('data-created');
+            }
+            if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                if (!isNaN(dateObj)) {
+                    const diffTime = Math.abs(now - dateObj);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        row.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
+    });
+
+    window.addEventListener('load', () => {
+        const isActionReload = sessionStorage.getItem('chips_action_reloading') === 'true';
+        sessionStorage.removeItem('chips_action_reloading');
+
+        if (!isActionReload) {
+            sessionStorage.removeItem('chips_l1_search');
+            sessionStorage.removeItem('chips_l1_district');
+            sessionStorage.removeItem('chips_l1_date');
+            sessionStorage.removeItem('chips_l1_pending_status');
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const qDist = urlParams.get('district');
+        const qStatus = urlParams.get('status');
+
+        if (qDist || qStatus) {
+            if (qDist) {
+                const globalSearch = document.getElementById('global-search');
+                if (globalSearch) globalSearch.value = qDist;
+            }
+
+            if (qStatus) {
+                const statusL = qStatus.toLowerCase().trim();
+                const pendingStatus = document.getElementById('pending-status');
+                if (statusL === 'pending') {
+                    if (pendingStatus) pendingStatus.value = 'pending';
+                } else if (statusL === 'reapplied') {
+                    if (pendingStatus) pendingStatus.value = 'reapplied';
+                }
+            }
+        } else if (sessionStorage.getItem('chips_l1_search') !== null) {
+            document.getElementById('global-search').value = sessionStorage.getItem('chips_l1_search');
+            document.getElementById('global-district').value = sessionStorage.getItem('chips_l1_district');
+            document.getElementById('global-date').value = sessionStorage.getItem('chips_l1_date');
+            if (document.getElementById('pending-status')) {
+                document.getElementById('pending-status').value = sessionStorage.getItem('chips_l1_pending_status');
+            }
+        } else {
+            document.getElementById('global-search').value = '';
+            document.getElementById('global-district').value = 'all';
+            document.getElementById('global-date').value = 'this_month';
+            if (document.getElementById('pending-status')) {
+                document.getElementById('pending-status').value = 'all';
+            }
+        }
+
+        filterAllTables();
+
+        // ── Deep-link scroll ──────────────────────────
+        if (qDist || qStatus) {
+            const statusL = (qStatus || '').toLowerCase().trim();
+            setTimeout(() => {
+                let scrollTarget;
+                if (!statusL || ['pending', 'reapplied'].includes(statusL)) {
+                    scrollTarget = document.getElementById('pending-table');
+                } else if (statusL === 'approved' || statusL === 'done') {
+                    scrollTarget = document.getElementById('approved-table');
+                } else if (statusL === 'reverted') {
+                    scrollTarget = document.getElementById('reverted-table');
+                }
+                if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 200);
+        }
+    });
+</script>
+{% endblock %}

@@ -755,18 +755,48 @@ async def send_otp_email(email_to: str, otp_code: str):
 DEFAULT_UIDAI_RECIPIENT_EMAIL = os.getenv("UIDAI_RECIPIENT_EMAIL", "").strip()
 
 async def send_uidai_export_email(
-    csv_content: str,
+    csv_content: str | bytes,
     record_count: int,
     module_name: str,
     filename: str,
-    email_to: str | None = None
+    email_to: str | None = None,
+    email_cc: list[str] | str | None = None,
+    email_bcc: list[str] | str | None = None,
+    custom_subject: str | None = None,
+    custom_body_html: str | None = None,
+    attach_csv: bool = True,
+    custom_files: list | None = None
 ):
     """
-    Sends an automated HTML email containing the CSV export of Sent to UIDAI operator requests as an attachment.
+    Sends an HTML email containing the CSV export of requests to target recipient with optional custom subject, body, CC, BCC, and custom user file attachments.
     """
     target_email = (email_to or DEFAULT_UIDAI_RECIPIENT_EMAIL).strip()
+
+    # Parse recipients
+    to_list = [e.strip() for e in target_email.replace(';', ',').split(',') if e.strip()] if target_email else []
     
-    html_content = f"""
+    # Parse CC
+    cc_list = []
+    if email_cc:
+        if isinstance(email_cc, list):
+            cc_list = [e.strip() for e in email_cc if e and e.strip()]
+        elif isinstance(email_cc, str):
+            cc_list = [e.strip() for e in email_cc.replace(';', ',').split(',') if e.strip()]
+
+    # Parse BCC
+    bcc_list = []
+    if email_bcc:
+        if isinstance(email_bcc, list):
+            bcc_list = [e.strip() for e in email_bcc if e and e.strip()]
+        elif isinstance(email_bcc, str):
+            bcc_list = [e.strip() for e in email_bcc.replace(';', ',').split(',') if e.strip()]
+
+    subject = custom_subject.strip() if custom_subject and custom_subject.strip() else f"{module_name} Requests - Ready for UIDAI Processing - CHiPS Portal"
+    
+    if custom_body_html and custom_body_html.strip():
+        html_content = custom_body_html.strip()
+    else:
+        html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -833,7 +863,7 @@ async def send_uidai_export_email(
                 </div>
                 
                 <p>The attached CSV file contains complete operator details.</p>
-                <p>Best regards,<br>The CHiPS Aadhar Admin Team</p>
+                <p>Best regards,<br>The CHiPS Aadhaar Admin Team</p>
             </div>
             <div class="footer">
                 <p>This is an automated email sent from CHiPS Admin Portal. Please do not reply directly to this message.</p>
@@ -843,32 +873,68 @@ async def send_uidai_export_email(
     </html>
     """
 
-    from starlette.datastructures import UploadFile
-    import io
+    attachments_list = []
+    if attach_csv:
+        from starlette.datastructures import UploadFile
+        import io
 
-    if isinstance(csv_content, bytes):
-        csv_bytes = csv_content
-    else:
-        csv_bytes = csv_content.encode("utf-8")
+        if isinstance(csv_content, bytes):
+            csv_bytes = csv_content
+        else:
+            csv_bytes = csv_content.encode("utf-8")
 
-    attachment_file = UploadFile(
-        filename=filename,
-        file=io.BytesIO(csv_bytes),
-        headers={"content-type": "text/csv"}
-    )
+        attachment_file = UploadFile(
+            filename=filename,
+            file=io.BytesIO(csv_bytes),
+            headers={"content-type": "text/csv"}
+        )
+        attachments_list.append(attachment_file)
 
-    message = MessageSchema(
-        subject=f"{module_name} Requests - Ready for UIDAI Processing - CHiPS Portal",
-        recipients=[target_email],
-        body=html_content,
-        subtype=MessageType.html,
-        attachments=[attachment_file]
-    )
+    if custom_files:
+        import base64
+        from starlette.datastructures import UploadFile
+        import io
+
+        for cf in custom_files:
+            try:
+                fname = cf.get("filename", "attachment") if isinstance(cf, dict) else getattr(cf, "filename", "attachment")
+                b64 = cf.get("content_base64", "") if isinstance(cf, dict) else getattr(cf, "content_base64", "")
+                ctype = (cf.get("content_type") if isinstance(cf, dict) else getattr(cf, "content_type", None)) or "application/octet-stream"
+
+                if "," in b64:
+                    b64 = b64.split(",", 1)[1]
+                
+                raw_bytes = base64.b64decode(b64)
+                ufile = UploadFile(
+                    filename=fname,
+                    file=io.BytesIO(raw_bytes),
+                    headers={"content-type": ctype}
+                )
+                attachments_list.append(ufile)
+            except Exception as ex:
+                print(f"Failed to process custom attachment {cf}: {ex}")
+
+    message_kwargs = {
+        "subject": subject,
+        "recipients": to_list if to_list else [target_email],
+        "body": html_content,
+        "subtype": MessageType.html,
+    }
+    if cc_list:
+        message_kwargs["cc"] = cc_list
+    if bcc_list:
+        message_kwargs["bcc"] = bcc_list
+    if attachments_list:
+        message_kwargs["attachments"] = attachments_list
+
+    message = MessageSchema(**message_kwargs)
 
     if not conf.MAIL_SERVER:
         print(f"\n======================================")
-        print(f"MOCK EMAIL TO: {target_email}")
-        print(f"SUBJECT: {module_name} Requests - Ready for UIDAI Processing - CHiPS Portal")
+        print(f"MOCK EMAIL TO: {to_list or target_email}")
+        print(f"CC: {cc_list}")
+        print(f"BCC: {bcc_list}")
+        print(f"SUBJECT: {subject}")
         print(f"Record Count: {record_count}")
         print(f"Attachment Filename: {filename}")
         print(f"CSV Bytes Size: {len(csv_bytes)} bytes")

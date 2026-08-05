@@ -1,0 +1,624 @@
+{% extends 'base.html' %}
+
+{% block title %}DC - L1 Registration Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}">
+<style>
+    .delayed-row {
+        background-color: #fee2e2 !important;
+    }
+
+    .delayed-row:hover {
+        background-color: #fecaca !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% from 'partials/request_section.html' import request_section %}
+
+<!-- Jinja2 Metric Calculations -->
+{% set total_requests = requests | length %}
+{% set pending_count = requests | selectattr('status', 'equalto', 'PENDING') | list | length %}
+{% set reapplied_count = requests | selectattr('status', 'equalto', 'REAPPLIED') | list | length %}
+{% set approved_count = requests | selectattr('status', 'in', ['DONE', 'APPROVED', 'REVIEWED']) | list | length %}
+{% set reverted_count = requests | selectattr('status', 'equalto', 'REVERTED') | list | length %}
+
+<div id="view-l1-application-panel" style="display: none;">
+    <div style="margin-bottom: 20px;">
+        <button type="button" onclick="showL1Dashboard();" class="oa-btn-back">
+            <i class="ti ti-arrow-left"></i> Back to Dashboard
+        </button>
+    </div>
+
+    <h2 class="page-title"
+        style="font-size: 22px; font-weight: 700; color: var(--text-primary); margin-top: 0; margin-bottom: 20px;">
+        Submit L1
+        Registration Request</h2>
+
+    <form id="l1RegistrationForm" onsubmit="submitL1Registration(event);">
+        <div class="form-card-container">
+            <h2 class="container-sub-title">Hardware & User Details</h2>
+
+            <div class="form-grid-2x">
+                <div class="input-group">
+                    <label>Station ID <span class="required-star">*</span></label>
+                    <select name="station_id" id="l1-station-id-select" class="form-control-input" required
+                        style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;"
+                        onchange="onL1StationSelected(this)">
+                        <option value="" disabled selected>Select an allotted Station ID</option>
+                        {% for s in allotted_stations %}
+                        <option value="{{ s.station_id }}" data-model="{{ s.model }}">{{ s.station_id }}</option>
+                        {% else %}
+                        <option value="" disabled>No allotted Station IDs awaiting L1</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Machine ID <span class="required-star">*</span></label>
+                    <input type="text" name="machine_id" class="form-control-input" placeholder="Enter Machine ID"
+                        required>
+                </div>
+            </div>
+
+            <div class="form-grid-2x">
+                <div class="input-group">
+                    <label>Operator Name</label>
+                    <input type="text" name="operator_name" class="form-control-input"
+                        placeholder="Enter Operator Name (Optional)">
+                </div>
+                <div class="input-group">
+                    <label>Operator ID</label>
+                    <input type="text" name="operator_id" class="form-control-input"
+                        placeholder="Enter Operator ID (Optional)">
+                </div>
+            </div>
+
+            <h2 class="container-sub-title">System Details</h2>
+
+            <div class="form-grid-2x">
+                <div class="input-group">
+                    <label>Model Type <span class="required-star">*</span></label>
+                    <select name="model_type" class="form-control-input" required
+                        style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
+                        <option value="" disabled selected>Select Model Type</option>
+                        <option value="ECMP">ECMP</option>
+                        <option value="UCL">UCL</option>
+                        <option value="VLE">VLE</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Software Version <span class="required-star">*</span></label>
+                    <select name="software_version" class="form-control-input" required
+                        style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
+                        <option value="" disabled selected>Select Software Version</option>
+                        <option value="v3.5.2">v3.5.2 (Latest)</option>
+                        <option value="v3.5.1">v3.5.1</option>
+                        <option value="v3.5.0">v3.5.0</option>
+                        <option value="v3.4.2">v3.4.2</option>
+                        <option value="v3.4.1">v3.4.1</option>
+                        <option value="v3.4.0">v3.4.0</option>
+                        <option value="v3.3.1">v3.3.1</option>
+                        <option value="v3.3.0">v3.3.0</option>
+                        <option value="v3.2.0">v3.2.0</option>
+                        <option value="v3.1.0">v3.1.0</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-grid-2x">
+                <div class="input-group">
+                    <label>Laptop Serial Number <span class="required-star">*</span></label>
+                    <input type="text" name="laptop_serial_no" class="form-control-input"
+                        placeholder="Enter Laptop Serial Number" required>
+                </div>
+                <div class="input-group">
+                    <label>Laptop Brand <span class="required-star">*</span></label>
+                    <select name="laptop_brand" class="form-control-input" required
+                        style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
+                        <option value="" disabled selected>Select Laptop Brand</option>
+                        <option value="HP">HP</option>
+                        <option value="Acer">Acer</option>
+                    </select>
+                </div>
+            </div>
+
+            <h2 class="container-sub-title">Authentication Details</h2>
+
+            <div class="form-grid-2x">
+                <div class="input-group">
+                    <label>Ultra Viewer ID <span class="required-star">*</span></label>
+                    <input type="text" name="uv_id" class="form-control-input" placeholder="Enter Ultra Viewer ID"
+                        required>
+                </div>
+                <div class="input-group">
+                    <label>Ultra Viewer Password <span class="required-star">*</span></label>
+                    <div style="position: relative;">
+                        <input type="password" id="uv_password_input" name="uv_password" class="form-control-input"
+                            placeholder="Enter Ultra Viewer Password" required
+                            style="padding-right: 40px; width: 100%; box-sizing: border-box;">
+                        <button type="button" onclick="togglePasswordVisibility('uv_password_input', this)"
+                            style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; color: #64748b;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-actions-between" style="margin-top: 25px; align-items: center;">
+                <button type="button" class="btn-cancel"
+                    onclick="if(typeof window.clearL1DraftAndForm === 'function') window.clearL1DraftAndForm(); showL1Dashboard();"
+                    style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Cancel
+                </button>
+                <div style="display: flex; gap: 12px;">
+                    <button type="button" class="btn-secondary" onclick="clearL1Form();"
+                        style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">Clear
+                        Fields</button>
+                    <button type="submit" class="btn-primary"
+                        style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; height: 38px; box-sizing: border-box;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Submit L1 Request
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div id="view-l1-dashboard-panel">
+
+    <!-- L1 Registration Dashboard Banner -->
+    <div class="chips-header-banner" style="display: flex; flex-direction: column; align-items: flex-start; gap: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div
+                    style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">L1 Registration Dashboard
+                    </h1>
+                    <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Manage and track your L1 Registration
+                        requests</p>
+                </div>
+            </div>
+            <button type="button" onclick="showL1Form(); resetL1StationField();"
+                style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); color: white; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; transition: background 0.2s; cursor: pointer;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New Request
+            </button>
+        </div>
+        <div class="chips-banner-metrics"
+            style="display: flex; flex-wrap: wrap; gap: 15px; width: 100%; margin-top: 10px;">
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-pending">{{
+                    pending_count }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-reapplied">{{
+                    reapplied_count }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-awaiting-l1">
+                    {{
+                    allotted_stations|length }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Awaiting L1
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-reverted">{{
+                    reverted_count }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
+                </div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-approved">{{
+                    approved_count }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">L1 Done</div>
+            </div>
+            <div class="chips-metric-card">
+                <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{
+                    total_requests }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
+                    Requested Kits</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section tabs -->
+    <div class="req-tabs" role="tablist">
+        <button type="button" class="req-tab active" data-tab="awaiting">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+                <path
+                    d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+            </svg>
+            <span>Awaiting L1 registration</span>
+        </button>
+        <button type="button" class="req-tab" data-tab="pending">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <rect x="8" y="2" width="8" height="4" rx="1" />
+                <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3" />
+                <path d="M12 11v6" />
+                <path d="M9 14h6" />
+            </svg>
+            <span>Pending L1 registration requests</span>
+        </button>
+        <button type="button" class="req-tab" data-tab="reverted">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>Reverted L1 log</span>
+        </button>
+        <button type="button" class="req-tab" data-tab="approved">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>L1 Done log</span>
+        </button>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="filter-bar">
+        <div class="filter-group filter-group-search">
+            <label>Search Request</label>
+            <input type="text" id="l1-search-input" class="filter-input" onkeyup="filterL1Table()"
+                placeholder="Search by request ID or model...">
+        </div>
+        <div class="filter-group">
+            <label>Time Period</label>
+            <select id="l1-date-filter" class="filter-input" onchange="filterL1Table()">
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">Week</option>
+                <option value="month" selected>Month</option>
+            </select>
+        </div>
+        <div class="filter-group-button" style="flex: 0 0 auto; align-self: flex-end;">
+            <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
+            <i class="ti ti-x" style="font-size: 15px; stroke-width: 2.5px; margin-right: 4px;"></i>
+            Clear Filters
+        </button>
+        </div>
+    </div>
+
+    <!-- Pending Section -->
+    {% set pending_controls %}
+    <select id="pending-status-filter" class="rs-filter" onchange="filterL1Table()">
+        <option value="all">All statuses</option>
+        <option value="PENDING">Pending</option>
+        <option value="REAPPLIED">Reapplied</option>
+    </select>
+    <button class="rs-export" onclick="exportTableToExcel('pending-table', 'pending')">Export to CSV</button>
+    {% endset %}
+    <!-- Awaiting L1 Section: Station IDs allotted but L1 not filled yet -->
+    <div class="req-tabpanel active" data-panel="awaiting">
+        {% call request_section(
+        variant='progress',
+        title='Awaiting L1 registration (Station ID allotted)',
+        count=allotted_stations|length, count_id='allotted-count',
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Station ID'},
+        {'label': 'Request no'},
+        {'label': 'Model'},
+        {'label': 'Type of slot'},
+        {'label': 'Allotted at'},
+        {'label': 'Actions', 'align': 'center'}
+        ],
+        table_id='allotted-table', body_id='allotted-tbody',
+        empty_message='No allotted Station IDs are awaiting L1 registration.',
+        show_empty=(allotted_stations|length == 0)) %}
+        {% for s in allotted_stations %}
+        <tr data-status="AWAITING" data-request-no="{{ s.request_no }}" data-station-id="{{ s.station_id }}"
+            data-model="{{ s.model }}" data-created="{{ s.allotted_at }}">
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ s.station_id }}</strong></td>
+            <td>{{ s.request_no }}</td>
+            <td>{{ s.model }}</td>
+            <td>{{ s.slot }}</td>
+            <td>{{ s.allotted_at }}</td>
+            <td style="text-align: center;">
+                <button type="button" class="btn-issue"
+                    onclick="startL1ForStation('{{ s.station_id }}', '{{ s.model }}')">
+                    Register L1
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel awaiting -->
+
+    <!-- Pending Section -->
+    {% set pending_controls %}
+    <select id="pending-status-filter" class="rs-filter" onchange="filterL1Table()">
+        <option value="all">All statuses</option>
+        <option value="PENDING">Pending</option>
+        <option value="REAPPLIED">Reapplied</option>
+    </select>
+    <button class="rs-export" onclick="exportTableToExcel('pending-table', 'pending')">Export to CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="pending">
+        {% call request_section(
+        variant='pending',
+        title='Pending L1 registration requests',
+        count='–', count_id='pending-count',
+        controls=pending_controls,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'Station ID'},
+        {'label': 'Model'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Actions', 'align': 'center'}
+        ],
+        table_id='pending-table', body_id='pending-tbody',
+        empty_id='pending-empty-msg',
+        empty_message='No pending request records found matching current scope.') %}
+        {% set ns_p = namespace(count=1) %}
+        {% for req in requests if (req.status|upper) in ['PENDING', 'REAPPLIED'] %}
+        <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}"
+            data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
+            <td>{{ ns_p.count }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.station_id }}</td>
+            <td>{{ req.model_type }}</td>
+            <td>
+                {% if (req.status|upper) == 'PENDING' %}
+                <span class="badge badge-pending">Pending</span>
+                {% else %}
+                <span class="badge badge-reapplied">Reapplied</span>
+                {% endif %}
+            </td>
+            <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
+            <td>
+                {% if (req.status|upper) in ['REAPPLIED', 'SENT_TO_UIDAI'] and req.updated_at and req.updated_at
+                != '—' %}
+                {{ req.updated_at|string|truncate(19, True, '') }}
+                {% else %}
+                —
+                {% endif %}
+            </td>
+            <td style="text-align: center;">
+                <div style="display:flex; gap:6px; justify-content:center;">
+                    <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Details
+                    </button>
+                </div>
+            </td>
+        </tr>
+        {% set ns_p.count = ns_p.count + 1 %}
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel pending -->
+
+    <!-- Reverted History Section -->
+    {% set reverted_controls %}
+    <button class="rs-export" onclick="exportTableToExcel('reverted-table', 'reverted_history')">Export to CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="reverted">
+        {% call request_section(
+        variant='rejected',
+        title='Reverted L1 log',
+        count='–', count_id='reverted-count-badge',
+        controls=reverted_controls,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'Station ID'},
+        {'label': 'Model'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Actions', 'align': 'center'}
+        ],
+        table_id='reverted-table', body_id='reverted-tbody',
+        empty_id='reverted-empty-msg',
+        empty_message='No reverted request logs found.') %}
+        {% set ns_r = namespace(count=1) %}
+        {% for req in requests if (req.status|upper) not in ['PENDING', 'REAPPLIED', 'DONE', 'APPROVED', 'REVIEWED'] %}
+        <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}"
+            data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
+            <td>{{ ns_r.count }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.station_id }}</td>
+            <td>{{ req.model_type }}</td>
+            <td>
+                <span class="badge badge-reverted">Reverted</span>
+            </td>
+            <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
+            <td>{{ req.updated_at|string|truncate(19, True, '') if req.updated_at else
+                (req.reviewed_at|string|truncate(19, True, '') if req.reviewed_at else '—') }}</td>
+            <td style="text-align: center;">
+                <div style="display:flex; gap:6px; justify-content:center;">
+                    <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Details
+                    </button>
+                </div>
+            </td>
+        </tr>
+        {% set ns_r.count = ns_r.count + 1 %}
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel reverted -->
+
+    <!-- Approved History Section -->
+    {% set approved_controls %}
+    <button class="rs-export" onclick="exportTableToExcel('approved-table', 'approved_history')">Export to CSV</button>
+    {% endset %}
+    <div class="req-tabpanel" data-panel="approved">
+        {% call request_section(
+        variant='approved',
+        title='L1 Done log',
+        count='–', count_id='approved-count-badge',
+        controls=approved_controls,
+        columns=[
+        {'label': 'S.No', 'cls': 'rs-col-sno'},
+        {'label': 'Request ID'},
+        {'label': 'Station ID'},
+        {'label': 'Model'},
+        {'label': 'Status'},
+        {'label': 'Submitted at'},
+        {'label': 'Updated at'},
+        {'label': 'Actions', 'align': 'center'}
+        ],
+        table_id='approved-table', body_id='approved-tbody',
+        empty_id='approved-empty-msg',
+        empty_message='No approved request logs found.') %}
+        {% set ns_a = namespace(count=1) %}
+        {% for req in requests if (req.status|upper) in ['DONE', 'L1_DONE', 'L1 DONE', 'APPROVED', 'REVIEWED'] %}
+        <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}"
+            data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
+            <td>{{ ns_a.count }}</td>
+            <td><strong>{{ req.request_code }}</strong></td>
+            <td>{{ req.station_id }}</td>
+            <td>{{ req.model_type }}</td>
+            <td>
+                <span class="badge badge-approved">L1 Done</span>
+            </td>
+            <td>{{ req.created_at|string|truncate(19, True, '') }}</td>
+            <td>{{ req.updated_at|string|truncate(19, True, '') if req.updated_at else
+                (req.reviewed_at|string|truncate(19, True, '') if req.reviewed_at else '—') }}</td>
+            <td style="text-align: center;">
+                <div style="display:flex; gap:6px; justify-content:center;">
+                    <button type="button" class="btn-details" onclick="openL1DetailsModal('{{ req.request_code }}')">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Details
+                    </button>
+                </div>
+            </td>
+        </tr>
+        {% set ns_a.count = ns_a.count + 1 %}
+        {% endfor %}
+        {% endcall %}
+    </div><!-- /panel approved -->
+
+</div>
+
+<script src="{{ url_for('static', filename='js/dc_l1_registration.js') }}?v=1.8"></script>
+<script>
+    // Confirm, then open the L1 form pre-filled for an allotted Station ID
+    // (from the "Awaiting L1" section).
+    function startL1ForStation(stationId, model) {
+        Swal.fire({
+            title: 'Proceed with L1 Registration?',
+            html: `You are about to begin the L1 registration for Station ID <strong>${stationId}</strong>. Do you want to continue?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#378ADD',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Yes, Continue',
+            cancelButtonText: 'Cancel',
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+
+            if (typeof clearL1DraftAndForm === 'function') {
+                clearL1DraftAndForm();
+            } else if (typeof clearL1Form === 'function') {
+                clearL1Form();
+            }
+            if (typeof showL1Form === 'function') showL1Form();
+
+            const form = document.getElementById('l1RegistrationForm');
+            if (!form) return;
+
+            // Pre-select the chosen Station ID in the dropdown
+            const sel = document.getElementById('l1-station-id-select');
+            if (sel) sel.value = stationId;
+
+            const mt = form.querySelector('[name="model_type"]');
+            if (mt && model) {
+                const opt = Array.from(mt.options).find(o => o.value === model);
+                if (opt) mt.value = model;
+            }
+            if (typeof window.saveL1Draft === 'function') window.saveL1Draft();
+        });
+    }
+
+    // Auto-fill the model when a Station ID is picked from the dropdown.
+    function onL1StationSelected(sel) {
+        const opt = sel.options[sel.selectedIndex];
+        const model = opt ? opt.getAttribute('data-model') : '';
+        const form = document.getElementById('l1RegistrationForm');
+        if (form && model) {
+            const mt = form.querySelector('[name="model_type"]');
+            if (mt) {
+                const o = Array.from(mt.options).find(x => x.value === model);
+                if (o) mt.value = model;
+            }
+        }
+        if (typeof window.saveL1Draft === 'function') window.saveL1Draft();
+    }
+
+    // Reset the Station ID dropdown to its placeholder for a blank "New Request".
+    function resetL1StationField() {
+        const sel = document.getElementById('l1-station-id-select');
+        if (sel) sel.selectedIndex = 0;
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const now = new Date();
+        document.querySelectorAll('#reverted-tbody tr, [data-panel="reverted"] tr').forEach(row => {
+            let dateAttr = row.getAttribute('data-updated');
+            if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
+                dateAttr = row.getAttribute('data-created');
+            }
+            if (dateAttr && dateAttr !== 'None' && dateAttr !== '—' && dateAttr.trim() !== '') {
+                const dateObj = new Date(dateAttr.replace(' ', 'T'));
+                if (!isNaN(dateObj)) {
+                    const diffTime = Math.abs(now - dateObj);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 7) {
+                        row.classList.add('delayed-row');
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

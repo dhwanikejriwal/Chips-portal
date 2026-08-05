@@ -648,14 +648,14 @@ async def finalize_batch_request(request_code: str, db: Session = Depends(get_db
                     req.status_id = StatusEnum.REVERTED.value
                     req.reviewed_by = current_user.id
             elif req.status_id == StatusEnum.SENT_TO_UIDAI.value:
-                req.status_id = StatusEnum.REVIEWED.value
+                req.status_id = StatusEnum.APPROVED.value
                 req.reviewed_by = current_user.id
             else:
                 if StatusEnum.REVERTED.value in statuses and StatusEnum.APPROVED.value not in statuses:
                     req.status_id = StatusEnum.REVERTED.value
                     req.reviewed_by = current_user.id
                 else:
-                    req.status_id = StatusEnum.REVIEWED.value
+                    req.status_id = StatusEnum.APPROVED.value
                     req.reviewed_by = current_user.id
                     
             db.add(ReactivationRemarkHistory(
@@ -733,7 +733,7 @@ async def backend_batch_request_to_uidai(request_code: str, remarks: str = Form(
 async def approve_all_operators_in_batch(request_code: str, reason: Optional[str] = Form(None), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
     if req:
-        req.status_id = StatusEnum.REVIEWED.value
+        req.status_id = StatusEnum.APPROVED.value
         req.reviewed_by = current_user.id
         req.updated_at = get_ist_now()
         
@@ -761,7 +761,7 @@ async def approve_all_operators_in_batch(request_code: str, reason: Optional[str
 async def reject_all_operators_in_batch(request_code: str, reason: str = Form(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
     if req:
-        req.status_id = StatusEnum.REVIEWED.value
+        req.status_id = StatusEnum.APPROVED.value
         req.reviewed_by = current_user.id
         req.updated_at = get_ist_now()
         
@@ -984,9 +984,24 @@ async def get_reactivation_file(request_code: str, file_type: str, db: Session =
 async def search_suspended_operators(q: str = "", db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     user_role_str = get_user_role_str(current_user)
     
-    query = db.query(Operator).filter(Operator.status.ilike("%suspended%"))
+    from sqlalchemy import or_
+    query = db.query(Operator).filter(
+        or_(
+            Operator.status.ilike("%suspended%"),
+            Operator.status.ilike("%inactive%"),
+            Operator.status.ilike("%deactive%"),
+            Operator.status.ilike("%deboard%"),
+            Operator.inactive_reason.ilike("%suspended%")
+        )
+    )
     if user_role_str == "dc":
-        query = query.filter(Operator.district_id == str(current_user.district_id))
+        query = query.filter(
+            or_(
+                Operator.mapped_dc_id == current_user.id,
+                Operator.district_id == str(current_user.district_id),
+                Operator.district_id == current_user.district_id
+            )
+        )
         
     if q:
         query = query.filter(
@@ -997,26 +1012,81 @@ async def search_suspended_operators(q: str = "", db: Session = Depends(get_db),
         )
         
     operators = query.all()
-    return [
-        {
+
+    # Fallback: if no operators found with specific suspended filter for DC, return all non-active operators in DC's domain
+    if not operators and user_role_str == "dc":
+        fallback_query = db.query(Operator).filter(
+            or_(
+                Operator.mapped_dc_id == current_user.id,
+                Operator.district_id == str(current_user.district_id),
+                Operator.district_id == current_user.district_id
+            )
+        )
+        if q:
+            fallback_query = fallback_query.filter(
+                (Operator.name.ilike(f"%{q}%")) |
+                (Operator.mobile.ilike(f"%{q}%")) |
+                (Operator.email.ilike(f"%{q}%")) |
+                (Operator.user_code.ilike(f"%{q}%"))
+            )
+        operators = fallback_query.all()
+
+    # Also query OperatorMaster table for suspended records
+    from backend.models.operator_master import OperatorMaster
+    master_query = db.query(OperatorMaster).filter(OperatorMaster.status.ilike("%suspended%"))
+    if q:
+        master_query = master_query.filter(
+            (OperatorMaster.name.ilike(f"%{q}%")) |
+            (OperatorMaster.operator_code.ilike(f"%{q}%"))
+        )
+    master_ops = master_query.limit(50).all()
+
+    seen_ids = set()
+    results = []
+    for o in operators:
+        seen_ids.add(o.id)
+        results.append({
             "id": o.id,
             "name": o.name,
-            "mobile": o.mobile,
-            "email": o.email,
-            "role": o.role,
-            "nseit_id": o.nseit_certificate_number,
-            "user_code": o.user_code,
-            "registrar_code": o.registrar_code,
-            "ea_code": o.ea_code,
-            "aadhaar_last4": o.aadhaar_last4
-        }
-        for o in operators
-    ]
+            "mobile": o.mobile or "—",
+            "email": o.email or "",
+            "role": o.role or "Operator",
+            "nseit_id": o.nseit_certificate_number or "",
+            "user_code": o.user_code or "",
+            "registrar_code": o.registrar_code or "",
+            "ea_code": o.ea_code or "",
+            "aadhaar_last4": o.aadhaar_last4 or ""
+        })
+
+    for m in master_ops:
+        key = f"m_{m.id}"
+        if key not in seen_ids:
+            seen_ids.add(key)
+            results.append({
+                "id": m.id,
+                "name": m.name,
+                "mobile": "—",
+                "email": "",
+                "role": "Operator",
+                "nseit_id": "",
+                "user_code": m.operator_code,
+                "registrar_code": m.registrar_code,
+                "ea_code": "",
+                "aadhaar_last4": m.aadhar_last4 or ""
+            })
+
+    return results
 
 
 class ExportAndMailReactivationRequest(BaseModel):
     ids: str | None = None
     email_to: str | None = None
+    email_cc: str | None = None
+    email_bcc: str | None = None
+    subject: str | None = None
+    body_html: str | None = None
+    attach_csv: bool = True
+    custom_files: list[dict] | None = None
 
 @router.get("/export-and-mail/recipient")
 def get_reactivation_export_mail_recipient():
@@ -1108,7 +1178,13 @@ def export_and_mail_reactivation_to_uidai(
             record_count=len(records),
             module_name="Operator Reactivation",
             filename="operator_reactivation_sent_to_uidai.csv",
-            email_to=target_email
+            email_to=target_email,
+            email_cc=payload.email_cc,
+            email_bcc=payload.email_bcc,
+            custom_subject=payload.subject,
+            custom_body_html=payload.body_html,
+            attach_csv=payload.attach_csv,
+            custom_files=payload.custom_files
         ))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to email CSV export: {str(e)}")

@@ -12,7 +12,7 @@ def dc_operator_onboarding():
     if session.get("role") != "DC":
         return redirect(url_for("auth.login"))
         
-    return render_template("operator_onboarding/entry_form.html")
+    return render_template("operator_onboarding/onboarding_form.html")
 
 @operator_onboarding_bp.route("/dc/operator-onboarding/options", methods=["GET"])
 def get_onboarding_options():

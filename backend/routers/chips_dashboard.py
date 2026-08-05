@@ -55,7 +55,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         s = str(r.status or "").strip().lower()
         counts_map[s] = counts_map.get(s, 0) + 1
     
-    pending_count = counts_map.get("pending", 0) + counts_map.get("sent_to_chips", 0)
+    pending_count = counts_map.get("pending", 0) + counts_map.get("pending", 0)
     summary = {
         "total": len(all_act),
         "pending": pending_count,
@@ -79,7 +79,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         total = len(user_reqs)
         approved = sum(1 for r in user_reqs if str(r.status or "").strip().lower() == "approved")
         rejected = sum(1 for r in user_reqs if str(r.status or "").strip().lower() == "rejected")
-        pending = sum(1 for r in user_reqs if str(r.status or "").strip().lower() in ["pending", "sent_to_chips"])
+        pending = sum(1 for r in user_reqs if str(r.status or "").strip().lower() in ["pending", "pending"])
         
         hours_list = []
         for r in user_reqs:
@@ -400,7 +400,7 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
             "name": r.name_as_per_aadhaar or r.operator_name or "",
             "district": dname or "Unknown",
             "district_id": str(r.district_id or ""),
-            "status": (r.status or "sent_to_chips").strip().lower(),
+            "status": (r.status or "pending").strip().lower(),
             "submitted_days_ago": _days_ago(submitted_at),
             "response_time_hours": resp_hours,
             "nseit_certificate_number": r.operator_aadhaar or "",
@@ -415,7 +415,7 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
         station_id_requests.append({
             "id": r.id,
             "district": dname or "Unknown",
-            "status": (r.status or "sent_to_chips").strip().lower(),
+            "status": (r.status or "pending").strip().lower(),
             "submitted_days_ago": _days_ago(r.submitted_at),
         })
 
@@ -438,7 +438,7 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
         l2_requests.append({
             "id": r.id,
             "district": dname or "Unknown",
-            "status": (r.status or "sent_to_chips").strip().lower(),
+            "status": (r.status or "pending").strip().lower(),
             "client_type": getattr(r, "client_type", ""),
             "submitted_days_ago": _days_ago(submitted_at),
             "response_time_hours": resp_hours,
@@ -463,7 +463,7 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
         l1_requests.append({
             "id": r.id,
             "district": dname or "Unknown",
-            "status": (r.status or "sent_to_chips").strip().lower(),
+            "status": (r.status or "pending").strip().lower(),
             "submitted_days_ago": _days_ago(submitted_at),
             "response_time_hours": resp_hours,
         })

@@ -32,7 +32,7 @@ def instructions():
     except Exception:
         flash("Error connecting to backend API.", "danger")
         
-    return render_template("candidate/instructions.html", status_data=status_data)
+    return render_template("candidate_panel/instructions.html", status_data=status_data)
 
 @candidate_bp.route("/candidate/lms", methods=["GET", "POST"])
 def candidate_lms():
@@ -88,7 +88,7 @@ def candidate_lms():
     except Exception:
         pass
         
-    return render_template("candidate/lms.html", status_data=status_data, districts=districts)
+    return render_template("candidate_panel/lms.html", status_data=status_data, districts=districts)
 
 
 @candidate_bp.route("/candidate/nseit", methods=["GET", "POST"])
@@ -178,7 +178,7 @@ def candidate_nseit():
     except Exception:
         flash("Error fetching request details.", "danger")
         
-    return render_template("candidate/nseit.html", status_data=status_data)
+    return render_template("candidate_panel/nseit.html", status_data=status_data)
 
 @candidate_bp.route("/candidate/skip-lms", methods=["POST"])
 def skip_lms():
@@ -322,7 +322,7 @@ def profile():
     except Exception:
         flash("Error fetching candidate profile details.", "danger")
         
-    return render_template("candidate/profile.html", status_data=status_data)
+    return render_template("candidate_panel/candidate_profile.html", status_data=status_data)
 
 
 @candidate_bp.route("/candidate/update-lms-id", methods=["POST"])
@@ -487,11 +487,11 @@ def change_password():
 
         if new_password != confirm_password:
             flash("New passwords do not match.", "danger")
-            return render_template("candidate/change_password.html", status_data=status_data)
+            return render_template("candidate_panel/change_password.html", status_data=status_data)
             
         if current_password == new_password:
             flash("New password cannot be the same as your current password.", "danger")
-            return render_template("candidate/change_password.html", status_data=status_data)
+            return render_template("candidate_panel/change_password.html", status_data=status_data)
 
         backend_pw_url = f"{current_app.config['BACKEND_API_URL']}/auth/change-password"
         headers = {"Authorization": f"Bearer {session.get('access_token')}"}
@@ -512,6 +512,6 @@ def change_password():
         except Exception:
             flash("Error connecting to backend API.", "danger")
 
-    return render_template("candidate/change_password.html", status_data=status_data)
+    return render_template("candidate_panel/change_password.html", status_data=status_data)
 
 

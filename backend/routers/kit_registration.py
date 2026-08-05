@@ -19,7 +19,7 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # ── Status buckets (mapped from the real L1 / L2 request lifecycles) ──────────
 # L1 request is "done" once APPROVED or REVIEWED; pending while PENDING/REAPPLIED.
-L1_DONE_STATES = {StatusEnum.L1_DONE.value, StatusEnum.APPROVED.value, StatusEnum.REVIEWED.value}
+L1_DONE_STATES = {StatusEnum.L1_DONE.value, StatusEnum.APPROVED.value}
 L1_PENDING_STATES = {StatusEnum.PENDING.value, StatusEnum.REAPPLIED.value}
 # L2 request is "done" once APPROVED or L2_DONE; pending while PENDING/REAPPLIED/SENT_TO_UIDAI.
 L2_DONE_STATES = {StatusEnum.L2_DONE.value, StatusEnum.APPROVED.value}

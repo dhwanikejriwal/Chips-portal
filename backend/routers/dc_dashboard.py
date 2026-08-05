@@ -98,7 +98,7 @@ def get_dc_dashboard_summary(
             "name": r.name_as_per_aadhaar or r.operator_name or "",
             "label": label,
             "district": dname or district_name,
-            "status": (r.status or "sent_to_chips").strip().lower(),
+            "status": (r.status or "pending").strip().lower(),
             "submitted_days_ago": _days_ago(r.submitted_at),
             "created_at": r.submitted_at.isoformat() if r.submitted_at else None,
             "revert_reason": getattr(r, "revert_reason", None) or getattr(r, "reject_reason", "") or "",
@@ -166,7 +166,7 @@ def get_dc_dashboard_summary(
         label = getattr(r, "station_id", None) or getattr(r, "station_id_inserted", None) or (f"#{r.id}" if r.id else "Request")
         station_id_requests.append({
             "district": dname or district_name,
-            "status": (r.status or "sent_to_chips").strip().lower(),
+            "status": (r.status or "pending").strip().lower(),
             "submitted_days_ago": _days_ago(r.submitted_at),
             "created_at": r.submitted_at.isoformat() if r.submitted_at else None,
             "label": label,
@@ -182,7 +182,7 @@ def get_dc_dashboard_summary(
         label = getattr(r, "request_code", None) or (f"#{r.id}" if r.id else "Request")
         l1_requests.append({
             "district": dname or district_name,
-            "status": (r.status or "sent_to_chips").strip().lower(),
+            "status": (r.status or "pending").strip().lower(),
             "submitted_days_ago": _days_ago(r.created_at),
             "created_at": r.created_at.isoformat() if r.created_at else None,
             "label": label,
@@ -199,7 +199,7 @@ def get_dc_dashboard_summary(
         label = getattr(r, "request_no", None) or getattr(r, "new_station_id", None) or (f"#{r.id}" if r.id else "Request")
         l2_requests.append({
             "district": dname or district_name,
-            "status": (r.status or "sent_to_chips").strip().lower(),
+            "status": (r.status or "pending").strip().lower(),
             "submitted_days_ago": _days_ago(r.submitted_at),
             "created_at": r.submitted_at.isoformat() if r.submitted_at else None,
             "label": label,

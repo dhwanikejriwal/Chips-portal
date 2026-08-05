@@ -12,7 +12,7 @@ def dc_operator_mapping():
     if session.get("role") != "DC":
         return redirect(url_for("auth.login"))
         
-    return render_template("operator_mapping/dc_list.html")
+    return render_template("operator_mapping/mapping_form.html")
 
 @operator_mapping_bp.route("/dc/operator-mapping/options", methods=["GET"])
 def get_mapping_options():

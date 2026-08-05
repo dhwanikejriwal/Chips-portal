@@ -169,7 +169,7 @@ function filterL1Table() {
                 metricReapplied++;
             } else if (rowStatus === 'REVERTED') {
                 metricReverted++;
-            } else if (['DONE', 'APPROVED', 'REVIEWED'].includes(rowStatus)) {
+            } else if (['L1_DONE', 'APPROVED'].includes(rowStatus)) {
                 metricApproved++;
             } else if (rowStatus === 'AWAITING') {
                 metricAwaiting++;
@@ -373,7 +373,7 @@ function getStatusBadgeHtml(status) {
     const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
     let badgeClass = 'badge-pending';
     let label = 'Pending';
-    if (s.includes('done') || s.includes('approve') || s.includes('reviewed')) { badgeClass = 'badge-approved'; label = 'Done'; }
+    if (s.includes('approve') || s.includes('l1 done') || s.includes('l1_done')) { badgeClass = 'badge-approved'; label = 'L1 Done'; }
     else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
     else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
     else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
@@ -398,7 +398,7 @@ function buildL1RemarksHtml(remarks) {
         if (statusAfter) {
             statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
             const sLower = statusAfter.toLowerCase();
-            if (sLower.includes('done') || sLower.includes('approve') || sLower.includes('reviewed')) markerClass = 'marker-approved';
+            if (sLower.includes('approve') || sLower.includes('l1 done') || sLower.includes('l1_done')) markerClass = 'marker-approved';
             else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
             else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
             else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';

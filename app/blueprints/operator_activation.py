@@ -283,7 +283,7 @@ def dc_requests_list():
             pass
 
     return render_template(
-        "operator_activation/dc_list.html", 
+        "operator_activation/dc_activation.html", 
         requests=requests_list, 
         error=error,
         reapply_id=reapply_id,
@@ -295,13 +295,7 @@ def dc_requests_list():
     "/dc/operator-activation/<int:request_id>/detail", methods=["GET"]
 )
 def dc_detail(request_id):
-    jwt_token = session.get("access_token")
-    if not jwt_token:
-        return redirect(url_for("auth.login"))
-    headers = {"Authorization": f"Bearer {jwt_token}"}
-    response = requests.get(f"{backend_url()}/{request_id}", headers=headers)
-    detail = response.json() if response.status_code == 200 else {}
-    return render_template("operator_activation/reapply.html", r=detail)
+    return redirect(url_for("operator_activation.dc_requests_list"))
 
 
 @operator_activation_bp.route(
@@ -403,7 +397,7 @@ def chips_all_requests():
         requests_list = filter_by_aging(pending_subset, aging_filter, "submitted_at")
 
     return render_template(
-        "operator_activation/chips_list.html",
+        "operator_activation/chips_activation.html",
         requests=requests_list,
         unfiltered_requests=all_reqs,
         aging_filter=aging_filter,
@@ -462,13 +456,7 @@ def chips_reject(request_id):
     "/chips/operator-activation/<int:request_id>/detail", methods=["GET"]
 )
 def chips_detail(request_id):
-    jwt_token = session.get("access_token")
-    if not jwt_token:
-        return redirect(url_for("auth.login"))
-    headers = {"Authorization": f"Bearer {jwt_token}"}
-    response = requests.get(f"{backend_url()}/{request_id}/detail", headers=headers)
-    detail = response.json() if response.status_code == 200 else {}
-    return render_template("operator_activation/detail.html", r=detail)
+    return redirect(url_for("operator_activation.chips_all_requests"))
 
 
 @operator_activation_bp.route(
@@ -492,17 +480,7 @@ def chips_detail_json(request_id):
 )
 def chips_view_request(request_id):
     """Full operator profile + documents viewer page."""
-    jwt_token = session.get("access_token")
-    if not jwt_token:
-        return redirect(url_for("auth.login"))
-    headers = {"Authorization": f"Bearer {jwt_token}"}
-    response = requests.get(f"{backend_url()}/{request_id}", headers=headers)
-    detail = response.json() if response.status_code == 200 else {}
-    return render_template(
-        "operator_activation/operator_detail_view.html",
-        r=detail,
-        request_id=request_id,
-    )
+    return redirect(url_for("operator_activation.chips_all_requests"))
 
 
 @operator_activation_bp.route(
@@ -654,19 +632,17 @@ def chips_export_and_mail():
     jwt_token = session.get("access_token")
     headers = {"Authorization": f"Bearer {jwt_token}"}
     data = request.get_json(silent=True) or {}
-    ids = data.get("ids") or request.form.get("ids", "")
-    email_to = data.get("email_to") or request.form.get("email_to", "")
     
     try:
         response = requests.post(
             f"{backend_url()}/export-and-mail",
-            json={"ids": ids, "email_to": email_to},
+            json=data,
             headers=headers,
-            timeout=25
+            timeout=35
         )
         return response.json(), response.status_code
-    except requests.exceptions.RequestException:
-        return {"detail": "Error connecting to backend API server."}, 500
+    except requests.exceptions.RequestException as e:
+        return {"detail": f"Error connecting to backend API server: {str(e)}"}, 500
 
 
 @operator_activation_bp.route(
@@ -709,6 +685,26 @@ def chips_export_credentials():
     )
 
 
+@operator_activation_bp.route(
+    "/chips/operator-activation/export-excel/uidai", methods=["GET"]
+)
+def chips_export_uidai():
+    jwt_token = session.get("access_token")
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+    ids = request.args.get("ids", "")
+    params = {"ids": ids} if ids else {}
+    response = requests.get(f"{backend_url()}/export-excel/uidai", headers=headers, params=params)
+    from flask import Response
+
+    return Response(
+        response.content,
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=operator_activation_sent_to_uidai.csv"
+        },
+    )
+
+
 @operator_activation_bp.route("/dc/operator-activation/export-excel/pending", methods=["GET"])
 def dc_export_pending():
     jwt_token = session.get("access_token")
@@ -743,7 +739,7 @@ def dc_export_uidai():
     headers = {"Authorization": f"Bearer {jwt_token}"}
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
-    response = requests.get(f"{backend_url()}/export-excel/pending", headers=headers, params=params)
+    response = requests.get(f"{backend_url()}/export-excel/uidai", headers=headers, params=params)
     from flask import Response
     return Response(
         response.content,

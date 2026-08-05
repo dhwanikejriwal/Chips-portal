@@ -56,4 +56,4 @@ def dc_dashboard():
             "l2_requests": [],
         }
 
-    return render_template("dc/dc_dash.html", stats=stats)
+    return render_template("dashboards/dc_dash.html", stats=stats)

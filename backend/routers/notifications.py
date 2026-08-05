@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.routers.auth import get_current_user, get_current_session
 from backend.models import UserLogin
-from backend.notification_utils import compute_notification_snapshot
+from backend.utils.notification_utils import compute_notification_snapshot
 
 router = APIRouter()
 

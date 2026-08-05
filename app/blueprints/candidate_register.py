@@ -47,7 +47,7 @@ def get_backend_error(response, fallback="Failed to register candidate."):
 
 @candidate_register_bp.route("/eligibility")
 def eligibility():
-    return render_template("user/eligibility.html")
+    return render_template("user_registration/eligibility.html")
 
 
 @candidate_register_bp.route("/check-mobile", methods=["GET"])
@@ -237,7 +237,7 @@ def register():
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                 from flask import jsonify
                 return jsonify({"success": False, "field_errors": global_field_errors, "error": "Validation failed. Please check form entries."}), 400
-            return render_template("user/register.html", field_errors=global_field_errors, form_data=form_data, districts=districts)
+            return render_template("user_registration/register.html", field_errors=global_field_errors, form_data=form_data, districts=districts)
 
         # ── 3. SEND CLEAN PAYLOAD TO FASTAPI BACKEND ──
         register_url = f"{current_app.config['BACKEND_API_URL']}/candidate_register/register-candidate"
@@ -329,7 +329,7 @@ def register():
                 return jsonify({"success": False, "error": err_msg}), 500
             flash(err_msg, "danger")
 
-    return render_template("user/register.html", districts=districts)
+    return render_template("user_registration/register.html", districts=districts)
 
 
 @candidate_register_bp.route("/register/success", methods=["GET"])
@@ -337,7 +337,7 @@ def register_success():
     request_code = session.pop("reg_success_code", None)
     if not request_code:
         return redirect("/")
-    return render_template("user/reg_success.html", request_code=request_code)
+    return render_template("user_registration/reg_success.html", request_code=request_code)
 
 
 @candidate_register_bp.route("/ocr/extract-id", methods=["POST"])

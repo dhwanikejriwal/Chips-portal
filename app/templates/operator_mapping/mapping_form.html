@@ -1,0 +1,343 @@
+{% extends 'base.html' %}
+
+{% block title %}Operator Kit Mapping — CHiPS Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}">
+<style>
+    .mapping-card {
+        background: var(--surface-card);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        padding: 24px;
+        margin-bottom: 24px;
+        border: 1px solid var(--border-strong);
+        color: var(--text-primary);
+    }
+
+    .mapping-card h3 {
+        margin: 0 0 20px 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-subtle);
+        padding-bottom: 12px;
+    }
+
+    .form-row {
+        display: flex;
+        gap: 20px;
+        align-items: flex-end;
+    }
+
+    .form-group {
+        flex: 1;
+        margin-bottom: 0;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+    }
+
+    .form-group select {
+        width: 100%;
+        height: 40px;
+        padding: 0 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: 6px;
+        font-size: 14px;
+        color: var(--text-primary);
+        background-color: var(--surface-input);
+        box-sizing: border-box;
+    }
+
+    .btn-map {
+        background-color: var(--action, #3b82f6);
+        color: white;
+        border: none;
+        padding: 0 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+    }
+
+    .btn-map:hover {
+        background-color: var(--action-hover, #2563eb);
+    }
+
+    .btn-remove {
+        background-color: var(--st-rejected-bg, #fee2e2);
+        color: var(--st-rejected-fg, #dc2626);
+        border: 1px solid var(--border-subtle, #fecaca);
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-remove:hover {
+        background-color: var(--st-rejected-fg, #dc2626);
+        color: #ffffff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="chips-header-banner">
+    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div
+                style="background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <polyline points="16 11 18 13 22 9"></polyline>
+                </svg>
+            </div>
+            <div>
+                <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">Operator Kit Mapping</h1>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Link Operators to Station IDs securely</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mapping-card">
+    <h3>Operator Kit Mapping Form</h3>
+    <form id="mapping-form">
+        <div class="form-row" style="display: flex; gap: 20px; align-items: flex-end;">
+            <div class="form-group" style="flex: 1;">
+                <label>Station ID <span style="color: #dc2626;">*</span></label>
+                <select id="station_id" required>
+                    <option value="" disabled selected>--- Select Station Id ---</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label>Operator Details <span style="color: #dc2626;">*</span></label>
+                <select id="operator_id" required>
+                    <option value="" disabled selected>--- Select Operator ---</option>
+                </select>
+            </div>
+            <div style="flex: 0 0 auto;">
+                <button type="submit" class="btn-map" id="btn-submit">Map</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="mapping-card">
+    <h3>Operators Kit Mapped List</h3>
+    <div class="sid-table-wrapper">
+        <table class="sid-table" id="mapping-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">SR No.</th>
+                    <th>Station ID</th>
+                    <th>Operator Details</th>
+                    <th style="width: 150px; text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="mapping-tbody">
+                <!-- Populated via JS -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        loadOptions();
+        loadMappings();
+
+        document.getElementById('mapping-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const stationId = document.getElementById('station_id').value;
+            const operatorId = document.getElementById('operator_id').value;
+
+            if (!stationId || !operatorId) {
+                Swal.fire({ icon: 'warning', title: 'Missing Fields', text: 'Please select both Station ID and Operator.' });
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            btn.innerText = 'Mapping...';
+
+            try {
+                const response = await fetch('/auth/dc/operator-mapping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ station_id: stationId, operator_id: parseInt(operatorId) })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Mapped Successfully',
+                        text: 'The operator has been linked to the station ID.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    // Reload data
+                    loadOptions();
+                    loadMappings();
+                    document.getElementById('station_id').value = '';
+                    document.getElementById('operator_id').value = '';
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'Could not map operator.' });
+                }
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Network Error', text: 'Could not connect to server.' });
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Map';
+            }
+        });
+    });
+
+    async function loadOptions() {
+        try {
+            const res = await fetch('/auth/dc/operator-mapping/options');
+            if (!res.ok) return;
+            const data = await res.json();
+
+            const stationSelect = document.getElementById('station_id');
+            // Clear all options safely
+            while (stationSelect.options.length > 0) {
+                stationSelect.remove(0);
+            }
+            // Add default option
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = "";
+            defaultOpt.disabled = true;
+            defaultOpt.selected = true;
+            defaultOpt.textContent = "--- Select Station Id ---";
+            stationSelect.appendChild(defaultOpt);
+
+            data.station_ids.forEach(sid => {
+                const opt = document.createElement('option');
+                opt.value = sid;
+                opt.textContent = sid;
+                stationSelect.appendChild(opt);
+            });
+
+            const operatorSelect = document.getElementById('operator_id');
+            while (operatorSelect.options.length > 0) {
+                operatorSelect.remove(0);
+            }
+            const defaultOpOpt = document.createElement('option');
+            defaultOpOpt.value = "";
+            defaultOpOpt.disabled = true;
+            defaultOpOpt.selected = true;
+            defaultOpOpt.textContent = "--- Select Operator ---";
+            operatorSelect.appendChild(defaultOpOpt);
+            
+            data.operators.forEach(op => {
+                const opt = document.createElement('option');
+                opt.value = op.id;
+                opt.textContent = op.text;
+                operatorSelect.appendChild(opt);
+            });
+            
+            // Force browser repaint just in case
+            stationSelect.style.display = 'none';
+            stationSelect.offsetHeight; // trigger reflow
+            stationSelect.style.display = 'block';
+
+        } catch (e) {
+            console.error("Failed to load options", e);
+        }
+    }
+
+    async function loadMappings() {
+        try {
+            const res = await fetch('/auth/dc/operator-mapping/api-list');
+            if (!res.ok) return;
+            const mappings = await res.json();
+
+            const tbody = document.getElementById('mapping-tbody');
+            tbody.innerHTML = '';
+
+            if (mappings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b; padding: 20px;">No operators mapped yet.</td></tr>';
+                return;
+            }
+
+            mappings.forEach((m, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td><strong>${m.station_id}</strong></td>
+                    <td>${m.operator_text}</td>
+                    <td style="text-align: center;">
+                        <button class="btn-remove" onclick="removeMapping(${m.id})">Remove Mapping</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (e) {
+            console.error("Failed to load mappings", e);
+        }
+    }
+
+    async function removeMapping(id) {
+        const { value: reason, isConfirmed } = await Swal.fire({
+            title: 'Remove Mapping?',
+            text: "Please select the reason for unmapping this operator:",
+            icon: 'warning',
+            input: 'select',
+            inputOptions: {
+                'Inactive': 'Make Inactive (Can be mapped again)',
+                'Suspended': 'Suspended',
+                'Resigned': 'Resigned'
+            },
+            inputPlaceholder: 'Select a reason',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Yes, remove it!',
+            inputValidator: (value) => {
+                if (!value) {
+                    return 'You need to select a reason!'
+                }
+            }
+        });
+
+        if (isConfirmed && reason) {
+            try {
+                const res = await fetch(`/auth/dc/operator-mapping/${id}?reason=${reason}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (res.ok) {
+                    Swal.fire({ icon: 'success', title: 'Removed', text: 'Operator status updated to ' + data.new_status, timer: 2000, showConfirmButton: false });
+                    loadOptions();
+                    loadMappings();
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'Could not remove mapping.' });
+                }
+            } catch (e) {
+                Swal.fire({ icon: 'error', title: 'Network Error' });
+            }
+        }
+    }
+</script>
+{% endblock %}

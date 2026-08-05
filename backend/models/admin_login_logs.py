@@ -6,7 +6,7 @@ from backend.models.base import Base, get_ist_now
 class AdminLoginLog(Base):
     """One row per login session. Also doubles as the notification-bell session record:
     baseline_at is fixed at login (see backend/routers/auth.py) and used to query
-    notification counts live on every request (see backend/notification_utils.py)."""
+    notification counts live on every request (see backend/utils/notification_utils.py)."""
 
     __tablename__ = "admin_login_logs"
 

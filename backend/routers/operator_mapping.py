@@ -11,6 +11,11 @@ from backend.models.operator_onboarding_detail import OperatorOnboardingDetail
 from backend.models.operator_station_mapping import OperatorStationMapping
 from backend.routers.auth import get_current_user
 
+from sqlalchemy import or_
+from backend.models.operator_activation import OperatorActivationRequest
+from backend.models.base import StatusEnum
+from backend.routers.operator_activation import upsert_operator_from_request
+
 router = APIRouter(
     prefix="/dc/operator-mapping",
     tags=["operator_mapping"],
@@ -28,51 +33,184 @@ def get_mapping_options(
     """Returns unmapped operators and available station IDs for the DC."""
     if current_user.role.role not in ["DC", "EDM"]:
         raise HTTPException(status_code=403, detail="Only DC/EDM can fetch these options.")
-        
-    # Get all active station IDs approved for this DC's district
-    approved_stations = db.query(StationIDRequest).filter(
-        StationIDRequest.district_id == current_user.district_id,
-        StationIDRequest.station_id_inserted.isnot(None)
-    ).all()
-    
-    station_ids = []
-    for s in approved_stations:
-        if s.station_id_inserted:
-            # Handle comma-separated Station IDs
-            ids = [i.strip() for i in s.station_id_inserted.split(',')]
-            station_ids.extend(ids)
 
-    # Get already mapped records
-    onboarded_records = db.query(OperatorOnboardingDetail).all()
-    onboarded_ids = [r.operator_id for r in onboarded_records]
-    mapped_station_ids = set([r.station_id for r in onboarded_records])
+    # 1. Sync approved OperatorActivationRequest records into Operator table safely
+    try:
+        approved_requests = db.query(OperatorActivationRequest).filter(
+            or_(
+                OperatorActivationRequest.dc_id == current_user.id,
+                OperatorActivationRequest.district_id == current_user.district_id
+            ),
+            OperatorActivationRequest.status_id == StatusEnum.APPROVED.value
+        ).all()
 
-    # Filter out station IDs that are already mapped
-    available_station_ids = [s for s in station_ids if s not in mapped_station_ids]
+        for req in approved_requests:
+            if req.user_code:
+                op = db.query(Operator).filter(Operator.user_code == req.user_code).first()
+                if not op:
+                    op = Operator(
+                        name=req.name_as_per_aadhaar,
+                        mobile=req.operator_mobile,
+                        email=req.primary_email,
+                        user_code=req.user_code,
+                        role=req.role,
+                        registrar_code=req.registrar_code,
+                        ea_code=req.ea_code,
+                        nseit_certificate_number=req.nseit_certificate_number,
+                        aadhaar_last4=req.operator_aadhaar,
+                        status="Inactive",
+                        mapped_dc_id=current_user.id,
+                        district_id=current_user.district_id
+                    )
+                    db.add(op)
+        db.commit()
+    except Exception as ex:
+        db.rollback()
 
-    # Get all Operators for this DC that are not yet onboarded/mapped and are Inactive
-    query = db.query(Operator).filter(
-        Operator.mapped_dc_id == current_user.id,
-        Operator.status == "Inactive"
-    )
-    if onboarded_ids:
-        query = query.filter(Operator.id.notin_(onboarded_ids))
-        
-    available_operators = query.all()
+    # 2. Sync approved ReactivationOperator records safely
+    try:
+        from backend.models.reactivation import ReactivationOperator
+        approved_reactivation = db.query(ReactivationOperator).filter(
+            or_(
+                ReactivationOperator.dc_id == current_user.id,
+                ReactivationOperator.district_id == current_user.district_id
+            ),
+            ReactivationOperator.status_id == StatusEnum.APPROVED.value
+        ).all()
 
-    operator_data = []
-    for op in available_operators:
-        op_text = f"{op.name} || {op.mobile}"
-        if op.user_code:
-            op_text += f" || {op.user_code}"
-        operator_data.append({
-            "id": op.id,
-            "text": op_text
-        })
+        for r_op in approved_reactivation:
+            op_rec = None
+            if r_op.user_code:
+                op_rec = db.query(Operator).filter(Operator.user_code == r_op.user_code).first()
+            if not op_rec and r_op.name and r_op.mobile:
+                op_rec = db.query(Operator).filter(Operator.name == r_op.name, Operator.mobile == r_op.mobile).first()
+
+            if op_rec:
+                if (op_rec.status or "").lower() == "suspended":
+                    op_rec.status = "Inactive"
+            else:
+                new_op = Operator(
+                    name=r_op.name,
+                    mobile=r_op.mobile,
+                    email=r_op.email,
+                    user_code=r_op.user_code,
+                    role=r_op.role,
+                    registrar_code=r_op.registrar_code,
+                    ea_code=r_op.ea_code,
+                    nseit_certificate_number=r_op.nseit_certificate_number,
+                    aadhaar_last4=r_op.aadhaar_last4,
+                    status="Inactive",
+                    mapped_dc_id=current_user.id,
+                    district_id=current_user.district_id
+                )
+                db.add(new_op)
+        db.commit()
+    except Exception as ex:
+        db.rollback()
+
+    # 3. Gather station IDs for this DC/district
+    station_ids_set = set()
+
+    # From StationIDRequest
+    try:
+        approved_stations = db.query(StationIDRequest).filter(
+            or_(
+                StationIDRequest.district_id == current_user.district_id,
+                StationIDRequest.dc_id == current_user.id
+            ),
+            StationIDRequest.station_id_inserted.isnot(None)
+        ).all()
+        for s in approved_stations:
+            if s.station_id_inserted:
+                for sid in s.station_id_inserted.split(','):
+                    if sid.strip():
+                        station_ids_set.add(sid.strip())
+    except Exception:
+        pass
+
+    # From L1RegistrationRequest
+    try:
+        from backend.models.l1_registration import L1RegistrationRequest
+        l1_reqs = db.query(L1RegistrationRequest).filter(
+            or_(
+                L1RegistrationRequest.district_id == current_user.district_id,
+                L1RegistrationRequest.dc_id == current_user.id
+            )
+        ).all()
+        for l1 in l1_reqs:
+            if l1.station_id and l1.station_id.strip():
+                station_ids_set.add(l1.station_id.strip())
+    except Exception:
+        pass
+
+    # From L2RegistrationRequest
+    try:
+        from backend.models.l2_registration import L2RegistrationRequest
+        l2_reqs = db.query(L2RegistrationRequest).filter(
+            or_(
+                L2RegistrationRequest.district_id == current_user.district_id,
+                L2RegistrationRequest.dc_id == current_user.id
+            )
+        ).all()
+        for l2 in l2_reqs:
+            if l2.new_station_id and l2.new_station_id.strip():
+                station_ids_set.add(l2.new_station_id.strip())
+    except Exception:
+        pass
+
+    # 4. Gather mapped operator IDs and mapped station IDs
+    mapped_op_ids = set()
+    mapped_st_ids = set()
+
+    try:
+        onboarded_records = db.query(OperatorOnboardingDetail).all()
+        for r in onboarded_records:
+            if r.operator_id:
+                mapped_op_ids.add(r.operator_id)
+            if r.station_id:
+                mapped_st_ids.add(r.station_id)
+    except Exception:
+        pass
+
+    try:
+        st_mappings = db.query(OperatorStationMapping).all()
+        for m in st_mappings:
+            if m.operator_id:
+                mapped_op_ids.add(m.operator_id)
+            if m.station_id:
+                mapped_st_ids.add(m.station_id)
+    except Exception:
+        pass
+
+    # Available station IDs (unmapped)
+    available_station_ids = sorted([s for s in station_ids_set if s not in mapped_st_ids])
+
+    # 5. Fetch operators for this DC/district that are not suspended and not mapped
+    available_operators = []
+    try:
+        op_query = db.query(Operator).filter(
+            or_(
+                Operator.mapped_dc_id == current_user.id,
+                Operator.district_id == current_user.district_id
+            ),
+            ~Operator.status.ilike("%suspended%")
+        )
+        all_ops = op_query.all()
+        for op in all_ops:
+            if op.id not in mapped_op_ids:
+                op_text = f"{op.name} || {op.mobile}"
+                if op.user_code:
+                    op_text += f" || {op.user_code}"
+                available_operators.append({
+                    "id": op.id,
+                    "text": op_text
+                })
+    except Exception as e:
+        pass
 
     return {
-        "station_ids": list(set(available_station_ids)),
-        "operators": operator_data
+        "station_ids": available_station_ids,
+        "operators": available_operators
     }
 
 
@@ -88,7 +226,10 @@ def create_mapping(
     # Find the operator
     operator = db.query(Operator).filter(
         Operator.id == payload.operator_id,
-        Operator.mapped_dc_id == current_user.id
+        or_(
+            Operator.mapped_dc_id == current_user.id,
+            Operator.district_id == current_user.district_id
+        )
     ).first()
 
     if not operator:

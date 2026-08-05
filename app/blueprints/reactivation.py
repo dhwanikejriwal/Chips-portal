@@ -183,7 +183,7 @@ def view_reactivation_dashboard():
     with open("debug_all_operators.txt", "w") as f:
         f.write(str(all_operators))
 
-    template_path = "chips/chips_reactivation.html" if "/chips" in request.path else "dc/dc_reactivation.html"
+    template_path = "operator_reactivation/chips_reactivation.html" if "/chips" in request.path else "operator_reactivation/dc_reactivation.html"
     return render_template(
         template_path,
         requests=requests_history,
@@ -585,15 +585,13 @@ def chips_reactivation_export_and_mail():
         raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
     headers = {"Authorization": f"Bearer {str(raw_token).strip()}"}
     data = request.get_json(silent=True) or {}
-    ids = data.get("ids") or request.form.get("ids", "")
-    email_to = data.get("email_to") or request.form.get("email_to", "")
 
     try:
         response = requests.post(
             f"{FASTAPI_URL}/export-and-mail",
-            json={"ids": ids, "email_to": email_to},
+            json=data,
             headers=headers,
-            timeout=15,
+            timeout=35,
         )
         return (response.content, response.status_code, response.headers.items())
     except requests.exceptions.RequestException as e:

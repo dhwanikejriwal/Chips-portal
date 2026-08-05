@@ -24,7 +24,7 @@ class StationIDRequest(Base):
     # Slot type for the request: '937 slot' or '300 slot'
     slot = Column(String(20), nullable=True)
 
-    status_id = Column(Integer, ForeignKey("master_status.id"), nullable=False, default=5, index=True) # 5 = SENT_TO_CHIPS
+    status_id = Column(Integer, ForeignKey("master_status.id"), nullable=False, default=1, index=True) # 1 = PENDING
 
     @hybrid_property
     def status(self) -> str:

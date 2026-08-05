@@ -42,7 +42,7 @@ def dc_candidate_requests():
         pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
 
     return render_template(
-        "dc/dc_candidate_requests.html",
+        "selection/dc_candidate.html",
         pending_requests=pending_requests,
         approved_requests=approved_requests,
         hold_requests=hold_requests,

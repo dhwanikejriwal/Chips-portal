@@ -40,7 +40,7 @@ def dc_lms():
         pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
         
     return render_template(
-        "dc/dc_lms.html",
+        "lms/dc_lms.html",
         pending_requests=pending_requests,
         processed_requests=processed_requests,
         sent_to_chips_requests=sent_to_chips_requests,
@@ -81,7 +81,7 @@ def chips_lms():
         pending_requests = filter_by_aging(pending_requests, aging_filter, "created_at")
 
     return render_template(
-        "chips/chips_lms.html",
+        "lms/chips_lms.html",
         pending_requests=pending_requests,
         processed_requests=processed_requests,
         approved_requests=processed_requests,

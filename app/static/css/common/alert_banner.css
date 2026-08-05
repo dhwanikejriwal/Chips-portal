@@ -1,0 +1,177 @@
+/* ==========================================================================
+   Pending-alerts bar — quiet chrome that summarises pending queue counts.
+   [ label ] [ scrollable item track ] [ total + chevron ], 44px, flat.
+   The count badges are the only saturated colour (coral). Every value is a
+   token from tokens.css — no raw hex, no per-item colours, no theme logic.
+   Dark mode is entirely handled by the [data-theme="dark"] token overrides.
+   ========================================================================== */
+.pab {
+    display: flex;
+    align-items: stretch;
+    height: 44px;
+    margin: 14px 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 9px;
+    overflow: hidden;
+    background: var(--surface-card);
+    font-family: inherit;
+}
+
+/* ---- Label block (left, fixed) — flat navy fill, white text ---- */
+.pab-lead {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    padding: 0 14px;
+    background: var(--text-primary-inverse);
+}
+
+.pab-lead i {
+    font-size: 14px;
+    color: var(--white);
+}
+
+.pab-lead-text {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--white);
+    white-space: nowrap;
+}
+
+/* ---- Item track (centre, flexible) ---- */
+.pab-track-wrap {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    /* Trailing fade — items scroll out behind a soft edge. `black`/`transparent`
+       are mask alpha sentinels, not palette colours. */
+    -webkit-mask-image: linear-gradient(90deg, black 0, black calc(100% - 40px), transparent 100%);
+    mask-image: linear-gradient(90deg, black 0, black calc(100% - 40px), transparent 100%);
+}
+
+/* The track auto-slides; its content is duplicated once in JS so the -50%
+   loop is seamless. Pauses on hover so items can be read and clicked. */
+.pab-track {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: inline-flex;
+    align-items: stretch;
+    width: max-content;
+    white-space: nowrap;
+    will-change: transform;
+    animation: pab-marquee var(--pab-duration, 30s) linear infinite;
+}
+
+.pab:hover .pab-track {
+    animation-play-state: paused;
+}
+
+@keyframes pab-marquee {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+/* Reduced motion: no sliding at all — fall back to a user-scrollable track
+   with a slim, hover-only scrollbar (no arrow buttons). */
+@media (prefers-reduced-motion: reduce) {
+    .pab-track {
+        animation: none;
+        width: 100%;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+    }
+
+    .pab-track:hover {
+        scrollbar-color: var(--text-muted) transparent;
+    }
+
+    .pab-track::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .pab-track::-webkit-scrollbar-thumb {
+        background: transparent;
+        border-radius: 99px;
+    }
+
+    .pab-track:hover::-webkit-scrollbar-thumb {
+        background: var(--text-muted);
+    }
+}
+
+.pab-item {
+    display: flex;
+    flex: none;
+}
+
+.pab-item>a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 16px;
+    white-space: nowrap;
+    text-decoration: none;
+    border-right: 1px solid var(--border-subtle);
+    transition: background 0.12s ease;
+}
+
+.pab-item>a:hover {
+    background: var(--surface-subtle);
+    cursor: pointer;
+}
+
+.pab-item-ico {
+    font-size: 15px;
+    color: var(--icon-muted);
+    /* every icon the same muted navy */
+}
+
+.pab-item-label {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+/* De-emphasised item (e.g. the queue for the page you're already on). */
+.pab-item.is-current>a {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* ---- Count badge — the only saturated colour in the bar (coral) ---- */
+.pab-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 99px;
+    background: var(--badge-alert-bg);
+    color: var(--badge-alert-text);
+    border: 1px solid var(--badge-alert-border);
+}
+
+/* ---- Focus ring: visible in both themes ---- */
+.pab a:focus-visible {
+    outline: 2px solid var(--action);
+    outline-offset: 2px;
+}
+
+/* ---- Responsive (height stays 44px) ---- */
+@media (max-width: 768px) {
+    .pab-lead-text {
+        display: none;
+    }
+
+    .pab-lead {
+        padding: 0 12px;
+    }
+}

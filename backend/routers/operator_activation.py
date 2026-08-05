@@ -649,6 +649,12 @@ def export_to_excel(ids: str = None, db: Session = Depends(get_db)):
 class ExportAndMailRequest(BaseModel):
     ids: str | None = None
     email_to: str | None = None
+    email_cc: str | None = None
+    email_bcc: str | None = None
+    subject: str | None = None
+    body_html: str | None = None
+    attach_csv: bool = True
+    custom_files: list[dict] | None = None
 
 @router.get("/export-and-mail/recipient")
 def get_export_mail_recipient():
@@ -674,7 +680,7 @@ def export_and_mail_to_uidai(
         query = query.filter(OperatorActivationRequest.status_id.in_([
             StatusEnum.PENDING.value,
             StatusEnum.REAPPLIED.value,
-            StatusEnum.SENT_TO_CHIPS.value
+            StatusEnum.PENDING.value
         ]))
     requests_list = query.order_by(OperatorActivationRequest.submitted_at.desc()).all()
 
@@ -717,7 +723,13 @@ def export_and_mail_to_uidai(
             record_count=len(requests_list),
             module_name="Operator Activation",
             filename="operator_activation_sent_to_uidai.csv",
-            email_to=target_email
+            email_to=target_email,
+            email_cc=payload.email_cc,
+            email_bcc=payload.email_bcc,
+            custom_subject=payload.subject,
+            custom_body_html=payload.body_html,
+            attach_csv=payload.attach_csv,
+            custom_files=payload.custom_files
         ))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to email CSV export: {str(e)}")
@@ -742,7 +754,7 @@ def export_and_mail_to_uidai(
 
 @router.get("/export-excel/pending")
 def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
-    """🌟 FIXED: Export Pending activation queue records including all profile fields."""
+    """Export Pending activation queue records including all 17 profile fields."""
     from fastapi.responses import StreamingResponse
     import csv
     import io
@@ -797,6 +809,57 @@ def export_pending_to_excel(ids: str = None, db: Session = Depends(get_db)):
 
     response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = "attachment; filename=pending_activation_complete_report.csv"
+    return response
+
+
+@router.get("/export-excel/uidai")
+def export_uidai_format_to_excel(ids: str = None, db: Session = Depends(get_db)):
+    """Export activation queue records in exact 12-column UIDAI template format for Mail & Sent to UIDAI exports."""
+    from fastapi.responses import StreamingResponse
+    import csv
+    import io
+
+    query = db.query(OperatorActivationRequest).filter(
+        OperatorActivationRequest.status_id.in_([
+            StatusEnum.PENDING.value,
+            StatusEnum.REAPPLIED.value,
+            StatusEnum.SENT_TO_UIDAI.value
+        ])
+    )
+    if ids:
+        id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
+        query = query.filter(OperatorActivationRequest.id.in_(id_list))
+    requests_list = query.order_by(OperatorActivationRequest.submitted_at.desc()).all()
+
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+
+    headers = [
+        "Sl. No", "Role", "Name as per Aadhaar", "Registrar Code", 
+        "EA Code", "User code", "Certificate Number", "Mobile Number", 
+        "Primary E-mail ID", "Aadhaar Number", "Certification Date", "Any Remarks"
+    ]
+    writer.writerow(headers)
+
+    for idx, r in enumerate(requests_list, start=1):
+        cert_date = str(r.nseit_certification_date)[:10] if r.nseit_certification_date else "—"
+        writer.writerow([
+            idx,
+            r.role if r.role else "—",
+            r.name_as_per_aadhaar if r.name_as_per_aadhaar else "—",
+            r.registrar_code if r.registrar_code else "—",
+            r.ea_code if r.ea_code else "—",
+            r.user_code if r.user_code else "—",
+            r.nseit_certificate_number if r.nseit_certificate_number else "—",
+            r.operator_mobile if r.operator_mobile else "—",
+            r.primary_email if r.primary_email else "—",
+            f"{r.operator_aadhaar}" if r.operator_aadhaar else "—",
+            cert_date,
+            ""
+        ])
+
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=operator_activation_sent_to_uidai.csv"
     return response
 
 

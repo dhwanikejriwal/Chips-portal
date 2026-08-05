@@ -23,12 +23,7 @@ class StatusEnum(int, Enum):
     APPROVED = 2
     REVERTED = 3
     REAPPLIED = 4
-    SENT_TO_CHIPS = 5
     SENT_TO_UIDAI = 6
-    UIDAI_APPROVED = 7
-    UIDAI_REJECTED = 8
-    REVIEWED = 9
-    ASSIGNED = 10
     FORWARDED = 11
     FORWARDED_AGAIN = 12
     SKIPPED = 13

@@ -31,7 +31,7 @@ def chips_list():
     except http.exceptions.ConnectionError:
         rows = []
 
-    return render_template("kit_registration/chips_list.html", requests=rows)
+    return render_template("kit_registration/chips_kit_registration.html", requests=rows)
 
 
 @kit_registration_bp.route("/chips/kit-registration/<int:kit_id>/l1-done", methods=["POST"])

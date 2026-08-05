@@ -51,12 +51,17 @@
 
     tabs.forEach((t) => t.addEventListener("click", () => selectTab(t.dataset.tab)));
 
-    // Restore the last tab, but never land a non-admin on the upload panel —
-    // the server does not render it for them.
+    // Restore the last tab, defaulting to "search" tab first.
     try {
         const saved = localStorage.getItem(TAB_KEY);
-        if (saved && !(saved === "upload" && !canReveal)) selectTab(saved);
-    } catch (e) { /* private mode */ }
+        if (saved && (saved === "search" || (saved === "upload" && canReveal))) {
+            selectTab(saved);
+        } else {
+            selectTab("search");
+        }
+    } catch (e) {
+        selectTab("search");
+    }
 
     /* ===================================================================
        FEATURE 1 — Upload
@@ -104,12 +109,15 @@
             if (file) setFile(file);
         });
 
-        function renderSummary(data) {
+        const SUMMARY_KEY = "od-last-upload-summary";
+
+        function renderSummary(data, isRestored = false) {
+            if (!data) return;
             $("odSummaryEmpty").hidden = true;
             $("odSummaryBody").hidden = false;
-            $("odStatAdded").textContent = data.inserted.toLocaleString();
-            $("odStatDupe").textContent = data.duplicates.toLocaleString();
-            $("odStatBad").textContent = data.invalid.toLocaleString();
+            $("odStatAdded").textContent = (data.inserted || 0).toLocaleString();
+            $("odStatDupe").textContent = (data.duplicates || 0).toLocaleString();
+            $("odStatBad").textContent = (data.invalid || 0).toLocaleString();
 
             invalidRows = data.invalid_rows || [];
             const block = $("odInvalidBlock");
@@ -129,7 +137,22 @@
             if (data.invalid_truncated) {
                 note.textContent = `Showing the first ${invalidRows.length} of ${data.invalid} rejected rows.`;
             }
+
+            if (!isRestored) {
+                try {
+                    localStorage.setItem(SUMMARY_KEY, JSON.stringify(data));
+                } catch (e) {}
+            }
         }
+
+        // Restore last upload summary on page refresh if available
+        try {
+            const savedSummary = localStorage.getItem(SUMMARY_KEY);
+            if (savedSummary) {
+                const parsed = JSON.parse(savedSummary);
+                if (parsed) renderSummary(parsed, true);
+            }
+        } catch (e) {}
 
         $("odInvalidDownload").addEventListener("click", () => {
             if (!invalidRows.length) return;
