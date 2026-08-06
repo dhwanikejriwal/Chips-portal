@@ -352,8 +352,7 @@
         if (key === "model") {
           return '<td><span class="oa-model oa-model-' + String(v).toLowerCase() + '">' + esc(v) + '</span></td>';
         }
-        // Reasons stay on one line like every other cell; the full sentence(s)
-        // are in the tooltip so row height matches the main table.
+        // Reasons stack vertically one below another for clear readability
         if (key === "reason") {
           return '<td class="oa-reason" title="' + esc(v) + '">' + r.reason_codes.map(function (code) {
             return '<span class="oa-reason-tag oa-reason-' + code + '">' + esc(labels[code] || code) + '</span>';

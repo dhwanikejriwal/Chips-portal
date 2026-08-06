@@ -6,7 +6,7 @@ from app.utils.aging import parse_aging_filter, filter_by_aging
 l1_bp = Blueprint("l1_registration", __name__)
 
 # Statuses that are NOT part of the pending queue for aging purposes
-_L1_NON_PENDING = {"reviewed", "approved", "reverted", "done"}
+_L1_NON_PENDING = {"approved", "reverted", "l1_done"}
 
 @l1_bp.route("/dc/l1-registration")
 def dc_l1_portal():
@@ -62,12 +62,12 @@ def dc_l1_portal():
     total_cnt = len(requests_data)
 
     for r in requests_data:
-        st = str(r.get("status") or "").lower().strip()
-        if st in ["approved", "reviewed", "l1_done", "done"]:
+        st = str(r.get("status") or "").upper().replace(" ", "_").strip()
+        if st in ["L1_DONE", "APPROVED"]:
             approved_cnt += 1
-        elif st in ["reverted", "reverted_by_chips"]:
+        elif st in ["REVERTED", "REVERTED_BY_CHIPS", "REJECTED"]:
             reverted_cnt += 1
-        elif st in ["reapplied"]:
+        elif st in ["REAPPLIED"]:
             reapplied_cnt += 1
         else:
             pending_cnt += 1

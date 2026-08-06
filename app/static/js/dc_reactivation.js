@@ -1091,14 +1091,14 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                 <p style="margin: 0; color: #b45309; font-size: 13px;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</p>
             </div>
             ${op.reject_reason ? `
-            <div style="background-color: #fef2f2; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; text-align: left;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#991b1b" stroke-width="2.5">
+            <div class="revert-reason-box" style="margin-bottom: 20px; text-align: left;">
+                <div class="revert-reason-header" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
                     </svg>
-                    <span style="font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">${isRejected ? 'REJECT REASON / REMARKS' : 'REVERT REASON / REMARKS'}</span>
+                    <span>${isRejected ? 'REJECT REASON / REMARKS' : 'REVERT REASON / REMARKS'}</span>
                 </div>
-                <div style="color: #7f1d1d; font-size: 13px; line-height: 1.5; padding-left: 22px;">
+                <div class="revert-reason-text" style="padding-left: 22px;">
                     ${escapeHtmlString(op.reject_reason)}
                 </div>
             </div>` : ''}

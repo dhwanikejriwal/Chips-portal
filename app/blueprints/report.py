@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, session
 import requests
 
+from backend.utils.district_mapper import get_division_for_district, is_lwe_district
+
 report_bp = Blueprint('report', __name__)
 
 @report_bp.route('/reports', methods=['GET'])
@@ -27,8 +29,10 @@ def index():
         
     user_district = session.get('district_name') or session.get('district_id') or ''
     is_dc = role in ['DC', 'EDM']
+    user_division = get_division_for_district(user_district) or ''
+    is_lwe = is_lwe_district(user_district) == "Yes"
         
-    return render_template('report/reports_dash.html', history=history, districts=districts, user_role=role, user_district=user_district, is_dc=is_dc)
+    return render_template('report/reports_dash.html', history=history, districts=districts, user_role=role, user_district=user_district, is_dc=is_dc, user_division=user_division, is_lwe=is_lwe)
 
 @report_bp.route('/reports/download/<int:report_id>', methods=['GET'])
 def download(report_id):

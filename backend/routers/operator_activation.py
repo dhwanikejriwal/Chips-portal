@@ -99,8 +99,27 @@ def search_eligible_candidates(q: str, db: Session = Depends(get_db)):
         (Candidate.email.ilike(search_pattern))
     ).all()
     
+    # Query mobile numbers, emails, and request numbers of operators who have ALREADY applied
+    applied_requests = db.query(OperatorActivationRequest).filter(
+        ~OperatorActivationRequest.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value])
+    ).all()
+
+    applied_mobiles = {r.operator_mobile.strip() for r in applied_requests if r.operator_mobile}
+    applied_emails = {r.primary_email.strip().lower() for r in applied_requests if r.primary_email}
+    applied_req_nos = {r.request_no.strip() for r in applied_requests if r.request_no}
+
     results = []
     for c in candidates:
+        c_mob = (c.mobile or "").strip()
+        c_email = (c.email or "").strip().lower()
+        c_req = (c.request_code or "").strip()
+
+        # Exclude candidates who already have an active / submitted activation request
+        if (c_mob and c_mob in applied_mobiles) or \
+           (c_email and c_email in applied_emails) or \
+           (c_req and c_req in applied_req_nos):
+            continue
+
         # Check eligibility (must have NSEIT or be existing operator)
         is_eligible = c.is_existing_operator or bool(c.nseit_id)
         

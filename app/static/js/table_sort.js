@@ -54,8 +54,15 @@ function initTableSorting() {
             th.addEventListener('click', () => {
                 const tbody = table.querySelector('tbody') || table;
                 const rows = Array.from(tbody.querySelectorAll('tr'));
-                // Exclude header rows if they are in tbody
-                const dataRows = rows.filter(row => !row.querySelector('th'));
+                // Exclude header rows and total count rows from sorting
+                const dataRows = rows.filter(row => !row.querySelector('th') && !row.classList.contains('total-row') && !row.closest('tfoot'));
+                
+                // Tag originalIndex for reset functionality if not present
+                dataRows.forEach((row, idx) => {
+                    if (row.dataset.originalIndex === undefined) {
+                        row.dataset.originalIndex = idx;
+                    }
+                });
                 
                 // Determine if column is numeric
                 let isNumeric = true;

@@ -121,7 +121,7 @@ function filterL1Table() {
         if (cnt) cnt.textContent = visibleCount;
     });
 
-    // Calculate and update metrics dynamically
+    // Calculate fixed all-time metrics across all requests (irrespective of active filters)
     let metricPending = 0;
     let metricReapplied = 0;
     let metricReverted = 0;
@@ -130,54 +130,28 @@ function filterL1Table() {
 
     const allRowsForMetrics = document.querySelectorAll('#allotted-tbody tr[data-status], #pending-tbody tr[data-status], #approved-tbody tr[data-status], #reverted-tbody tr[data-status]');
     allRowsForMetrics.forEach(row => {
-        const reqCode = (row.getAttribute('data-request-code') || row.getAttribute('data-request-no') || '').toUpperCase();
-        const stationId = (row.getAttribute('data-station-id') || '').toUpperCase();
-        const model = (row.getAttribute('data-model') || '').toUpperCase();
-        const rowStatus = (row.getAttribute('data-status') || '').toUpperCase();
-        const createdDate = row.getAttribute('data-created') || '';
-
-        const matchQuery = !filter ||
-            reqCode.indexOf(filter) > -1 ||
-            stationId.indexOf(filter) > -1 ||
-            model.indexOf(filter) > -1;
-
-        let matchDate = true;
-        if (dateFilter === 'today') {
-            matchDate = createdDate.startsWith(todayPrefix);
-        } else if (dateFilter === 'week') {
-            if (!createdDate) {
-                matchDate = false;
-            } else {
-                const rowDate = new Date(createdDate.replace(' ', 'T'));
-                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                matchDate = rowDate >= sevenDaysAgo;
-            }
-        } else if (dateFilter === 'month') {
-            if (!createdDate) {
-                matchDate = false;
-            } else {
-                const rowDate = new Date(createdDate.replace(' ', 'T'));
-                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                matchDate = rowDate >= thirtyDaysAgo;
-            }
-        }
-
-        if (matchQuery && matchDate) {
-            if (rowStatus === 'PENDING') {
-                metricPending++;
-            } else if (rowStatus === 'REAPPLIED') {
-                metricReapplied++;
-            } else if (rowStatus === 'REVERTED') {
-                metricReverted++;
-            } else if (['L1_DONE', 'APPROVED'].includes(rowStatus)) {
-                metricApproved++;
-            } else if (rowStatus === 'AWAITING') {
-                metricAwaiting++;
-            }
+        const rowStatus = (row.getAttribute('data-status') || '').toUpperCase().replace(/ /g, '_');
+        if (rowStatus === 'PENDING') {
+            metricPending++;
+        } else if (rowStatus === 'REAPPLIED') {
+            metricReapplied++;
+        } else if (['REVERTED', 'REVERTED_BY_CHIPS', 'REJECTED'].includes(rowStatus)) {
+            metricReverted++;
+        } else if (['L1_DONE', 'DONE', 'APPROVED', 'REVIEWED'].includes(rowStatus)) {
+            metricApproved++;
+        } else if (rowStatus === 'AWAITING') {
+            metricAwaiting++;
         }
     });
 
-    // Metric cards display all-time counts irrespective of active filters
+    const elPending = document.getElementById('stat-pending');
+    if (elPending) elPending.innerText = metricPending;
+    const elReapplied = document.getElementById('stat-reapplied');
+    if (elReapplied) elReapplied.innerText = metricReapplied;
+    const elReverted = document.getElementById('stat-reverted');
+    if (elReverted) elReverted.innerText = metricReverted;
+    const elApproved = document.getElementById('stat-approved');
+    if (elApproved) elApproved.innerText = metricApproved;
 }
 
 function clearAllFilters() {
@@ -445,8 +419,9 @@ window.showL1Details = function (d, activeView) {
             .replace(/'/g, "&#039;");
     };
 
-    const normStatus = (d.status || '').trim().toUpperCase();
-    const isReverted = ['REVERTED', 'REJECTED', 'REVERTED BY CHIPS', 'REVERTED_BY_CHIPS'].includes(normStatus);
+    const normStatus = (d.status || '').trim().toUpperCase().replace(/ /g, '_');
+    const hasRevertReason = d.revert_reason && d.revert_reason.trim().length > 0 && d.revert_reason !== 'No reason note provided.';
+    const isReverted = normStatus.includes('REVERT') || normStatus.includes('REJECT') || ['REVERTED', 'REJECTED', 'REVERTED_BY_CHIPS'].includes(normStatus) || hasRevertReason;
 
     if (activeView === 'details') {
         let htmlContent = '';
@@ -472,11 +447,11 @@ window.showL1Details = function (d, activeView) {
                 </div>
 
                 <!-- Revert Reason / Remark Box -->
-                <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
-                    <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                <div class="revert-reason-box" style="margin-bottom: 18px;">
+                    <div class="revert-reason-header" style="gap: 6px;">
                         <span>💬</span> REVERT REASON / REMARK
                     </div>
-                    <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
+                    <div class="revert-reason-text">
                         ${escapeHtml(d.revert_reason || 'No reason note provided.')}
                     </div>
                 </div>
@@ -570,11 +545,11 @@ window.showL1Details = function (d, activeView) {
                 </div>
 
                 ${d.status === 'REVERTED' ? `
-                <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
-                    <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; border-top: 1px dashed #fca5a5; padding-top: 8px;">
+                <div class="revert-reason-box" style="margin-bottom: 18px;">
+                    <div class="revert-reason-header" style="gap: 6px;">
                         <span>💬</span> REVERT REASON / REMARK
                     </div>
-                    <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
+                    <div class="revert-reason-text">
                         ${escapeHtml(d.revert_reason || 'No reason note provided.')}
                     </div>
                 </div>` : ''}

@@ -6,10 +6,10 @@ import pandas as pd
 import io
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from backend.database import get_db
 from backend.models.report import ReportHistory
-from backend.utils.district_mapper import normalize_district_name
+from backend.utils.district_mapper import normalize_district_name, DIVISIONS_MASTER_MAP, get_division_for_district, is_district_in_division, is_lwe_district, LWE_MASTER_DISTRICTS
 
 router = APIRouter(tags=["Reports"])
 REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "reports")
@@ -207,14 +207,11 @@ async def generate_report(
                     else:
                         denom = 1
                     summary_df['MBU Pendency %'] = ((summary_df['Total Pending'] / denom.replace(0, 1)) * 100).round(2).astype(str) + '%'
-                elif report_type == 'cenetarian_district_report':
-                    pending_col = next((c for c in summary_df.columns if str(c).strip().lower() == 'pending total'), None)
-                    if 'Total Requests' in summary_df.columns and pending_col:
-                        summary_df['Pending %'] = ((summary_df[pending_col] / summary_df['Total Requests'].replace(0, 1)) * 100).round(2).astype(str) + '%'
-                elif report_type == '18_plus_pendency':
-                    pending_col = next((c for c in summary_df.columns if str(c).strip().lower() == 'total pending'), None)
-                    if 'Total Requests' in summary_df.columns and pending_col:
-                        summary_df['Pendency %'] = ((summary_df[pending_col] / summary_df['Total Requests'].replace(0, 1)) * 100).round(2).astype(str) + '%'
+                elif report_type in ['cenetarian_district_report', '18_plus_pendency']:
+                    pending_col = next((c for c in summary_df.columns if str(c).strip().lower() in ['pending total', 'total pending']), None)
+                    req_col = next((c for c in summary_df.columns if str(c).strip().lower() in ['total requests', 'total_requests']), None)
+                    if req_col and pending_col:
+                        summary_df['Pending %'] = ((pd.to_numeric(summary_df[pending_col], errors='coerce').fillna(0) / pd.to_numeric(summary_df[req_col], errors='coerce').replace(0, 1)) * 100).round(2).astype(str) + '%'
                 return summary_df
 
             # Combined Sheet
@@ -280,16 +277,10 @@ async def generate_report(
                 else:
                     pd.DataFrame(columns=['S.No', dist_col] + numeric_cols).to_excel(writer, index=False, sheet_name='LWE')
 
-                DIVISIONS_TABS = {
-                    "Bilaspur Div": ["bilaspur", "gaurella-pendra-marwahi", "gaurela-pendra-marwahi", "gpm", "janjgir-champa", "janjgir", "champa", "korba", "mungeli", "raigarh", "sakti", "sarangarh-bilaigarh", "sarangarh"],
-                    "Raipur Div": ["baloda bazar-bhatapara", "balodabazar", "baloda bazar", "dhamtari", "gariaband", "gariyaband", "mahasamund", "raipur"],
-                    "Durg Div": ["balod", "bemetara", "durg", "kabirdham (kawardha)", "kabirdham", "kawardha", "kabeerdham", "khairagarh-chhuikhadan-gandai", "khairagarh", "mohla-manpur-chowki", "mohla-manpur-ambagarh chowki", "mohla-manpur-ambagarh chouki", "mohla", "rajnandgaon"],
-                    "Bastar Div": ["bastar", "baster", "bijapur", "dakshin bastar (dantewada)", "dantewada", "uttar bastar (kanker)", "kanker", "kondagaon", "narayanpur", "sukma"],
-                    "Surguja Div": ["balrampur-ramanujganj", "balrampur", "jashpur", "koriya", "korea", "manendragarh-chirmiri-bharatpur", "manendragarh", "surajpur", "surguja"]
-                }
+                DIVISIONS_TABS = DIVISIONS_MASTER_MAP
 
-                for div_name, allowed in DIVISIONS_TABS.items():
-                    div_mask = df[dist_col].apply(lambda d: any(a in str(d).lower().strip() or str(d).lower().strip() in a for a in allowed))
+                for div_name, master_districts in DIVISIONS_TABS.items():
+                    div_mask = df[dist_col].apply(lambda d: is_district_in_division(d, div_name))
                     div_df = df[div_mask]
                     if not div_df.empty:
                         div_summary = div_df.groupby(dist_col)[numeric_cols].sum().reset_index()
@@ -355,6 +346,25 @@ def preview_report(report_id: int, db: Session = Depends(get_db)):
         html_sheets = {}
         for sheet_name, df in dfs.items():
             df = clean_dataframe_mobile_cols(df)
+            
+            # Dynamically compute Pending % if report has Total Pending & Total Requests but missing Pending %
+            pend_col = next((c for c in df.columns if str(c).strip().lower() in ['total pending', 'pending total']), None)
+            req_col = next((c for c in df.columns if str(c).strip().lower() in ['total requests', 'total_requests']), None)
+            has_pend_pct = any('pending %' in str(c).strip().lower() or 'pendency %' in str(c).strip().lower() for c in df.columns)
+            if pend_col and req_col and not has_pend_pct:
+                numeric_pend = pd.to_numeric(df[pend_col], errors='coerce').fillna(0)
+                numeric_reqs = pd.to_numeric(df[req_col], errors='coerce').replace(0, 1)
+                df['Pending %'] = ((numeric_pend / numeric_reqs) * 100).round(2).astype(str) + '%'
+
+            dist_col = _get_df_col(df, "District") or _get_df_col(df, "District Name")
+            if dist_col and not df.empty:
+                temp_sort = "_temp_dist_sort"
+                df[temp_sort] = df[dist_col].astype(str).str.strip().str.lower()
+                df = df.sort_values(by=temp_sort, ascending=True).drop(columns=[temp_sort])
+                df = df.reset_index(drop=True)
+                sno_col = _get_df_col(df, "SR No.") or _get_df_col(df, "S.No")
+                if sno_col:
+                    df[sno_col] = list(range(1, len(df) + 1))
             html_sheets[sheet_name] = df.to_html(classes='preview-table', index=False, border=0, na_rep='', float_format='{:.0f}'.format)
         return {"html_sheets": html_sheets, "multi_sheet": len(dfs) > 1, "html": html_sheets[list(dfs.keys())[0]]}
     except Exception as e:
@@ -391,21 +401,7 @@ def delete_report(report_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"success": True, "message": "Report deleted successfully"}
 
-LWE_MASTER_DISTRICTS = {
-    "Bastar",
-    "Bijapur",
-    "Dakshin Bastar Dantewada",
-    "Mohla-Manpur-Ambagarh Chouki",
-    "Narayanpur",
-    "Sukma",
-    "Uttar Bastar Kanker"
-}
-
-def is_lwe_district(district_name: str) -> str:
-    if not district_name:
-        return "No"
-    norm = normalize_district_name(str(district_name))
-    return "Yes" if norm in LWE_MASTER_DISTRICTS else "No"
+# Using centralized LWE_MASTER_DISTRICTS and is_lwe_district from district_mapper.py
 
 def calculate_pending_days(start_date):
     if not start_date:
@@ -877,6 +873,16 @@ def preview_nseit_district_details(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch NSEIT details: {str(e)}")
 
+def format_date_val(val, fmt="%Y-%m-%d"):
+    if not val:
+        return ""
+    if isinstance(val, (datetime, date)):
+        return val.strftime(fmt)
+    val_str = str(val).strip()
+    if val_str.lower() in ["none", "null", "nat", "nan", ""]:
+        return ""
+    return val_str
+
 def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
     from backend.models.district import District
     from backend.models.candidate import Candidate
@@ -897,7 +903,6 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
         for d in districts:
             lms_reqs = db.query(LMS).join(Candidate).filter(Candidate.district == d.district_code).all()
             data.append({
-                "District Code": d.district_code,
                 "District Name": d.district_name,
                 "Total LMS Requests": len(lms_reqs),
                 "Approved LMS": sum(1 for r in lms_reqs if r.status and r.status.upper() == "APPROVED"),
@@ -905,7 +910,7 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
                 "Rejected LMS": sum(1 for r in lms_reqs if r.status and r.status.upper() == "REJECTED")
             })
         if not data:
-            columns = ["District Code", "District Name", "Total LMS Requests", "Approved LMS", "Pending LMS", "Rejected LMS"]
+            columns = ["District Name", "Total LMS Requests", "Approved LMS", "Pending LMS", "Rejected LMS"]
             return pd.DataFrame(columns=columns)
         return pd.DataFrame(data)
 
@@ -915,7 +920,6 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
         for d in districts:
             nseit_reqs = db.query(NSEITRequest).join(Candidate).filter(Candidate.district == d.district_code).all()
             data.append({
-                "District Code": d.district_code,
                 "District Name": d.district_name,
                 "Total NSEIT Requests": len(nseit_reqs),
                 "Approved NSEIT": sum(1 for r in nseit_reqs if r.status and r.status.upper() == "APPROVED"),
@@ -923,7 +927,7 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
                 "Rejected NSEIT": sum(1 for r in nseit_reqs if r.status and r.status.upper() == "REJECTED")
             })
         if not data:
-            columns = ["District Code", "District Name", "Total NSEIT Requests", "Approved NSEIT", "Pending NSEIT", "Rejected NSEIT"]
+            columns = ["District Name", "Total NSEIT Requests", "Approved NSEIT", "Pending NSEIT", "Rejected NSEIT"]
             return pd.DataFrame(columns=columns)
         return pd.DataFrame(data)
         
@@ -1071,22 +1075,64 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
         return pd.DataFrame(l2_data)
 
     elif report_name == "operator_list":
+        from backend.models.operator_activation import OperatorActivationRequest
         kits = db.query(KitRegistration).all()
         operators = db.query(Operator).all()
         mappings = db.query(OperatorStationMapping).all()
         districts_list = db.query(District).all()
-        dist_dict = {d.district_code: d.district_name for d in districts_list}
+        candidates = db.query(Candidate).all()
+        activations = db.query(OperatorActivationRequest).all()
+
+        dist_lookup = {}
+        for d in districts_list:
+            d_name = d.district_name
+            d_code_str = str(d.district_code).strip()
+            dist_lookup[d_code_str] = d_name
+            dist_lookup[d_name.lower().strip()] = d_name
+            try:
+                dist_lookup[int(d_code_str)] = d_name
+            except (ValueError, TypeError):
+                pass
+
+        candidate_dist_map = {}
+        for c in candidates:
+            if not c.district: continue
+            c_dist = dist_lookup.get(str(c.district).strip(), c.district) or dist_lookup.get(str(c.district).strip().lower(), c.district)
+            req_code = getattr(c, 'request_code', None)
+            if req_code: candidate_dist_map[str(req_code).strip()] = c_dist
+            c_mob = clean_mobile_val(c.mobile)
+            if c_mob: candidate_dist_map[c_mob] = c_dist
+
+        activation_dist_map = {}
+        for act in activations:
+            if not act.district_id: continue
+            act_dist = dist_lookup.get(str(act.district_id).strip(), act.district_id) or dist_lookup.get(str(act.district_id).strip().lower(), act.district_id)
+            act_uc = getattr(act, 'user_code', None)
+            if act_uc: activation_dist_map[str(act_uc).strip()] = act_dist
+            act_mob = clean_mobile_val(getattr(act, 'operator_mobile', None))
+            if act_mob: activation_dist_map[act_mob] = act_dist
+
         op_data = []
         sr_no = 1
         for o in operators:
             op_mapping = [m for m in mappings if m.operator_id == o.id]
             kit = next((k for k in kits if op_mapping and k.station_id == op_mapping[0].station_id), None)
-            dist_name = kit.district if kit else dist_dict.get(o.district_id, "")
             
-            mobile_str = str(o.mobile).strip() if o.mobile else ""
-            if mobile_str.endswith(".0"):
-                mobile_str = mobile_str[:-2]
-            
+            dist_name = ""
+            if kit and kit.district:
+                dist_name = kit.district
+            if not dist_name and o.district_id:
+                dist_name = dist_lookup.get(o.district_id) or dist_lookup.get(str(o.district_id).strip()) or dist_lookup.get(str(o.district_id).strip().lower(), "")
+            if not dist_name and o.id in activation_dist_map:
+                dist_name = activation_dist_map[o.id]
+            if not dist_name and o.user_code and str(o.user_code).strip() in candidate_dist_map:
+                dist_name = candidate_dist_map[str(o.user_code).strip()]
+            op_mob = clean_mobile_val(o.mobile)
+            if not dist_name and op_mob and op_mob in candidate_dist_map:
+                dist_name = candidate_dist_map[op_mob]
+            if not dist_name and op_mob and op_mob in activation_dist_map:
+                dist_name = activation_dist_map[op_mob]
+
             op_data.append({
                 "SR No.": sr_no,
                 "District": dist_name,
@@ -1095,19 +1141,19 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
                 "Operator Id": o.user_code,
                 "Operator Mobile": clean_mobile_val(o.mobile),
                 "SD Status": o.security_deposit_status or "",
-                "Security Deposit Date": o.security_deposit_date.strftime("%Y-%m-%d") if o.security_deposit_date else "",
+                "Security Deposit Date": format_date_val(o.security_deposit_date),
                 "Block": kit.block if kit else "",
                 "Location Category": kit.category if kit else "",
                 "Locality": kit.locality if kit else "",
                 "ASK (Aadhaar Sewa Kendra) Address": kit.ask_address if kit else "",
                 "Operator Activation Status (User Credentials Created)": o.status or "",
                 "Operator In-active Reason": o.inactive_reason or "",
-                "Operator In-active Date": o.inactive_date.strftime("%Y-%m-%d") if o.inactive_date else "",
+                "Operator In-active Date": format_date_val(o.inactive_date),
                 "NSEIT Certificate No": o.nseit_certificate_number or "",
-                "Certificate Issue Date": o.nseit_certification_date.strftime("%Y-%m-%d") if o.nseit_certification_date else "",
-                "Certificate Validity": o.nseit_certificate_expiry_date.strftime("%Y-%m-%d") if o.nseit_certificate_expiry_date else "",
-                "Create Date": o.created_at.strftime("%Y-%m-%d %H:%M:%S") if o.created_at else "",
-                "Update Date": o.updated_at.strftime("%Y-%m-%d %H:%M:%S") if o.updated_at else ""
+                "Certificate Issue Date": format_date_val(o.nseit_certification_date),
+                "Certificate Validity": format_date_val(o.nseit_certificate_expiry_date),
+                "Create Date": format_date_val(o.created_at, "%Y-%m-%d %H:%M:%S"),
+                "Update Date": format_date_val(o.updated_at, "%Y-%m-%d %H:%M:%S")
             })
             sr_no += 1
         if not op_data:
@@ -1414,19 +1460,39 @@ def add_total_row(df: pd.DataFrame) -> pd.DataFrame:
     is_multi = isinstance(df.columns, pd.MultiIndex)
     total_row = {}
     
+    non_numeric_columns = [
+        "s.no", "sr no.", "sr.no.", "index", "district", "district code", 
+        "district name", "is lwe district", "lwe", "operator id", "operator_id", 
+        "machine id", "machine_id", "user code", "user_code", "operator code"
+    ]
+    
+    target_label_col = None
     for col in df.columns:
-        col_str = str(col[0] if is_multi else col).lower()
-        if col_str in ["s.no", "sr no.", "sr.no.", "index", "district", "is lwe district"]:
-            if col_str in ["district", "is lwe district"] and not ("s.no" in str(df.columns[0]).lower() or "district" in str(df.columns[0]).lower()):
-                total_row[col] = ""
-            elif col == df.columns[0]:
-                total_row[col] = "Total"
-            else:
-                total_row[col] = ""
+        c_str = str(col[0] if is_multi else col).lower().strip()
+        if c_str in ["district name", "district"]:
+            target_label_col = col
+            break
+    if target_label_col is None and len(df.columns) > 1:
+        target_label_col = df.columns[1]
+    elif target_label_col is None:
+        target_label_col = df.columns[0]
+
+    for col in df.columns:
+        col_str = str(col[0] if is_multi else col).lower().strip()
+        col_full_str = f"{str(col[0]).lower().strip()} {str(col[1]).lower().strip()}".strip() if is_multi else col_str
+
+        if col == target_label_col:
+            total_row[col] = "Total"
+        elif col_full_str in non_numeric_columns or col_str in non_numeric_columns:
+            total_row[col] = ""
         else:
             try:
-                numeric_vals = pd.to_numeric(df[col], errors='coerce').fillna(0)
-                total_row[col] = int(numeric_vals.sum())
+                numeric_series = pd.to_numeric(df[col], errors='coerce')
+                valid_numeric = numeric_series.dropna()
+                if len(valid_numeric) > 0 and len(valid_numeric) >= (len(df) * 0.3):
+                    total_row[col] = int(valid_numeric.sum())
+                else:
+                    total_row[col] = ""
             except Exception:
                 total_row[col] = ""
 
@@ -1455,25 +1521,38 @@ def generate_clean_multiindex_html(df, table_class='preview-table'):
             th_html += f'<th style="text-align: center; background: #0f172a; color: white; font-weight: 700; border-right: 1px solid #334155; padding: 10px 14px;">{col}</th>'
             
         tbody_html = "<tbody>\n"
+        tfoot_html = ""
         for row_idx, row in df_clean.iterrows():
             is_total = (clean_cell_val(row.iloc[0]).lower() == "total" or (len(row) > 1 and clean_cell_val(row.iloc[1]).lower() == "total"))
-            bg_color = "#e2e8f0" if is_total else ("#ffffff" if row_idx % 2 == 0 else "#f8fafc")
+            bg_color = "" if is_total else ("#ffffff" if row_idx % 2 == 0 else "#f8fafc")
             border_style = "border-top: 2px solid #64748b; border-bottom: 2px solid #64748b;" if is_total else "border-bottom: 1px solid #e2e8f0;"
-            tbody_html += f'  <tr style="background: {bg_color}; font-weight: {"700" if is_total else "normal"};">\n'
+            
+            row_style = f' style="background: {bg_color}; font-weight: 400;"' if not is_total else ''
+            row_content = f'  <tr class="{"total-row" if is_total else ""}"{row_style}>\n'
             for col_idx, val in enumerate(row):
                 val_str = clean_cell_val(val)
-                align = "left" if (col_idx in [0, 1] and not is_total) else ("left" if is_total and col_idx == 0 else "center")
-                font_wt = "700" if (is_total or col_idx == 1) else "400"
-                td_bg = "background: #e2e8f0;" if is_total else ""
-                tbody_html += f'    <td style="text-align: {align}; font-weight: {font_wt}; padding: 10px 14px; {border_style} border-right: 1px solid #cbd5e1; color: #0f172a; {td_bg}">{val_str}</td>\n'
-            tbody_html += "  </tr>\n"
+                col_name = str(df_clean.columns[col_idx]).lower().strip()
+                if "district" in col_name or "name" in col_name or "address" in col_name or "remark" in col_name:
+                    align = "left" if not is_total else "center"
+                else:
+                    align = "center"
+                font_wt = "700" if is_total else "400"
+                td_style = f'style="text-align: {align}; font-weight: {font_wt}; padding: 16px 20px;"' if is_total else f'style="text-align: {align}; font-weight: {font_wt}; padding: 16px 20px; {border_style} border-right: 1px solid #cbd5e1; color: #0f172a;"'
+                row_content += f'    <td {td_style}>{val_str}</td>\n'
+            row_content += "  </tr>\n"
+
+            if is_total:
+                tfoot_html += f'<tfoot>\n{row_content}</tfoot>\n'
+            else:
+                tbody_html += row_content
         tbody_html += "</tbody>"
 
-        return f'''<table class="{table_class}" style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; font-family: inherit;">
+        return f'''<table class="{table_class}" style="width: 100%; height: auto; border-collapse: collapse; font-size: 13px; font-family: inherit;">
   <thead>
     <tr>{th_html}</tr>
   </thead>
   {tbody_html}
+  {tfoot_html}
 </table>'''
 
     headers = list(df_clean.columns)
@@ -1513,54 +1592,64 @@ def generate_clean_multiindex_html(df, table_class='preview-table'):
     row2_html += "</tr>"
 
     tbody_html = "<tbody>\n"
+    tfoot_html = ""
     for row_idx, row in df_clean.iterrows():
         is_total = (clean_cell_val(row.iloc[0]).lower() == "total" or clean_cell_val(row.iloc[1]).lower() == "total")
-        row_cls = ' class="total-row"' if is_total else ''
-        bg_color = "#e2e8f0" if is_total else ("#ffffff" if row_idx % 2 == 0 else "#f8fafc")
+        bg_color = "" if is_total else ("#ffffff" if row_idx % 2 == 0 else "#f8fafc")
         border_style = "border-top: 2px solid #64748b; border-bottom: 2px solid #64748b;" if is_total else "border-bottom: 1px solid #e2e8f0;"
-        tbody_html += f'  <tr{row_cls} style="background: {bg_color}; font-weight: {"700" if is_total else "normal"};">\n'
+        
+        row_style = f' style="background: {bg_color}; font-weight: 400;"' if not is_total else ''
+        row_content = f'  <tr class="{"total-row" if is_total else ""}"{row_style}>\n'
         for col_idx, val in enumerate(row):
             val_str = clean_cell_val(val)
-            align = "left" if (col_idx in [0, 1] and not is_total) else ("left" if is_total and col_idx == 0 else "center")
-            font_wt = "700" if (is_total or col_idx == 1) else "400"
-            td_bg = "background: #e2e8f0;" if is_total else ""
-            tbody_html += f'    <td style="text-align: {align}; font-weight: {font_wt}; padding: 10px 14px; {border_style} border-right: 1px solid #cbd5e1; color: #0f172a; {td_bg}">{val_str}</td>\n'
-        tbody_html += "  </tr>\n"
+            col_name = str(df_clean.columns[col_idx]).lower().strip()
+            if "district" in col_name or "name" in col_name or "address" in col_name or "remark" in col_name:
+                align = "left" if not is_total else "center"
+            else:
+                align = "center"
+            font_wt = "700" if is_total else "400"
+            td_style = f'style="text-align: {align}; font-weight: {font_wt}; padding: 16px 20px;"' if is_total else f'style="text-align: {align}; font-weight: {font_wt}; padding: 16px 20px; {border_style} border-right: 1px solid #cbd5e1; color: #0f172a;"'
+            row_content += f'    <td {td_style}>{val_str}</td>\n'
+        row_content += "  </tr>\n"
+
+        if is_total:
+            tfoot_html += f'<tfoot>\n{row_content}</tfoot>\n'
+        else:
+            tbody_html += row_content
     tbody_html += "</tbody>"
 
-    return f'''<table class="{table_class}" style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; font-family: inherit;">
+    return f'''<table class="{table_class}" style="width: 100%; height: auto; border-collapse: collapse; font-size: 13px; font-family: inherit;">
   <thead>
     {row1_html}
     {row2_html}
   </thead>
   {tbody_html}
+  {tfoot_html}
 </table>'''
-
-DIVISIONS = {
-    "bilaspur": ["bilaspur", "gaurella-pendra-marwahi", "gaurela-pendra-marwahi", "janjgir-champa", "janjgir", "korba", "mungeli", "raigarh", "sakti", "sarangarh-bilaigarh", "sarangarh"],
-    "raipur": ["baloda bazar-bhatapara", "balodabazar", "baloda bazar", "dhamtari", "gariaband", "gariyaband", "mahasamund", "raipur"],
-    "durg": ["balod", "bemetara", "durg", "kabirdham (kawardha)", "kabirdham", "kawardha", "khairagarh-chhuikhadan-gandai", "khairagarh", "mohla-manpur-ambagarh chowki", "mohla", "rajnandgaon"],
-    "bastar": ["bastar", "bijapur", "dakshin bastar (dantewada)", "dantewada", "uttar bastar (kanker)", "kanker", "kondagaon", "narayanpur", "sukma"],
-    "surguja": ["balrampur-ramanujganj", "balrampur", "jashpur", "koriya", "manendragarh-chirmiri-bharatpur", "manendragarh", "surajpur", "surguja"]
-}
 
 def apply_system_filters(df, lwe: bool, division: Optional[str], district: Optional[str], search: Optional[str] = None, station_search: Optional[str] = None, operator_search: Optional[str] = None):
     dist_col = _get_df_col(df, "District") or _get_df_col(df, "District Name")
+    
+    # Sort dataframe alphabetically by District Name
+    if dist_col and not df.empty:
+        temp_sort = "_temp_dist_sort"
+        df[temp_sort] = df[dist_col].astype(str).str.strip().str.lower()
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            df = df.sort_values(by=temp_sort, ascending=True).drop(columns=[temp_sort])
+        df = df.reset_index(drop=True)
+        
+        sno_col = _get_df_col(df, "SR No.") or _get_df_col(df, "S.No")
+        if sno_col:
+            df[sno_col] = list(range(1, len(df) + 1))
+
     if district and dist_col:
         norm_target = normalize_district_name(district)
         df = df[df[dist_col].astype(str).apply(normalize_district_name) == norm_target]
         
     if division and dist_col:
-        div_key = division.lower()
-        if div_key in DIVISIONS:
-            allowed = DIVISIONS[div_key]
-            def match_div(d_name):
-                d_name_lower = str(d_name).strip().lower()
-                for a in allowed:
-                    if a in d_name_lower or d_name_lower in a:
-                        return True
-                return False
-            df = df[df[dist_col].apply(match_div)]
+        df = df[df[dist_col].apply(lambda d: is_district_in_division(d, division))]
 
     lwe_col = _get_df_col(df, "Is LWE District")
     if lwe and lwe_col:
@@ -1573,11 +1662,10 @@ def apply_system_filters(df, lwe: bool, division: Optional[str], district: Optio
             mask = df.astype(str).apply(lambda row: row.str.lower().str.contains(search_val, regex=False, na=False).any(), axis=1)
             df = df[mask]
 
-    if district or division or lwe or search_term:
-        df = df.reset_index(drop=True)
-        sno_col = _get_df_col(df, "SR No.") or _get_df_col(df, "S.No")
-        if sno_col:
-            df[sno_col] = range(1, len(df) + 1)
+    df = df.reset_index(drop=True)
+    sno_col = _get_df_col(df, "SR No.") or _get_df_col(df, "S.No")
+    if sno_col and not df.empty:
+        df[sno_col] = list(range(1, len(df) + 1))
             
     if lwe_col:
         try:
@@ -1619,7 +1707,11 @@ def preview_system_report(
         df_page = df.iloc[start_idx:end_idx].copy()
         
         if report_name in ["district_wise_kit_count", "lms_summary", "nseit_summary"]:
-            df_page = add_total_row(df_page)
+            if page == total_pages and not (district and str(district).strip()):
+                full_total_df = add_total_row(df)
+                if not full_total_df.empty:
+                    last_row = full_total_df.iloc[[-1]].copy()
+                    df_page = pd.concat([df_page, last_row], ignore_index=True)
             
         html_table = generate_clean_multiindex_html(df_page)
         return {
@@ -1645,7 +1737,8 @@ def download_system_report(report_name: str, lwe: bool = False, division: Option
         df = clean_dataframe_mobile_cols(df)
         df = df.fillna("")
         if report_name in ["district_wise_kit_count", "lms_summary", "nseit_summary"]:
-            df = add_total_row(df)
+            if not (district and str(district).strip()):
+                df = add_total_row(df)
             
         output = io.BytesIO()
         sheet_name = 'Kit Status' if report_name == 'district_wise_kit_count' else 'System Report'

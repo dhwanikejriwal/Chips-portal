@@ -167,3 +167,94 @@ def normalize_district_name(district_name: str) -> str:
     result = str(district_name).strip()
     result = result.replace('â€“', '-').replace('â€”', '-').replace('â€', '').replace('–', '-').replace('—', '-')
     return ' '.join(result.split()).title()
+
+
+DIVISIONS_MASTER_MAP = {
+    "Raipur Div": [
+        "Balodabazar-Bhatapara",
+        "Dhamtari",
+        "Gariyaband",
+        "Mahasamund",
+        "Raipur"
+    ],
+    "Durg Div": [
+        "Balod",
+        "Bemetara",
+        "Durg",
+        "Kabeerdham",
+        "Khairagarh-Chhuikhadan-Gandai",
+        "Mohla-Manpur-Ambagarh Chouki",
+        "Rajnandgaon"
+    ],
+    "Bilaspur Div": [
+        "Bilaspur",
+        "Gaurela-Pendra-Marwahi",
+        "Janjgir-Champa",
+        "Korba",
+        "Mungeli",
+        "Raigarh",
+        "Sakti",
+        "Sarangarh-Bilaigarh"
+    ],
+    "Surguja Div": [
+        "Balrampur-Ramanujganj",
+        "Jashpur",
+        "Korea",
+        "Manendragarh-Chirmiri-Bharatpur (MCB)",
+        "Surajpur",
+        "Surguja"
+    ],
+    "Bastar Div": [
+        "Bastar",
+        "Bijapur",
+        "Dakshin Bastar Dantewada",
+        "Uttar Bastar Kanker",
+        "Kondagaon",
+        "Narayanpur",
+        "Sukma"
+    ]
+}
+
+LWE_MASTER_DISTRICTS = {
+    "Bastar",
+    "Bijapur",
+    "Dakshin Bastar Dantewada",
+    "Mohla-Manpur-Ambagarh Chouki",
+    "Narayanpur",
+    "Sukma",
+    "Uttar Bastar Kanker"
+}
+
+def is_lwe_district(district_name: str) -> str:
+    if not district_name:
+        return "No"
+    norm = normalize_district_name(str(district_name))
+    return "Yes" if norm in LWE_MASTER_DISTRICTS else "No"
+
+def get_division_for_district(district_name: str):
+    """
+    Returns the division name for a given district name or alias by resolving it
+    via centralized DISTRICT_ALIAS_MAP first, then checking DIVISIONS_MASTER_MAP.
+    """
+    if not district_name:
+        return None
+    normalized = normalize_district_name(district_name)
+    for div_name, master_districts in DIVISIONS_MASTER_MAP.items():
+        if normalized in master_districts:
+            return div_name
+    return None
+
+def is_district_in_division(district_name: str, division_key: str) -> bool:
+    """
+    Checks if a district input belongs to a division by resolving the district via 
+    DISTRICT_ALIAS_MAP and comparing with the target division key.
+    """
+    if not district_name or not division_key:
+        return False
+    target_div = get_division_for_district(district_name)
+    if not target_div:
+        return False
+    norm_key = str(division_key).lower().replace('div', '').strip()
+    return norm_key in target_div.lower()
+
+

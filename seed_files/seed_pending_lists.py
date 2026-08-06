@@ -94,16 +94,25 @@ def run():
             added_kits += 1
 
     # Process Operators
+    from backend.models.district import District
+    districts = db.query(District).all()
+    dist_map = {d.district_name.lower().strip(): d.district_code for d in districts}
+
     existing_ops = {o[0] for o in db.query(Operator.user_code).all()}
     df_op = pd.read_excel(op_file, header=1)
     df_op = df_op.replace({np.nan: None})
     added_ops = 0
     for idx, row in df_op.iterrows():
         op_id_str = clean_str(row.get('Operator Id'))
+        dist_name = clean_str(row.get('District'))
         if not op_id_str: continue
+        
+        dist_code = dist_map.get(dist_name.lower().strip(), dist_name) if dist_name else None
+        
         if op_id_str not in existing_ops:
             op = Operator(
                 user_code=op_id_str,
+                district_id=dist_code,
                 name=clean_str(row.get('Operator Name')) or "Unknown",
                 mobile=clean_str(row.get('Operator Mobile')),
                 security_deposit_status=clean_str(row.get('SD Status')),

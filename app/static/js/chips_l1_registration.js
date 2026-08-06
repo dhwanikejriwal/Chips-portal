@@ -229,11 +229,11 @@ window.showL1Details = function (data, activeView) {
 
             ${displayStatus === 'REVERTED' ? `
             <!-- Revert Reason / Remark Box -->
-            <div style="background: #fff8f8; border: 1px dashed #fca5a5; border-left: 4px solid #ef4444; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
-                <div style="font-size: 11px; font-weight: 700; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+            <div class="revert-reason-box" style="margin-bottom: 18px;">
+                <div class="revert-reason-header" style="gap: 6px;">
                     <span>💬</span> REVERT REASON / REMARK
                 </div>
-                <div style="font-size: 13px; font-weight: 600; color: #7f1d1d; line-height: 1.5;">
+                <div class="revert-reason-text">
                     ${escapeHtml(data.revert_reason || 'No reason note provided.')}
                 </div>
             </div>` : ''}

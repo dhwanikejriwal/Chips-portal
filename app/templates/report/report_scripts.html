@@ -40,7 +40,7 @@
         for (let p of priority1) {
             for (let i = 0; i < numCols; i++) {
                 let h = colHeaders[i].toLowerCase();
-                if (h.includes(p) && !h.includes('s.no') && !h.includes('sr.no') && !h.includes('sr no')) {
+                if (h.includes(p) && !h.includes('s.no') && !h.includes('sr.no') && !h.includes('sr no') && !h.includes('s. no') && !h.includes('sr. no')) {
                     return i;
                 }
             }
@@ -49,7 +49,7 @@
         for (let p of priority2) {
             for (let i = 0; i < numCols; i++) {
                 let h = colHeaders[i].toLowerCase();
-                if (h.includes(p) && !h.includes('s.no') && !h.includes('sr.no') && !h.includes('sr no')) {
+                if (h.includes(p) && !h.includes('s.no') && !h.includes('sr.no') && !h.includes('sr no') && !h.includes('s. no') && !h.includes('sr. no')) {
                     return i;
                 }
             }
@@ -218,13 +218,23 @@
 
         // Modal Logic
         function showTab(index) {
-            document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-                btn.style.background = i === index ? '#2563eb' : '#f1f5f9';
-                btn.style.color = i === index ? 'white' : '#475569';
+            const btns = document.querySelectorAll('.preview-sub-bar .tab-btn, #previewBody .tab-btn');
+            btns.forEach((btn, i) => {
+                if (i === index) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+                btn.style.background = '';
+                btn.style.color = '';
             });
             document.querySelectorAll('.tab-pane').forEach((pane, i) => {
                 pane.style.display = i === index ? 'block' : 'none';
             });
+            if (currentPreviewMode === 'custom') {
+                currentReportPage = 1;
+                applyCustomModalFilters();
+            }
         }
 
 
@@ -324,9 +334,16 @@
             currentSystemReport = reportName;
             currentSystemTitle = friendlyTitle;
             currentReportPage = 1;
-            currentReportPageSize = 10;
+            
+            const isSummaryReport = ['district_wise_kit_count', 'lms_summary', 'nseit_summary'].includes(reportName);
+            if (!isDc && isSummaryReport) {
+                currentReportPageSize = 50;
+            } else {
+                currentReportPageSize = 10;
+            }
+            
             const psSelect = document.getElementById('modalPageSizeSelect');
-            if (psSelect) psSelect.value = '10';
+            if (psSelect) psSelect.value = String(currentReportPageSize);
 
             document.getElementById('previewModal').style.display = 'flex';
             document.getElementById('previewTitle').innerText = friendlyTitle;
@@ -389,8 +406,19 @@
                 theadRows.forEach(tr => {
                     const ths = tr.querySelectorAll('th');
                     ths.forEach(th => {
-                        const txt = th.innerText.trim().toLowerCase();
-                        if (txt === 's.no' || txt === 'sr.no' || txt === 'sr no' || txt === 's.no.' || txt === '#') {
+                        const rawTxt = th.innerText.trim().toLowerCase();
+                        const cleanTxt = rawTxt.replace(/[^a-z0-9]/g, '');
+                        if (
+                            cleanTxt === 'sno' ||
+                            cleanTxt === 'srno' ||
+                            cleanTxt === 'slno' ||
+                            cleanTxt.startsWith('sno') ||
+                            cleanTxt.startsWith('srno') ||
+                            cleanTxt.startsWith('slno') ||
+                            cleanTxt === 'serialno' ||
+                            rawTxt === '#' ||
+                            rawTxt.startsWith('#')
+                        ) {
                             hasSNoHeader = true;
                         }
                     });
@@ -406,6 +434,9 @@
 
                 const rows = tbody.querySelectorAll('tr');
                 rows.forEach((row, idx) => {
+                    if (row.dataset.originalIndex === undefined) {
+                        row.dataset.originalIndex = idx;
+                    }
                     const td = document.createElement('td');
                     td.innerText = idx + 1;
                     td.style.padding = '16px 20px';
@@ -413,39 +444,27 @@
                     td.style.fontWeight = '500';
                     row.insertBefore(td, row.firstChild);
                 });
+
+                const tfootRows = table.querySelectorAll('tfoot tr');
+                tfootRows.forEach(row => {
+                    const td = document.createElement('td');
+                    td.innerText = '';
+                    td.style.padding = '16px 20px';
+                    td.style.fontWeight = '700';
+                    row.insertBefore(td, row.firstChild);
+                });
             });
         }
 
+        const userDivision = "{{ user_division or '' }}".toLowerCase();
+        const isUserLwe = "{{ 'true' if is_lwe else 'false' }}" === 'true';
+
         function getDcAllowedTabIds(districtName) {
-            if (!districtName) return ['combined'];
-            const d = districtName.toLowerCase().trim();
-
-            const divisions = {
-                'bilaspur': ["bilaspur", "gaurella-pendra-marwahi", "gaurela-pendra-marwahi", "gpm", "janjgir-champa", "janjgir", "champa", "korba", "mungeli", "raigarh", "sakti", "sarangarh-bilaigarh", "sarangarh"],
-                'raipur': ["baloda bazar-bhatapara", "balodabazar", "baloda bazar", "dhamtari", "gariaband", "gariyaband", "mahasamund", "raipur"],
-                'durg': ["balod", "bemetara", "durg", "kabirdham", "kawardha", "khairagarh-chhuikhadan-gandai", "khairagarh", "mohla-manpur-ambagarh chowki", "mohla", "rajnandgaon"],
-                'bastar': ["bastar", "bijapur", "dantewada", "kanker", "kondagaon", "narayanpur", "sukma"],
-                'surguja': ["balrampur-ramanujganj", "balrampur", "jashpur", "koriya", "korea", "manendragarh-chirmiri-bharatpur", "manendragarh", "surajpur", "surguja"]
-            };
-
-            const lweDistricts = ["dantewada", "bastar", "sukma", "narayanpur", "bijapur", "kanker", "kondagaon", "mohla", "rajnandgaon", "kabirdham", "kawardha", "gariaband", "dhamtari", "mungeli", "koriya", "balrampur"];
-
-            let userDiv = null;
-            for (const [divKey, distList] of Object.entries(divisions)) {
-                if (distList.some(item => d.includes(item) || item.includes(d))) {
-                    userDiv = divKey;
-                    break;
-                }
-            }
-
-            const isLwe = lweDistricts.some(item => d.includes(item) || item.includes(d));
-
             const allowed = ['combined'];
-            if (isLwe) {
-                allowed.push('lwe');
-            }
-            if (userDiv) {
-                allowed.push(userDiv);
+            if (isUserLwe) allowed.push('lwe');
+            if (userDivision) {
+                const divKey = userDivision.replace('div', '').trim();
+                if (divKey) allowed.push(divKey);
             }
             return allowed;
         }
@@ -505,6 +524,10 @@
                 if (response.ok) {
                     const data = await response.json();
                     document.getElementById('previewBody').innerHTML = tabsContainerHtml + `<div class="report-table-wrapper">${data.html}</div>`;
+                    if (isDc) {
+                        const tfoots = document.querySelectorAll('#previewBody tfoot, #previewBody .total-row');
+                        tfoots.forEach(tf => tf.remove());
+                    }
                     ensureSNoColumn(document.getElementById('previewBody'));
 
                     if (data.pagination) {
@@ -943,7 +966,9 @@
         function goToModalPage(p) {
             if (p !== currentReportPage && p >= 1 && p <= totalReportPages) {
                 currentReportPage = p;
-                if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
+                if (currentPreviewMode === 'custom') {
+                    applyCustomModalFilters();
+                } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
                     fetchDistrictStationDetails(currentDistrictDetailName);
                 } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
                     fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
@@ -957,7 +982,9 @@
             const newPage = currentReportPage + delta;
             if (newPage >= 1 && newPage <= totalReportPages) {
                 currentReportPage = newPage;
-                if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
+                if (currentPreviewMode === 'custom') {
+                    applyCustomModalFilters();
+                } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
                     fetchDistrictStationDetails(currentDistrictDetailName);
                 } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
                     fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
@@ -972,7 +999,9 @@
             currentReportPage = 1;
             const psSelect = document.getElementById('modalPageSizeSelect');
             if (psSelect) psSelect.value = currentReportPageSize;
-            if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
+            if (currentPreviewMode === 'custom') {
+                applyCustomModalFilters();
+            } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
                 fetchDistrictStationDetails(currentDistrictDetailName);
             } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
                 fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
@@ -983,13 +1012,50 @@
 
         function applyModalFilters() {
             currentReportPage = 1;
-            if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
+            if (currentPreviewMode === 'custom') {
+                applyCustomModalFilters();
+            } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
                 fetchDistrictStationDetails(currentDistrictDetailName);
             } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
                 fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
             } else if (currentPreviewMode === 'system') {
                 fetchSystemPreview(currentFilterType);
             }
+        }
+
+        function resetTableSorting(container) {
+            container = container || document.getElementById('previewBody');
+            if (!container) return;
+
+            const tables = container.querySelectorAll('table');
+            tables.forEach(table => {
+                delete table.dataset.sortDir;
+                const tbody = table.querySelector('tbody');
+                if (!tbody) return;
+
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const dataRows = rows.filter(row => !row.classList.contains('total-row') && !row.closest('tfoot'));
+                const totalRows = rows.filter(row => row.classList.contains('total-row') || row.closest('tfoot'));
+
+                dataRows.sort((a, b) => {
+                    const idxA = a.dataset.originalIndex !== undefined ? parseInt(a.dataset.originalIndex, 10) : 0;
+                    const idxB = b.dataset.originalIndex !== undefined ? parseInt(b.dataset.originalIndex, 10) : 0;
+                    return idxA - idxB;
+                });
+
+                dataRows.forEach(row => tbody.appendChild(row));
+                totalRows.forEach(row => tbody.appendChild(row));
+
+                const headers = table.querySelectorAll('thead th');
+                headers.forEach(th => {
+                    const icon = th.querySelector('.sort-icon');
+                    if (icon) {
+                        icon.className = 'ti ti-arrows-sort sort-icon';
+                        icon.style.opacity = '0.5';
+                        icon.style.color = 'inherit';
+                    }
+                });
+            });
         }
 
         function clearModalFilters() {
@@ -999,13 +1065,17 @@
             if (distFilter && !(isDc && userDistrict)) distFilter.value = '';
             if (mainSearch) mainSearch.value = '';
 
-            ['filter-l1', 'filter-l2', 'filter-sd', 'filter-op', 'filter-st'].forEach(id => {
+            ['filter-l1', 'filter-l2', 'filter-sd', 'filter-op', 'filter-st', 'modal-station-search', 'modal-operator-search'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
 
+            resetTableSorting(document.getElementById('previewBody'));
+
             currentReportPage = 1;
-            if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
+            if (currentPreviewMode === 'custom') {
+                applyCustomModalFilters();
+            } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
                 fetchDistrictStationDetails(currentDistrictDetailName);
             } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
                 fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
@@ -1016,6 +1086,12 @@
 
         async function openPreviewModal(reportId, filename) {
             currentPreviewMode = 'custom';
+            currentReportPage = 1;
+            currentReportPageSize = 50;
+
+            const psSelect = document.getElementById('modalPageSizeSelect');
+            if (psSelect) psSelect.value = '50';
+
             document.getElementById('previewModal').style.display = 'flex';
             document.getElementById('previewTitle').innerText = filename;
             document.getElementById('modal-district-container').style.display = 'flex';
@@ -1102,54 +1178,101 @@
                 document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p></div>';
             }
         }
-
         function applyCustomModalFilters() {
-            const districtVal = (document.getElementById('modal-district-filter')?.value || '').toLowerCase().trim();
+            const distEl = document.getElementById('modal-district-filter');
+            const rawDistVal = distEl ? distEl.value.trim() : '';
+            const cleanDistVal = rawDistVal.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            const searchInput = document.getElementById('modal-search-input');
+            const rawSearchVal = searchInput ? searchInput.value.trim() : '';
+            const searchVal = (rawSearchVal && rawSearchVal.toLowerCase() !== 'search ...' && rawSearchVal.toLowerCase() !== 'search...') ? rawSearchVal.toLowerCase() : '';
+
             const stationVal = (document.getElementById('modal-station-search')?.value || '').toLowerCase().trim();
             const operatorVal = (document.getElementById('modal-operator-search')?.value || '').toLowerCase().trim();
 
             const modalBody = document.getElementById('previewBody');
             if (!modalBody) return;
 
-            const tables = modalBody.querySelectorAll('table');
-            tables.forEach(table => {
-                const tbody = table.querySelector('tbody');
-                if (!tbody) return;
+            let activePane = modalBody.querySelector('.tab-pane[style*="display: block"]') || modalBody.querySelector('.tab-pane') || modalBody;
+            const table = activePane.querySelector('table');
+            if (!table) return;
 
-                const rows = Array.from(tbody.querySelectorAll('tr'));
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
 
-                rows.forEach(row => {
-                    let show = true;
-                    const rowText = row.innerText.toLowerCase();
+            const allRows = Array.from(tbody.querySelectorAll('tr'));
+            const dataRows = allRows.filter(r => !r.classList.contains('total-row') && !r.closest('tfoot'));
+            const totalRows = allRows.filter(r => r.classList.contains('total-row') || r.closest('tfoot'));
 
-                    // District filter check (only if not DC)
-                    if (districtVal && !isDc) {
-                        if (!rowText.includes(districtVal)) show = false;
+            const totalUnfiltered = dataRows.length;
+            const matchingRows = [];
+
+            dataRows.forEach(row => {
+                let show = true;
+                const rowText = row.innerText.toLowerCase();
+
+                // 1. District filter check
+                if (cleanDistVal && !isDc) {
+                    const cells = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+                    const distMatch = cells.some(c => c === cleanDistVal);
+                    if (!distMatch) show = false;
+                }
+
+                // 2. Search bar filter check
+                if (show && searchVal) {
+                    if (!rowText.includes(searchVal)) show = false;
+                }
+
+                // 3. Station ID filter check
+                if (show && stationVal) {
+                    if (!rowText.includes(stationVal)) show = false;
+                }
+
+                // 4. Operator Name filter check
+                if (show && operatorVal) {
+                    if (!rowText.includes(operatorVal)) show = false;
+                }
+
+                if (show) {
+                    matchingRows.push(row);
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const totalMatching = matchingRows.length;
+            const pageSize = currentReportPageSize || 10;
+            const totalPages = Math.max(1, Math.ceil(totalMatching / pageSize));
+
+            if (currentReportPage > totalPages) {
+                currentReportPage = 1;
+            }
+
+            const startIdx = (currentReportPage - 1) * pageSize;
+            const endIdx = startIdx + pageSize;
+
+            matchingRows.forEach((row, idx) => {
+                if (idx >= startIdx && idx < endIdx) {
+                    row.style.display = '';
+                    const firstCell = row.querySelector('td');
+                    if (firstCell && !isNaN(parseInt(firstCell.innerText.trim(), 10))) {
+                        firstCell.innerText = idx + 1;
                     }
+                } else {
+                    row.style.display = 'none';
+                }
+            });
 
-                    // Station ID filter check
-                    if (show && stationVal) {
-                        if (!rowText.includes(stationVal)) show = false;
-                    }
+            totalRows.forEach(tr => tr.style.display = '');
 
-                    // Operator Name filter check
-                    if (show && operatorVal) {
-                        if (!rowText.includes(operatorVal)) show = false;
-                    }
-
-                    row.style.display = show ? '' : 'none';
-                });
-
-                // Re-number S.No for visible rows
-                let visibleIdx = 1;
-                rows.forEach(row => {
-                    if (row.style.display !== 'none') {
-                        const firstCell = row.querySelector('td');
-                        if (firstCell && !isNaN(parseInt(firstCell.innerText.trim()))) {
-                            firstCell.innerText = visibleIdx++;
-                        }
-                    }
-                });
+            renderModalPagination({
+                page: currentReportPage,
+                page_size: pageSize,
+                total: totalMatching,
+                total_unfiltered: totalUnfiltered,
+                pages: totalPages,
+                start: totalMatching > 0 ? startIdx + 1 : 0,
+                end: Math.min(endIdx, totalMatching)
             });
 
             highlightDelayedRows();

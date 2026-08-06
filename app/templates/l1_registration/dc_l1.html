@@ -22,7 +22,7 @@
 {% set total_requests = requests | length %}
 {% set pending_count = requests | selectattr('status', 'equalto', 'PENDING') | list | length %}
 {% set reapplied_count = requests | selectattr('status', 'equalto', 'REAPPLIED') | list | length %}
-{% set approved_count = requests | selectattr('status', 'in', ['DONE', 'APPROVED', 'REVIEWED']) | list | length %}
+{% set approved_count = requests | selectattr('status', 'in', ['L1_DONE', 'APPROVED', 'L1 Done']) | list | length %}
 {% set reverted_count = requests | selectattr('status', 'equalto', 'REVERTED') | list | length %}
 
 <div id="view-l1-application-panel" style="display: none;">
@@ -452,7 +452,7 @@
         empty_id='reverted-empty-msg',
         empty_message='No reverted request logs found.') %}
         {% set ns_r = namespace(count=1) %}
-        {% for req in requests if (req.status|upper) not in ['PENDING', 'REAPPLIED', 'DONE', 'APPROVED', 'REVIEWED'] %}
+        {% for req in requests if (req.status|string|upper|replace(' ', '_')) in ['REVERTED', 'REVERTED_BY_CHIPS', 'REJECTED'] %}
         <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}"
             data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
             <td>{{ ns_r.count }}</td>
@@ -507,7 +507,7 @@
         empty_id='approved-empty-msg',
         empty_message='No approved request logs found.') %}
         {% set ns_a = namespace(count=1) %}
-        {% for req in requests if (req.status|upper) in ['DONE', 'L1_DONE', 'L1 DONE', 'APPROVED', 'REVIEWED'] %}
+        {% for req in requests if (req.status|string|upper|replace(' ', '_')) in ['L1_DONE', 'APPROVED'] %}
         <tr data-id="{{ req.id }}" data-request-code="{{ req.request_code }}" data-station-id="{{ req.station_id }}"
             data-model="{{ req.model_type }}" data-status="{{ req.status }}" data-created="{{ req.created_at }}">
             <td>{{ ns_a.count }}</td>
