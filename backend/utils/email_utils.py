@@ -117,7 +117,7 @@ async def send_approval_email(email_to: str, name: str, username: str, raw_passw
         print(f"Failed to send email to {email_to}: {e}")
         raise e
 
-async def send_lms_approval_email(email_to: str, name: str, username: str, raw_password: str, lms_link: str):
+async def send_lms_approval_email(email_to: str, name: str, username: str, raw_password: str, lms_link: str = "https://e-learning.uidai.gov.in/login/index.php"):
     """
     Sends an automated HTML email to the candidate upon LMS approval,
     containing their LMS login credentials and portal link.
@@ -239,7 +239,7 @@ async def send_lms_approval_email(email_to: str, name: str, username: str, raw_p
         print(f"Failed to send LMS approval email to {email_to}: {e}")
         raise e
 
-async def send_nseit_approval_email(email_to: str, name: str, booking_link: str = "https://uidai.nseitexams.com"):
+async def send_nseit_approval_email(email_to: str, name: str, booking_link: str = "https://uidai.dexitglobalexams.com/UIDAI/LoginAction_input.action"):
     """
     Sends an automated HTML email to the candidate upon NSEIT request approval,
     informing them that their request is approved and they can book their exam slot and make the payment.

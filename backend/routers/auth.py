@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 
 from backend.database import get_db
-from backend.models import UserLogin, CandidateLogin
+from backend.models import UserLogin, CandidateLogin , UserProfile
 from backend.utils.email_utils import send_password_reset_email
 
 
@@ -37,10 +37,23 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 @router.post("/login")
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(UserLogin).filter(UserLogin.username == payload.username).first()
+    if not user:
+        # Fallback: check if payload.username matches email in UserProfile
+        profile = db.query(UserProfile).filter(UserProfile.email.ilike(payload.username)).first()
+        if profile and profile.user_id:
+            user = db.query(UserLogin).filter(UserLogin.id == profile.user_id).first()
+
     is_candidate = False
     candidate_login = None
     if not user:
         candidate_login = db.query(CandidateLogin).filter(CandidateLogin.user_id == payload.username).first()
+        if not candidate_login:
+            from backend.models.candidate import Candidate
+            cand = db.query(Candidate).filter(
+                (Candidate.email == payload.username) | (Candidate.mobile == payload.username)
+            ).first()
+            if cand and cand.login:
+                candidate_login = cand.login
         if not candidate_login:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -203,20 +216,14 @@ def get_profile(current_user: UserLogin = Depends(get_current_user), db: Session
         )
 
     profile = current_user.profile
-    if not profile:
-        profile = UserProfile(user_id=current_user.id)
-        db.add(profile)
-        db.commit()
-        db.refresh(profile)
-    
     district_name = current_user.district.district_name if current_user.district else ""
     return {
         "username": current_user.username,
         "role": current_user.role.role,
         "district_name": district_name,
-        "full_name": profile.full_name or "",
-        "email": profile.email or "",
-        "phone": profile.phone or ""
+        "full_name": profile.full_name if profile and profile.full_name else "",
+        "email": profile.email if profile and profile.email else "",
+        "phone": profile.phone if profile and profile.phone else ""
     }
 
 @router.post("/profile")
@@ -270,25 +277,35 @@ def change_password(payload: ChangePasswordRequest, current_user = Depends(get_c
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", new_pw):
         raise HTTPException(status_code=400, detail="Password must contain at least one special character.")
 
-    # Check if current_user is CandidateLogin or UserLogin
-    if isinstance(current_user, CandidateLogin):
+    # Check current password
+    try:
         db_password_bytes = current_user.password.encode('utf-8')
-    else:
-        db_password_bytes = current_user.password.encode('utf-8')
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error accessing current password: {str(e)}")
 
-    if not bcrypt.checkpw(payload.current_password.encode('utf-8'), db_password_bytes):
-        raise HTTPException(status_code=400, detail="Incorrect current password.")
+    try:
+        if not bcrypt.checkpw(payload.current_password.encode('utf-8'), db_password_bytes):
+            raise HTTPException(status_code=400, detail="Incorrect current password.")
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=400, detail=f"Error validating password: {str(e)}")
 
     if payload.current_password == payload.new_password:
         raise HTTPException(status_code=400, detail="New password cannot be the same as the current password.")
 
-    salt = bcrypt.gensalt()
-    hashed_pw = bcrypt.hashpw(payload.new_password.encode('utf-8'), salt).decode('utf-8')
+    try:
+        salt = bcrypt.gensalt()
+        hashed_pw = bcrypt.hashpw(payload.new_password.encode('utf-8'), salt).decode('utf-8')
 
-    current_user.password = hashed_pw
-    current_user.has_changed_password = 1
+        current_user.password = hashed_pw
+        current_user.has_changed_password = 1
 
-    db.commit()
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Database or hashing error: {str(e)}")
+
     return {"success": True, "detail": "Password updated successfully."}
 
 class ForgotPasswordRequest(BaseModel):
@@ -298,6 +315,32 @@ class ResetPasswordRequest(BaseModel):
     username: str
     otp: str
     new_password: str
+
+@router.get("/check-candidate-exists")
+def check_candidate_exists(username: str, db: Session = Depends(get_db)):
+    if not username or not username.strip():
+        return {"exists": False, "detail": "Username is required"}
+    
+    identifier = username.strip()
+    candidate_login = db.query(CandidateLogin).filter(CandidateLogin.user_id == identifier).first()
+    
+    if not candidate_login:
+        from backend.models.candidate import Candidate
+        cand = db.query(Candidate).filter(
+            (Candidate.email == identifier) | (Candidate.mobile == identifier)
+        ).first()
+        if cand and cand.login:
+            candidate_login = cand.login
+
+    if candidate_login:
+        c_name = candidate_login.candidate.name if candidate_login.candidate else candidate_login.user_id
+        return {"exists": True, "user_id": candidate_login.user_id, "name": c_name}
+        
+    user = db.query(UserLogin).filter(UserLogin.username == identifier).first()
+    if user:
+        return {"exists": True, "user_id": user.username, "name": user.username}
+        
+    return {"exists": False, "detail": "No candidate account found."}
 
 @router.post("/forgot-password")
 async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
@@ -316,7 +359,9 @@ async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(
         # If not found by request code, search by email
         if not candidate_login:
             from backend.models.candidate import Candidate
-            cand = db.query(Candidate).filter(Candidate.email == payload.username).first()
+            cand = db.query(Candidate).filter(
+                (Candidate.email == payload.username) | (Candidate.mobile == payload.username)
+            ).first()
             if cand and cand.login:
                 candidate_login = cand.login
                 
@@ -330,8 +375,8 @@ async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(
             # Set canonical username for the JWT token so reset logic finds them
             canonical_username = candidate_login.user_id
         else:
-            # Do not leak information, just say success
-            return {"success": True, "detail": "If an account exists, a reset link was sent."}
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Candidate User ID / Email does not exist.")
     
     # Generate 6-digit OTP
     import secrets
@@ -421,6 +466,13 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
         return {"success": True, "detail": "Password reset successfully."}
         
     candidate = db.query(CandidateLogin).filter(CandidateLogin.user_id == payload.username).first()
+    if not candidate:
+        from backend.models.candidate import Candidate
+        cand = db.query(Candidate).filter(
+            (Candidate.email == payload.username) | (Candidate.mobile == payload.username)
+        ).first()
+        if cand and cand.login:
+            candidate = cand.login
     if candidate:
         if bcrypt.checkpw(payload.new_password.encode('utf-8'), candidate.password.encode('utf-8')):
             raise HTTPException(status_code=400, detail="New password cannot be the same as the current password.")

@@ -3,7 +3,6 @@
 {% block title %}L2 Registration Requests — CHIPS Admin{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}?v=23">
 <style>
     /* Scoped customizations for L2 Dashboard */
     .oa-btn-export {
@@ -32,70 +31,9 @@
         height: 14px;
     }
 
-    .btn-approve {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        background: #16a34a;
-        color: #fff;
-        border: none;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-
-    .btn-approve:hover {
-        background: #15803d;
-    }
-
-    .btn-revert {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 5px 12px;
-        background: #fff;
-        color: #dc2626;
-        border: 1.5px solid #fca5a5;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.15s;
-    }
-
-    .btn-revert:hover {
-        background: #fee2e2;
-        border-color: #dc2626;
-    }
-
-    .delayed-row {
-        background-color: #fee2e2 !important;
-    }
-
+    .delayed-row,
     .delayed-row:hover {
-        background-color: #fecaca !important;
-    }
-
-    .btn-issue {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        background: var(--dc-primary, #378ADD);
-        color: #fff;
-        border: none;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-
-    .btn-issue:hover {
-        background: var(--dc-primary-hover, #2C74BE);
+        background-color: transparent !important;
     }
 </style>
 {% endblock %}
@@ -292,6 +230,15 @@
     <option value="reapplied">Reapplied</option>
 </select>
 <button class="rs-export" onclick="exportSection('pending')">Export to CSV</button>
+<button class="rs-export" style="background-color: #16a34a; border-color: #16a34a; color: #ffffff;"
+    onclick="exportAndMailSection('pending')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+        <polyline points="22,6 12,13 2,6"></polyline>
+    </svg>
+    Export & Mail
+</button>
 {% endset %}
 <div class="req-tabpanel active" data-panel="pending">
     {% call request_section(
@@ -348,7 +295,7 @@
         </td>
         <td>
             <div class="action-group" style="justify-content: center;">
-                <button type="button" class="btn-approve" style="background: #16a34a;"
+                <button type="button" class="btn-mail"
                     onclick="exportAndMailSingle('{{ r.id }}', '{{ r.request_no }}')">
                     Mail
                 </button>
@@ -434,7 +381,7 @@
         </td>
         <td>
             <div class="action-group" style="justify-content: center;">
-                <button type="button" class="btn-issue"
+                <button type="button" class="btn-sent-to-uidai"
                     onclick="showSendToUidaiModal('{{ r.id }}', '{{ r.request_no }}')">
                     Send to UIDAI
                 </button>
@@ -495,8 +442,8 @@
         <td><strong>{{ r.request_no or '—' }}</strong></td>
         <td>{{ r.district_name or '—' }}</td>
         <td>
-            <div style="font-weight: 600; color: #1e293b;">{{ r.operator_name }}</div>
-            <div style="font-size: 11px; color: #64748b;">ID: {{ r.operator_id }}</div>
+            <div class="op-name-merged" style="font-weight: 600;">{{ r.operator_name }}</div>
+            <div class="op-id-merged" style="font-size: 11px;">ID: {{ r.operator_id }}</div>
         </td>
         <td><strong>{{ r.new_station_id }}</strong></td>
         <td>{{ r.client_version }} ({{ r.client_type }})</td>
@@ -946,7 +893,7 @@
             filename: displayFilename,
             exportApiUrl: '/auth/chips/l2-registration/export-excel/uidai',
             mailApiUrl: '/auth/chips/l2-registration/export-and-mail',
-            onSuccess: function() {
+            onSuccess: function () {
                 sessionStorage.setItem('chips_action_reloading', 'true');
                 sessionStorage.setItem('active_tab_/auth/chips/l2-registration', 'processing');
                 window.location.reload();
@@ -1025,6 +972,15 @@
             if (targetTab) {
                 const activeTabBtn = document.querySelector(`.req-tab[data-tab="${targetTab}"]`);
                 if (activeTabBtn) activeTabBtn.click();
+                setTimeout(() => {
+                    const table = document.getElementById(targetTab + '-table');
+                    if (table) {
+                        table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        if (typeof window.highlightNotificationRows === 'function') {
+                            window.highlightNotificationRows(table);
+                        }
+                    }
+                }, 150);
             }
         }
 
@@ -1136,7 +1092,7 @@
                     title: 'Request Reverted!',
                     text: `Request ${requestNo} has been sent back to the District Coordinator.`,
                     icon: 'success',
-                    confirmButtonColor: '#dc2626',
+                    confirmButtonColor: '#f59e0b',
                     showConfirmButton: true,
                     timer: 3000,
                     timerProgressBar: true
@@ -1420,8 +1376,8 @@
                     ${isRevertable ? `
                     <!-- Revert Reason / Remark Box -->
                     <div class="revert-reason-box" style="margin-bottom: 18px;">
-                        <div class="revert-reason-header" style="gap: 6px;">
-                            <span>💬</span> ${String(displayStatus).toLowerCase().includes('revert') ? 'REVERT REASON / REMARKS' : 'REJECT REASON / REMARKS'}
+                        <div class="revert-reason-header">
+                            <span class="revert-reason-title">${String(displayStatus).toLowerCase().includes('revert') ? 'Revert Reason/Remark' : 'Rejection Reason/Remark'}</span>
                         </div>
                         <div class="revert-reason-text">
                             ${escapeHtml(latestRevertReason)}

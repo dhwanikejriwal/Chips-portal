@@ -546,18 +546,7 @@
             style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <h2 class="section-title" style="margin-bottom: 0;">Detailed District Requests</h2>
             <div class="request-filters" style="display: flex; gap: 10px;">
-                <select id="req-type-filter" onchange="renderDistrictRequests()"
-                    style="padding: 6px 12px; border-radius: 6px; border: 1px solid #334155; font-size: 13px; outline: none; background: #1e293b; color: #f8fafc; font-weight: 500;">
-                    <option value="ALL">All Types</option>
-                    <option value="Candidate">Candidate</option>
-                    <option value="LMS">LMS</option>
-                    <option value="NSEIT">NSEIT</option>
-                    <option value="Operator Act.">Operator Act.</option>
-                    <option value="Station ID">Station ID</option>
-                    <option value="L1 Reg.">L1 Reg.</option>
-                    <option value="L2 Reg.">L2 Reg.</option>
-                    <option value="Reactivation">Reactivation</option>
-                </select>
+                <input type="hidden" id="req-type-filter" value="ALL">
                 <select id="req-status-filter" onchange="renderDistrictRequests()"
                     style="padding: 6px 12px; border-radius: 6px; border: 1px solid #334155; font-size: 13px; outline: none; background: #1e293b; color: #f8fafc; font-weight: 500;">
                     <option value="ALL">All Statuses</option>
@@ -574,12 +563,13 @@
                     <tr>
                         <th>S.No</th>
                         <th>Request Type</th>
-                        <th>Request Code / ID</th>
+                        <th>Request ID</th>
                         <th>Applicant Name / Info</th>
                         <th>Status</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="district-requests-body">
                     <!-- Populated by JS -->
                 </tbody>
             </table>
@@ -762,10 +752,22 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'top' } },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#cbd5e1', font: { size: 12, weight: '500' } }
+                    }
+                },
                 scales: {
-                    y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#e2e8f0' } },
-                    x: { grid: { display: false } }
+                    y: {
+                        beginAtZero: true,
+                        grid: { borderDash: [4, 4], color: 'rgba(255, 255, 255, 0.08)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
                 }
             }
         });
@@ -860,17 +862,152 @@
                     fullStatus = r.was_reverted ? 'Processed (Prev. Reverted)' : 'Approved / Processed';
                 }
 
+                let statusCell = `<span class="badge ${statusBadge}">${fullStatus}</span>`;
+                if (r.status === 'RJ' && r.remark) {
+                    statusCell += `<div style="margin-top: 4px; font-size: 11px; color: #ef4444; max-width: 200px; white-space: normal; line-height: 1.2;"><strong>Reason:</strong> ${r.remark}</div>`;
+                }
+                
+                const actionCell = `<button class="btn-details" onclick="openDetailsModal('${r.code}')" style="padding: 6px 12px; background: #3b82f6; border: none; border-radius: 6px; font-size: 12px; color: white; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                    <i class="ti ti-search" style="margin-right: 4px;"></i> Details
+                </button>`;
+
                 const row = `<tr>
                     <td>${idx + 1}</td>
                     <td><strong>${r.type}</strong></td>
                     <td>${r.code}</td>
                     <td>${r.name}</td>
-                    <td><span class="badge ${statusBadge}">${fullStatus}</span></td>
+                    <td>${statusCell}</td>
+                    <td>${actionCell}</td>
                 </tr>`;
                 requestsTableBody.insertAdjacentHTML('beforeend', row);
             });
         }
     }
+
+    function openDetailsModal(requestCode) {
+        const modal = document.getElementById('detailsModal');
+        const content = document.getElementById('detailsModalContent');
+        modal.style.display = 'block';
+        content.innerHTML = '<div style="text-align:center; padding: 20px;">Loading candidate history...</div>';
+        
+        fetch(`/auth/chips/dc-monitoring/candidate-history/${requestCode}`)
+            .then(res => {
+                if(!res.ok) throw new Error("Failed to load");
+                return res.json();
+            })
+            .then(data => {
+                let html = `<div style="margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 10px;">
+                    <h3 style="margin: 0; color: #f8fafc; font-size: 18px;">Candidate: ${data.name || 'N/A'}</h3>
+                    <div style="font-size: 13px; color: #94a3b8; margin-top: 4px;">Code: ${data.request_code || ''} | District: ${data.district_name || 'N/A'}</div>
+                </div>`;
+                
+                html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
+                    <div style="background: #0f172a; padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: #94a3b8;">Email</div>
+                        <div style="font-size: 13px;">${data.email || 'N/A'}</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: #94a3b8;">Mobile</div>
+                        <div style="font-size: 13px;">${data.mobile || 'N/A'}</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: #94a3b8;">Status</div>
+                        <div style="font-size: 13px; font-weight: bold; color: ${data.status === 'APPROVED' ? '#10b981' : (data.status === 'REJECTED' ? '#ef4444' : '#f59e0b')}">${data.status || 'N/A'}</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: #94a3b8;">Qualification</div>
+                        <div style="font-size: 13px;">${data.qualification || 'N/A'}</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: #94a3b8;">LMS Status</div>
+                        <div style="font-size: 13px;">${data.lms_status || 'N/A'}</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 11px; color: #94a3b8;">NSEIT Status</div>
+                        <div style="font-size: 13px;">${data.nseit_status || 'N/A'}</div>
+                    </div>
+                </div>`;
+
+                // Uploaded Documents Section
+                const docs = [
+                    { label: 'Photo', path: data.photo_upload },
+                    { label: '10th Marksheet', path: data.tenth_marksheet_upload },
+                    { label: 'Highest Qualification Marksheet', path: data.marksheet_upload },
+                    { label: 'LMS Certificate', path: data.lms_certificate_upload },
+                    { label: 'NSEIT Certificate', path: data.nseit_certificate_upload }
+                ].filter(d => d.path);
+
+                if (docs.length > 0) {
+                    html += `<div style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 10px 0; color: #cbd5e1; font-size: 14px; border-bottom: 1px dashed #334155; padding-bottom: 5px;">Uploaded Documents</h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">`;
+                    docs.forEach(d => {
+                        const fileUrl = d.path.startsWith('http') || d.path.startsWith('/') ? d.path : `/uploads/${d.path}`;
+                        html += `<button type="button" onclick="previewDoc('${fileUrl}', '${d.label}')" style="padding: 6px 12px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; font-size: 12px; color: #3b82f6; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='#0f172a'">
+                            <i class="ti ti-file-description"></i> ${d.label}
+                        </button>`;
+                    });
+                    html += `</div></div>`;
+                }
+
+                if (data.timeline && data.timeline.length > 0) {
+                    html += `<div style="margin-top: 15px;">
+                        <h4 style="margin: 0 0 10px 0; color: #cbd5e1; font-size: 14px; border-bottom: 1px dashed #334155; padding-bottom: 5px;">Activity History / Timeline</h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">`;
+                    data.timeline.forEach(t => {
+                        html += `<div style="background: #0f172a; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #3b82f6;">
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8;">
+                                <span>${t.step} - ${t.action} (${t.sender_role})</span>
+                                <span>${t.time}</span>
+                            </div>
+                            <div style="font-size: 12px; color: #e2e8f0; margin-top: 2px;">${t.remark || 'No remark'}</div>
+                        </div>`;
+                    });
+                    html += `</div></div>`;
+                }
+                
+                content.innerHTML = html;
+            })
+            .catch(err => {
+                content.innerHTML = `<div style="text-align:center; padding: 20px; color: #ef4444;">Error: ${err.message}</div>`;
+            });
+    }
+
+    function closeDetailsModal() {
+        document.getElementById('detailsModal').style.display = 'none';
+    }
+
+    function previewDoc(url, label) {
+        if (typeof window.previewDocument === 'function') {
+            const ext = url.split('.').pop().split('?')[0].toLowerCase();
+            window.previewDocument(url, ext, label);
+        } else {
+            window.open(url, '_blank');
+        }
+    }
+
+    // Add modal HTML if it doesn't exist
+    document.addEventListener("DOMContentLoaded", () => {
+        if (!document.getElementById('detailsModal')) {
+            const modalHtml = `
+            <style>
+                .swal2-container {
+                    z-index: 999999 !important;
+                }
+            </style>
+            <div id="detailsModal" style="display: none; position: fixed; z-index: 1040; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
+                <div style="background-color: #1e293b; border: 1px solid #334155; margin: 10% auto; padding: 0; width: 90%; max-width: 600px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 1px solid #334155;">
+                        <h2 style="margin: 0; font-size: 18px; color: #f8fafc; font-weight: 600;">Request Details</h2>
+                        <span onclick="closeDetailsModal()" style="color: #94a3b8; font-size: 24px; cursor: pointer; line-height: 1;">&times;</span>
+                    </div>
+                    <div id="detailsModalContent" style="padding: 24px; color: #f8fafc; max-height: 70vh; overflow-y: auto;">
+                    </div>
+                </div>
+            </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+    });
 
     function changeTimeframe() {
         const timeFilter = document.getElementById('time-filter').value;

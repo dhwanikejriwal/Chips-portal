@@ -15,8 +15,9 @@ def run_seeder(script_path: str, name: str):
     print(f"  RUNNING SEEDER: {name}")
     print(f"==================================================================")
     
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     python_exe = sys.executable
-    result = subprocess.run([python_exe, script_path], cwd=os.getcwd())
+    result = subprocess.run([python_exe, script_path], cwd=base_dir)
     if result.returncode != 0:
         print(f"Error running {name} (exit code {result.returncode})", file=sys.stderr)
         sys.exit(result.returncode)

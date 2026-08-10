@@ -5,7 +5,7 @@
 {% block sidebar %}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate/candidate_portal.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate/candidate_portal.css') }}?v=10">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% endblock %}
 
@@ -68,7 +68,7 @@
                 {% elif (status_data.lms_status|upper) == 'REVERTED_BY_CHIPS' %}
                 <span class="status-badge reverted">Reverted</span>
                 {% elif (status_data.lms_status|upper) == 'SKIPPED' %}
-                <span class="status-badge skipped" style="background-color: #f3f4f6; color: #4b5563;">Skipped</span>
+                <span class="status-badge skipped">Skipped</span>
                 {% else %}
                 <span class="status-badge not-initiated">Not Initiated</span>
                 {% endif %}
@@ -129,7 +129,7 @@
                 {% elif (status_data.nseit_status|upper) == 'REVERTED_BY_CHIPS' %}
                 <span class="status-badge reverted">Reverted</span>
                 {% elif (status_data.nseit_status|upper) == 'SKIPPED' %}
-                <span class="status-badge skipped" style="background-color: #f3f4f6; color: #4b5563;">Skipped</span>
+                <span class="status-badge skipped">Skipped</span>
                 {% else %}
                 <span class="status-badge not-initiated">Not Initiated</span>
                 {% endif %}
@@ -211,7 +211,7 @@
         if (existingId) {
             Swal.fire({
                 title: 'Skip Request Confirmation',
-                html: `<div style="font-family: 'Inter', sans-serif; font-size: 15px; color: #4b5563; line-height: 1.6; text-align: center;">Are you sure you want to skip this request? <br>You already filled your registered <strong>${titleText} ID: ${existingId}</strong>.</div>`,
+                html: `<div style="font-family: 'Inter', sans-serif; font-size: 15px; line-height: 1.6; text-align: center;">Are you sure you want to skip this request? <br>You already filled your registered <strong>${titleText} ID: ${existingId}</strong>.</div>`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonText: 'Yes, Skip Request',
@@ -245,7 +245,7 @@
                         <label style="font-weight: 600; color: #475569; display: block; margin-bottom: 6px; font-size: 13px;">Upload Certificate *</label>
                         <div style="position: relative;">
                             <input type="file" id="swal_certificate" name="${type}_certificate" accept=".pdf,.png,.jpg,.jpeg" style="display: none;" onchange="handleSwalFileChange(this, '${type}')">
-                            <button type="button" style="width: 100%; padding: 10px; border: 2px dashed #6366f1; background: #f5f3ff; color: #4f46e5; font-weight: 600; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="document.getElementById('swal_certificate').click()">
+                            <button type="button" class="swal-upload-btn" style="width: 100%; padding: 10px; border: 2px dashed #6366f1; font-weight: 600; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="document.getElementById('swal_certificate').click()">
                                 📁 <span id="swal_cert_label">Choose Certificate File</span>
                             </button>
                         </div>
@@ -260,9 +260,9 @@
                         </a>
                     </div>
                     <div style="margin-bottom: 20px;">
-                        <label style="font-weight: 600; color: #475569; display: block; margin-bottom: 6px; font-size: 13px;">Extracted ID *</label>
-                        <input type="text" id="swal_id_field" name="${type}_id" style="margin: 0; width: 100%; box-sizing: border-box; background: #ffffff; font-weight: 700; color: #1e293b; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; font-size: 15px;" placeholder="Extracted ID will appear here..." required>
-                        <span style="font-size: 11px; color: #64748b; margin-top: 6px; display: block; line-height: 1.4;">Please verify that the auto-filled ID is correct. Use "View Certificate" to check.</span>
+                        <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px;">${type === 'lms' ? 'LMS ID' : 'NSEIT Certificate ID'} *</label>
+                        <input type="text" id="swal_id_field" name="${type}_id" style="margin: 0; width: 100%; box-sizing: border-box; font-weight: 700; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; font-size: 15px;" placeholder="${type === 'lms' ? 'LMS ID' : 'NSEIT Certificate ID'} will appear here..." required>
+                        <span style="font-size: 11px; opacity: 0.8; margin-top: 6px; display: block; line-height: 1.4;">Please verify that the auto-filled ID is correct. Use "View Certificate" to check.</span>
                     </div>
                 </form>
             `,
@@ -342,8 +342,13 @@
                     ocrStatus.style.display = 'none';
                     if (data.success && data.id) {
                         idField.value = data.id;
-                        idField.style.backgroundColor = '#e0f2fe';
-                        setTimeout(() => { idField.style.backgroundColor = '#ffffff'; }, 1500);
+                        idField.style.borderColor = '#10b981';
+                        idField.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.3)';
+                        idField.style.transition = 'all 0.5s ease';
+                        setTimeout(() => {
+                            idField.style.borderColor = '';
+                            idField.style.boxShadow = '';
+                        }, 1500);
                         if (display) {
                             display.textContent = `✓ ${file.name}`;
                             display.style.display = 'block';

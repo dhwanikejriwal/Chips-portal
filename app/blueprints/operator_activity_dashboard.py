@@ -32,6 +32,7 @@ def _fwd_params():
 
 
 @operator_activity_dashboard_bp.route("/chips/operator-activity", methods=["GET"])
+@operator_activity_dashboard_bp.route("/dc/operator-activity", methods=["GET"])
 def page():
     if not _authed():
         return redirect(url_for("auth.login"))
@@ -41,6 +42,8 @@ def page():
 # ── Activity list (router root) ──
 @operator_activity_dashboard_bp.route(
     "/chips/operator-activity/api-list", methods=["GET"])
+@operator_activity_dashboard_bp.route(
+    "/dc/operator-activity/api-list", methods=["GET"])
 def api_list():
     if not _authed():
         return jsonify({"detail": "Session expired"}), 401
@@ -56,6 +59,8 @@ def api_list():
 # ── Generic GET proxy (filters, uploads, status, operators, kit-tracker) ──
 @operator_activity_dashboard_bp.route(
     "/chips/operator-activity/api/<path:subpath>", methods=["GET"])
+@operator_activity_dashboard_bp.route(
+    "/dc/operator-activity/api/<path:subpath>", methods=["GET"])
 def api_get(subpath):
     if not _authed():
         return jsonify({"detail": "Session expired"}), 401
@@ -71,6 +76,8 @@ def api_get(subpath):
 # ── Export (streamed CSV) ──
 @operator_activity_dashboard_bp.route(
     "/chips/operator-activity/api-export", methods=["GET"])
+@operator_activity_dashboard_bp.route(
+    "/dc/operator-activity/api-export", methods=["GET"])
 def api_export():
     if not _authed():
         return redirect(url_for("auth.login"))
@@ -112,6 +119,8 @@ def api_rejected(batch_id):
 def api_upload():
     if not _authed():
         return jsonify({"detail": "Session expired"}), 401
+    if session.get("role") not in ["Admin", "chips_admin"]:
+        return jsonify({"detail": "Forbidden: Admin access required"}), 403
     f = request.files.get("file")
     if not f:
         return jsonify({"detail": "No file provided"}), 400
@@ -135,6 +144,8 @@ def api_upload():
 def api_delete(batch_id):
     if not _authed():
         return jsonify({"detail": "Session expired"}), 401
+    if session.get("role") not in ["Admin", "chips_admin"]:
+        return jsonify({"detail": "Forbidden: Admin access required"}), 403
     try:
         resp = http.delete(f"{BACKEND}/uploads/{batch_id}", headers=_headers(), timeout=60)
         return Response(resp.content, status=resp.status_code,

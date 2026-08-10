@@ -55,6 +55,7 @@ def dc_list():
                 "assigned_station_id": r.get("assigned_station_id") or r.get("station_id_inserted"),
                 "submitted_at": r.get("submitted_at") or r.get("created_at") or "—",
                 "reviewed_at": r.get("reviewed_at") or r.get("updated_at") or "—",
+                "all_batch_station_ids": r.get("all_batch_station_ids") or [],
                 "remarks_history": r.get("remarks_history") or []
             })
     except Exception:

@@ -177,91 +177,94 @@ def get_dc_candidates(district_code: str | None = None, db: Session = Depends(ge
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/export-excel")
-def export_candidates_excel(ids: str = None, db: Session = Depends(get_db)):
+def export_candidates_excel(ids: str = None, export_type: str = "all", db: Session = Depends(get_db)):
     from backend.models.hold_candidate import HoldCandidate
     id_list = []
     if ids:
         id_list = [int(x) for x in ids.split(",") if x.isdigit()]
 
-    c_query = db.query(Candidate)
-    if id_list:
-        c_query = c_query.filter(Candidate.id.in_(id_list))
-    candidates = c_query.all()
-
-    h_query = db.query(HoldCandidate)
-    if id_list:
-        h_query = h_query.filter(HoldCandidate.id.in_(id_list))
-    hold_candidates = h_query.all()
-
     export_data = []
     idx = 0
-    for c in candidates:
-        district_name = c.district_rel.district_name if c.district_rel else "Unknown"
 
-        login_id = ""
-        password_raw = ""
-        if c.status_id == StatusEnum.APPROVED.value and c.login:
-            login_id = c.login.user_id
-            password_raw = "Test@123"
+    if export_type in ("all", "candidate"):
+        c_query = db.query(Candidate)
+        if id_list:
+            c_query = c_query.filter(Candidate.id.in_(id_list))
+        candidates = c_query.all()
 
-        latest_remark = (
-            db.query(DCRemark)
-            .filter(DCRemark.request_id == c.id)
-            .order_by(DCRemark.time.desc())
-            .first()
-        )
-        dc_remark = latest_remark.remark if latest_remark else ""
+        for c in candidates:
+            district_name = c.district_rel.district_name if c.district_rel else "Unknown"
 
-        export_data.append({
-            "s_no": idx + 1,
-            "request_code": c.request_code,
-            "district_name": district_name,
-            "name": c.name,
-            "mobile": c.mobile,
-            "email": c.email,
-            "qualification": c.qualification,
-            "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "",
-            "aadhaar": c.aadhaar or "",
-            "address": c.address or "",
-            "pincode": c.pincode or "",
-            "is_existing_operator": "Yes" if c.is_existing_operator else "No",
-            "lms_id": c.lms_id or "",
-            "nseit_id": c.nseit_id or "",
-            "status": c.status,
-            "dc_remark": dc_remark,
-            "submitted_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else "",
-            "updated_at": (c.updated_at or c.created_at).strftime("%Y-%m-%d %H:%M:%S") if (c.updated_at or c.created_at) else "",
-        })
-        idx += 1
+            login_id = ""
+            password_raw = ""
+            if c.status_id == StatusEnum.APPROVED.value and c.login:
+                login_id = c.login.user_id
+                password_raw = "Test@123"
 
-    for c in hold_candidates:
-        district_name = c.district_rel.district_name if c.district_rel else "Unknown"
+            latest_remark = (
+                db.query(DCRemark)
+                .filter(DCRemark.request_id == c.id)
+                .order_by(DCRemark.time.desc())
+                .first()
+            )
+            dc_remark = latest_remark.remark if latest_remark else ""
 
-        export_data.append({
-            "s_no": idx + 1,
-            "request_code": c.request_code,
-            "district_name": district_name,
-            "name": c.name,
-            "mobile": c.mobile,
-            "email": c.email,
-            "qualification": c.qualification,
-            "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "",
-            "aadhaar": c.aadhaar or "",
-            "address": c.address or "",
-            "pincode": c.pincode or "",
-            "is_existing_operator": "Yes" if c.is_existing_operator else "No",
-            "lms_id": c.lms_id or "",
-            "nseit_id": c.nseit_id or "",
-            "status": "On Hold",
-            "dc_remark": c.hold_remark or "Placed on hold.",
-            "submitted_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else "",
-            "updated_at": (c.updated_at or c.created_at).strftime("%Y-%m-%d %H:%M:%S") if (c.updated_at or c.created_at) else "",
-        })
-        idx += 1
+            export_data.append({
+                "s_no": idx + 1,
+                "request_code": c.request_code,
+                "district_name": district_name,
+                "name": c.name,
+                "mobile": c.mobile,
+                "email": c.email,
+                "qualification": c.qualification,
+                "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "",
+                "aadhaar": c.aadhaar or "",
+                "address": c.address or "",
+                "pincode": c.pincode or "",
+                "is_existing_operator": "Yes" if c.is_existing_operator else "No",
+                "lms_id": c.lms_id or "",
+                "nseit_id": c.nseit_id or "",
+                "status": c.status,
+                "dc_remark": dc_remark,
+                "submitted_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else "",
+                "updated_at": (c.updated_at or c.created_at).strftime("%Y-%m-%d %H:%M:%S") if (c.updated_at or c.created_at) else "",
+            })
+            idx += 1
+
+    if export_type in ("all", "hold"):
+        h_query = db.query(HoldCandidate)
+        if id_list:
+            h_query = h_query.filter(HoldCandidate.id.in_(id_list))
+        hold_candidates = h_query.all()
+
+        for c in hold_candidates:
+            district_name = c.district_rel.district_name if c.district_rel else "Unknown"
+
+            export_data.append({
+                "s_no": idx + 1,
+                "request_code": c.request_code,
+                "district_name": district_name,
+                "name": c.name,
+                "mobile": c.mobile,
+                "email": c.email,
+                "qualification": c.qualification,
+                "dob": c.dob.strftime("%Y-%m-%d") if c.dob else "",
+                "aadhaar": c.aadhaar or "",
+                "address": c.address or "",
+                "pincode": c.pincode or "",
+                "is_existing_operator": "Yes" if c.is_existing_operator else "No",
+                "lms_id": c.lms_id or "",
+                "nseit_id": c.nseit_id or "",
+                "status": "On Hold",
+                "dc_remark": c.hold_remark or "Placed on hold.",
+                "submitted_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else "",
+                "updated_at": (c.updated_at or c.created_at).strftime("%Y-%m-%d %H:%M:%S") if (c.updated_at or c.created_at) else "",
+            })
+            idx += 1
 
     column_mappings = {
         "s_no": "S.No",
-        "request_code": "Request Code",
+        "request_code": "Request ID",
         "district_name": "District",
         "name": "Candidate Name",
         "mobile": "Mobile No",

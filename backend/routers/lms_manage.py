@@ -163,7 +163,7 @@ def forward_lms_request(r_id: int, payload: LMSActionRequest, db: Session = Depe
         LMSRemark.sender_id != CandidateLogin.id
     ).first() is not None
 
-    if lms.status_id == StatusEnum.REAPPLIED.value and has_chips_remark:
+    if lms.status_id in [StatusEnum.REAPPLIED.value, StatusEnum.FORWARDED_AGAIN.value] or has_chips_remark:
         lms.status_id = StatusEnum.FORWARDED_AGAIN.value
     else:
         lms.status_id = StatusEnum.FORWARDED.value
@@ -217,7 +217,7 @@ def approve_lms_request(r_id: int, payload: LMSActionRequest, db: Session = Depe
             
             lms_username = candidate.email or ""
             lms_password = "Test@123"
-            lms_link = "https://lms.gov.in"
+            lms_link = "https://e-learning.uidai.gov.in/login/index.php"
             
             asyncio.run(send_lms_approval_email(
                 email_to=candidate.email,
@@ -337,7 +337,7 @@ def export_lms_excel(ids: str = None, table_id: str = None, db: Session = Depend
     # 🌟 Centralized structural column headers dictionary
     column_mappings = {
         "s_no": "S.No",
-        "request_code": "Request Code",
+        "request_code": "Request ID",
         "district_name": "District Name",
         "name": "Candidate Name",
         "mobile": "Mobile Number",

@@ -5,7 +5,7 @@
 {% block sidebar %}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate/candidate_portal.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate/candidate_portal.css') }}?v=12">
 {% endblock %}
 
 {% block content %}
@@ -25,7 +25,7 @@
                     {% if (status_data.lms_status|upper) == 'APPROVED' %}
                     <span class="status-badge approved">Approved</span>
                     {% elif (status_data.lms_status|upper) == 'SKIPPED' %}
-                    <span class="status-badge skipped" style="background-color: #f3f4f6; color: #4b5563;">Skipped</span>
+                    <span class="status-badge skipped">Skipped</span>
                     {% elif (status_data.lms_status|upper) == 'FORWARDED' %}
                     <span class="status-badge forwarded">Forwarded</span>
                     {% elif (status_data.lms_status|upper) == 'FORWARDED_AGAIN' %}
@@ -66,34 +66,43 @@
                     <p style="margin: 0; font-size: 14px; line-height: 1.5;">You skipped the LMS training request.</p>
                 </div>
                 {% endif %}
-                <div
-                    style="margin-bottom: 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;">
+                <div class="card-box"
+                    style="margin-bottom: 24px; border-radius: 12px; padding: 20px;">
+                    {% set has_valid_lms = (status_data.lms_id and status_data.lms_id != 'None') %}
+                    {% set is_old_lms = ((status_data.lms_status|upper) != 'NOT INITIATED' and status_data.had_lms_at_registration and not status_data.lms_uploaded_post_approval) %}
+                    {% set is_lms_locked = (status_data.lms_uploaded_post_approval or (has_valid_lms and not is_old_lms)) %}
                     <div
                         style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                        <span class="form-label" style="font-weight: 600; color: #4a5568; margin-bottom: 0;">Your LMS
+                        <span class="form-label" style="font-weight: 600; margin-bottom: 0;">Your LMS
                             ID</span>
-                        {% if not status_data.lms_id or (status_data.lms_status|upper) == 'APPROVED' %}
-                        <button type="button" onclick="toggleEditLmsForm()" class="btn btn-xs btn-outline"
+                        {% if not is_lms_locked %}
+                        <button type="button" id="btn-toggle-lms-form" onclick="toggleEditLmsForm()" class="btn btn-xs btn-outline"
                             style="background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                            {% if status_data.lms_id %}Add New LMS ID{% else %}Add LMS ID{% endif %}
+                            Add LMS ID
                         </button>
                         {% endif %}
                     </div>
 
-                    {% if status_data.lms_id and ((status_data.lms_status|upper) != 'APPROVED' or
-                    status_data.lms_uploaded_post_approval) %}
+                    {% if has_valid_lms %}
                     <div id="lms-id-display-block"
-                        style="background: white; padding: 14px 18px; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 700; font-size: 18px; color: #1e293b; display: inline-block; min-width: 200px;">
-                        {{ status_data.lms_id }}
-                        {% if (status_data.lms_status|upper) != 'NOT INITIATED' and status_data.had_lms_at_registration
-                        %}
-                        {% if status_data.lms_uploaded_post_approval %}
-                        <span class="badge"
-                            style="font-size: 12px; margin-left: 8px; vertical-align: middle; background: #e0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-block;">New</span>
-                        {% else %}
-                        <span class="badge"
-                            style="font-size: 12px; margin-left: 8px; vertical-align: middle; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-block;">Old</span>
-                        {% endif %}
+                        style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: var(--bg-surface, #ffffff); padding: 14px 18px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px;">
+                        <div style="font-weight: 700; font-size: 18px; color: var(--text-primary, #1e293b); display: flex; align-items: center; gap: 8px;">
+                            <span>{{ status_data.lms_id }}</span>
+                            {% if (status_data.lms_status|upper) != 'NOT INITIATED' and status_data.had_lms_at_registration %}
+                                {% if status_data.lms_uploaded_post_approval %}
+                                <span class="badge"
+                                    style="font-size: 12px; background: #e0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-block;">New</span>
+                                {% else %}
+                                <span class="badge"
+                                    style="font-size: 12px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 4px; font-weight: 600; display: inline-block;">Old</span>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                        {% if status_data.lms_certificate_upload %}
+                        <a href="{{ status_data.lms_certificate_upload }}" target="_blank"
+                            style="font-size: 13px; padding: 6px 14px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; transition: all 0.2s ease;">
+                            <i class="ti ti-file-text" style="font-size: 16px;"></i> View Certificate
+                        </a>
                         {% endif %}
                     </div>
                     {% else %}
@@ -108,18 +117,22 @@
                             style="display: flex; flex-direction: column; gap: 12px; align-items: flex-start; width: 100%; max-width: 500px;">
                             <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
                                 <input type="text" id="lms_id" name="lms_id" class="form-input" required value=""
-                                    placeholder="LMS ID..." style="margin: 0; padding: 8px 12px; flex: 1.2;">
+                                    placeholder="LMS ID..." style="margin: 0; padding: 8px 12px; flex: 1.2; height: 38px; box-sizing: border-box;">
                                 <div style="flex: 0.8; position: relative;">
                                     <input type="file" id="lms_certificate" name="lms_certificate"
                                         accept=".pdf,.png,.jpg,.jpeg" style="display: none;"
                                         onchange="handleFileChange(this, 'lms_cert_label')">
                                     <button type="button" class="btn"
-                                        style="width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 8px 12px; border: 1px dashed #4f46e5; background-color: #f5f3ff; color: #4f46e5; font-weight: 600; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease; font-size: 13px; cursor: pointer;"
+                                        style="width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 8px 12px; height: 38px; border: 1px dashed #4f46e5; background-color: #f5f3ff; color: #4f46e5; font-weight: 600; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease; font-size: 13px; cursor: pointer; box-sizing: border-box;"
                                         onclick="document.getElementById('lms_certificate').click()">
                                         <i class="ti ti-upload" style="font-size: 16px;"></i>
                                         <span id="lms_cert_label">Upload Certificate</span>
                                     </button>
                                 </div>
+                            </div>
+                            <div style="font-size: 11px; color: #64748b; margin-top: -6px; width: 100%; text-align: right;">Supported: PDF, JPG, PNG | Max 1 MB</div>
+                            <div id="lms_certificate_error"
+                                style="color: #ef4444; font-size: 13px; font-weight: 600; display: none; background: #fef2f2; border: 1px solid #fecaca; padding: 8px 12px; border-radius: 6px; width: 100%; box-sizing: border-box;">
                             </div>
                             <div
                                 style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%;">
@@ -133,9 +146,6 @@
                                     <i class="ti ti-eye" style="font-size: 15px;"></i>
                                     <span>View Certificate</span>
                                 </a>
-                            </div>
-                            <div id="lms_certificate_error"
-                                style="color: #e53e3e; font-size: 13px; font-weight: 500; display: none;">
                             </div>
                             <div id="lms_ocr_status"
                                 style="display: none; font-size: 13px; color: #4f46e5; font-weight: 600;">
@@ -186,8 +196,7 @@
                 <div
                     style="background: #e0f2fe; border: 1px solid #bae6fd; color: #0369a1; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h4 style="margin-top: 0; margin-bottom: 8px; font-size: 16px; font-weight: 600;">
-                        {% if (status_data.lms_status|upper) == 'FORWARDED_AGAIN' %}Forwarded{% else %}Forwarded{% endif
-                        %}
+                        Forwarded
                     </h4>
                     <p style="margin: 0 0 12px; font-size: 14px; line-height: 1.5;">Your request has been verified by
                         Administrator and forwarded for final approval.</p>
@@ -214,7 +223,7 @@
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="name" class="form-label">Full Name *</label>
                             <input type="text" id="name" name="name" class="form-input" value="{{ status_data.name }}"
-                                readonly style="background-color: #f1f5f9; cursor: not-allowed;" required>
+                                readonly style="cursor: not-allowed;" required>
                         </div>
 
                         <!-- Mobile Number -->
@@ -222,7 +231,7 @@
                             <label for="mobile" class="form-label">Mobile Number *</label>
                             <input type="tel" id="mobile" name="mobile" class="form-input"
                                 value="{{ status_data.mobile }}" pattern="[0-9]{10}" readonly
-                                style="background-color: #f1f5f9; cursor: not-allowed;" required>
+                                style="cursor: not-allowed;" required>
                         </div>
 
                         <!-- Email Address -->
@@ -230,14 +239,14 @@
                             <label for="email" class="form-label">Email Address *</label>
                             <input type="email" id="email" name="email" class="form-input"
                                 value="{{ status_data.email }}" readonly
-                                style="background-color: #f1f5f9; cursor: not-allowed;" required>
+                                style="cursor: not-allowed;" required>
                         </div>
 
                         <!-- Operational District -->
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="district" class="form-label">District *</label>
                             <select id="district" name="district" class="form-input"
-                                style="pointer-events: none; background-color: #f1f5f9; cursor: not-allowed;"
+                                style="pointer-events: none; cursor: not-allowed;"
                                 tabindex="-1" required>
                                 {% for d in districts %}
                                 <option value="{{ d.district_code }}" {% if d.district_code==status_data.district
@@ -346,12 +355,15 @@
     function toggleEditLmsForm() {
         const display = document.getElementById('lms-id-display-block');
         const edit = document.getElementById('lms-id-edit-block');
+        const toggleBtn = document.getElementById('btn-toggle-lms-form');
         if (edit.style.display === 'none') {
             edit.style.display = 'block';
             if (display) display.style.display = 'none';
+            if (toggleBtn) toggleBtn.style.display = 'none';
         } else {
             edit.style.display = 'none';
             if (display) display.style.display = 'inline-block';
+            if (toggleBtn) toggleBtn.style.display = 'inline-block';
 
             // Clear filled inputs and files on cancel
             const lmsInput = document.getElementById('lms_id');
@@ -374,8 +386,8 @@
     function confirmNseitRedirect(event) {
         event.preventDefault();
         Swal.fire({
-            title: '<span style="font-family:\'Inter\', sans-serif; font-weight: 700; color: #1f2937;">Already Have ID!</span>',
-            html: '<span style="font-family:\'Inter\', sans-serif; font-size: 15px; color: #4b5563; line-height: 1.6;">You already have and filled your <strong>NSEIT ID</strong>. If you want to get a new one, click <strong>Proceed</strong>. Otherwise, click <strong>Cancel</strong>.</span>',
+            title: 'Already Have ID!',
+            html: '<span style="font-family:\'Inter\', sans-serif; font-size: 15px; line-height: 1.6;">You already have and filled your <strong>NSEIT ID</strong>. If you want to get a new one, click <strong>Proceed</strong>. Otherwise, click <strong>Cancel</strong>.</span>',
             icon: 'warning',
             iconColor: '#f59e0b',
             showCancelButton: true,
@@ -396,6 +408,9 @@
     function handleFileChange(input, labelId) {
         const file = input.files[0];
         const display = document.getElementById('lms_file_name_display');
+        const errorDiv = document.getElementById('lms_certificate_error');
+        if (errorDiv) errorDiv.style.display = 'none';
+
         if (display) {
             display.style.display = 'none';
         }
@@ -409,6 +424,15 @@
             idInput.value = '';
         }
         if (file) {
+            const MAX_SIZE = 1 * 1024 * 1024; // 1MB
+            if (file.size > MAX_SIZE) {
+                input.value = '';
+                if (errorDiv) {
+                    errorDiv.textContent = `Selected file exceeds maximum limit of 1 MB (${(file.size / (1024 * 1024)).toFixed(2)} MB). Please select a smaller file.`;
+                    errorDiv.style.display = 'block';
+                }
+                return;
+            }
             performOCR(file, 'lms', 'lms_id', 'lms_ocr_status');
         }
     }
@@ -436,10 +460,12 @@
                 if (data.success && data.id) {
                     const input = document.getElementById(targetInputId);
                     input.value = data.id;
-                    input.style.backgroundColor = '#e0f2fe';
-                    input.style.transition = 'background-color 0.5s ease';
+                    input.style.borderColor = '#10b981';
+                    input.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.3)';
+                    input.style.transition = 'all 0.5s ease';
                     setTimeout(() => {
-                        input.style.backgroundColor = '';
+                        input.style.borderColor = '';
+                        input.style.boxShadow = '';
                     }, 1500);
                     const display = document.getElementById('lms_file_name_display');
                     if (display) {
@@ -479,10 +505,22 @@
     function validateLmsForm(event) {
         const fileInput = document.getElementById('lms_certificate');
         const errorDiv = document.getElementById('lms_certificate_error');
+        if (errorDiv) errorDiv.style.display = 'none';
+
         if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
             event.preventDefault();
             if (errorDiv) {
                 errorDiv.textContent = "Please upload your LMS Certificate as well before saving.";
+                errorDiv.style.display = 'block';
+            }
+            return false;
+        }
+
+        const file = fileInput.files[0];
+        if (file && file.size > 1 * 1024 * 1024) {
+            event.preventDefault();
+            if (errorDiv) {
+                errorDiv.textContent = "Selected file exceeds maximum limit of 1 MB. Please select a smaller file.";
                 errorDiv.style.display = 'block';
             }
             return false;

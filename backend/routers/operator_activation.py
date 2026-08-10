@@ -87,17 +87,18 @@ def upsert_operator_from_request(r: OperatorActivationRequest, db: Session):
 # ─────────────────────────────────────────────
 
 @router.get("/search-eligible-candidates")
-def search_eligible_candidates(q: str, db: Session = Depends(get_db)):
-    if not q or len(q) < 3:
-        return []
-        
+def search_eligible_candidates(q: str = "", db: Session = Depends(get_db)):
     # Search in Candidate table
-    search_pattern = f"%{q.strip().lower()}%"
-    candidates = db.query(Candidate).filter(
-        (Candidate.name.ilike(search_pattern)) |
-        (Candidate.mobile.ilike(search_pattern)) |
-        (Candidate.email.ilike(search_pattern))
-    ).all()
+    if q and q.strip():
+        search_pattern = f"%{q.strip().lower()}%"
+        candidates = db.query(Candidate).filter(
+            (Candidate.name.ilike(search_pattern)) |
+            (Candidate.mobile.ilike(search_pattern)) |
+            (Candidate.email.ilike(search_pattern)) |
+            (Candidate.request_code.ilike(search_pattern))
+        ).limit(100).all()
+    else:
+        candidates = db.query(Candidate).order_by(Candidate.id.desc()).limit(100).all()
     
     # Query mobile numbers, emails, and request numbers of operators who have ALREADY applied
     applied_requests = db.query(OperatorActivationRequest).filter(
@@ -131,6 +132,7 @@ def search_eligible_candidates(q: str, db: Session = Depends(get_db)):
         if is_eligible:
             results.append({
                 "id": c.id,
+                "request_code": c.request_code or "",
                 "name": c.name,
                 "mobile": c.mobile,
                 "email": c.email,
@@ -172,12 +174,22 @@ def autofill_from_certificate(
     if "INCOME TAX DEPARTMENT" in text_upper or "PERMANENT ACCOUNT NUMBER" in text_upper:
         return {"status": "error", "message": "Invalid Document: The uploaded file appears to be a PAN Card, not an NSEIT Certificate."}
         
-    # Check if Aadhaar
-    if ("UNIQUE IDENTIFICATION" in text_upper or "E-AADHAAR" in text_upper or "GOVT OF INDIA" in text_upper) and "NSEIT" not in text_upper:
-        return {"status": "error", "message": "Invalid Document: The uploaded file appears to be an Aadhaar Card, not an NSEIT Certificate."}
+    # Check if Aadhaar Card (Look for specific Aadhaar Card phrases without certificate exam phrases)
+    aadhaar_card_markers = [
+        "YOUR AADHAAR NO", "YOUR AADHAAR NUMBER", "आपका आधार क्रमांक",
+        "MERA AADHAAR", "MY AADHAAR", "मेरा आधार",
+        "ENROLMENT NO.", "ENROLMENT NO:", "ENROLMENT NO/", "ENROLMENT NO :"
+    ]
+    cert_markers = [
+        "ELIGIBILITY CERTIFICATE", "OPERATOR ELIGIBILITY", "PASSED THE EXAMINATION",
+        "OPERATOR / SUPERVISOR", "OPERATOR/SUPERVISOR", "LANGUAGE PROFICIENCY", "DEXIT", "NSEIT", "TESTING AND CERTIFICATION"
+    ]
+    is_aadhaar_card = any(kw in text_upper for kw in aadhaar_card_markers) and not any(kw in text_upper for kw in cert_markers)
+    if is_aadhaar_card:
+        return {"status": "error", "message": "Uploaded file appears to be an Aadhaar Card, not an NSEIT Certificate."}
 
     # Strong NSEIT keywords validation
-    nseit_keywords = ["ELIGIBILITY", "OPERATOR ELIGIBILITY", "PASSED THE EXAMINATION", "NSEIT", "TESTING AND CERTIFICATION"]
+    nseit_keywords = ["ELIGIBILITY", "OPERATOR ELIGIBILITY", "PASSED THE EXAMINATION", "NSEIT", "DEXIT", "TESTING AND CERTIFICATION", "CERTIFICATE NO", "CERTIFICATE NUMBER"]
     is_nseit = any(kw in text_upper for kw in nseit_keywords)
     if not is_nseit:
         return {"status": "error", "message": "The uploaded document does not appear to be a valid NSEIT Operator Eligibility Certificate."}

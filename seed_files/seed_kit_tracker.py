@@ -22,7 +22,7 @@ def clean_date(d):
     try:
         if isinstance(d, datetime):
             return d.date()
-        return pd.to_datetime(d).date()
+        return pd.to_datetime(d, format='mixed').date()
     except:
         return None
 
@@ -42,16 +42,25 @@ def map_status(status_str):
     if 'rejected' in s: return 14 # Rejected
     return None
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 def seed_tracker():
     db = SessionLocal()
     
-    print("Clearing target tables...")
-    # Using CASCADE to safely wipe operators if they have relations
-    db.execute(text("TRUNCATE TABLE operator_onboarding_details, operator_station_mappings, operators, kit_registration_table CASCADE"))
+    print("Clearing target tables and resetting sequences...")
+    # Using RESTART IDENTITY CASCADE to reset ID sequences and safely wipe dependent tables
+    db.execute(text("TRUNCATE TABLE operator_onboarding_details, operator_station_mappings, operators, kit_registration_table RESTART IDENTITY CASCADE"))
     db.commit()
     
     print("Reading Excel...")
-    df = pd.read_excel('sample reports/Kit Tracker Chips.xlsx', header=1)
+    excel_file = os.path.join(BASE_DIR, 'sample reports', 'Kit Tracker Chips.xlsx')
+    if not os.path.exists(excel_file):
+        print(f"Warning: File not found at '{excel_file}'. Skipping kit tracker seeding.")
+        db.close()
+        return
+
+    df = pd.read_excel(excel_file, header=1)
     df = df.replace({np.nan: None})
     
     inserted_ops = {}
@@ -140,7 +149,7 @@ def seed_tracker():
     # Also populate kit_tracker ETL table for ECMP / VLE classification
     try:
         from backend.services.kit_tracker_ingest import process_kit_tracker_upload
-        excel_path = 'sample reports/Kit Tracker Chips.xlsx'
+        excel_path = os.path.join(BASE_DIR, 'sample reports', 'Kit Tracker Chips.xlsx')
         if os.path.exists(excel_path):
             print("Populating kit_tracker ETL master table...")
             process_kit_tracker_upload("seed_batch", excel_path)

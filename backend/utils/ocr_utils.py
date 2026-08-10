@@ -5,9 +5,9 @@ from fastapi import UploadFile, HTTPException
 import pandas as pd
 import pytesseract
 from PIL import Image
-from pdf2image import convert_from_bytes
-from thefuzz import fuzz
 import os
+from thefuzz import fuzz
+import pymupdf as fitz  # PyMuPDF
 
 # Set Tesseract CMD for Windows manually if not in PATH
 tesseract_cmd_path = os.getenv("TESSERACT_PATH", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
@@ -84,26 +84,19 @@ def extract_text_from_bytes(file_bytes: bytes, content_type: str, lang: str = "e
             is_pdf = file_bytes.startswith(b"%PDF")
 
         if is_pdf:
-            # Check for Poppler path from env or common Windows locations
-            poppler_path = os.getenv("POPPLER_PATH")
-            if not poppler_path:
-                common_poppler = [
-                    r"C:\Program Files\poppler-26.02.0\Library\bin",
-                    r"C:\poppler-26.02.0\Library\bin",
-                    r"C:\poppler\Library\bin", 
-                    r"C:\Release-24.02.0-0\poppler-24.02.0\Library\bin",
-                    r"C:\Program Files (x86)\Windows Media Player\Release-26.02.0-0\poppler-26.02.0\Library\bin"
-                ]
-                for p in common_poppler:
-                    if os.path.exists(p):
-                        poppler_path = p
-                        break
+            doc = fitz.open("pdf", file_bytes)
+            page = doc[0]
             
-            # Convert first page of PDF to image (use dpi=300 for better OCR)
-            # Added a 30-second timeout so it doesn't hang indefinitely on Windows if Poppler stalls, but allows heavy PDFs
-            images = convert_from_bytes(file_bytes, first_page=1, last_page=1, poppler_path=poppler_path, dpi=300, timeout=30)
-            if images:
-                extracted_text = _do_ocr(images[0], lang=lang)
+            # 1. Native text extraction
+            native_text = page.get_text()
+            
+            # 2. Render to image for OCR extraction (catches embedded images)
+            pix = page.get_pixmap(dpi=300)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            ocr_text = _do_ocr(img, lang=lang)
+            
+            extracted_text = f"{native_text}\n{ocr_text}"
+            doc.close()
         else:
             # Assume it's an image (JPG, PNG)
             image = Image.open(io.BytesIO(file_bytes))
@@ -147,12 +140,19 @@ def extract_text_from_file(upload_file: UploadFile) -> str:
 def validate_aadhaar(extracted_text: str, operator_name: str, operator_aadhaar: str = None) -> str | None:
     if not extracted_text or len(extracted_text.strip()) < 10:
         return "Validation Error: Could not read text from the Aadhaar document. Please upload a clear image."
-    if "INCOME TAX DEPARTMENT" in extracted_text or "INCOME TAX" in extracted_text:
-        return "Validation Error: The uploaded Aadhaar document appears to be a PAN Card."
+    pan_keywords = ["INCOME TAX", "PERMANENT ACCOUNT NUMBER", "PAN CARD"]
+    if any(kw in extracted_text for kw in pan_keywords):
+        return "Validation Error: The uploaded document is not the required Aadhaar Card."
+    
+    # Exclude Eligibility Certificates
+    cert_keywords = ["ELIGIBILITY CERTIFICATE", "OPERATOR ELIGIBILITY", "PASSED THE EXAMINATION", "LANGUAGE PROFICIENCY", "DEXIT GLOBAL"]
+    if any(kw in extracted_text.upper() for kw in cert_keywords):
+        return "Uploaded document appears to be an NSEIT Certificate, not an Aadhaar Card."
     
     # Classification check
     keywords = ["AADHAAR", "UNIQUE IDENTIFICATION", "GOVERNMENT OF INDIA", "MERA AADHAAR", "DOB", "YEAR OF BIRTH", "MALE", "FEMALE"]
-    if sum(1 for kw in keywords if kw in extracted_text) < 1:
+    # Require at least 2 keywords to avoid accepting noisy PAN cards or other random documents
+    if sum(1 for kw in keywords if kw in extracted_text) < 2:
         return "Validation Error: The uploaded document does not appear to be a valid Aadhaar Card."
     
     if operator_name:
@@ -188,7 +188,7 @@ def validate_pan(extracted_text: str, operator_name: str, operator_pan: str = No
     if not extracted_text or len(extracted_text.strip()) < 10:
         return "Validation Error: Could not read text from the PAN document. Please upload a clear image."
     if "AADHAAR" in extracted_text or "UNIQUE IDENTIFICATION AUTHORITY" in extracted_text:
-        return "Validation Error: The uploaded PAN document appears to be an Aadhaar Card."
+        return "Validation Error: The uploaded document is not the required PAN Card."
         
     # Classification check
     keywords = ["INCOME TAX DEPARTMENT", "PERMANENT ACCOUNT NUMBER", "GOVT. OF INDIA", "SIGNATURE", "PAN"]
@@ -247,22 +247,16 @@ def get_day_in_words(day: int) -> list[str]:
 
 def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: str, qualification: str = "High School (10th)") -> None:
     """Validates if the text looks like a marksheet, and matches name and DOB."""
-    # print("===== OCR EXTRACTED TEXT =====")
-    # try:
-    #     print(extracted_text.encode('utf-8', errors='replace').decode('utf-8'))
-    # except Exception:
-    #     pass
-    # print("==============================")
-    if not extracted_text:
-        return
+    if not extracted_text or len(extracted_text.strip()) < 10:
+        raise ValueError("Validation Error: Could not extract any readable text from the uploaded document. Please upload a clear image or PDF.")
 
     errors = {}
 
     # Rule 0: Reject completely wrong document types
     if "AADHAAR" in extracted_text or "UNIQUE IDENTIFICATION AUTHORITY" in extracted_text:
-        raise ValueError("Validation Error: The uploaded document appears to be an Aadhaar Card, not a Marksheet.")
+        raise ValueError("Validation Error: The uploaded document is not the required Marksheet.")
     if "INCOME TAX DEPARTMENT" in extracted_text or "PERMANENT ACCOUNT NUMBER" in extracted_text:
-        raise ValueError("Validation Error: The uploaded document appears to be a PAN Card, not a Marksheet.")
+        raise ValueError("Validation Error: The uploaded document is not the required Marksheet.")
 
     # Rule 1: Document Classification
     text_upper = extracted_text.upper()
@@ -274,12 +268,12 @@ def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: 
         
         # Ensure it's not a 12th certificate
         negative_kws = ["SENIOR SECONDARY", "HIGHER SECONDARY", "12TH", "INTERMEDIATE", "XII", "PRE-UNIVERSITY", "SENIOR SCHOOL"]
-        if any(kw in text_upper for kw in negative_kws):
+        if any(re.search(r'\b' + re.escape(kw) + r'\b', text_upper) for kw in negative_kws):
             raise ValueError("Validation Error: Document appears to be a 12th standard marksheet, but 10th was expected.")
             
         # Ensure it's not a college/degree/diploma
         college_kws = ["DEGREE", "UNIVERSITY", "BACHELOR", "MASTER", "DIPLOMA", "POLYTECHNIC", "ITI", "SEMESTER"]
-        if any(kw in text_upper for kw in college_kws):
+        if any(re.search(r'\b' + re.escape(kw) + r'\b', text_upper) for kw in college_kws):
             raise ValueError("Validation Error: Document appears to be a college degree or diploma, but a 10th marksheet was expected.")
 
     elif qualification == "Higher Secondary (12th)":
@@ -291,22 +285,23 @@ def validate_marksheet(extracted_text: str, candidate_name: str, candidate_dob: 
             
         # Ensure it's not a college/degree/diploma
         college_kws = ["DEGREE", "UNIVERSITY", "BACHELOR", "MASTER", "DIPLOMA", "POLYTECHNIC", "ITI", "SEMESTER"]
-        if any(kw in text_upper for kw in college_kws):
+        if any(re.search(r'\b' + re.escape(kw) + r'\b', text_upper) for kw in college_kws):
             raise ValueError("Validation Error: Document appears to be a college degree or diploma, but a 12th marksheet was expected.")
 
     elif qualification == "Diploma / ITI":
         keywords = ["DIPLOMA", "POLYTECHNIC", "ITI", "INDUSTRIAL TRAINING", "TECHNICAL EDUCATION"]
         matches = sum(1 for kw in keywords if kw in text_upper)
+        matches = sum(1 for kw in [r'\b' + re.escape(k) + r'\b' for k in keywords] if re.search(kw, text_upper))
         if matches < 1:
             raise ValueError("Validation Error: The uploaded document does not appear to be a valid Diploma/ITI certificate.")
             
         # Ensure it's not a degree
         degree_kws = ["DEGREE", "UNIVERSITY", "BACHELOR", "MASTER"]
-        if any(kw in text_upper for kw in degree_kws):
-            raise ValueError("Validation Error: Document appears to be a university degree, but a Diploma/ITI was expected.")
+        if any(re.search(r'\b' + re.escape(kw) + r'\b', text_upper) for kw in degree_kws):
+            raise ValueError("Validation Error: Document appears to be a college degree, but a Diploma/ITI was expected.")
             
         # Ensure it's not a simple school marksheet
-        if any(kw in text_upper for kw in ["SECONDARY SCHOOL", "HIGH SCHOOL", "HIGHER SECONDARY", "INTERMEDIATE"]) and not any(kw in text_upper for kw in ["DIPLOMA", "POLYTECHNIC", "ITI"]):
+        if any(kw in text_upper for kw in ["SECONDARY SCHOOL", "HIGH SCHOOL", "HIGHER SECONDARY", "INTERMEDIATE"]) and not any(re.search(r'\b' + re.escape(kw) + r'\b', text_upper) for kw in ["DIPLOMA", "POLYTECHNIC", "ITI"]):
             raise ValueError("Validation Error: Document appears to be a standard school marksheet, but a Diploma/ITI was expected.")
 
     elif qualification in ["Graduation (Bachelor's Degree)", "Post Graduation (Master's Degree)"]:
@@ -517,11 +512,29 @@ def validate_passbook(extracted_text: str, operator_name: str) -> str | None:
 
 def validate_nseit_certificate(extracted_text: str, operator_name: str, cert_number: str) -> str | None:
     if not extracted_text or len(extracted_text.strip()) < 10:
-        return "Validation Error: Could not read text from the NSEIT Certificate. Please upload a clear image."
-    keywords = ["NSEIT", "CERTIFICATE", "CERTIFICATION","TESTING", "UIDAI", "AADHAAR"]
-    matches = sum(1 for kw in keywords if kw in extracted_text)
+        return "Could not read text from certificate. Please upload a clear image."
+    
+    text_upper = extracted_text.upper()
+    
+    # 1. Reject if it is explicitly an Aadhaar Card
+    aadhaar_card_markers = [
+        "YOUR AADHAAR NO", "YOUR AADHAAR NUMBER", "आपका आधार क्रमांक",
+        "MERA AADHAAR", "MY AADHAAR", "मेरा आधार",
+        "ENROLMENT NO.", "ENROLMENT NO:", "ENROLMENT NO/", "ENROLMENT NO :", "नामांकन क्रम"
+    ]
+    cert_markers = [
+        "ELIGIBILITY CERTIFICATE", "OPERATOR ELIGIBILITY", "PASSED THE EXAMINATION",
+        "OPERATOR / SUPERVISOR", "OPERATOR/SUPERVISOR", "LANGUAGE PROFICIENCY", "DEXIT", "NSEIT", "TESTING AND CERTIFICATION"
+    ]
+    if any(kw in text_upper for kw in aadhaar_card_markers) and not any(kw in text_upper for kw in cert_markers):
+        return "Uploaded document appears to be an Aadhaar Card, not an NSEIT Certificate."
+
+    # 2. Check for NSEIT or DEXIT Eligibility Certificate keywords
+    keywords = ["NSEIT", "DEXIT", "ELIGIBILITY", "OPERATOR ELIGIBILITY", "PASSED THE EXAMINATION", "CERTIFICATE", "CERTIFICATION", "TESTING", "UIDAI", "AADHAAR", "LANGUAGE PROFICIENCY"]
+    matches = sum(1 for kw in keywords if kw in text_upper)
     if matches < 2:
-        return "Validation Error: The uploaded document does not appear to be a valid NSEIT Certificate."
+        return "Uploaded document does not appear to be a valid NSEIT Certificate."
+
     if operator_name:
         name_upper = operator_name.upper().strip()
         score = fuzz.token_set_ratio(name_upper, extracted_text)
@@ -532,7 +545,8 @@ def validate_nseit_certificate(extracted_text: str, operator_name: str, cert_num
             score = max(score, fuzz.token_set_ratio(name_no_space, fixed_text))
             
         if score < 60:
-            return f"Validation Error: The name on the NSEIT Certificate does not match the Operator's name '{operator_name}'."
+            return f"Name on certificate does not match '{operator_name}'."
+            
     if cert_number:
         clean_cert = "".join(c for c in str(cert_number).upper() if c.isalnum())
         text_no_space = "".join(c for c in extracted_text.upper() if c.isalnum())
@@ -543,7 +557,7 @@ def validate_nseit_certificate(extracted_text: str, operator_name: str, cert_num
             for w in words:
                 best_score = max(best_score, fuzz.ratio(clean_cert, w))
             if best_score < 80:
-                return f"Validation Error: Certificate number '{cert_number}' was not found in the uploaded document."
+                return f"Certificate number '{cert_number}' was not found in uploaded document."
     return None
 
 def validate_excel_sheet(file_bytes: bytes, operator_name: str, operator_mobile: str) -> str | None:

@@ -7,6 +7,7 @@ from flask import (
     url_for,
     jsonify,
     Response,
+    request,
 )
 import requests as http
 
@@ -23,15 +24,35 @@ def chips_list():
     if not session.get("access_token"):
         return redirect(url_for("auth.login"))
 
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+    search = request.args.get("search", "")
+    sort_by = request.args.get("sort_by", "")
+    sort_order = request.args.get("sort_order", "desc")
+
     try:
-        resp = http.get(f"{BACKEND}/all", headers=_headers())
+        resp = http.get(f"{BACKEND}/all?page={page}&per_page={per_page}&search={search}&sort_by={sort_by}&sort_order={sort_order}", headers=_headers())
         if resp.status_code == 401:
             return redirect(url_for("auth.logout"))
-        rows = resp.json() if resp.status_code == 200 else []
+        data = resp.json() if resp.status_code == 200 else {}
     except http.exceptions.ConnectionError:
-        rows = []
+        data = {}
 
-    return render_template("kit_registration/chips_kit_registration.html", requests=rows)
+    requests_list = data.get("items", [])
+    pagination = {
+        "total": data.get("total", 0),
+        "page": data.get("page", 1),
+        "pages": data.get("pages", 1),
+        "per_page": data.get("per_page", 25)
+    }
+    return render_template(
+        "kit_registration/chips_kit_registration.html", 
+        requests=requests_list, 
+        pagination=pagination,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
 
 
 @kit_registration_bp.route("/chips/kit-registration/<int:kit_id>/l1-done", methods=["POST"])
@@ -69,9 +90,11 @@ def export_excel():
     if not session.get("access_token"):
         return redirect(url_for("auth.login"))
     from flask import request
-    ids = request.args.get("ids", "")
+    search = request.args.get("search", "")
+    sort_by = request.args.get("sort_by", "")
+    sort_order = request.args.get("sort_order", "desc")
     try:
-        resp = http.get(f"{BACKEND}/export-excel?ids={ids}", headers=_headers(), stream=True)
+        resp = http.get(f"{BACKEND}/export-excel?search={search}&sort_by={sort_by}&sort_order={sort_order}", headers=_headers(), stream=True)
         if resp.status_code == 401:
             return redirect(url_for("auth.logout"))
         

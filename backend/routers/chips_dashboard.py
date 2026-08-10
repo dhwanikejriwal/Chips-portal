@@ -19,6 +19,7 @@ from backend.models import (
     StationIDRequest,
     L1RegistrationRequest,
     L2RegistrationRequest,
+    Operator,
 )
 
 from backend.utils.dashboard_analytics import (
@@ -528,11 +529,11 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
 
 def _serialize_nseit_row(req, district_name):
     return {
-        "request_no": req.request_no or "N/A",
-        "name_as_per_aadhaar": req.name_as_per_aadhaar,
-        "operator_mobile": req.operator_mobile,
-        "primary_email": req.primary_email,
-        "operator_aadhaar": req.operator_aadhaar,
+        "request_no": req.user_code or "N/A",
+        "name_as_per_aadhaar": req.name,
+        "operator_mobile": req.mobile,
+        "primary_email": req.email,
+        "operator_aadhaar": f"XXXX XXXX {req.aadhaar_last4}" if req.aadhaar_last4 else "N/A",
         "district_name": district_name or "N/A",
         "nseit_certificate_number": req.nseit_certificate_number,
         "nseit_certification_date": req.nseit_certification_date.strftime("%Y-%m-%d") if req.nseit_certification_date else None,
@@ -547,13 +548,13 @@ def get_nseit_expiring(db: Session = Depends(get_db)):
         today_date = date.today()
         in_30 = today_date + timedelta(days=30)
 
-        rows = db.query(OperatorActivationRequest, District.district_name)\
-            .outerjoin(District, OperatorActivationRequest.district_id == District.district_code)\
+        rows = db.query(Operator, District.district_name)\
+            .outerjoin(District, Operator.district_id == District.district_code)\
             .filter(
-                OperatorActivationRequest.nseit_certificate_expiry_date != None,
-                OperatorActivationRequest.nseit_certificate_expiry_date >= today_date,
-                OperatorActivationRequest.nseit_certificate_expiry_date <= in_30,
-            ).order_by(OperatorActivationRequest.nseit_certificate_expiry_date.asc()).all()
+                Operator.nseit_certificate_expiry_date != None,
+                Operator.nseit_certificate_expiry_date >= today_date,
+                Operator.nseit_certificate_expiry_date <= in_30,
+            ).order_by(Operator.nseit_certificate_expiry_date.asc()).all()
 
         result = []
         for req, district_name in rows:
@@ -570,12 +571,12 @@ def get_nseit_expired(db: Session = Depends(get_db)):
     try:
         today_date = date.today()
 
-        rows = db.query(OperatorActivationRequest, District.district_name)\
-            .outerjoin(District, OperatorActivationRequest.district_id == District.district_code)\
+        rows = db.query(Operator, District.district_name)\
+            .outerjoin(District, Operator.district_id == District.district_code)\
             .filter(
-                OperatorActivationRequest.nseit_certificate_expiry_date != None,
-                OperatorActivationRequest.nseit_certificate_expiry_date < today_date,
-            ).order_by(OperatorActivationRequest.nseit_certificate_expiry_date.desc()).all()
+                Operator.nseit_certificate_expiry_date != None,
+                Operator.nseit_certificate_expiry_date < today_date,
+            ).order_by(Operator.nseit_certificate_expiry_date.desc()).all()
 
         result = []
         for req, district_name in rows:

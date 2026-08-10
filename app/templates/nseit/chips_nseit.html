@@ -3,7 +3,6 @@
 {% block title %}NSEIT Certificate Verification - CHIPS Admin Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}">
 <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 {% endblock %}
@@ -109,7 +108,7 @@
     <div class="filter-bar">
         <div class="filter-group filter-group-search">
             <label>Search Candidate</label>
-            <input type="text" id="admin-search-input" placeholder="Search by code, name, mobile or email..."
+            <input type="text" id="admin-search-input" placeholder="Search by request ID, name, mobile or email..."
                 class="filter-input" oninput="filterAdminQueues()">
         </div>
         <div class="filter-group">
@@ -140,9 +139,9 @@
         </div>
         <div class="filter-group-button" style="flex: 0 0 auto; align-self: flex-end;">
             <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
-            <i class="ti ti-x" style="font-size: 15px; stroke-width: 2.5px; margin-right: 4px;"></i>
-            Clear Filters
-        </button>
+                <i class="ti ti-x" style="font-size: 15px; stroke-width: 2.5px; margin-right: 4px;"></i>
+                Clear Filters
+            </button>
         </div>
     </div>
 
@@ -175,7 +174,7 @@
         min_width=1050,
         columns=[
         {'label': 'S.No', 'cls': 'rs-col-sno'},
-        {'label': 'Request code'},
+        {'label': 'Request ID'},
         {'label': 'District'},
         {'label': 'Candidate name'},
         {'label': 'Mobile no'},
@@ -200,7 +199,7 @@
             data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
             data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
             data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
-            data-status="{{ 'Reapplied' if (req.nseit_status|upper) == 'FORWARDED_AGAIN' else 'Pending' }}"
+            data-status="{{ 'Reapplied' if (req.nseit_status|upper) in ['FORWARDED_AGAIN', 'REAPPLIED'] else 'Pending' }}"
             data-had-nseit-at-registration="{{ 'true' if req.had_nseit_at_registration else 'false' }}"
             data-nseit-uploaded-post-approval="{{ 'true' if req.nseit_uploaded_post_approval else 'false' }}"
             data-remarks='{{ req.remarks_history | tojson | safe }}' data-created="{{ req.created_at }}"
@@ -212,9 +211,9 @@
             <td style="padding: 12px 15px; font-size: 14px;">{{ req.mobile }}</td>
             <td style="padding: 12px 15px; font-size: 14px;">{{ req.email }}</td>
             <td style="padding: 12px 15px; font-size: 14px;">
-                {% if (req.nseit_status|upper) == 'FORWARDED_AGAIN' %}
+                {% if (req.nseit_status|upper) in ['FORWARDED_AGAIN', 'REAPPLIED'] %}
                 <span class="badge badge-reapplied"
-                    style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>
+                    style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background-color: #fef3c7; color: #d97706;">Reapplied</span>
                 {% else %}
                 <span class="badge badge-pending"
                     style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>
@@ -232,9 +231,9 @@
             </td>
             <td style="padding: 12px 15px; text-align: center;">
                 <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
-                    <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                    <button type="button" class="btn-approve"
                         onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}')">Approve</button>
-                    <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                    <button type="button" class="btn-revert"
                         onclick="openRevertModal('{{ req.r_id }}', '{{ req.name }}')">Revert</button>
                     <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -265,7 +264,7 @@
         min_width=1050,
         columns=[
         {'label': 'S.No', 'cls': 'rs-col-sno'},
-        {'label': 'Request code'},
+        {'label': 'Request ID'},
         {'label': 'District'},
         {'label': 'Candidate name'},
         {'label': 'Mobile no'},
@@ -341,7 +340,7 @@
         min_width=1050,
         columns=[
         {'label': 'S.No', 'cls': 'rs-col-sno'},
-        {'label': 'Request code'},
+        {'label': 'Request ID'},
         {'label': 'District'},
         {'label': 'Candidate name'},
         {'label': 'Mobile no'},
@@ -740,11 +739,12 @@
                 }).then(response => {
                     if (response.ok) {
                         Swal.fire({
-                            title: 'Reverted!',
+                            title: 'Request Reverted!',
                             text: 'NSEIT Certificate request reverted back to candidate.',
-                            icon: 'warning',
-                            confirmButtonColor: '#dc3545',
-                            timer: 2500,
+                            icon: 'success',
+                            confirmButtonColor: '#f59e0b',
+                            showConfirmButton: true,
+                            timer: 3000,
                             timerProgressBar: true
                         }).then(() => {
                             sessionStorage.setItem('chips_action_reloading', 'true');
@@ -834,8 +834,8 @@
                         <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
                         <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${fileName}">${shortFileName}</div>
                         ${showPostApprovalNote ? `
-                        <div style="font-size: 9px; font-weight: 700; color: #d97706; margin-top: 4px; padding: 2px 6px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; display: inline-block;">
-                            ⚠️ Uploaded post-approval
+                        <div class="post-approval-badge" style="color: var(--post-approval-text) !important; background: var(--post-approval-bg) !important; border: 1px solid var(--post-approval-border) !important;">
+                            <span>⚠️</span> <span style="color: var(--post-approval-text) !important;">Uploaded post-approval</span>
                         </div>` : ''}
                     </div>
                     <div style="display: flex; gap: 6px; flex-shrink: 0;">
@@ -921,8 +921,8 @@
                 ${latestRevertReason ? `
                 <!-- Revert Reason / Remark Box -->
                 <div class="revert-reason-box" style="margin-bottom: 18px;">
-                    <div class="revert-reason-header" style="gap: 6px;">
-                        <span>💬</span> REVERT REASON
+                    <div class="revert-reason-header">
+                        <span class="revert-reason-title">Revert Reason/Remark:</span>
                     </div>
                     <div class="revert-reason-text">
                         ${escapeHtml(latestRevertReason)}
@@ -932,13 +932,13 @@
 
                 ${candidateReRequestReason ? `
                 <!-- Candidate Re-Request Reason Box -->
-                <div style="background: #fffbeb; border: 1px dashed #fcd34d; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
-                    <div style="font-size: 11px; font-weight: 750; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                        <span>⚠️</span> CANDIDATE ALREADY HAS EXISTING ID / CERTIFICATE
+                <div class="candidate-rerequest-box">
+                    <div class="candidate-rerequest-title" style="color: var(--candidate-rerequest-title) !important;">
+                        <span>⚠️</span> <span style="color: var(--candidate-rerequest-title) !important;">CANDIDATE ALREADY HAS EXISTING ID / CERTIFICATE</span>
                     </div>
-                    <div style="font-size: 13px; font-weight: 600; color: #78350f; line-height: 1.5;">
-                        <strong>Reason for request:</strong><br>
-                        <span style="font-style: italic;">"${escapeHtml(candidateReRequestReason)}"</span>
+                    <div class="candidate-rerequest-body" style="color: var(--candidate-rerequest-text) !important;">
+                        <strong style="color: var(--candidate-rerequest-title) !important;">Reason for request:</strong><br>
+                        <span class="candidate-rerequest-reason" style="color: var(--candidate-rerequest-text) !important;">"${escapeHtml(candidateReRequestReason)}"</span>
                     </div>
                 </div>` : ''
                 }
@@ -946,88 +946,88 @@
                 ${d.photo ? `<div style="text-align:center;margin-bottom:14px;"><img src="${d.photo}" alt="Profile Photo" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;cursor:pointer;" onclick="zoomPhoto('${d.photo}')"></div>` : ''}
 
                 <!-- NSEIT Request Details(Top Info) -->
-            <div style="margin-bottom: 20px;">
-                <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">NSEIT Verification Request Info</div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01); grid-column: 1 / -1;">
-                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Candidate Name</div>
-                                    <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.name}</div>
-                                </div>
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Candidate Unique ID (Exam ID)</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.examUniqueCode || 'None'}</div>
-                        </div>
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">LMS Credential ID</div>
-                <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.lmsId || 'None'}</div>
-            </div>
+            <div>
+                <div class="det-section-title">NSEIT Verification Request Info</div>
+                <div class="det-grid">
+                    <div class="det-card det-card-full">
+                        <div class="det-label">Candidate Name</div>
+                        <div class="det-value">${d.name}</div>
+                    </div>
+                    <div class="det-card">
+                        <div class="det-label">Candidate Unique ID (Exam ID)</div>
+                        <div class="det-value">${d.examUniqueCode || 'None'}</div>
+                    </div>
+                    <div class="det-card">
+                        <div class="det-label">LMS Credential ID</div>
+                        <div class="det-value">${d.lmsId || 'None'}</div>
                     </div>
                 </div>
+            </div>
 
                 <!-- Collapsible Other Profile Info -->
-                <details style="margin-top: 15px; border: 1px solid #e2e8f0; border-radius: 10px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.02); overflow: hidden;">
-                    <summary style="font-size: 12px; font-weight: 700; color: #4f46e5; padding: 12px 14px; cursor: pointer; background: #f8fafc; display: flex; align-items: center; justify-content: space-between; outline: none; user-select: none;">
+                <details class="det-details">
+                    <summary class="det-summary">
                         <span>Show Other Profile Details</span>
-                        <span style="font-size: 10px; color: #64748b;">▼</span>
+                        <span style="font-size: 10px;">▼</span>
                     </summary>
-                    <div style="padding: 14px; display: flex; flex-direction: column; gap: 16px; border-top: 1px solid #e2e8f0;">
+                    <div class="det-details-body">
                         <!-- Personal Information -->
                         <div>
-                            <div style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Personal Information</div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px;">
-                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Date of Birth</div>
-                                    <div style="font-size: 12px; font-weight: 600; color: #495057;">${d.dob}</div>
+                            <div class="det-sub-title">Personal Information</div>
+                            <div class="det-grid-sm">
+                                <div class="det-card-sm">
+                                    <div class="det-label-sm">Date of Birth</div>
+                                    <div class="det-value-sm">${d.dob}</div>
                                 </div>
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px;">
-                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Mobile Number</div>
-                                    <div style="font-size: 12px; font-weight: 600; color: #495057;">${d.phone}</div>
+                                <div class="det-card-sm">
+                                    <div class="det-label-sm">Mobile Number</div>
+                                    <div class="det-value-sm">${d.phone}</div>
                                 </div>
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px;">
-                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Email ID</div>
-                                    <div style="font-size: 12px; font-weight: 600; color: #495057;">${d.email}</div>
+                                <div class="det-card-sm">
+                                    <div class="det-label-sm">Email ID</div>
+                                    <div class="det-value-sm">${d.email}</div>
                                 </div>
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px;">
-                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Aadhaar Card</div>
-                                    <div style="font-size: 12px; font-weight: 600; color: #495057;">${maskedAadhaar}</div>
+                                <div class="det-card-sm">
+                                    <div class="det-label-sm">Aadhaar Card</div>
+                                    <div class="det-value-sm">${maskedAadhaar}</div>
                                 </div>
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; grid-column: 1 / -1;">
-                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Existing Aadhaar Operator</div>
-                                    <div style="font-size: 12px; font-weight: 600; color: #495057;">${d.isOperator}</div>
+                                <div class="det-card-sm det-card-full">
+                                    <div class="det-label-sm">Existing Aadhaar Operator</div>
+                                    <div class="det-value-sm">${d.isOperator}</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Address -->
                         <div>
-                            <div style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Address</div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
-                                <div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px;">
-                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Full Address</div>
-                                    <div style="font-size: 12px; font-weight: 600; color: #495057;">${d.address || 'N/A'}</div>
+                            <div class="det-sub-title">Address</div>
+                            <div class="det-grid-sm">
+                                <div class="det-card-sm det-card-full">
+                                    <div class="det-label-sm">Full Address</div>
+                                    <div class="det-value-sm">${d.address || 'N/A'}</div>
                                 </div>
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px;">
-                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Pincode</div>
-                                    <div style="font-size: 12px; font-weight: 600; color: #495057;">${d.pincode || 'N/A'}</div>
+                                <div class="det-card-sm">
+                                    <div class="det-label-sm">Pincode</div>
+                                    <div class="det-value-sm">${d.pincode || 'N/A'}</div>
                                 </div>
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px;">
-                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">District</div>
-                                    <div style="font-size: 12px; font-weight: 600; color: #495057;">${d.district}</div>
+                                <div class="det-card-sm">
+                                    <div class="det-label-sm">District</div>
+                                    <div class="det-value-sm">${d.district}</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Qualification & Certifications -->
                         <div>
-                            <div style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Qualification &amp; Other Certification</div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; grid-column: 1 / -1;">
-                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Qualification</div>
-                                    <div style="font-size: 12px; font-weight: 600; color: #495057;">${d.qualification}</div>
+                            <div class="det-sub-title">Qualification &amp; Other Certification</div>
+                            <div class="det-grid-sm">
+                                <div class="det-card-sm det-card-full">
+                                    <div class="det-label-sm">Qualification</div>
+                                    <div class="det-value-sm">${d.qualification}</div>
                                 </div>
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; grid-column: 1 / -1;">
-                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">NSEIT Certificate ID</div>
-                                    <div style="font-size: 12px; font-weight: 600; color: #495057;">${d.nseitId || 'None'}</div>
+                                <div class="det-card-sm det-card-full">
+                                    <div class="det-label-sm">NSEIT Certificate ID</div>
+                                    <div class="det-value-sm">${d.nseitId || 'None'}</div>
                                 </div>
                             </div>
                         </div>
@@ -1128,11 +1128,11 @@
                     }
                 } else if (s.includes('forward') || s.includes('uidai')) {
                     if (s.includes('again')) {
-                        badgeClass = 'badge-reapplied';
-                        label = 'Reapplied';
+                        badgeClass = 'badge-forwarded-again';
+                        label = 'Forwarded Again';
                     } else {
-                        badgeClass = 'badge-pending';
-                        label = 'Pending';
+                        badgeClass = 'badge-forwarded';
+                        label = 'Forwarded';
                     }
                 } else if (s.includes('reappl')) {
                     badgeClass = 'badge-reapplied';
@@ -1300,6 +1300,19 @@
                 }
             }
         });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('from_notif') || urlParams.get('status')) {
+            setTimeout(() => {
+                const table = document.getElementById('pending-table') || document.querySelector('[data-panel="pending"]');
+                if (table) {
+                    table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (typeof window.highlightNotificationRows === 'function') {
+                        window.highlightNotificationRows(table);
+                    }
+                }
+            }, 150);
+        }
     });
 
 </script>

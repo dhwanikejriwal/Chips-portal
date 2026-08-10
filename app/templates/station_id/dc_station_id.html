@@ -3,7 +3,6 @@
 {% block title %}Station ID Dashboard — CHiPS Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -146,7 +145,7 @@
     <option value="reapplied">Reapplied</option>
 </select>
 <button class="rs-export"
-    onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.csv', true, true)">Export to
+    onclick="exportTableToExcel('pending-table', 'pending_station_id_requests.csv', false, true, true)">Export to
     CSV</button>
 {% endset %}
 <div class="req-tabpanel active" data-panel="pending">
@@ -162,6 +161,7 @@
     {'label': 'District'},
     {'label': 'Model'},
     {'label': 'User type'},
+    {'label': 'No. of kits'},
     {'label': 'Status'},
     {'label': 'Submitted at'},
     {'label': 'Updated at'},
@@ -184,6 +184,7 @@
         <td>
             {{ r.user_type | replace('_', ' ') | capitalize }}
         </td>
+        <td><strong>{{ r.number_of_kits }}</strong></td>
         <td><span class="sid-badge sid-badge-{{ r.status | lower | replace(" ", " _") }}">{{ r.status |
                 replace('_', ' ') | title }}</span></td>
         <td>{{ r.submitted_at[:16] if r.submitted_at and r.submitted_at != '—' else '—' }}</td>
@@ -245,6 +246,7 @@
         data-model="{{ r.model }}" data-user-type="{{ r.user_type }}"
         data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
         data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+        data-updated="{{ r.reviewed_at or r.updated_at or r.submitted_at }}"
         data-assigned-station-id="{{ r.assigned_station_id or '' }}"
         data-remarks='{{ (r.remarks_history | default([])) | tojson | safe }}'>
         <td>{{ ns_r.count }}</td>
@@ -284,7 +286,7 @@
 <div class="req-tabpanel" data-panel="approved">
     {% call request_section(
     variant='approved',
-    title='Approved Station ID log',
+    title='Allotted Station ID log',
     count='–', count_id='approved-count-badge',
     controls=approved_controls,
     min_width=1150,
@@ -296,7 +298,7 @@
     {'label': 'User type'},
     {'label': 'Type of slot'},
     {'label': 'Status'},
-    {'label': 'Assigned ID'},
+    {'label': 'Allotted ID'},
     {'label': 'Submitted at'},
     {'label': 'Updated at'},
     {'label': 'Action', 'align': 'center'}
@@ -311,6 +313,7 @@
         data-custom-reason="{{ r.user_type_custom_reason or '' }}" data-kits="{{ r.number_of_kits }}"
         data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
         data-assigned-station-id="{{ r.assigned_station_id or '' }}"
+        data-batch-ids="{{ (r.all_batch_station_ids | default([])) | join(',') }}"
         data-remarks='{{ (r.remarks_history | default([])) | tojson | safe }}'>
         <td>{{ ns_a.count }}</td>
         <td>
@@ -452,12 +455,105 @@
         return html;
     }
 
+    window.toggleBatchIdsTable = function() {
+        const box = document.getElementById('batch-ids-table-box');
+        const icon = document.getElementById('batch-toggle-icon');
+        const label = document.getElementById('batch-toggle-label');
+        if (!box) return;
+        if (box.style.display === 'none' || box.style.display === '') {
+            box.style.display = 'block';
+            if (icon) icon.style.transform = 'rotate(180deg)';
+            if (label) {
+                if (!label.getAttribute('data-original')) label.setAttribute('data-original', label.textContent);
+                label.textContent = 'Hide All IDs';
+            }
+        } else {
+            box.style.display = 'none';
+            if (icon) icon.style.transform = 'rotate(0deg)';
+            if (label) label.textContent = label.getAttribute('data-original') || 'View All IDs';
+        }
+    };
+
+    function buildBatchStationIdsSection(currentStationId, batchList) {
+        if (!currentStationId && (!batchList || batchList.length === 0)) return '';
+
+        const currId = (currentStationId || '').trim();
+        const list = (batchList && batchList.length > 0) ? batchList : (currId ? [currId] : []);
+        const isMulti = list.length > 1;
+
+        let rowsHtml = '';
+        list.forEach((sid, idx) => {
+            const isCurrent = sid === currId;
+            const rowBg = isCurrent ? 'background: rgba(16, 185, 129, 0.08);' : '';
+            const currentBadge = isCurrent 
+                ? `<span style="font-size: 10px; font-weight: 700; background: #10b981; color: #ffffff; padding: 2px 7px; border-radius: 4px;">Current</span>`
+                : `<span style="font-size: 10px; color: #64748b; font-weight: 500;">Allotted</span>`;
+
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid #e2e8f0; ${rowBg}">
+                    <td style="padding: 7px 12px; text-align: center; font-size: 12px; color: #64748b; font-weight: 600; width: 45px;">${idx + 1}</td>
+                    <td style="padding: 7px 12px; font-size: 13px; font-weight: 700; font-family: monospace; color: #1e293b;">${sid.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+                    <td style="padding: 7px 12px; font-size: 12px; text-align: right;">${currentBadge}</td>
+                </tr>
+            `;
+        });
+
+        return `
+        <div style="margin-bottom: 20px;">
+            <div class="station-id-detail-header">Allotted ID</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="station-id-pill" style="font-size: 14px; font-weight: 700; padding: 6px 14px; background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; border-radius: 6px; font-family: monospace;">
+                        ${currId.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '—'}
+                    </span>
+                    ${isMulti ? `<span style="font-size: 12px; color: #64748b; font-weight: 500;">(1 of ${list.length} Allotted Kits)</span>` : ''}
+                </div>
+                ${isMulti ? `
+                <button type="button" id="btn-toggle-batch-ids" onclick="window.toggleBatchIdsTable()" 
+                    style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="3" y1="15" x2="21" y2="15"></line>
+                        <line x1="9" y1="3" x2="9" y2="21"></line>
+                    </svg>
+                    <span id="batch-toggle-label">View All ${list.length} IDs</span>
+                    <svg id="batch-toggle-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s;">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+                ` : ''}
+            </div>
+
+            ${isMulti ? `
+            <div id="batch-ids-table-box" style="display: none; margin-top: 12px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="max-height: 180px; overflow-y: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead style="background: #f8fafc; position: sticky; top: 0; z-index: 2; border-bottom: 1.5px solid #e2e8f0;">
+                            <tr>
+                                <th style="padding: 7px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; text-align: center; width: 45px;">#</th>
+                                <th style="padding: 7px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b;">Station ID</th>
+                                <th style="padding: 7px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; text-align: right;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            ` : ''}
+        </div>
+        `;
+    }
+
     // Details/Reapply modal popup
     window.showStationIdDetails = function (d, activeView) {
         const normStatus = (d.status || '').trim().toLowerCase();
         const isReverted = ['reverted', 'rejected', 'reverted by chips', 'reverted_by_chips'].includes(normStatus);
 
         const statusBadge = getStatusBadgeHtml(d.status);
+        const batchList = (d.allBatchStationIds || d.assignedStationId || '').split(',').map(s => s.trim()).filter(Boolean);
 
         const infoHtml = `
             <div style="text-align: left; padding: 0 5px;  font-family: 'Inter', sans-serif;">
@@ -482,7 +578,7 @@
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.model}</div>
                         </div>
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Number of Kits</div>
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Number of Kits Requested</div>
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.kits} Kit(s)</div>
                         </div>
                     </div>
@@ -504,17 +600,7 @@
                     </div>
                 </div>
 
-                ${d.assignedStationId ? `
-                <div style="margin-bottom: 20px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Station ID Allotted</div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        ${d.assignedStationId.split(',').map(sid => `
-                            <span style="font-family: monospace; font-size: 14px; font-weight: 700; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 6px; display: inline-block;">
-                                ${sid.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
-                            </span>
-                        `).join('')}
-                    </div>
-                </div>` : ''}
+                ${buildBatchStationIdsSection(d.assignedStationId, batchList)}
 
                 <!-- View Remarks Button -->
                 <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
@@ -545,19 +631,19 @@
                 </div>
 
                 <!-- Action Required Notification Box -->
-                <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;">
-                    <div style="font-size: 14px; font-weight: 700; color: #c2410c; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                        <span>⚠️</span> Action Required — Request Reverted
+                <div class="action-required-banner">
+                    <div class="action-required-title" style="color: var(--alert-warning-title) !important;">
+                        <span>⚠️</span> <span style="color: var(--alert-warning-title) !important;">Action Required — Request Reverted</span>
                     </div>
-                    <div style="font-size: 13px; color: #9a3412; font-weight: 500;">
+                    <div class="action-required-desc" style="color: var(--alert-warning-desc) !important;">
                         Review CHiPS Admin's remarks below, update details and click "Resubmit".
                     </div>
                 </div>
 
                 <!-- Revert Reason / Remark Box -->
                 <div class="revert-reason-box" style="margin-bottom: 18px;">
-                    <div class="revert-reason-header" style="gap: 6px;">
-                        <span>💬</span> REVERT REASON / REMARK
+                    <div class="revert-reason-header">
+                        <span class="revert-reason-title">Revert Reason/Remark</span>
                     </div>
                     <div class="revert-reason-text">
                         ${escapeHtml(latestRevertReason)}
@@ -713,6 +799,7 @@
             kits: row.getAttribute('data-kits'),
             status: row.getAttribute('data-status'),
             assignedStationId: row.getAttribute('data-assigned-station-id') || '',
+            allBatchStationIds: row.getAttribute('data-batch-ids') || '',
             remarksStr: row.getAttribute('data-remarks') || '[]',
             submittedAt: row.getAttribute('data-created') || '—'
         };
@@ -746,6 +833,27 @@
             document.getElementById('sid-search').value = '';
             document.getElementById('sid-date-filter').value = 'month';
             document.getElementById('pending-status-filter').value = 'all';
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const qStatus = urlParams.get('status');
+        if (urlParams.has('from_notif') || qStatus) {
+            const df = document.getElementById('sid-date-filter');
+            if (df) df.value = 'all';
+            if (typeof window.filterAllTables === 'function') window.filterAllTables();
+        }
+        if (qStatus && (qStatus.toLowerCase().includes('revert') || qStatus.toLowerCase().includes('reject'))) {
+            const revTabBtn = document.querySelector('.req-tab[data-tab="reverted"]');
+            if (revTabBtn) revTabBtn.click();
+            setTimeout(() => {
+                const table = document.getElementById('reverted-table') || document.querySelector('[data-panel="reverted"]');
+                if (table) {
+                    table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (typeof window.highlightNotificationRows === 'function') {
+                        window.highlightNotificationRows(table);
+                    }
+                }
+            }, 150);
         }
 
         window.filterAllTables = function () {
@@ -928,14 +1036,14 @@
     function showAllStationIds(idsStr) {
         if (!idsStr) return;
         const idsList = idsStr.split(',').map(id => id.trim()).filter(id => id.length > 0);
-        const listHtml = `<div style="text-align:left; max-height: 250px; overflow-y: auto; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <ul style="list-style-type: none; padding-left: 10px; margin: 0; color: #1e293b; font-weight: 500;">
-                    ${idsList.map(id => `<li style="padding: 4px 0; border-bottom: 1px solid #e2e8f0; display:flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0F7A50" stroke-width="2" style="margin-right: 8px;"><polyline points="20 6 9 17 4 12"></polyline></svg>${id}</li>`).join('')}
+        const listHtml = `<div class="station-ids-modal-box" style="text-align:left; max-height: 250px; overflow-y: auto; padding: 12px; border-radius: 8px;">
+                <ul style="list-style-type: none; padding-left: 5px; margin: 0; font-weight: 600; font-family: monospace; font-size: 14px;">
+                    ${idsList.map(id => `<li class="station-id-list-item" style="padding: 6px 0; border-bottom: 1px solid rgba(226, 232, 240, 0.4); display:flex; align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" style="margin-right: 8px; flex-shrink:0;"><polyline points="20 6 9 17 4 12"></polyline></svg>${id}</li>`).join('')}
                 </ul>
             </div>`;
 
         Swal.fire({
-            title: 'Assigned Station IDs',
+            title: 'Allotted Station IDs',
             html: listHtml,
             icon: 'info',
             confirmButtonColor: '#0F7A50',

@@ -672,7 +672,7 @@
             font-size: 15px;
             line-height: 1;
             cursor: pointer;
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             transition: all .15s;
@@ -1401,6 +1401,28 @@
             border-color: var(--border-strong);
         }
 
+        html[data-theme="dark"] .cgm2-time-filter-container {
+            background: var(--surface-card);
+            border-color: var(--border-strong);
+        }
+
+        html[data-theme="dark"] .cgm2-time-filter-container:hover {
+            background: var(--surface-hover);
+        }
+
+        html[data-theme="dark"] .cgm2-time-filter-container i {
+            color: var(--text-secondary);
+        }
+
+        html[data-theme="dark"] .cgm2-time-select {
+            color: var(--text-primary);
+        }
+
+        html[data-theme="dark"] .cgm2-time-select option {
+            background: var(--surface-card);
+            color: var(--text-primary);
+        }
+
         html[data-theme="dark"] .cgm-load2 {
             background: rgba(13, 18, 38, .95);
             color: var(--text-secondary);
@@ -1800,6 +1822,7 @@
             if (window.calculateTimeframeFilteredData) {
                 DDATA = window.calculateTimeframeFilteredData(timeframe);
                 refreshClr();
+                showDetail2(locked2, true);
             }
         };
 
@@ -2304,18 +2327,28 @@
         function openDrawer(name) {
             var titleEl = document.getElementById('cgm-drawer-title');
             var eyeEl = document.getElementById('cgm-drawer-eyebrow');
+            var closeBtn = document.getElementById('cgm-drawer-close');
+            var isState = !name || name.toLowerCase() === 'chhattisgarh' || name.toLowerCase() === 'all';
+            
             if (titleEl) {
-                if (!name || name.toLowerCase() === 'chhattisgarh' || name.toLowerCase() === 'all') {
+                if (isState) {
                     titleEl.textContent = 'Chhattisgarh State';
                 } else {
                     titleEl.textContent = name;
                 }
             }
             if (eyeEl) {
-                if (!name || name.toLowerCase() === 'chhattisgarh' || name.toLowerCase() === 'all') {
+                if (isState) {
                     eyeEl.textContent = 'State Profile';
                 } else {
                     eyeEl.textContent = 'District Profile';
+                }
+            }
+            if (closeBtn) {
+                if (isState) {
+                    closeBtn.style.display = 'none';
+                } else {
+                    closeBtn.style.display = 'flex';
                 }
             }
         }
@@ -2448,15 +2481,15 @@
                 l1: REAL_DATABASE_STATS.l1_requests || [],
             };
 
-            // Filter local arrays by district normalization (matching total counts on list pages)
-            const dLms = db.lms.filter(x => (isStateWide || normalize(x.district) === targetNorm));
-            const dNseit = db.nseit.filter(x => (isStateWide || normalize(x.district) === targetNorm));
-            const dAct = db.activation.filter(x => (isStateWide || normalize(x.district) === targetNorm));
-            const dReact = db.reactivation.filter(x => (isStateWide || normalize(x.district) === targetNorm));
+            // Filter local arrays by district normalization (matching total counts on list pages) and timeframe
+            const dLms = db.lms.filter(x => (isStateWide || normalize(x.district) === targetNorm) && window.isWithinTimeframe(x.submitted_days_ago, timeframe));
+            const dNseit = db.nseit.filter(x => (isStateWide || normalize(x.district) === targetNorm) && window.isWithinTimeframe(x.submitted_days_ago, timeframe));
+            const dAct = db.activation.filter(x => (isStateWide || normalize(x.district) === targetNorm) && window.isWithinTimeframe(x.submitted_days_ago, timeframe));
+            const dReact = db.reactivation.filter(x => (isStateWide || normalize(x.district) === targetNorm) && window.isWithinTimeframe(x.submitted_days_ago, timeframe));
 
-            const dSid = db.station_id.filter(x => (isStateWide || normalize(x.district) === targetNorm));
-            const dL1 = db.l1.filter(x => (isStateWide || normalize(x.district) === targetNorm));
-            const dL2 = db.l2.filter(x => (isStateWide || normalize(x.district) === targetNorm));
+            const dSid = db.station_id.filter(x => (isStateWide || normalize(x.district) === targetNorm) && window.isWithinTimeframe(x.submitted_days_ago, timeframe));
+            const dL1 = db.l1.filter(x => (isStateWide || normalize(x.district) === targetNorm) && window.isWithinTimeframe(x.submitted_days_ago, timeframe));
+            const dL2 = db.l2.filter(x => (isStateWide || normalize(x.district) === targetNorm) && window.isWithinTimeframe(x.submitted_days_ago, timeframe));
 
             const pendSid = dSid.filter(x => x.status && ["pending", "reapplied"].includes(x.status.toLowerCase())).length;
             const appSid = dSid.filter(x => x.status && ["approved", "allotted"].includes(x.status.toLowerCase())).length;
@@ -3996,7 +4029,7 @@
                     style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #3730a3 100%)', padding: '22px 28px' }}
                 >
                     <div className="absolute rounded-full bg-white/5 pointer-events-none" style={{ right: '-20px', top: '-30px', width: '160px', height: '160px' }}></div>
-                    <div className={`grid gap-4 relative ${activeTab === 'L2 Requests' ? 'grid-cols-2 md:grid-cols-6' : 'grid-cols-2 md:grid-cols-4'}`}>
+                    <div className={`grid gap-4 relative ${activeTab === 'L2 Requests' ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4'}`}>
                         {kpiCards.map((card) => (
                             <div
                                 key={card.label}

@@ -22,7 +22,7 @@ def clean_date(d):
     try:
         if isinstance(d, datetime):
             return d.date()
-        return pd.to_datetime(d).date()
+        return pd.to_datetime(d, format='mixed').date()
     except:
         return None
 
@@ -39,13 +39,22 @@ def map_status(status_str):
     if 'rejected' in s: return 4
     return None
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 def run():
     db = SessionLocal()
     
-    l1_file = 'sample reports/L1 Pending List (1) chips.xlsx'
-    l2_file = 'sample reports/L2 Pending List (1) chips.xlsx'
-    op_file = 'sample reports/Operator List (2) chips.xlsx'
-    onboard_file = 'sample reports/Onboard Pending List (1) chips.xlsx'
+    l1_file = os.path.join(BASE_DIR, 'sample reports', 'L1 Pending List (1) chips.xlsx')
+    l2_file = os.path.join(BASE_DIR, 'sample reports', 'L2 Pending List (1) chips.xlsx')
+    op_file = os.path.join(BASE_DIR, 'sample reports', 'Operator List (2) chips.xlsx')
+    onboard_file = os.path.join(BASE_DIR, 'sample reports', 'Onboard Pending List (1) chips.xlsx')
+
+    for fname, path in [('L1 List', l1_file), ('L2 List', l2_file), ('Operator List', op_file), ('Onboard List', onboard_file)]:
+        if not os.path.exists(path):
+            print(f"Warning: File '{fname}' not found at '{path}'. Skipping {fname}.")
+            db.close()
+            return
     
     # Existing Kits
     existing_kits = {k[0] for k in db.query(KitRegistration.station_id).all()}
@@ -156,6 +165,13 @@ def run():
                 db.add(onb)
                 added_onb += 1
     
+    from sqlalchemy import text
+    try:
+        for tbl in ['kit_registration_table', 'operators', 'operator_onboarding_details', 'operator_station_mappings']:
+            db.execute(text(f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE((SELECT MAX(id) FROM {tbl}), 0) + 1, false);"))
+    except Exception:
+        db.rollback()
+
     db.commit()
     db.close()
     print(f"Added kits: {added_kits}, Added ops: {added_ops}, Added onboardings: {added_onb}")

@@ -165,7 +165,7 @@ def forward_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
         NSEITRemark.sender_id != CandidateLogin.id
     ).first() is not None
 
-    if nseit.status_id == StatusEnum.REAPPLIED.value and has_chips_remark:
+    if nseit.status_id in [StatusEnum.REAPPLIED.value, StatusEnum.FORWARDED_AGAIN.value] or has_chips_remark:
         nseit.status_id = StatusEnum.FORWARDED_AGAIN.value
     else:
         nseit.status_id = StatusEnum.FORWARDED.value
@@ -216,7 +216,7 @@ def approve_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
             import asyncio
             from backend.utils.email_utils import send_nseit_approval_email
             
-            nseit_booking_link = "https://uidai.nseitexams.com"
+            nseit_booking_link = "https://uidai.dexitglobalexams.com/UIDAI/LoginAction_input.action"
             
             asyncio.run(send_nseit_approval_email(
                 email_to=candidate.email,
@@ -338,7 +338,7 @@ def export_nseit_excel(ids: str = None, table_id: str = None, db: Session = Depe
     column_mappings = {
         "s_no": "S.No",
 
-        "request_code": "Request Code",
+        "request_code": "Request ID",
         "district_name": "District Name",
    
         "name": "Candidate Name",

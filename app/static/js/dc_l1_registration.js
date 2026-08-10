@@ -29,6 +29,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     filterL1Table();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const qStatus = urlParams.get('status');
+    if (urlParams.has('from_notif') || qStatus) {
+        const dateInput = document.getElementById('l1-date-filter');
+        if (dateInput) dateInput.value = 'all';
+        filterL1Table();
+    }
+    if (qStatus && (qStatus.toLowerCase().includes('revert') || qStatus.toLowerCase().includes('reject'))) {
+        const revTabBtn = document.querySelector('.req-tab[data-tab="reverted"]');
+        if (revTabBtn) revTabBtn.click();
+        setTimeout(() => {
+            const table = document.getElementById('reverted-table') || document.querySelector('[data-panel="reverted"]');
+            if (table) {
+                table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (typeof window.highlightNotificationRows === 'function') {
+                    window.highlightNotificationRows(table);
+                }
+            }
+        }, 150);
+    }
 });
 
 function showL1Dashboard() {
@@ -347,7 +368,7 @@ function getStatusBadgeHtml(status) {
     const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
     let badgeClass = 'badge-pending';
     let label = 'Pending';
-    if (s.includes('approve') || s.includes('l1 done') || s.includes('l1_done')) { badgeClass = 'badge-approved'; label = 'L1 Done'; }
+    if (s.includes('approve') || s.includes('l1 done') || s.includes('l1_done') || s.includes('done')) { badgeClass = 'badge-approved'; label = 'L1 Done'; }
     else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
     else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
     else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
@@ -366,13 +387,25 @@ function buildL1RemarksHtml(remarks) {
         const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
         const senderClass = isChips ? 'chips' : 'dc';
 
-        const statusAfter = r.action || '';
+        let statusAfter = r.action || '';
+        const remarkText = (r.remark || '').toLowerCase();
+        if (!statusAfter || statusAfter.toLowerCase() === 'pending' || statusAfter.toLowerCase() === 'none') {
+            if (remarkText.includes('marked as done') || remarkText.includes('l1 done') || remarkText.includes('approved') || remarkText.includes('completed')) {
+                statusAfter = 'DONE';
+            } else if (remarkText.includes('reverted') || remarkText.includes('revert')) {
+                statusAfter = 'REVERTED';
+            } else if (remarkText.includes('reapplied') || remarkText.includes('reapply')) {
+                statusAfter = 'REAPPLIED';
+            } else if (remarkText.includes('initialized') || remarkText.includes('submitted')) {
+                statusAfter = 'SUBMITTED';
+            }
+        }
         let statusBadgeHtmlInline = '';
         let markerClass = 'marker-pending';
         if (statusAfter) {
             statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(statusAfter);
             const sLower = statusAfter.toLowerCase();
-            if (sLower.includes('approve') || sLower.includes('l1 done') || sLower.includes('l1_done')) markerClass = 'marker-approved';
+            if (sLower.includes('approve') || sLower.includes('done') || sLower.includes('l1 done') || sLower.includes('l1_done')) markerClass = 'marker-approved';
             else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
             else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
             else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
@@ -382,9 +415,6 @@ function buildL1RemarksHtml(remarks) {
         // Only show username if it's a DC (hide CHiPS Admin username from DC panel)
         const hasUsername = !isChips && username && username !== 'system';
 
-        // Assume escapeHtml function exists globally or in the file, if not we can use a basic fallback inline
-        // Wait, dc_l1_registration.js has an escapeHtml inside showL1Details but here it's outside. Let's just use a simple escape inline or define it if not present.
-        // Actually, we can just use the global one or a small inline replace.
         const safeUsername = username.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
         html += `
@@ -420,8 +450,7 @@ window.showL1Details = function (d, activeView) {
     };
 
     const normStatus = (d.status || '').trim().toUpperCase().replace(/ /g, '_');
-    const hasRevertReason = d.revert_reason && d.revert_reason.trim().length > 0 && d.revert_reason !== 'No reason note provided.';
-    const isReverted = normStatus.includes('REVERT') || normStatus.includes('REJECT') || ['REVERTED', 'REJECTED', 'REVERTED_BY_CHIPS'].includes(normStatus) || hasRevertReason;
+    const isReverted = ['REVERTED', 'REJECTED', 'REVERTED_BY_CHIPS', 'REVERT_BACK'].includes(normStatus) || (normStatus.includes('REVERT') || normStatus.includes('REJECT')) && !['APPROVED', 'L1_DONE', 'DONE', 'PENDING'].includes(normStatus);
 
     if (activeView === 'details') {
         let htmlContent = '';
@@ -437,19 +466,19 @@ window.showL1Details = function (d, activeView) {
                 </div>
 
                 <!-- Action Required Notification Box -->
-                <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;">
-                    <div style="font-size: 14px; font-weight: 700; color: #c2410c; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                        <span>⚠️</span> Action Required — Request Reverted
+                <div class="action-required-banner">
+                    <div class="action-required-title" style="color: var(--alert-warning-title) !important;">
+                        <span>⚠️</span> <span style="color: var(--alert-warning-title) !important;">Action Required — Request Reverted</span>
                     </div>
-                    <div style="font-size: 13px; color: #9a3412; font-weight: 500;">
+                    <div class="action-required-desc" style="color: var(--alert-warning-desc) !important;">
                         Review CHiPS Admin's remarks below, update details and click "Resubmit".
                     </div>
                 </div>
 
                 <!-- Revert Reason / Remark Box -->
                 <div class="revert-reason-box" style="margin-bottom: 18px;">
-                    <div class="revert-reason-header" style="gap: 6px;">
-                        <span>💬</span> REVERT REASON / REMARK
+                    <div class="revert-reason-header">
+                        <span class="revert-reason-title">Revert Reason/Remark:</span>
                     </div>
                     <div class="revert-reason-text">
                         ${escapeHtml(d.revert_reason || 'No reason note provided.')}
@@ -546,8 +575,8 @@ window.showL1Details = function (d, activeView) {
 
                 ${d.status === 'REVERTED' ? `
                 <div class="revert-reason-box" style="margin-bottom: 18px;">
-                    <div class="revert-reason-header" style="gap: 6px;">
-                        <span>💬</span> REVERT REASON / REMARK
+                    <div class="revert-reason-header">
+                        <span class="revert-reason-title">Revert Reason / Remark:</span>
                     </div>
                     <div class="revert-reason-text">
                         ${escapeHtml(d.revert_reason || 'No reason note provided.')}
@@ -557,62 +586,62 @@ window.showL1Details = function (d, activeView) {
 
                 <!-- Hardware & User Details Card -->
                 <div style="margin-bottom: 20px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Hardware &amp; User Details</div>
+                    <div class="l1-section-header">Hardware &amp; User Details</div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Station ID</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.station_id}</div>
+                        <div class="l1-info-card">
+                            <div class="l1-info-label">Station ID</div>
+                            <div class="l1-info-value">${d.station_id}</div>
                         </div>
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Machine ID</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.machine_id}</div>
+                        <div class="l1-info-card">
+                            <div class="l1-info-label">Machine ID</div>
+                            <div class="l1-info-value">${d.machine_id}</div>
                         </div>
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Operator Name</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.operator_name || 'N/A'}</div>
+                        <div class="l1-info-card">
+                            <div class="l1-info-label">Operator Name</div>
+                            <div class="l1-info-value">${d.operator_name || 'N/A'}</div>
                         </div>
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Operator ID</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.operator_id || 'N/A'}</div>
+                        <div class="l1-info-card">
+                            <div class="l1-info-label">Operator ID</div>
+                            <div class="l1-info-value">${d.operator_id || 'N/A'}</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- System Details Card -->
                 <div style="margin-bottom: 20px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">System Details</div>
+                    <div class="l1-section-header">System Details</div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Model Type</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.model_type}</div>
+                        <div class="l1-info-card">
+                            <div class="l1-info-label">Model Type</div>
+                            <div class="l1-info-value">${d.model_type}</div>
                         </div>
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Software Version</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.software_version}</div>
+                        <div class="l1-info-card">
+                            <div class="l1-info-label">Software Version</div>
+                            <div class="l1-info-value">${d.software_version}</div>
                         </div>
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Laptop Serial Number</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.laptop_serial_no || 'N/A'}</div>
+                        <div class="l1-info-card">
+                            <div class="l1-info-label">Laptop Serial Number</div>
+                            <div class="l1-info-value">${d.laptop_serial_no || 'N/A'}</div>
                         </div>
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Laptop Brand</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.laptop_brand || 'N/A'}</div>
+                        <div class="l1-info-card">
+                            <div class="l1-info-label">Laptop Brand</div>
+                            <div class="l1-info-value">${d.laptop_brand || 'N/A'}</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Authentication Details Card -->
                 <div style="margin-bottom: 20px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Authentication Details</div>
+                    <div class="l1-section-header">Authentication Details</div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Ultra Viewer ID</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${d.uv_id}</div>
+                        <div class="l1-info-card">
+                            <div class="l1-info-label">Ultra Viewer ID</div>
+                            <div class="l1-info-value">${d.uv_id}</div>
                         </div>
-                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01); display: flex; flex-direction: column; gap: 3px;">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Ultra Viewer Password</div>
+                        <div class="l1-info-card" style="display: flex; flex-direction: column; gap: 3px;">
+                            <div class="l1-info-label">Ultra Viewer Password</div>
                             <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
-                                <input type="password" id="dc_uv_password_display" value="${escapeHtml(d.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: #495057; width: 100%; outline: none;" />
+                                <input type="password" id="dc_uv_password_display" value="${escapeHtml(d.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: inherit; width: 100%; outline: none;" />
                                 <button type="button" onclick="togglePasswordVisibility('dc_uv_password_display', this)" style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #64748b;">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>

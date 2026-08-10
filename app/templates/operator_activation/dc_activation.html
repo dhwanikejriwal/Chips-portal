@@ -3,7 +3,6 @@
 {% block title %}My Activation Requests — CHiPS Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -168,9 +167,9 @@
         </div>
         <div class="filter-group-button" style="flex: 0 0 auto; align-self: flex-end;">
             <button type="button" class="btn-clear-filters" onclick="clearAllFilters()">
-            <i class="ti ti-x" style="font-size: 15px; stroke-width: 2.5px; margin-right: 4px;"></i>
-            Clear Filters
-        </button>
+                <i class="ti ti-x" style="font-size: 15px; stroke-width: 2.5px; margin-right: 4px;"></i>
+                Clear Filters
+            </button>
         </div>
     </div>
 
@@ -357,6 +356,7 @@
             data-user-code="{{ r.user_code or '' }}" data-district="{{ r.district_name or 'Raipur' }}"
             data-aadhaar="{{ r.operator_aadhaar or '' }}" data-pan="{{ r.operator_pan or '' }}"
             data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+            data-updated="{{ r.reviewed_at or r.updated_at or r.submitted_at }}"
             data-remarks='{{ r.remarks_history | tojson | safe }}'>
 
             <td>{{ loop.index }}</td>
@@ -503,6 +503,26 @@
             });
             const newUrl = window.location.pathname;
             window.history.replaceState({}, document.title, newUrl);
+        }
+
+        const qStatus = urlParams.get('status');
+        if (urlParams.has('from_notif') || qStatus) {
+            const df = document.getElementById('dc-date-filter');
+            if (df) df.value = 'all';
+            if (typeof filterAllTables === 'function') filterAllTables();
+        }
+        if (qStatus && (qStatus.toLowerCase().includes('revert') || qStatus.toLowerCase().includes('reject'))) {
+            const revTabBtn = document.querySelector('.req-tab[data-tab="reverted"]');
+            if (revTabBtn) revTabBtn.click();
+            setTimeout(() => {
+                const table = document.getElementById('reverted-requests-table') || document.querySelector('[data-panel="reverted"]');
+                if (table) {
+                    table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (typeof window.highlightNotificationRows === 'function') {
+                        window.highlightNotificationRows(table);
+                    }
+                }
+            }, 150);
         }
     });
 
@@ -958,7 +978,7 @@
         const isRevertable = ['reverted', 'reverted by chips', 'reverted_by_chips', 'rejected'].includes(normStatus);
         const isRejected = (normStatus === 'rejected');
         const alertTitle = isRejected ? 'Action Required — Request Rejected' : 'Action Required — Request Reverted';
-        const reasonHeader = isRejected ? 'REJECT REASON / REMARKS' : 'REVERT REASON / REMARKS';
+        const reasonHeader = isRejected ? 'Rejection Reason/Remark' : 'Revert Reason/Remark';
 
         let latestRevertReason = '';
         if (isRevertable && d.remarks_history && d.remarks_history.length > 0) {
@@ -978,7 +998,7 @@
 
         if (activeView === 'details') {
             let htmlContent = `
-            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+            <div id="act-details-scroll" style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
                     <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
                     <span>${statusBadge}</span>
@@ -988,17 +1008,16 @@
                 </div>
 
                 ${isRevertable ? `
-                <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:14px;text-align:left;">
-                    <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:2px;"><i class="fas fa-exclamation-triangle" style="margin-right: 4px;"></i> ${alertTitle}</div>
-                    <div style="font-size:12px;color:#9a3412;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</div>
+                <div class="action-required-banner">
+                    <div class="action-required-title" style="color: var(--alert-warning-title) !important;"><span>⚠️</span> <span style="color: var(--alert-warning-title) !important;">${alertTitle}</span></div>
+                    <div class="action-required-desc" style="color: var(--alert-warning-desc) !important;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</div>
                 </div>
                 ` : ''}
 
                 ${isRevertable && latestRevertReason ? `
-                <div class="revert-reason-box" style="margin-top:-6px;margin-bottom:20px;text-align:left;">
-                    <div class="revert-reason-header" style="display:flex;align-items:center;gap:4px;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                        ${reasonHeader}
+                <div class="revert-reason-box" style="margin-top:-6px;margin-bottom:20px;">
+                    <div class="revert-reason-header">
+                        <span class="revert-reason-title">${reasonHeader}:</span>
                     </div>
                     <div class="revert-reason-text">
                         ${escapeHtml(latestRevertReason)}
@@ -1106,12 +1125,28 @@
                 width: '600px',
                 focusConfirm: false,
                 didOpen: () => {
-                    document.getElementById('btn-show-docs').onclick = () => {
-                        window.showActivationDetails(d, 'documents', id, requestNo, status);
-                    };
-                    document.getElementById('btn-show-remarks').onclick = () => {
-                        window.showActivationDetails(d, 'remarks', id, requestNo, status);
-                    };
+                    const popup = Swal.getPopup();
+                    if (popup) {
+                        const scrollable = popup.querySelector('div[style*="overflow-y: auto"]');
+                        if (scrollable) scrollable.scrollTop = 0;
+                        const htmlContainer = popup.querySelector('.swal2-html-container');
+                        if (htmlContainer) htmlContainer.scrollTop = 0;
+                    }
+                    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                        document.activeElement.blur();
+                    }
+                    const btnDocs = document.getElementById('btn-show-docs');
+                    if (btnDocs) {
+                        btnDocs.onclick = () => {
+                            window.showActivationDetails(d, 'documents', id, requestNo, status);
+                        };
+                    }
+                    const btnRemarks = document.getElementById('btn-show-remarks');
+                    if (btnRemarks) {
+                        btnRemarks.onclick = () => {
+                            window.showActivationDetails(d, 'remarks', id, requestNo, status);
+                        };
+                    }
                 }
             }).then((result) => {
                 if (result.isConfirmed && isRevertable) {

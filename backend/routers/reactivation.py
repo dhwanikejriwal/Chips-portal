@@ -39,7 +39,68 @@ def get_user_role_str(current_user) -> str:
         return str(current_user.role.value).lower()
     elif hasattr(current_user.role, "name"):
         return str(current_user.role.name).lower()
-    return str(current_user.role).split(".")[-1].lower()
+    return str(current_user.role).lower()
+
+
+def validate_attendance_excel_records(attendance_file_or_path, operator_rows):
+    """
+    Parses the Attendance Excel sheet and validates that all operators in operator_rows
+    (matched by mobile, email, user code, or name) are present in the file.
+    """
+    import openpyxl
+    
+    excel_text = ""
+    try:
+        if isinstance(attendance_file_or_path, bytes):
+            wb = openpyxl.load_workbook(io.BytesIO(attendance_file_or_path), data_only=True)
+        elif hasattr(attendance_file_or_path, 'read'):
+            raw_bytes = attendance_file_or_path.read()
+            if hasattr(attendance_file_or_path, 'seek'):
+                attendance_file_or_path.seek(0)
+            wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), data_only=True)
+        else:
+            wb = openpyxl.load_workbook(attendance_file_or_path, data_only=True)
+            
+        cell_contents = []
+        for sheet in wb.worksheets:
+            for row in sheet.iter_rows(values_only=True):
+                for cell in row:
+                    if cell is not None:
+                        val_str = str(cell).strip()
+                        if val_str:
+                            cell_contents.append(val_str)
+        excel_text = " ".join(cell_contents).lower()
+    except Exception as e:
+        print(f"Warning: Unable to parse attendance Excel with openpyxl: {e}")
+        return []
+
+    missing = []
+    for op in operator_rows:
+        name = str(op.get('name', '')).strip()
+        mobile = str(op.get('mobile', '')).strip()
+        email = str(op.get('email', '')).strip()
+        user = str(op.get('user', '')).strip()
+
+        match = False
+        if mobile and mobile.lower() in excel_text:
+            match = True
+        elif email and email.lower() in excel_text:
+            match = True
+        elif user and len(user) >= 3 and user.lower() in excel_text:
+            match = True
+        elif name:
+            name_lower = name.lower()
+            if name_lower in excel_text:
+                match = True
+            else:
+                name_parts = [p for p in name_lower.split() if len(p) >= 3]
+                if name_parts and all(part in excel_text for part in name_parts):
+                    match = True
+
+        if not match:
+            missing.append(f"'{name or 'Operator'}' (Mobile: {mobile or 'N/A'})")
+
+    return missing
 
 def get_db():
     db = SessionLocal()
@@ -112,6 +173,27 @@ async def submit_operator_reactivation(
 
         if len(operator_rows) == 0:
             raise HTTPException(status_code=400, detail="The operator log datagrid cannot be processed with zero rows.")
+
+        # 📊 Validate Attendance Excel sheet contents against submitted operator rows
+        target_attendance_input = attendance_list
+        if not target_attendance_input and reapply_request_code:
+            existing_doc = db.query(ReactivationDocument).join(
+                OperatorReactivationRequest, ReactivationDocument.request_id == OperatorReactivationRequest.id
+            ).filter(
+                OperatorReactivationRequest.request_code == reapply_request_code,
+                ReactivationDocument.doc_type == "attendance_list"
+            ).first()
+            if existing_doc and os.path.exists(existing_doc.path):
+                target_attendance_input = existing_doc.path
+
+        if target_attendance_input:
+            missing_ops = validate_attendance_excel_records(target_attendance_input, operator_rows)
+            if missing_ops:
+                missing_str = ", ".join(missing_ops)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Operator Attendance Excel Sheet Validation Failed: The uploaded Excel does not contain details for: {missing_str}. Please upload an Attendance Excel Sheet containing all operators added to this batch."
+                )
 
         district = db.query(District).filter(District.district_code == str(current_user.district_id)).first()
         district_name = district.district_name if district else "Unknown"
@@ -984,6 +1066,20 @@ async def get_reactivation_file(request_code: str, file_type: str, db: Session =
 async def search_suspended_operators(q: str = "", db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     user_role_str = get_user_role_str(current_user)
     
+    # Query mobile & email numbers of operators with active (non-reverted/rejected) reactivation requests
+    active_mobiles = set(
+        mob.strip() for (mob,) in db.query(ReactivationOperator.operator_mobile).filter(
+            ~ReactivationOperator.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]),
+            ReactivationOperator.operator_mobile.isnot(None)
+        ).all() if mob and mob.strip()
+    )
+    active_emails = set(
+        em.strip().lower() for (em,) in db.query(ReactivationOperator.email_id).filter(
+            ~ReactivationOperator.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]),
+            ReactivationOperator.email_id.isnot(None)
+        ).all() if em and em.strip()
+    )
+
     from sqlalchemy import or_
     query = db.query(Operator).filter(
         or_(
@@ -1044,6 +1140,11 @@ async def search_suspended_operators(q: str = "", db: Session = Depends(get_db),
     seen_ids = set()
     results = []
     for o in operators:
+        mob = (o.mobile or "").strip()
+        em = (o.email or "").strip().lower()
+        if (mob and mob in active_mobiles) or (em and em in active_emails):
+            continue
+
         seen_ids.add(o.id)
         results.append({
             "id": o.id,

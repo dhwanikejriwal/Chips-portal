@@ -77,6 +77,16 @@ def logout():
 def forgot_password():
     return render_template("auth/forgot_password.html")
 
+@auth_bp.route("/api/verify-candidate-exists", methods=["GET"])
+def verify_candidate_exists():
+    username = request.args.get("username", "")
+    backend_url = f"{current_app.config['BACKEND_API_URL']}/auth/check-candidate-exists"
+    try:
+        response = requests.get(backend_url, params={"username": username})
+        return response.json(), response.status_code
+    except requests.exceptions.RequestException:
+        return {"exists": False, "detail": "Error connecting to backend API server."}, 500
+
 @auth_bp.route("/api/send-reset-otp", methods=["POST"])
 def send_reset_otp():
     username = request.json.get("username")

@@ -3,7 +3,6 @@
 {% block title %}Station ID Admin — CHiPS Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}">
 <style>
     /* Equal-width action buttons (Allot / Revert / Details) */
     .action-group .btn-approve,
@@ -14,44 +13,7 @@
         box-sizing: border-box;
     }
 
-    .btn-approve {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        background: #16a34a;
-        color: #fff;
-        border: none;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
 
-    .btn-approve:hover {
-        background: #15803d;
-    }
-
-    .btn-revert {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        background: #fff;
-        color: #dc2626;
-        border: 1.5px solid #fca5a5;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.15s;
-    }
-
-    .btn-revert:hover {
-        background: #fee2e2;
-        border-color: #dc2626;
-    }
 
     .reapplied-chip {
         display: inline-flex;
@@ -456,7 +418,7 @@
     {% endset %}
     {% call request_section(
     variant='approved',
-    title='Approved Station ID log',
+    title='Allotted Station ID log',
     count='–', count_id='approved-count',
     controls=approved_controls,
     min_width=1150,
@@ -467,7 +429,7 @@
     {'label': 'Model', 'key': 'col.model'},
     {'label': 'User type', 'key': 'col.userType'},
     {'label': 'Type of slot', 'key': 'col.slotType'},
-    {'label': 'Station ID Allotted', 'key': 'col.stationIdAssigned'},
+    {'label': 'Allotted ID', 'key': 'col.stationIdAssigned'},
     {'label': 'Status', 'key': 'col.status'},
     {'label': 'Submitted at', 'key': 'col.submittedAt'},
     {'label': 'Updated at', 'key': 'col.updatedAt'},
@@ -619,6 +581,98 @@
         return html;
     }
 
+    window.toggleBatchIdsTable = function() {
+        const box = document.getElementById('batch-ids-table-box');
+        const icon = document.getElementById('batch-toggle-icon');
+        const label = document.getElementById('batch-toggle-label');
+        if (!box) return;
+        if (box.style.display === 'none' || box.style.display === '') {
+            box.style.display = 'block';
+            if (icon) icon.style.transform = 'rotate(180deg)';
+            if (label) {
+                if (!label.getAttribute('data-original')) label.setAttribute('data-original', label.textContent);
+                label.textContent = 'Hide All IDs';
+            }
+        } else {
+            box.style.display = 'none';
+            if (icon) icon.style.transform = 'rotate(0deg)';
+            if (label) label.textContent = label.getAttribute('data-original') || 'View All IDs';
+        }
+    };
+
+    function buildBatchStationIdsSection(currentStationId, batchList) {
+        if (!currentStationId && (!batchList || batchList.length === 0)) return '';
+
+        const currId = (currentStationId || '').trim();
+        const list = (batchList && batchList.length > 0) ? batchList : (currId ? [currId] : []);
+        const isMulti = list.length > 1;
+
+        let rowsHtml = '';
+        list.forEach((sid, idx) => {
+            const isCurrent = sid === currId;
+            const rowBg = isCurrent ? 'background: rgba(16, 185, 129, 0.08);' : '';
+            const currentBadge = isCurrent 
+                ? `<span style="font-size: 10px; font-weight: 700; background: #10b981; color: #ffffff; padding: 2px 7px; border-radius: 4px;">Current</span>`
+                : `<span style="font-size: 10px; color: #64748b; font-weight: 500;">Allotted</span>`;
+
+            rowsHtml += `
+                <tr style="border-bottom: 1px solid #e2e8f0; ${rowBg}">
+                    <td style="padding: 7px 12px; text-align: center; font-size: 12px; color: #64748b; font-weight: 600; width: 45px;">${idx + 1}</td>
+                    <td style="padding: 7px 12px; font-size: 13px; font-weight: 700; font-family: monospace; color: #1e293b;">${escapeHtml(sid)}</td>
+                    <td style="padding: 7px 12px; font-size: 12px; text-align: right;">${currentBadge}</td>
+                </tr>
+            `;
+        });
+
+        return `
+        <div style="margin-bottom: 20px;">
+            <div class="station-id-detail-header">${t('col.stationIdAssigned')}</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="station-id-pill" style="font-size: 14px; font-weight: 700; padding: 6px 14px; background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; border-radius: 6px; font-family: monospace;">
+                        ${escapeHtml(currId || list[0] || '—')}
+                    </span>
+                    ${isMulti ? `<span style="font-size: 12px; color: #64748b; font-weight: 500;">(1 of ${list.length} Allotted Kits)</span>` : ''}
+                </div>
+                ${isMulti ? `
+                <button type="button" id="btn-toggle-batch-ids" onclick="window.toggleBatchIdsTable()" 
+                    style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="3" y1="15" x2="21" y2="15"></line>
+                        <line x1="9" y1="3" x2="9" y2="21"></line>
+                    </svg>
+                    <span id="batch-toggle-label">View All ${list.length} IDs</span>
+                    <svg id="batch-toggle-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s;">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+                ` : ''}
+            </div>
+
+            ${isMulti ? `
+            <div id="batch-ids-table-box" style="display: none; margin-top: 12px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="max-height: 180px; overflow-y: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead style="background: #f8fafc; position: sticky; top: 0; z-index: 2; border-bottom: 1.5px solid #e2e8f0;">
+                            <tr>
+                                <th style="padding: 7px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; text-align: center; width: 45px;">#</th>
+                                <th style="padding: 7px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b;">Station ID</th>
+                                <th style="padding: 7px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; text-align: right;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            ` : ''}
+        </div>
+        `;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         // Check if this load was triggered by an action reload
         const isActionReload = sessionStorage.getItem('chips_action_reloading') === 'true';
@@ -631,14 +685,15 @@
             sessionStorage.removeItem('chips_sid_global_date');
             sessionStorage.removeItem('chips_pending_status');
             sessionStorage.removeItem('chips_log_status');
-            sessionStorage.removeItem('chips_sid_active_tab');
         }
         // Restore each tab's own filter controls + the active tab.
         document.getElementById('sid-search').value = sessionStorage.getItem('chips_sid_global_search') || '';
         document.getElementById('sid-district').value = sessionStorage.getItem('chips_sid_global_district') || 'all';
         document.getElementById('sid-date').value = sessionStorage.getItem('chips_sid_global_date') || 'month';
         document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('chips_pending_status') || 'all';
-        switchSidTab(sessionStorage.getItem('chips_sid_active_tab') || 'pending');
+
+        const savedTab = sessionStorage.getItem('chips_sid_active_tab') || sessionStorage.getItem('active_tab_' + window.location.pathname) || 'pending';
+        switchSidTab(savedTab);
 
         const urlParams = new URLSearchParams(window.location.search);
         const qDist = urlParams.get('district');
@@ -646,9 +701,20 @@
 
         if (qStatus) {
             const st = qStatus.toLowerCase().trim();
-            if (st === 'approved' || st === 'allotted') switchSidTab('approved');
-            else if (st === 'reverted' || st === 'reverted_rejected') switchSidTab('reverted');
-            else if (st === 'pending') switchSidTab('pending');
+            let selTab = 'pending';
+            if (st === 'approved' || st === 'allotted') selTab = 'approved';
+            else if (st === 'reverted' || st === 'reverted_rejected') selTab = 'reverted';
+            else if (st === 'pending') selTab = 'pending';
+            switchSidTab(selTab);
+            setTimeout(() => {
+                const table = document.getElementById(selTab + '-table');
+                if (table) {
+                    table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (typeof window.highlightNotificationRows === 'function') {
+                        window.highlightNotificationRows(table);
+                    }
+                }
+            }, 150);
         }
 
         if (qDist) {
@@ -679,6 +745,7 @@
             const panel = document.getElementById('sid-panel-' + which);
             if (panel) panel.classList.add('active');
             sessionStorage.setItem('chips_sid_active_tab', which);
+            sessionStorage.setItem('active_tab_' + window.location.pathname, which);
             if (typeof window.updateStationMetrics === 'function') window.updateStationMetrics();
         }
 
@@ -1056,24 +1123,20 @@
         // 2. Station ID Revert Modal (Fixed Asynchronous PATCH Stream)
         window.showRevertModal = function (requestId, requestNo) {
             Swal.fire({
-                title: `<div style="text-align:left;font-size:18px;color:#dc2626;font-weight:800;">${t('modal.revertTitle')}</div>`,
-                html: `<div style="text-align:left;">
-                <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#c2410c;">
-                    ${t('modal.revertInfo', { no: `<strong>${requestNo}</strong>` })}
-                </div>
-                <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
-                    ${t('modal.revertReason')} <span style="color:#ef4444;">*</span>
-                </div>
-                <textarea id="swal-revert-reason"
-                    style="width:100%;padding:10px 14px;border:1.5px solid #fca5a5;border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;min-height:90px;outline:none;box-sizing:border-box;"
+                title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">${t('modal.revertTitle')}</span>`,
+                html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                <div style="font-size:13px; margin-bottom:12px;">${t('modal.revertingRequest')}: <strong>${requestNo}</strong></div>
+                <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">${t('modal.revertReason')}</div>
+                <textarea id="swal-revert-reason" class="swal2-textarea"
+                    style="width:100%; height:90px; padding:10px 14px; border:1.5px solid var(--border-strong, #334155); border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; box-sizing:border-box; margin:0;"
                     placeholder="${t('modal.revertReasonPh')}" autofocus></textarea>
             </div>`,
                 showCancelButton: true,
                 confirmButtonText: t('modal.revertConfirm'),
-                confirmButtonColor: '#dc2626',
+                confirmButtonColor: '#007bff',
                 cancelButtonText: t('modal.cancel'),
-                cancelButtonColor: '#64748b',
-                width: '500px',
+                cancelButtonColor: '#6c757d',
+                width: '520px',
                 focusConfirm: false,
                 showLoaderOnConfirm: true,
                 preConfirm: () => {
@@ -1100,10 +1163,10 @@
             }).then(result => {
                 if (result.isConfirmed) {
                     Swal.fire({
-                        title: t('modal.revertSuccessTitle'),
-                        text: t('modal.revertSuccessText'),
+                        title: 'Request Reverted!',
+                        text: 'The request has been sent back to the District Coordinator.',
                         icon: 'success',
-                        confirmButtonColor: '#dc2626',
+                        confirmButtonColor: '#f59e0b',
                         showConfirmButton: true,
                         timer: 3000,
                         timerProgressBar: true
@@ -1142,7 +1205,8 @@
         window.showStationDetails = function (data, activeView, requestId, requestNo, status) {
             const displayStatus = data.status || status;
             const normalizedStatus = (displayStatus || '').toLowerCase();
-            const isRevertedOrRejected = normalizedStatus.includes('revert') || normalizedStatus.includes('reject');
+            const isRejected = normalizedStatus.includes('reject');
+            const isRevertedOrRejected = normalizedStatus.includes('revert') || isRejected;
 
             const statusBadge = getStatusBadgeHtml(displayStatus);
             const remarksHtml = buildRemarksHtml(data.remarks_history || []);
@@ -1174,10 +1238,10 @@
                 </div>
 
                 ${isRevertedOrRejected ? `
-                <!-- Revert Reason / Remark Box -->
+                <!-- Revert Reason/Remark -->
                 <div class="revert-reason-box" style="margin-bottom: 18px;">
-                    <div class="revert-reason-header" style="gap: 6px;">
-                        <span>💬</span> ${t('modal.revertReasonRemark')}
+                    <div class="revert-reason-header">
+                        <span class="revert-reason-title">${isRejected ? 'Rejection Reason/Remark:' : 'Revert Reason/Remark:'}</span>
                     </div>
                     <div class="revert-reason-text">
                         ${escapeHtml(latestRevertReason)}
@@ -1197,8 +1261,8 @@
                             <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(data.model)}</div>
                         </div>
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Number of Kits</div>
-                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${data.number_of_kits} Kit(s)</div>
+                            <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Number of Kits Requested</div>
+                            <div style="font-size: 13px; font-weight: 600; color: #495057;">${data.number_of_kits || data.total_kits_requested || 1} Kit(s)</div>
                         </div>
                     </div>
                 </div>
@@ -1219,17 +1283,7 @@
                     </div>
                 </div>
 
-                ${data.station_id_inserted ? `
-                <div style="margin-bottom: 20px;">
-                    <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">${t('col.stationIdAssigned')}</div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        ${data.station_id_inserted.split(',').map(sid => `
-                            <span style="font-family: monospace; font-size: 14px; font-weight: 700; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 6px; display: inline-block;">
-                                ${escapeHtml(sid.trim())}
-                            </span>
-                        `).join('')}
-                    </div>
-                </div>` : ''}
+                ${buildBatchStationIdsSection(data.station_id_inserted, data.all_batch_station_ids)}
 
                 <!-- View Remarks Button -->
                 <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
@@ -1323,9 +1377,9 @@
         function showAllStationIds(idsStr) {
             if (!idsStr) return;
             const idsList = idsStr.split(',').map(id => id.trim()).filter(id => id.length > 0);
-            const listHtml = `<div style="text-align:left; max-height: 250px; overflow-y: auto; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <ul style="list-style-type: none; padding-left: 10px; margin: 0; color: #1e293b; font-weight: 500;">
-                ${idsList.map(id => `<li style="padding: 4px 0; border-bottom: 1px solid #e2e8f0; display:flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0F7A50" stroke-width="2" style="margin-right: 8px;"><polyline points="20 6 9 17 4 12"></polyline></svg>${id}</li>`).join('')}
+            const listHtml = `<div class="station-ids-modal-box" style="text-align:left; max-height: 250px; overflow-y: auto; padding: 12px; border-radius: 8px;">
+            <ul style="list-style-type: none; padding-left: 5px; margin: 0; font-weight: 600; font-family: monospace; font-size: 14px;">
+                ${idsList.map(id => `<li class="station-id-list-item" style="padding: 6px 0; border-bottom: 1px solid rgba(226, 232, 240, 0.4); display:flex; align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" style="margin-right: 8px; flex-shrink:0;"><polyline points="20 6 9 17 4 12"></polyline></svg>${id}</li>`).join('')}
             </ul>
         </div>`;
 

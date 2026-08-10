@@ -171,9 +171,6 @@ window.CHiPSMailComposer = (function () {
         const btnFooterPaperclip = document.getElementById('btnFooterPaperclip');
         if (btnFooterPaperclip) {
             btnFooterPaperclip.addEventListener('click', function () {
-                if (isAttachmentRemoved) {
-                    reattachCsv();
-                }
                 const input = document.getElementById('gmailCustomFileInput');
                 if (input) input.click();
             });

@@ -5,6 +5,7 @@
  */
 
 let structuredOperatorList = [];
+window.structuredOperatorList = structuredOperatorList;
 window.currentViewingOperators = [];
 
 window.escapeHtmlString = function (text) {
@@ -35,31 +36,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (certDateInput) {
         certDateInput.max = todayIsoString;
     }
-    // 3. Check if page is reloaded (F5) and reset filters to defaults
-    const navEntries = performance.getEntriesByType("navigation");
-    const isReload = navEntries.length > 0 && navEntries[0].type === "reload";
-
+    // 3. Reset filters to defaults on page load
     const urlParams = new URLSearchParams(window.location.search);
     const qStatus = urlParams.get("status");
 
-    if (isReload && !qStatus) {
-        const searchOperatorInput = document.getElementById("filter-search-operator");
-        if (searchOperatorInput) searchOperatorInput.value = "";
+    const searchOperatorInput = document.getElementById("filter-search-operator");
+    if (searchOperatorInput) searchOperatorInput.value = "";
 
-        const statusInput = document.getElementById("filter-status");
-        if (statusInput) statusInput.value = "ALL";
+    const statusInput = document.getElementById("filter-status");
+    if (statusInput) statusInput.value = "ALL";
 
-        const datePeriodInput = document.getElementById("filter-date-period");
-        if (datePeriodInput) datePeriodInput.value = "month";
-    }
+    const datePeriodInput = document.getElementById("filter-date-period");
+    if (datePeriodInput) datePeriodInput.value = (urlParams.has("from_notif") || qStatus) ? "all" : "month";
 
     if (qStatus) {
         const st = qStatus.toUpperCase().trim();
         const statusInput = document.getElementById("filter-status");
         if (statusInput) {
-            if (st === "REVERTED_REJECTED") {
-                statusInput.value = "ALL";
-            } else if (st === "REVERTED" || st === "REVERTED_CHIPS" || st === "REVERTED_BY_CHIPS") {
+            if (st === "REVERTED_REJECTED" || st === "REVERTED" || st === "REVERTED_CHIPS" || st === "REVERTED_BY_CHIPS") {
                 statusInput.value = "REVERTED";
             } else if (st === "REJECTED") {
                 statusInput.value = "REJECTED";
@@ -223,9 +217,8 @@ window.switchReactivationView = function (targetPanel, shouldReset = false) {
             } else {
                 clearFormInputs();
                 structuredOperatorList = [];
+                window.structuredOperatorList = structuredOperatorList;
                 renderOperatorSpreadsheetRows();
-                const nextBtn = document.getElementById('next-step-trigger-btn');
-                if (nextBtn) nextBtn.disabled = true;
                 ['training_photo', 'nodal_letter', 'om_letter', 'attendance_list', 'training_date'].forEach(name => {
                     const el = document.getElementsByName(name)[0];
                     if (el) el.value = '';
@@ -433,7 +426,9 @@ function renderOperatorSpreadsheetRows() {
                     No operator entry added yet.
                 </td>
             </tr>`;
-        document.getElementById('next-step-trigger-btn').disabled = true;
+        if (typeof window.renderSuspendedOperatorDropdown === 'function') {
+            window.renderSuspendedOperatorDropdown();
+        }
         return;
     }
 
@@ -462,7 +457,9 @@ function renderOperatorSpreadsheetRows() {
         tbody.appendChild(tr);
     });
 
-    document.getElementById('next-step-trigger-btn').disabled = false;
+    if (typeof window.renderSuspendedOperatorDropdown === 'function') {
+        window.renderSuspendedOperatorDropdown();
+    }
 }
 
 window.removeOperatorFromStateArray = function (index) {
@@ -675,20 +672,101 @@ window.handleFormSubmissionPipeline = function (event) {
             });
     };
 
-    if (window.currentReapplyCode) {
-        formData.append('reapply_request_code', window.currentReapplyCode);
+    const startSubmissionProcess = () => {
+        if (window.currentReapplyCode) {
+            formData.append('reapply_request_code', window.currentReapplyCode);
 
-        // Validate the reapply remarks field in the form itself
-        const remarksField = document.getElementById('reapply_remarks_field');
-        const remarks = remarksField ? remarksField.value.trim() : '';
-        if (!remarks) {
-            Swal.fire({ title: 'Validation Error', text: 'Please enter reapplication remarks.', icon: 'warning' });
-            if (remarksField) remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
+            // Validate the reapply remarks field in the form itself
+            const remarksField = document.getElementById('reapply_remarks_field');
+            const remarks = remarksField ? remarksField.value.trim() : '';
+            if (!remarks) {
+                Swal.fire({ title: 'Validation Error', text: 'Please enter reapplication remarks.', icon: 'warning' });
+                if (remarksField) remarksField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            submitRequestAction(remarks);
+        } else {
+            submitRequestAction(null);
         }
-        submitRequestAction(remarks);
+    };
+
+    // 📊 CLIENT-SIDE OPERATOR ATTENDANCE EXCEL MATCHING VALIDATION
+    const attendanceFileObj = formData.get('attendance_list');
+    if (attendanceFileObj && attendanceFileObj.size > 0 && typeof window.XLSX !== 'undefined') {
+        const fileReader = new FileReader();
+        fileReader.onload = function (e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = window.XLSX.read(data, { type: 'array' });
+                let excelText = '';
+
+                workbook.SheetNames.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+                    json.forEach(row => {
+                        if (Array.isArray(row)) {
+                            excelText += ' ' + row.join(' ').toLowerCase();
+                        }
+                    });
+                });
+
+                const missingOperators = [];
+                (structuredOperatorList || []).forEach(op => {
+                    const name = (op.name || '').trim().toLowerCase();
+                    const mobile = (op.mobile || '').trim().toLowerCase();
+                    const email = (op.email || '').trim().toLowerCase();
+                    const user = (op.user || '').trim().toLowerCase();
+
+                    let match = false;
+                    if (mobile && excelText.includes(mobile)) {
+                        match = true;
+                    } else if (email && excelText.includes(email)) {
+                        match = true;
+                    } else if (user && user.length >= 3 && excelText.includes(user)) {
+                        match = true;
+                    } else if (name) {
+                        if (excelText.includes(name)) {
+                            match = true;
+                        } else {
+                            const nameParts = name.split(/\s+/).filter(p => p.length >= 3);
+                            if (nameParts.length > 0 && nameParts.every(part => excelText.includes(part))) {
+                                match = true;
+                            }
+                        }
+                    }
+
+                    if (!match) {
+                        missingOperators.push(`<li><strong>${escapeHtmlString(op.name || 'Operator')}</strong> (Mobile: ${escapeHtmlString(op.mobile || 'N/A')})</li>`);
+                    }
+                });
+
+                if (missingOperators.length > 0) {
+                    Swal.fire({
+                        title: 'Attendance Sheet Mismatch',
+                        html: `<div style="text-align: left; font-size: 13px;">
+                                <p style="margin-bottom: 8px;">The uploaded <strong>Operator Attendance Excel Sheet</strong> does not contain details for the following operator(s) added to the batch list:</p>
+                                <ul style="color: #dc2626; padding-left: 20px; margin-bottom: 12px;">
+                                    ${missingOperators.join('')}
+                                </ul>
+                                <p style="color: #64748b; margin-top: 8px;">Please upload an Attendance Excel Sheet containing all operators added to this request.</p>
+                               </div>`,
+                        icon: 'error',
+                        confirmButtonColor: '#2563eb',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
+                startSubmissionProcess();
+            } catch (err) {
+                console.error("Client-side Excel validation error:", err);
+                startSubmissionProcess();
+            }
+        };
+        fileReader.onerror = function () { startSubmissionProcess(); };
+        fileReader.readAsArrayBuffer(attendanceFileObj);
     } else {
-        submitRequestAction(null);
+        startSubmissionProcess();
     }
 }
 
@@ -701,7 +779,7 @@ function getStatusBadgeHtml(status) {
     else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
     else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Sent to UIDAI Again' : 'Sent to UIDAI'; }
     else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
-    else if (s.includes('reject')) { badgeClass = 'badge-reverted'; label = 'Rejected'; }
+    else if (s.includes('reject')) { badgeClass = 'badge-rejected'; label = 'Rejected'; }
     return `<span class="badge ${badgeClass}">${label}</span>`;
 }
 
@@ -819,31 +897,16 @@ window.openHistoricalOperatorsModal = function (requestCode) {
                 const row = document.createElement('tr');
                 row.style.borderBottom = "1px solid #f1f5f9";
 
-                let statusStyle = "color: #b45309; font-weight: 700; background: #fef3c7; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
-                const normalizedStatus = String(op.status || 'PENDING').toLowerCase();
-
-                if (normalizedStatus === 'sent to uidai' || normalizedStatus === 'sent_to_uidai') {
-                    statusStyle = "color: #0369a1; font-weight: 700; background: #e0f2fe; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
-                } else if (normalizedStatus === 'approved' || normalizedStatus === 'active' || normalizedStatus === 'activated') {
-                    statusStyle = "color: #065f46; font-weight: 700; background: #d1fae5; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
-                } else if (normalizedStatus === 'reverted' || normalizedStatus === 'revert back') {
-                    statusStyle = "color: #991b1b; font-weight: 700; background: #fee2e2; padding: 2px 8px; border-radius: 4px; font-size: 11px;";
-                }
-
-                let displayStatusText = String(op.status || 'PENDING').toUpperCase();
-                if (displayStatusText === 'APPROVED') {
-                    displayStatusText = 'APPROVED';
-                }
+                const statusBadgeHtml = getStatusBadgeHtml(op.status);
 
                 row.innerHTML = `
                 <td style="padding: 10px; text-align: center; color: #64748b;">${idx + 1}</td>
                 <td style="padding: 10px; padding-left: 15px; color: #1e293b;"><strong>${escapeHtmlString(op.operator_name)}</strong></td>
-                <td style="padding: 10px; text-align: center;"><span style="${statusStyle}">${displayStatusText}</span></td>
+                <td style="padding: 10px; text-align: center;">${statusBadgeHtml}</td>
                 <td style="padding: 10px; text-align: center;">
                     <button type="button" class="btn-details" 
-                            style="padding: 4px 12px; font-size: 11px;"
                             onclick="openIndividualOperatorDetailCard(${idx})">
-                        Detail
+                        Details
                     </button>
                 </td>
             `;
@@ -938,6 +1001,7 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
             }
 
             structuredOperatorList = [];
+            window.structuredOperatorList = structuredOperatorList;
             const operators = payload.operators || [];
             operators.forEach(op => {
                 const status = (op.status || '').toLowerCase().replace(/_/g, ' ');
@@ -1086,19 +1150,16 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
             </div>
 
             ${isRevertable || isRejected ? `
-            <div style="background-color: #fffaf0; border: 1px solid #fed7aa; padding: 12px 16px; border-radius: 8px; margin-bottom: 15px; text-align: left;">
-                <h4 style="margin: 0 0 4px 0; color: #b45309; font-size: 14px; font-weight: 700;">Action Required — Request ${isRejected ? 'Rejected' : 'Reverted'}</h4>
-                <p style="margin: 0; color: #b45309; font-size: 13px;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</p>
+            <div class="action-required-banner">
+                <div class="action-required-title" style="color: var(--alert-warning-title) !important;"><span>⚠️</span> <span style="color: var(--alert-warning-title) !important;">Action Required — Request ${isRejected ? 'Rejected' : 'Reverted'}</span></div>
+                <div class="action-required-desc" style="color: var(--alert-warning-desc) !important;">Review CHiPS Admin's remarks below, click "Modify & Reapply" to update details.</div>
             </div>
             ${op.reject_reason ? `
-            <div class="revert-reason-box" style="margin-bottom: 20px; text-align: left;">
-                <div class="revert-reason-header" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-                    </svg>
-                    <span>${isRejected ? 'REJECT REASON / REMARKS' : 'REVERT REASON / REMARKS'}</span>
+            <div class="revert-reason-box" style="margin-bottom: 20px;">
+                <div class="revert-reason-header">
+                    <span class="revert-reason-title">${isRejected ? 'Rejection Reason/Remark:' : 'Revert Reason/Remark:'}</span>
                 </div>
-                <div class="revert-reason-text" style="padding-left: 22px;">
+                <div class="revert-reason-text">
                     ${escapeHtmlString(op.reject_reason)}
                 </div>
             </div>` : ''}
@@ -1172,10 +1233,14 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
 
             <!-- View Action Buttons -->
             <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-                ${(document.getElementById('view-approved-container') && document.getElementById('view-approved-container').style.display !== 'none') ? `
-                <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">
-                    <i class="fas fa-file-alt" style="margin-right: 4px;"></i> View Documents
-                </button>` : ''}
+                ${(() => {
+                    const approvedTabBtn = document.querySelector('.req-tab[data-tab="approved"]');
+                    const approvedContainer = document.getElementById('view-approved-container');
+                    const isApprovedTabActive = (approvedTabBtn && approvedTabBtn.classList.contains('active')) || 
+                                               (approvedContainer && approvedContainer.classList.contains('active') && approvedContainer.offsetParent !== null);
+                    return isApprovedTabActive ? `
+                    <button type="button" id="btn-show-docs" style="background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s ease-in-out;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#94a3b8';" onmouseout="this.style.background='#ffffff'; this.style.borderColor='#cbd5e1';">View Documents</button>` : '';
+                })()}
                 <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
             </div>
         </div>
@@ -1348,6 +1413,15 @@ window.clearFormInputs = function () {
     document.getElementById('op_remarks').value = '';
     document.getElementById('op_model').value = '';
     document.getElementById('op_lms_id').value = '';
+
+    const searchSelect = document.getElementById('operator_search_input');
+    if (searchSelect) {
+        searchSelect.value = '';
+        if (searchSelect.tomselect) {
+            searchSelect.tomselect.clear();
+        }
+    }
+
     document.querySelectorAll('.error-msg').forEach(el => el.innerText = '');
 
     if (document.getElementById('editing_op_id')) document.getElementById('editing_op_id').value = '';
@@ -1361,9 +1435,8 @@ window.clearFormInputs = function () {
 function resetEntireNewRequestForm() {
     clearFormInputs();
     structuredOperatorList = [];
+    window.structuredOperatorList = structuredOperatorList;
     renderOperatorSpreadsheetRows();
-    const nextBtn = document.getElementById('next-step-trigger-btn');
-    if (nextBtn) nextBtn.disabled = true;
     const countBadge = document.getElementById('operator-count-badge');
     if (countBadge) countBadge.innerText = '0 Operators';
 
@@ -1587,7 +1660,7 @@ window.applyHistoryPanelFiltersPipeline = function () {
     // Metric cards display all-time counts irrespective of active filters
 }
 
-window.resetHistoryPanelFilters = function () {
+window.clearAllFilters = window.resetHistoryPanelFilters = function () {
     const searchOperatorInput = document.getElementById("filter-search-operator");
     if (searchOperatorInput) searchOperatorInput.value = "";
 
@@ -1598,7 +1671,7 @@ window.resetHistoryPanelFilters = function () {
     if (datePeriodInput) datePeriodInput.value = "month";
 
     applyHistoryPanelFiltersPipeline();
-}
+};
 
 window.openIndividualOperatorEditForm = function (arrayIndex) {
     const op = window.currentViewingOperators[arrayIndex];
@@ -1962,6 +2035,7 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
             }
 
             structuredOperatorList = [];
+            window.structuredOperatorList = structuredOperatorList;
             const operators = payload.operators || [];
             // Find only this specific operator!
             const op = operators.find(o => String(o.id) === String(operatorId));
@@ -2027,13 +2101,99 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-window.navigateWizardStep = function (stepNumber) {
+function hasUnsavedOperatorFormFields() {
+    const userEnteredFields = [
+        'op_name',
+        'op_mobile',
+        'op_email',
+        'op_aadhaar',
+        'user_code',
+        'op_lms_id',
+        'op_cert',
+        'op_cert_date',
+        'op_ea',
+        'op_model',
+        'op_remarks'
+    ];
+    return userEnteredFields.some(id => {
+        const el = document.getElementById(id);
+        return el && el.value && el.value.trim() !== '';
+    });
+}
+
+window.navigateWizardStep = async function (stepNumber) {
     const section1 = document.getElementById('section-operator-form-view');
     const section2 = document.getElementById('section-documents-upload-view');
+
     if (stepNumber === 1) {
         if (section1) section1.style.display = 'block';
         if (section2) section2.style.display = 'none';
-    } else if (stepNumber === 2) {
+        return;
+    }
+
+    if (stepNumber === 2) {
+        const hasFormDetails = hasUnsavedOperatorFormFields();
+        const hasListOperators = structuredOperatorList && structuredOperatorList.length > 0;
+
+        // If user has filled operator details in the form without clicking "Add Operator Record to Log"
+        if (hasFormDetails) {
+            const result = await Swal.fire({
+                title: 'Unsaved Operator Form Details',
+                text: 'You have filled operator details in the form. Would you like to add this operator to the batch list before proceeding?',
+                icon: 'question',
+                showCancelButton: true,
+                showDenyButton: true,
+                confirmButtonText: 'Add to List & Proceed',
+                denyButtonText: 'Ignore & Proceed',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#3085d6',
+                denyButtonColor: '#64748b',
+                cancelButtonColor: '#d33',
+                focusConfirm: true
+            });
+
+            if (result.isConfirmed) {
+                const countBefore = (structuredOperatorList || []).length;
+                await window.addOperatorRecordToExcelLog();
+                const countAfter = (structuredOperatorList || []).length;
+
+                if (countAfter > countBefore) {
+                    if (section1) section1.style.display = 'none';
+                    if (section2) section2.style.display = 'block';
+                }
+                return;
+            } else if (result.isDenied) {
+                if (structuredOperatorList && structuredOperatorList.length > 0) {
+                    if (section1) section1.style.display = 'none';
+                    if (section2) section2.style.display = 'block';
+                } else {
+                    Swal.fire({
+                        title: 'Operator List is Empty',
+                        text: 'Your batch list is empty. You must add at least one operator to proceed to the next step.',
+                        icon: 'warning',
+                        confirmButtonColor: '#3085d6',
+                        confirmButtonText: 'OK'
+                    });
+                }
+                return;
+            } else {
+                return;
+            }
+        }
+
+        // If form inputs are empty and operator list is empty
+        if (!hasListOperators) {
+            Swal.fire({
+                title: 'Operator List is Empty',
+                text: 'Your batch list is empty. Please fill in the operator details and click "Add Operator Record to Log" to proceed.',
+                icon: 'warning',
+                confirmButtonColor: '#3085d6',
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+
+        // If form inputs are empty and list has 1+ operators
         if (section1) section1.style.display = 'none';
         if (section2) section2.style.display = 'block';
     }

@@ -115,6 +115,10 @@ def register():
         email = request.form.get("email")
         district = request.form.get("district")
         qualification = request.form.get("qualification")
+        if qualification == "Other":
+            other_qual = request.form.get("other_qualification")
+            if other_qual:
+                qualification = other_qual.strip()
         lms_id = request.form.get("lms_id")
         nseit_id = request.form.get("nseit_id")
         dob = request.form.get("dob")
@@ -606,14 +610,6 @@ def upload_temp_file():
 
 @candidate_register_bp.route("/ocr/validate-marksheet", methods=["POST"])
 def ocr_validate_marksheet():
-    from flask import jsonify, request
-    import io
-    import os
-    import re
-    from PIL import Image, ImageEnhance
-    import pytesseract
-    from backend.utils.ocr_utils import validate_marksheet
-
     file = request.files.get("file")
     doc_type = request.form.get("type") # 'tenth' or 'highest'
     name = request.form.get("name")
@@ -621,59 +617,32 @@ def ocr_validate_marksheet():
     qualification = request.form.get("qualification", "High School (10th)")
 
     if not file or not file.filename:
+        from flask import jsonify
         return jsonify({"success": False, "error": "No file uploaded."}), 400
 
     try:
+        from flask import jsonify, current_app
+        import io
+        import os
+        import re
+        from PIL import Image, ImageEnhance
+        from backend.utils.ocr_utils import validate_marksheet, extract_text_from_bytes
         file_bytes = file.read()
         
-        # Check if PDF or Image
-        is_pdf = file.content_type == "application/pdf" or file.filename.lower().endswith(".pdf")
-        
-        images_to_process = []
-        if is_pdf:
-            from pdf2image import convert_from_bytes
-            poppler_path = os.getenv("POPPLER_PATH")
-            if not poppler_path:
-                common_poppler = [
-                    r"C:\Program Files\poppler-26.02.0\Library\bin",
-                    r"C:\poppler-26.02.0\Library\bin",
-                    r"C:\poppler\Library\bin", 
-                    r"C:\Release-24.02.0-0\poppler-24.02.0\Library\bin",
-                    r"C:\Program Files (x86)\Windows Media Player\Release-26.02.0-0\poppler-26.02.0\Library\bin"
-                ]
-                for p in common_poppler:
-                    if os.path.exists(p):
-                        poppler_path = p
-                        break
-            images_to_process = convert_from_bytes(file_bytes, first_page=1, last_page=1, poppler_path=poppler_path)
-        else:
-            images_to_process = [Image.open(io.BytesIO(file_bytes))]
-            
-        text_content = ""
-        if images_to_process:
-            img = images_to_process[0]
-            img_gray = img.convert('L')
-            img_large = img_gray.resize((img.width * 3, img.height * 3), Image.Resampling.LANCZOS)
-            enhancer = ImageEnhance.Contrast(img_large)
-            img_processed = enhancer.enhance(2.0)
-            
-            tesseract_cmd_path = os.getenv("TESSERACT_PATH", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
-            if os.path.exists(tesseract_cmd_path):
-                pytesseract.pytesseract.tesseract_cmd = tesseract_cmd_path
+        if qualification != "Other":
+            text_content = extract_text_from_bytes(file_bytes, file.content_type, lang="eng+hin")
                 
-            text_content = pytesseract.image_to_string(img_processed, config='--psm 3')
-            
-        # Run validation with simplified fallback word matching logging
-        print("===== Flask Marksheet OCR Text =====")
-        print(f"Name: {name}, DOB: {dob}, Qualification: {qualification}")
-        print(text_content)
-        print("====================================")
-        with open("debug_ocr_marksheet.txt", "w", encoding="utf-8") as f:
-            f.write(text_content)
-        with open("debug_ocr_params.txt", "w", encoding="utf-8") as f:
-            f.write(f"name={name}\ndob={dob}\nqualification={qualification}\n")
-            
-        validate_marksheet(text_content, name, dob, qualification)
+            # Run validation with simplified fallback word matching logging
+            print("===== Flask Marksheet OCR Text =====")
+            print(f"Name: {name}, DOB: {dob}, Qualification: {qualification}")
+            print(text_content)
+            print("====================================")
+            with open("debug_ocr_marksheet.txt", "w", encoding="utf-8") as f:
+                f.write(text_content)
+            with open("debug_ocr_params.txt", "w", encoding="utf-8") as f:
+                f.write(f"name={name}\ndob={dob}\nqualification={qualification}\n")
+                
+            validate_marksheet(text_content, name, dob, qualification)
         
         saved_path = None
         try:

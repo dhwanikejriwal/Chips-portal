@@ -3,7 +3,6 @@
 {% block title %}Candidate Onboarding Requests - DC/EDM Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}">
 <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 {% endblock %}
 
@@ -109,7 +108,7 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
         <label>Search Candidate</label>
-        <input type="text" id="admin-search-input" placeholder="Search by code, name, mobile or email..."
+        <input type="text" id="admin-search-input" placeholder="Search by request ID, name, mobile or email..."
             class="filter-input" oninput="filterAdminQueues()">
     </div>
     <!-- Hidden input to align javascript filters for district coordinate views -->
@@ -154,7 +153,7 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
     min_width=1050,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request code'},
+    {'label': 'Request ID'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -190,13 +189,13 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
         <td>{{ req.created_at }}</td>
         <td style="text-align: center;">
             <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
-                <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                <button type="button" class="btn-approve"
                     onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')"
                     data-i18n="action.approve">Approve</button>
-                <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                <button type="button" class="btn-reject"
                     onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')"
                     data-i18n="action.reject">Reject</button>
-                <button type="button" class="btn btn-sm" style="background-color: #6c757d; color: white;"
+                <button type="button" class="btn-hold"
                     onclick="openHoldModal('{{ req.r_id }}', '{{ req.name }}')" data-i18n="action.hold">Hold</button>
                 <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'), false)">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -226,7 +225,7 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
     min_width=1050,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request code'},
+    {'label': 'Request ID'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -263,9 +262,9 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
         <td>{{ req.updated_at or req.created_at }}</td>
         <td style="text-align: center;">
             <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
-                <button type="button" class="btn btn-sm" style="background-color: #28a745; color: white;"
+                <button type="button" class="btn-approve"
                     onclick="openApproveModal('{{ req.r_id }}', '{{ req.name }}', '{{ req.email }}')">Approve</button>
-                <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                <button type="button" class="btn-reject"
                     onclick="openRejectModal('{{ req.r_id }}', '{{ req.name }}')">Reject</button>
                 <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'), false)">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -296,7 +295,7 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
     min_width=1050,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request code'},
+    {'label': 'Request ID'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -357,7 +356,7 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
     min_width=1050,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request code'},
+    {'label': 'Request ID'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -781,12 +780,12 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
             title: 'Place Request On Hold',
             html: `
                     <div style="text-align: left; padding: 0 10px;">
-                        <p style="margin-bottom: 15px; font-size: 14px; color: #555;">
+                        <p style="margin-bottom: 15px; font-size: 14px;">
                             Are you sure you want to put candidate <strong>${candidateName}</strong> on hold?
                         </p>
                         
                         <div>
-                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">Hold Remark (Mandatory) *</label>
+                            <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px;">Hold Remark (Mandatory) *</label>
                             <textarea id="swal-hold-remark" class="swal2-textarea" style="width: 100%; height: 85px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="State the reason for placing this candidate request on hold..."></textarea>
                         </div>
                     </div>
@@ -860,12 +859,12 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
             title: 'Approve Onboarding Request',
             html: `
                     <div style="text-align: left; padding: 0 10px;">
-                        <p style="margin-bottom: 15px; font-size: 14px; color: #555;">
+                        <p style="margin-bottom: 15px; font-size: 14px;">
                             Are you sure you want to approve candidate <strong>${candidateName}</strong>?
                         </p>
                         
                         <div>
-                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">Approval Remark (Mandatory) *</label>
+                            <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px;">Approval Remark (Mandatory) *</label>
                             <textarea id="swal-remark" class="swal2-textarea" style="width: 100%; height: 85px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="Provide a remark for approving this candidate..."></textarea>
                         </div>
                     </div>
@@ -967,12 +966,12 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
             title: 'Reject Onboarding Request',
             html: `
                     <div style="text-align: left; padding: 0 10px;">
-                        <p style="margin-bottom: 15px; font-size: 14px; color: #555;">
+                        <p style="margin-bottom: 15px; font-size: 14px;">
                             Are you sure you want to reject candidate <strong>${candidateName}</strong>?
                         </p>
                         
                         <div>
-                            <label style="display: block; font-weight: 600; font-size: 13px; color: #333; margin-bottom: 5px;">Rejection Remark (Mandatory) *</label>
+                            <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px;">Rejection Remark (Mandatory) *</label>
                             <textarea id="swal-reject-reason" class="swal2-textarea" style="width: 100%; height: 85px; margin: 0; font-size: 14px; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; resize: vertical;" placeholder="State the reason for rejecting this candidate..."></textarea>
                         </div>
                     </div>
@@ -1184,7 +1183,7 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
         } else if (dStatus === 'rejected') {
             statusBadge = '<span class="badge badge-rejected" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Rejected</span>';
         } else if (dStatus === 'on hold') {
-            statusBadge = '<span class="badge" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: #e2e8f0; color: #475569;">On Hold</span>';
+            statusBadge = '<span class="badge" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: #f59e0b; color: white;">On Hold</span>';
         } else {
             statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
         }
@@ -1209,18 +1208,16 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
                             statusBadge += emailFailedBadgeHtml;
                         }
 
-                        const dStatusLower = (d.status || '').toLowerCase();
-                        const badgeColor = (dStatusLower === 'approved') ? '#16a34a' : ((dStatusLower === 'rejected') ? '#dc2626' : ((dStatusLower === 'on hold') ? '#475569' : '#888'));
-                        const badgeBg = (dStatusLower === 'approved') ? '#dcfce7' : ((dStatusLower === 'rejected') ? '#fee2e2' : ((dStatusLower === 'on hold') ? '#f1f5f9' : '#f1f5f9'));
-                        const titleText = (dStatusLower === 'approved') ? 'Approval Remark' : ((dStatusLower === 'rejected') ? 'Rejection Remark' : ((dStatusLower === 'on hold') ? 'Hold Remark' : 'Admin Remark'));
+                        const dStatusSlug = (d.status || '').toLowerCase().replace(/\s+/g, '-');
+                        const titleText = (dStatusSlug === 'approved') ? 'Approval Remark/Remark' : ((dStatusSlug === 'rejected') ? 'Rejection Reason/Remark' : ((dStatusSlug === 'on-hold') ? 'Hold Reason/Remark' : 'Admin Remark'));
 
                         adminRemarkHtml = `
-                        <div style="margin-bottom: 15px; padding: 12px; border-radius: 8px; background-color: ${badgeBg}; border-left: 4px solid ${badgeColor}; font-size: 13px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                <span style="font-weight: 700; color: ${badgeColor};">${titleText}:</span>
-                                <span style="font-size: 11px; color: #64748b; font-weight: 500;">${remarkTime}</span>
+                        <div class="admin-remark-box admin-remark-${dStatusSlug}">
+                            <div class="admin-remark-header">
+                                <span class="admin-remark-title">${titleText}:</span>
+                                <span class="admin-remark-time">${remarkTime}</span>
                             </div>
-                            <div style="color: #334155;">${escapeHtml(latestRemark)}</div>
+                            <div class="admin-remark-text">${escapeHtml(latestRemark)}</div>
                         </div>
                         `;
                     }
@@ -1228,12 +1225,12 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
             }
 
             let htmlContent = `
-                <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div id="cand-details-scroll" style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                     <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; gap: 8px;">
-                        <span style="font-size: 13px; color: #64748b; font-weight: 500; white-space: nowrap;">Request: <strong style="color:#0f172a; font-weight:700;">${d.code}</strong></span>
+                        <span style="font-size: 13px; font-weight: 500; white-space: nowrap;" class="modal-req-label">Request: <strong style="font-weight:700;" class="modal-req-code">${d.code}</strong></span>
                         <span style="flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center;">${statusBadge}</span>
                     </div>
-                    <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                    <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px;" class="modal-submitted-at">
                         Registered At: <strong>${d.created}</strong>
                     </div>
 
@@ -1329,6 +1326,8 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
                 width: '600px',
                 focusConfirm: false,
                 didOpen: () => {
+                    const scrollContainer = document.getElementById('cand-details-scroll');
+                    if (scrollContainer) scrollContainer.scrollTop = 0;
                     document.getElementById('btn-show-docs').onclick = () => {
                         window.showCandidateDetails(d, 'documents', showRemarks);
                     };
@@ -1337,9 +1336,9 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
         }
         else if (activeView === 'documents') {
             let htmlContent = `
-                <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+                <div id="cand-docs-scroll" style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                     <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; gap: 8px;">
-                        <span style="font-size: 13px; color: #64748b; font-weight: 500; white-space: nowrap;">Request: <strong style="color:#0f172a; font-weight:700;">${d.code}</strong></span>
+                        <span style="font-size: 13px; font-weight: 500; white-space: nowrap;" class="modal-req-label">Request: <strong style="font-weight:700;" class="modal-req-code">${d.code}</strong></span>
                         <span style="flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center;">${statusBadge}</span>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
@@ -1366,7 +1365,11 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
                     denyButton: 'swal-btn-back'
                 },
                 width: '600px',
-                focusConfirm: false
+                focusConfirm: false,
+                didOpen: () => {
+                    const scrollContainer = document.getElementById('cand-docs-scroll');
+                    if (scrollContainer) scrollContainer.scrollTop = 0;
+                }
             }).then((result) => {
                 if (result.isDenied) {
                     window.showCandidateDetails(d, 'details', showRemarks);
@@ -1449,7 +1452,7 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
             let htmlContent = `
                 <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
                     <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; gap: 8px; flex: 0 0 auto;">
-                        <span style="font-size: 13px; color: #64748b; font-weight: 500; white-space: nowrap;">Request: <strong style="color:#0f172a; font-weight:700;">${d.code}</strong></span>
+                        <span style="font-size: 13px; font-weight: 500; white-space: nowrap;" class="modal-req-label">Request: <strong style="font-weight:700;" class="modal-req-code">${d.code}</strong></span>
                         <span style="flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center;">${headerStatusBadge}</span>
                     </div>
                     ${timelineHtml}
@@ -1527,8 +1530,13 @@ approved_requests | selectattr('status', 'equalto', 'Rejected') | list | length 
             return;
         }
 
+        let exportType = "candidate";
+        if (tableId.includes("hold")) {
+            exportType = "hold";
+        }
+
         const baseUrl = "{{ url_for('auth.proxy_backend_excel_export', module_endpoint='candidate-requests') }}";
-        window.location.href = `${baseUrl}?ids=${ids.join(',')}`;
+        window.location.href = `${baseUrl}?ids=${ids.join(',')}&export_type=${exportType}`;
     }
 </script>
 

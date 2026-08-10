@@ -33,10 +33,10 @@ DISTRICT_ALIAS_MAP = {
     "bilaspur": "Bilaspur",
     
     # Dakshin Bastar Dantewada
-    "dantewada": "Dakshin Bastar Dantewada",
-    "dakshin bastar dantewada": "Dakshin Bastar Dantewada",
-    "dakshin bastar (dantewada)": "Dakshin Bastar Dantewada",
-    "dakshin bastar": "Dakshin Bastar Dantewada",
+    "dantewada": "Dantewada",
+    "dakshin bastar dantewada": "Dantewada",
+    "dakshin bastar (dantewada)": "Dantewada",
+    "dakshin bastar": "Dantewada",
     
     # Dhamtari
     "dhamtari": "Dhamtari",
@@ -67,10 +67,10 @@ DISTRICT_ALIAS_MAP = {
     "jashpur": "Jashpur",
     
     # Kabeerdham
-    "kawardha": "Kabeerdham",
-    "kabeerdham": "Kabeerdham",
-    "kabirdham": "Kabeerdham",
-    "kabirdham (kawardha)": "Kabeerdham",
+    "kawardha": "Kawardha",
+    "kabeerdham": "Kawardha",
+    "kabirdham": "Kawardha",
+    "kabirdham (kawardha)": "Kawardha",
     
     # Khairagarh-Chhuikhadan-Gandai
     "khairagarh-chuikhadan-gandai": "Khairagarh-Chhuikhadan-Gandai",
@@ -141,10 +141,10 @@ DISTRICT_ALIAS_MAP = {
     "surguja": "Surguja",
     
     # Uttar Bastar Kanker
-    "kanker": "Uttar Bastar Kanker",
-    "uttar bastar kanker": "Uttar Bastar Kanker",
-    "uttar bastar (kanker)": "Uttar Bastar Kanker",
-    "uttar bastar": "Uttar Bastar Kanker",
+    "kanker": "Kanker",
+    "uttar bastar kanker": "Kanker",
+    "uttar bastar (kanker)": "Kanker",
+    "uttar bastar": "Kanker",
 }
 
 def normalize_district_name(district_name: str) -> str:
@@ -164,6 +164,30 @@ def normalize_district_name(district_name: str) -> str:
     if mapped:
         return mapped
 
+    # Substring & keyword fallbacks matching normalize_districts.py rules
+    if 'kanker' in clean_val:
+        return "Kanker"
+    if 'dantewada' in clean_val:
+        return "Dantewada"
+    if any(k in clean_val for k in ['kawardha', 'kabeerdham', 'kabirdham']):
+        return "Kawardha"
+    if 'balodabazar' in clean_val:
+        return "Balodabazar-Bhatapara"
+    if 'balrampur' in clean_val:
+        return "Balrampur-Ramanujganj"
+    if 'janjgir' in clean_val:
+        return "Janjgir-Champa"
+    if 'khairagarh' in clean_val or 'kcg' in clean_val:
+        return "Khairagarh-Chhuikhadan-Gandai"
+    if any(k in clean_val for k in ['manendragarh', 'mcb']):
+        return "Manendragarh-Chirmiri-Bharatpur (MCB)"
+    if 'mohla' in clean_val:
+        return "Mohla-Manpur-Ambagarh Chouki"
+    if 'sarangarh' in clean_val:
+        return "Sarangarh-Bilaigarh"
+    if any(k in clean_val for k in ['gpm', 'pendra', 'gaurela', 'gourela']):
+        return "Gaurela-Pendra-Marwahi"
+
     result = str(district_name).strip()
     result = result.replace('â€“', '-').replace('â€”', '-').replace('â€', '').replace('–', '-').replace('—', '-')
     return ' '.join(result.split()).title()
@@ -181,7 +205,7 @@ DIVISIONS_MASTER_MAP = {
         "Balod",
         "Bemetara",
         "Durg",
-        "Kabeerdham",
+        "Kawardha",
         "Khairagarh-Chhuikhadan-Gandai",
         "Mohla-Manpur-Ambagarh Chouki",
         "Rajnandgaon"
@@ -207,8 +231,8 @@ DIVISIONS_MASTER_MAP = {
     "Bastar Div": [
         "Bastar",
         "Bijapur",
-        "Dakshin Bastar Dantewada",
-        "Uttar Bastar Kanker",
+        "Dantewada",
+        "Kanker",
         "Kondagaon",
         "Narayanpur",
         "Sukma"
@@ -218,11 +242,11 @@ DIVISIONS_MASTER_MAP = {
 LWE_MASTER_DISTRICTS = {
     "Bastar",
     "Bijapur",
-    "Dakshin Bastar Dantewada",
+    "Dantewada",
     "Mohla-Manpur-Ambagarh Chouki",
     "Narayanpur",
     "Sukma",
-    "Uttar Bastar Kanker"
+    "Kanker"
 }
 
 def is_lwe_district(district_name: str) -> str:

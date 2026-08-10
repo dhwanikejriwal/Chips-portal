@@ -25,6 +25,7 @@ from backend.services import activity_config as cfg
 from backend.services.registrar_ea_transform import (
     transform_file, TransformResult, MissingColumnsError, MEASURE_RENAME,
 )
+from backend.utils.district_mapper import normalize_district_name
 
 MEASURE_COLS = list(MEASURE_RENAME.values())
 FACT_KEY = ["activity_date", "station_ea_code", "session_operator_id", "station_number"]
@@ -58,7 +59,7 @@ def _upsert_facts(db: Session, fact_rows: list[dict], batch_id: str) -> tuple[in
                 "station_ea_code": _to_int(r["station_ea_code"]),
                 "session_operator_id": r["session_operator_id"],
                 "station_number": _to_int(r["station_number"]),
-                "machine_district": r.get("machine_district"),
+                "machine_district": normalize_district_name(r.get("machine_district")) if r.get("machine_district") else None,
                 "batch_id": batch_id,
             }
             for m in MEASURE_COLS:
@@ -88,7 +89,7 @@ def _upsert_stations(db: Session, station_rows: list[dict]) -> None:
             "station_ea_code": _to_int(r["station_ea_code"]),
             "station_number": _to_int(r["station_number"]),
             "machine_address": r.get("machine_address"),
-            "machine_district": r.get("machine_district"),
+            "machine_district": normalize_district_name(r.get("machine_district")) if r.get("machine_district") else None,
             "machine_state": r.get("machine_state"),
             "machine_pincode": r.get("machine_pincode"),
             "machine_lat": r.get("machine_lat"),

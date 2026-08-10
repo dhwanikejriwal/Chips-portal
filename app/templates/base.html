@@ -33,12 +33,14 @@
     <script src="{{ url_for('static', filename='i18n/i18n.js') }}"></script>
     <script src="{{ url_for('static', filename='js/table_sort.js') }}"></script>
     <!-- Main Style -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/common/theme_tokens.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/common/base_components.css') }}?v=9">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common/theme_tokens.css') }}?v=43">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common/base_components.css') }}?v=10">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/common/app_layout.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/common/request_tables.css') }}?v=10">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}?v=11">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}?v=48">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/common/alert_banner.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common/searchable_combobox.css') }}?v=3">
+    <script src="{{ url_for('static', filename='js/searchable_combobox.js') }}?v=3"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 
     <!-- 🌟 GLOBAL INTERACTIVE POPUP INFRASTRUCTURE: SweetAlert2 -->
@@ -451,64 +453,144 @@
     <!-- Highlight rows for requests newer than the notification panel's cutoff -->
     <script>
         (function () {
-            var params = new URLSearchParams(window.location.search);
-            var highlightSince = params.get('highlight_since');
-            if (!highlightSince) return;
-            var cutoff = new Date(highlightSince.replace(' ', 'T'));
-            if (isNaN(cutoff.getTime())) return;
+            function parseDateSafe(dStr) {
+                if (!dStr || typeof dStr !== 'string') return null;
+                dStr = dStr.trim();
+                if (dStr === '—' || dStr === '-' || dStr === 'None' || dStr === 'null' || !dStr) return null;
+                
+                var ddmmyyyy = dStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+                if (ddmmyyyy) {
+                    var day = parseInt(ddmmyyyy[1], 10);
+                    var month = parseInt(ddmmyyyy[2], 10) - 1;
+                    var year = parseInt(ddmmyyyy[3], 10);
+                    var hasTime = !!ddmmyyyy[4];
+                    var hour = parseInt(ddmmyyyy[4] || (hasTime ? '0' : '23'), 10);
+                    var min = parseInt(ddmmyyyy[5] || (hasTime ? '0' : '59'), 10);
+                    var sec = parseInt(ddmmyyyy[6] || (hasTime ? '0' : '59'), 10);
+                    return new Date(year, month, day, hour, min, sec);
+                }
+                
+                var yyyymmdd = dStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+                if (yyyymmdd) {
+                    var y = parseInt(yyyymmdd[1], 10);
+                    var m = parseInt(yyyymmdd[2], 10) - 1;
+                    var d = parseInt(yyyymmdd[3], 10);
+                    var hasTime = !!yyyymmdd[4];
+                    var h = parseInt(yyyymmdd[4] || (hasTime ? '0' : '23'), 10);
+                    var mn = parseInt(yyyymmdd[5] || (hasTime ? '0' : '59'), 10);
+                    var sc = parseInt(yyyymmdd[6] || (hasTime ? '0' : '59'), 10);
+                    return new Date(y, m, d, h, mn, sc);
+                }
+                
+                var dt = new Date(dStr);
+                if (!isNaN(dt.getTime())) return dt;
+                return null;
+            }
+            window._parseDateSafe = parseDateSafe;
+
+            function getRowTimestamp(r) {
+                if (!r) return null;
+                var t = r.getAttribute('data-updated') || 
+                        r.getAttribute('data-reviewed-at') || 
+                        r.getAttribute('data-completed-at') || 
+                        r.getAttribute('data-created') || 
+                        r.getAttribute('data-submitted-at') || 
+                        r.getAttribute('data-timestamp');
+                if (t && t !== '—' && t !== 'None') {
+                    var parsed = parseDateSafe(t);
+                    if (parsed) return parsed;
+                }
+                
+                if (r.cells && r.cells.length > 0) {
+                    for (var i = r.cells.length - 1; i >= 0; i--) {
+                        var txt = (r.cells[i].innerText || '').trim();
+                        if (/\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4}/.test(txt)) {
+                            var parsed = parseDateSafe(txt);
+                            if (parsed) return parsed;
+                        }
+                    }
+                }
+                return null;
+            }
+            window._getRowTimestamp = getRowTimestamp;
 
             function applyHighlights() {
-                var candidates = document.querySelectorAll('table tbody tr[data-created], table tbody tr[data-updated], .op-row-item, .history-data-row, tr[data-id]');
-                var highlightedElements = [];
-                var firstMatch = null;
+                var params = new URLSearchParams(window.location.search);
+                var isFromNotif = params.get('from_notif') === '1' || params.has('from_notif');
+                if (!isFromNotif) return;
 
-                candidates.forEach(function (el) {
-                    var raw = el.getAttribute('data-updated') || el.getAttribute('data-created') || el.getAttribute('data-submitted');
-                    if (!raw || raw === 'None' || raw === '—' || !raw.trim()) return;
-                    var ts = new Date(raw.replace(' ', 'T'));
-                    if (!isNaN(ts.getTime()) && ts > cutoff) {
-                        highlightedElements.push(el);
-                        if (!firstMatch) firstMatch = el;
+                var cutoffStr = params.get('cutoff') || sessionStorage.getItem('notification_baseline_at');
+                var specificCode = params.get('code') || params.get('request_no') || params.get('request_id') || params.get('id');
+                var statusParam = (params.get('status') || '').toLowerCase();
+                var isStatusRevert = statusParam.includes('revert') || statusParam.includes('reject');
+
+                // If arriving with status=reverted_rejected, ensure reverted tab is active
+                if (isStatusRevert) {
+                    var revTab = document.querySelector('.req-tab[data-tab="reverted"], .req-tab[data-tab="revert"], .sid-tab[data-tab="reverted"]');
+                    if (revTab && !revTab.classList.contains('active')) {
+                        revTab.click();
                     }
-                });
-
-                if (highlightedElements.length === 0) return;
-
-                highlightedElements.forEach(function (el) {
-                    el.classList.add('row-highlight-new');
-                });
-
-                if (firstMatch) {
-                    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
 
-                setTimeout(function () {
-                    highlightedElements.forEach(function (el) {
-                        el.classList.add('row-highlight-fade-out');
-                        setTimeout(function () {
-                            el.classList.remove('row-highlight-new', 'row-highlight-fade-out');
-                        }, 1000);
+                var allVisibleRows = Array.from(document.querySelectorAll('tbody tr[data-id], tbody tr[data-request-no], tbody tr[data-code], .op-row-item, .history-data-row, table tbody tr')).filter(function(el) {
+                    return el.style.display !== 'none' && (!el.cells || el.cells.length > 1);
+                });
+
+                var highlightedElements = [];
+
+                if (specificCode) {
+                    var codeClean = specificCode.trim().toLowerCase();
+                    allVisibleRows.forEach(function (el) {
+                        var idVal = (el.getAttribute('data-id') || '').toLowerCase();
+                        var codeVal = (el.getAttribute('data-code') || el.getAttribute('data-request-no') || el.getAttribute('data-request-id') || '').toLowerCase();
+                        if (idVal === codeClean || codeVal === codeClean || (el.innerText && el.innerText.toLowerCase().includes(codeClean))) {
+                            highlightedElements.push(el);
+                        }
                     });
-                }, 5000);
+                } else if (cutoffStr) {
+                    var cutoffDate = parseDateSafe(cutoffStr);
+                    if (cutoffDate) {
+                        allVisibleRows.forEach(function (el) {
+                            var rowDate = getRowTimestamp(el);
+                            var rowStatus = (el.getAttribute('data-status') || '').toLowerCase();
+                            var isRowRevert = rowStatus.includes('revert') || rowStatus.includes('reject') || el.closest('[data-panel="reverted"]') || el.closest('#reverted-table') || el.closest('#reverted-requests-table');
+
+                            if (isStatusRevert && !isRowRevert) return;
+
+                            if (rowDate) {
+                                if (rowDate >= cutoffDate) {
+                                    highlightedElements.push(el);
+                                }
+                            } else if (isStatusRevert && isRowRevert) {
+                                highlightedElements.push(el);
+                            }
+                        });
+                    }
+                }
+
+                // If nothing was found via cutoff timestamp but user navigated to reverted/rejected items, highlight visible rows in the reverted panel
+                if (highlightedElements.length === 0 && isStatusRevert) {
+                    var revTableRows = Array.from(document.querySelectorAll('[data-panel="reverted"] tbody tr, #reverted-table tbody tr, #reverted-requests-table tbody tr, .history-data-row[data-status="REVERTED"], .op-row-item[data-status="REVERTED"]')).filter(function(el) {
+                        return el.style.display !== 'none' && (!el.cells || el.cells.length > 1);
+                    });
+                    if (revTableRows.length > 0) {
+                        highlightedElements = revTableRows;
+                    }
+                }
+
+                if (highlightedElements.length > 0 && typeof window.highlightNotificationRows === 'function') {
+                    window.highlightNotificationRows(highlightedElements);
+                }
             }
 
             window.addEventListener('load', function () {
-                setTimeout(applyHighlights, 350);
+                setTimeout(applyHighlights, 200);
+                setTimeout(applyHighlights, 600);
             });
             document.addEventListener('DOMContentLoaded', function () {
-                setTimeout(applyHighlights, 350);
+                setTimeout(applyHighlights, 200);
+                setTimeout(applyHighlights, 600);
             });
-
-            if (window.history.replaceState) {
-                var newUrl = window.location.pathname;
-                params.delete('highlight_since');
-                params.delete('from_notif');
-                var qs = params.toString();
-                if (qs) {
-                    newUrl += '?' + qs;
-                }
-                window.history.replaceState({ path: newUrl }, '', newUrl);
-            }
         })();
     </script>
 
@@ -580,12 +662,22 @@
             const setupTransliteration = () => {
                 const isRemarksField = (el) => {
                     if (!el) return false;
+                    // Explicitly exclude search bars, combobox inputs, filter inputs
+                    if (el.type === 'search' ||
+                        el.classList.contains('sc-input') ||
+                        el.classList.contains('filter-input') ||
+                        (el.closest && (el.closest('.sc-combobox-wrapper') || el.closest('.sc-input-container') || el.closest('.oa-search-panel') || el.closest('.oa-search-box-card'))) ||
+                        (el.id && el.id.toLowerCase().includes('search')) ||
+                        (el.name && el.name.toLowerCase().includes('search')) ||
+                        (el.className && typeof el.className === 'string' && el.className.toLowerCase().includes('search'))) {
+                        return false;
+                    }
                     const id = (el.id || '').toLowerCase();
                     const name = (el.name || '').toLowerCase();
                     const ph = (el.placeholder || '').toLowerCase();
-                    const cls = (el.className || '').toLowerCase();
+                    const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
                     return id.includes('remark') || name.includes('remark') || ph.includes('remark') || cls.includes('remark') ||
-                        id.includes('reason') || name.includes('reason') || ph.includes('reason') || cls.includes('reason') ||
+                        id.includes('reason') || name.includes('reason') || cls.includes('reason') ||
                         id.includes('टिप्पणी') || ph.includes('टिप्पणी') || ph.includes('कारण');
                 };
 
@@ -720,6 +812,73 @@
                 setupTransliteration();
             }
         })();
+
+        /* Global Notification Row Highlight Helper (5-second yellow glow) */
+        window.highlightNotificationRows = function (target) {
+            if (!target) return;
+            var rows = [];
+            if (typeof target === 'string') {
+                rows = Array.from(document.querySelectorAll(target));
+            } else if (target instanceof HTMLElement) {
+                if (target.tagName === 'TR') {
+                    rows = [target];
+                } else {
+                    // Container or Table passed: only select newly arrived rows
+                    var allTableRows = Array.from(target.querySelectorAll('tbody tr, tr')).filter(function(r) {
+                        return r.style.display !== 'none' && (!r.cells || r.cells.length > 1);
+                    });
+
+                    var params = new URLSearchParams(window.location.search);
+                    var cutoffStr = params.get('cutoff') || sessionStorage.getItem('notification_baseline_at');
+                    var specificCode = params.get('code') || params.get('request_no') || params.get('request_id') || params.get('id');
+
+                    if (specificCode) {
+                        var codeClean = specificCode.trim().toLowerCase();
+                        allTableRows.forEach(function(r) {
+                            var idVal = (r.getAttribute('data-id') || '').toLowerCase();
+                            var codeVal = (r.getAttribute('data-code') || r.getAttribute('data-request-no') || r.getAttribute('data-request-id') || '').toLowerCase();
+                            if (idVal === codeClean || codeVal === codeClean || (r.innerText && r.innerText.toLowerCase().includes(codeClean))) {
+                                rows.push(r);
+                            }
+                        });
+                    } else if (cutoffStr && typeof window._parseDateSafe === 'function' && typeof window._getRowTimestamp === 'function') {
+                        var cutoffDate = window._parseDateSafe(cutoffStr);
+                        if (cutoffDate) {
+                            allTableRows.forEach(function(r) {
+                                var rowDate = window._getRowTimestamp(r);
+                                if (rowDate && rowDate > cutoffDate) {
+                                    rows.push(r);
+                                }
+                            });
+                        }
+                    }
+                }
+            } else if (target.length) {
+                rows = Array.from(target);
+            }
+            if (!rows || rows.length === 0) return;
+
+            var firstRow = null;
+            rows.forEach(function (r) {
+                if (r && r.style && r.style.display !== 'none' && (!r.cells || r.cells.length > 1)) {
+                    r.classList.remove('row-highlight-new', 'row-highlight-fade-out', 'row-notif-highlight');
+                    void r.offsetWidth;
+                    r.classList.add('row-highlight-new', 'row-notif-highlight');
+                    if (!firstRow) firstRow = r;
+                    setTimeout(function () {
+                        r.classList.add('row-highlight-fade-out');
+                        setTimeout(function () {
+                            r.classList.remove('row-highlight-new', 'row-highlight-fade-out', 'row-notif-highlight');
+                        }, 1000);
+                    }, 5000);
+                }
+            });
+            if (firstRow) {
+                try {
+                    firstRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } catch(e) {}
+            }
+        };
     </script>
     {% endif %}
     <!-- Mandatory Password Change Modal for DC/EDM/Admin (Set enable_mandatory_change to True to re-enable) -->
@@ -918,8 +1077,8 @@
             if (isPdf) {
                 // 📄 PDF MODE: Render all PDF Pages on HTML5 <canvas> using PDF.js for ALL DEVICES
                 bodyHtml = `
-                    <div id="pdf-canvas-container" style="width: 100%; max-height: 65vh; overflow-y: auto; text-align: center; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-sizing: border-box;">
-                        <div id="pdf-loading-spinner" style="padding: 24px; font-weight: 600; color: #4f46e5; font-size: 14px;">
+                    <div id="pdf-canvas-container" style="width: 100%; max-height: 65vh; overflow-y: auto; text-align: center; background: #0f172a; padding: 12px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 15px; box-sizing: border-box;">
+                        <div id="pdf-loading-spinner" style="padding: 24px; font-weight: 600; color: #818cf8; font-size: 14px;">
                             ⚡ Rendering PDF Preview...
                         </div>
                     </div>
@@ -927,7 +1086,7 @@
             } else {
                 // 🖼️ IMAGE MODE: Render Image Centered
                 bodyHtml = `
-                    <div style="text-align: center; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
+                    <div style="text-align: center; background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 15px;">
                         <img src="${url}" alt="${name}" style="max-width: 100%; max-height: 65vh; object-fit: contain; border-radius: 6px;" />
                     </div>
                 `;
@@ -939,7 +1098,7 @@
                     <a href="${url}" target="_blank" download="${downloadFilename}" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 22px; background: #10b981; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600; box-shadow: 0 2px 6px rgba(16,185,129,0.25); transition: background 0.2s ease;">
                         <i class="ti ti-download" style="font-size: 16px;"></i> Download
                     </a>
-                    <button type="button" id="btn-modal-close" style="padding: 10px 24px; background: #4f46e5; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(79,70,229,0.25); transition: background 0.2s ease;">
+                    <button type="button" id="btn-modal-close" style="padding: 10px 24px; background: #6366f1; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(99,102,241,0.25); transition: background 0.2s ease;">
                         Close
                     </button>
                 </div>
@@ -960,12 +1119,12 @@
                         // If multi-page, add a sticky header indicator
                         if (totalPages > 1) {
                             const headerBar = document.createElement('div');
-                            headerBar.style.cssText = 'position: sticky; top: -12px; z-index: 20; background: #ffffff; padding: 10px 14px; margin: -12px -12px 14px -12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #334155; display: flex; align-items: center; justify-content: space-between; border-top-left-radius: 12px; border-top-right-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);';
+                            headerBar.style.cssText = 'position: sticky; top: -12px; z-index: 20; background: #1e293b; padding: 10px 14px; margin: -12px -12px 14px -12px; border-bottom: 1px solid #334155; font-size: 13px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; justify-content: space-between; border-top-left-radius: 12px; border-top-right-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);';
                             headerBar.innerHTML = `
                                 <span style="display: flex; align-items: center; gap: 6px;">
-                                    <span style="font-size: 16px;">📄</span> <span style="color: #4f46e5;">Multi-Page Document</span> (${totalPages} Pages)
+                                    <span style="font-size: 16px;">📄</span> <span style="color: #818cf8;">Multi-Page Document</span> (${totalPages} Pages)
                                 </span>
-                                <span style="font-size: 12px; font-weight: 600; color: #64748b;">Scroll to view all pages</span>
+                                <span style="font-size: 12px; font-weight: 600; color: #94a3b8;">Scroll to view all pages</span>
                             `;
                             container.appendChild(headerBar);
                         }
@@ -977,13 +1136,13 @@
 
                                 if (totalPages > 1) {
                                     const pageBadge = document.createElement('div');
-                                    pageBadge.style.cssText = 'display: inline-block; font-size: 11px; font-weight: 700; color: #475569; background: #e2e8f0; padding: 3px 12px; border-radius: 12px; margin-bottom: 8px; font-family: inherit;';
+                                    pageBadge.style.cssText = 'display: inline-block; font-size: 11px; font-weight: 700; color: #cbd5e1; background: #334155; padding: 3px 12px; border-radius: 12px; margin-bottom: 8px; font-family: inherit;';
                                     pageBadge.innerText = `Page ${pageNum} of ${totalPages}`;
                                     pageWrapper.appendChild(pageBadge);
                                 }
 
                                 const canvas = document.createElement('canvas');
-                                canvas.style.cssText = 'width: 100%; max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); background: #ffffff; display: block; margin: 0 auto;';
+                                canvas.style.cssText = 'width: 100%; max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); background: #ffffff; display: block; margin: 0 auto;';
                                 pageWrapper.appendChild(canvas);
                                 container.appendChild(pageWrapper);
 
@@ -1028,7 +1187,7 @@
                 overlay.style.left = '0';
                 overlay.style.width = '100vw';
                 overlay.style.height = '100vh';
-                overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.65)';
+                overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.75)';
                 overlay.style.backdropFilter = 'blur(4px)';
                 overlay.style.display = 'flex';
                 overlay.style.justifyContent = 'center';
@@ -1039,10 +1198,12 @@
                 const modalBox = document.createElement('div');
                 modalBox.style.width = isMobile ? '95%' : '720px';
                 modalBox.style.maxWidth = '95vw';
-                modalBox.style.backgroundColor = '#ffffff';
+                modalBox.style.backgroundColor = '#1e293b';
+                modalBox.style.color = '#f8fafc';
+                modalBox.style.border = '1px solid #334155';
                 modalBox.style.borderRadius = '16px';
                 modalBox.style.padding = '24px';
-                modalBox.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.35)';
+                modalBox.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.6)';
                 modalBox.style.boxSizing = 'border-box';
                 modalBox.style.position = 'relative';
                 modalBox.style.animation = 'docPreviewModalSmoothIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards';
@@ -1063,7 +1224,7 @@
                 headerBox.style.marginBottom = '16px';
 
                 const titleEl = document.createElement('span');
-                titleEl.innerHTML = `<strong style="font-family:inherit; font-size: 18px; color: #0f172a;">${name}</strong>`;
+                titleEl.innerHTML = `<strong style="font-family:inherit; font-size: 18px; color: #f8fafc;">${name}</strong>`;
 
                 const closeCross = document.createElement('button');
                 closeCross.type = 'button';
@@ -1072,7 +1233,7 @@
                 closeCross.style.border = 'none';
                 closeCross.style.fontSize = '20px';
                 closeCross.style.cursor = 'pointer';
-                closeCross.style.color = '#64748b';
+                closeCross.style.color = '#94a3b8';
                 closeCross.style.padding = '0 4px';
                 closeCross.onclick = closeOverlaySmoothly;
 
@@ -1101,8 +1262,10 @@
 
             // Standard SweetAlert modal if no prior modal is active
             Swal.fire({
-                title: `<span style="font-family:inherit; font-weight:700; font-size: 18px; color: #0f172a;">${name}</span>`,
+                title: `<span style="font-family:inherit; font-weight:700; font-size: 18px; color: #f8fafc;">${name}</span>`,
                 html: bodyHtml + footerHtml,
+                background: '#1e293b',
+                color: '#f8fafc',
                 width: isMobile ? '95%' : '720px',
                 showConfirmButton: false,
                 showCloseButton: true,

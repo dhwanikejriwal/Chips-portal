@@ -35,16 +35,8 @@
         <div class="form-grid-3x">
             <div class="input-group">
                 <label>New Station ID <span class="required-star">*</span></label>
-                <select name="new_station_id" id="l2-station-id-select" class="form-control-input" required
-                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;"
-                    onchange="onL2StationSelected(this)">
-                    <option value="" disabled selected>Select an L1 Approved Station ID</option>
-                    {% for s in awaiting_l2 %}
-                    <option value="{{ s.station_id }}">{{ s.station_id }}</option>
-                    {% else %}
-                    <option value="" disabled>No L1 Approved Station IDs awaiting L2</option>
-                    {% endfor %}
-                </select>
+                <div id="l2-station-combobox-container" style="width: 100%;"></div>
+                <input type="hidden" name="new_station_id" id="l2-station-id-select" required>
             </div>
             <div class="input-group">
                 <label>Client Software Version <span class="required-star">*</span></label>
@@ -266,11 +258,25 @@
         btn.childNodes[2].textContent = ' Submit Request';
     }
 
+    const awaitingL2StationsData = [
+        {% for s in awaiting_l2 %}
+        {
+            station_id: "{{ s.station_id }}",
+            new_station_id: "{{ s.station_id }}",
+            model: "{{ s.model or s.model_type or 'ECMP' }}",
+            machine_id: "{{ s.machine_id or '' }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
     function clearL2Form() {
         sessionStorage.removeItem('l2_request_draft');
         document.getElementById('l2-submit-form').reset();
         const eaInput = document.getElementById('l2-ea-code');
         if (eaInput) eaInput.value = '';
+        if (window.l2StationCombobox) window.l2StationCombobox.clear();
+        const hiddenInput = document.getElementById('l2-station-id-select');
+        if (hiddenInput) hiddenInput.value = '';
     }
 
     // Draft saving and restoring logic
@@ -301,6 +307,11 @@
                     el.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             }
+            if (draft['new_station_id'] && window.l2StationCombobox) {
+                const found = (awaitingL2StationsData || []).find(s => s.station_id === draft['new_station_id']);
+                if (found) window.l2StationCombobox.selectItem(found);
+                else window.l2StationCombobox.input.value = draft['new_station_id'];
+            }
         } catch (e) {
             console.error("Error loading draft", e);
         }
@@ -314,6 +325,33 @@
     };
 
     document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('l2-station-combobox-container');
+        const hiddenInput = document.getElementById('l2-station-id-select');
+        if (container && typeof window.SearchableCombobox === 'function') {
+            window.l2StationCombobox = new SearchableCombobox({
+                container: container,
+                placeholder: 'Search or select Station ID...',
+                items: awaitingL2StationsData || [],
+                onSelect: (item) => {
+                    const sid = item.station_id || item.new_station_id || '';
+                    if (hiddenInput) {
+                        hiddenInput.value = sid;
+                        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                    if (typeof window.onL2StationSelected === 'function') {
+                        window.onL2StationSelected(sid);
+                    }
+                    if (typeof window.saveL2Draft === 'function') window.saveL2Draft();
+                },
+                onClear: () => {
+                    if (hiddenInput) {
+                        hiddenInput.value = '';
+                        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            });
+        }
+
         const form = document.getElementById('l2-submit-form');
         if (form) {
             form.addEventListener('input', window.saveL2Draft);
@@ -338,8 +376,7 @@
         window.loadL2Draft();
 
         // Define onL2StationSelected handler to prefill L2 form
-        window.onL2StationSelected = function (sel) {
-            const stationId = sel.value;
+        window.onL2StationSelected = function (stationId) {
             if (!stationId) return;
 
             const fillable = ['new_machine_id', 'operator_name', 'operator_id', 'client_version', 'client_type'];
@@ -372,21 +409,17 @@
         // Pre-fill the L2 form when arriving from the "Awaiting L2 Registration" section via ?station_id=...
         const presetStation = new URLSearchParams(window.location.search).get('station_id');
         if (presetStation) {
-            const stationInput = document.getElementById('l2-station-id-select');
-            if (stationInput) {
-                let optionExists = Array.from(stationInput.options).some(o => o.value === presetStation);
-                if (!optionExists) {
-                    const opt = document.createElement('option');
-                    opt.value = presetStation;
-                    opt.textContent = presetStation;
-                    stationInput.appendChild(opt);
-                }
-                stationInput.value = presetStation;
-                stationInput.disabled = true;
-                stationInput.style.background = '#f1f5f9';
-                stationInput.style.cursor = 'not-allowed';
-                // Trigger prefill
-                window.onL2StationSelected(stationInput);
+            if (hiddenInput) hiddenInput.value = presetStation;
+            if (window.l2StationCombobox) {
+                const found = (awaitingL2StationsData || []).find(s => s.station_id === presetStation);
+                if (found) window.l2StationCombobox.selectItem(found);
+                else window.l2StationCombobox.input.value = presetStation;
+                window.l2StationCombobox.input.disabled = true;
+                window.l2StationCombobox.input.style.background = 'var(--bg-surface-secondary, #f1f5f9)';
+                window.l2StationCombobox.input.style.cursor = 'not-allowed';
+            }
+            if (typeof window.onL2StationSelected === 'function') {
+                window.onL2StationSelected(presetStation);
             }
         }
     });

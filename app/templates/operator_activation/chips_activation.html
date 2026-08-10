@@ -3,7 +3,6 @@
 {% block title %}Operator Activation Requests — CHIPS Admin{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}?v=23">
 <style>
     .oa-btn-export {
         display: inline-flex;
@@ -31,63 +30,7 @@
         height: 14px;
     }
 
-    .btn-issue {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        background: var(--dc-primary, #378ADD);
-        color: #fff;
-        border: none;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
 
-    .btn-issue:hover {
-        background: var(--dc-primary-hover, #2C74BE);
-    }
-
-    .btn-approve {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        background: #16a34a;
-        color: #fff;
-        border: none;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-
-    .btn-approve:hover {
-        background: #15803d;
-    }
-
-    .btn-revert {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 5px 12px;
-        background: #fff;
-        color: #dc2626;
-        border: 1.5px solid #fca5a5;
-        border-radius: 7px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.15s;
-    }
-
-    .btn-revert:hover {
-        background: #fee2e2;
-        border-color: #dc2626;
-    }
 </style>
 {% endblock %}
 
@@ -350,7 +293,7 @@
         </td>
         <td>
             <div class="action-group" style="justify-content: center;">
-                <button type="button" class="btn-issue" style="background-color: #16a34a; border-color: #16a34a;"
+                <button type="button" class="btn-mail"
                     onclick="exportAndMailSingle('{{ r.id }}', '{{ r.request_no }}')">Mail</button>
                 <button type="button" class="btn-revert"
                     onclick="showRevertModal('{{ r.id }}', '{{ r.request_no }}')">Revert</button>
@@ -432,7 +375,7 @@
         </td>
         <td>
             <div class="action-group" style="justify-content: center;">
-                <button type="button" class="btn-issue"
+                <button type="button" class="btn-sent-to-uidai"
                     onclick="showSendToUidaiModal('{{ r.id }}', '{{ r.request_no }}')">Send to UIDAI</button>
                 <button type="button" class="btn-details"
                     onclick="showChipsDetailsModal('{{ r.id }}', '{{ r.request_no }}', '{{ r.status }}')">
@@ -955,7 +898,7 @@
             filename: 'operator_activation_sent_to_uidai.csv',
             exportApiUrl: '/auth/chips/operator-activation/export-excel/uidai',
             mailApiUrl: '/auth/chips/operator-activation/export-and-mail',
-            onSuccess: function() {
+            onSuccess: function () {
                 sessionStorage.setItem('chips_action_reloading', 'true');
                 window.location.reload();
             }
@@ -988,7 +931,7 @@
             filename: `operator_activation_${displayReqNo}.csv`,
             exportApiUrl: '/auth/chips/operator-activation/export-excel/uidai',
             mailApiUrl: '/auth/chips/operator-activation/export-and-mail',
-            onSuccess: function() {
+            onSuccess: function () {
                 sessionStorage.setItem('chips_action_reloading', 'true');
                 window.location.reload();
             }
@@ -1066,6 +1009,15 @@
             if (targetTab) {
                 const activeTabBtn = document.querySelector(`.req-tab[data-tab="${targetTab}"]`);
                 if (activeTabBtn) activeTabBtn.click();
+                setTimeout(() => {
+                    const table = document.getElementById(targetTab + '-table');
+                    if (table) {
+                        table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        if (typeof window.highlightNotificationRows === 'function') {
+                            window.highlightNotificationRows(table);
+                        }
+                    }
+                }, 150);
             }
         }
 
@@ -1180,10 +1132,10 @@
         }).then(result => {
             if (result.isConfirmed) {
                 Swal.fire({
-                    title: 'Reverted Successfully!',
+                    title: 'Request Reverted!',
                     text: 'The request has been sent back to the District Coordinator.',
                     icon: 'success',
-                    confirmButtonColor: '#dc2626',
+                    confirmButtonColor: '#f59e0b',
                     showConfirmButton: true,
                     timer: 3000,
                     timerProgressBar: true
@@ -1353,17 +1305,21 @@
         } else if (s.includes('revert')) {
             badgeClass = 'badge-reverted';
             label = 'Reverted';
-        } else if (s === 'forwarded' || s.includes('uidai') || s === 'sent_to_uidai' || s === 'sent to uidai') {
-            badgeClass = 'badge-forwarded';
-            label = 'Sent to UIDAI';
+        } else if (s.includes('forward') || s.includes('uidai')) {
+            if (s.includes('again')) {
+                badgeClass = 'badge-forwarded-again';
+                label = 'Forwarded Again';
+            } else {
+                badgeClass = 'badge-forwarded';
+                label = s.includes('uidai') ? 'Sent to UIDAI' : 'Forwarded';
+            }
         } else if (s.includes('reappl')) {
             badgeClass = 'badge-reapplied';
             label = 'Reapplied';
         } else if (s.includes('reject')) {
-            badgeClass = 'badge-reverted';
+            badgeClass = 'badge-rejected';
             label = 'Rejected';
         } else if (s === 'pending') {
-            // 🌟 Enforces match continuity across submission endpoints
             badgeClass = 'badge-pending';
             label = 'Pending';
         }
@@ -1543,20 +1499,19 @@
 
         if (activeView === 'details') {
             let htmlContent = `
-                <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                        <span style="font-size: 14px; color: #666;">Request: <strong>${requestNo}</strong></span>
+                <div id="act-details-scroll" class="det-scroll">
+                    <div class="det-header">
+                        <span class="det-header-id">Request: <strong>${requestNo}</strong></span>
                         <span>${statusBadge}</span>
                     </div>
-                    <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                    <div class="det-submitted">
                         Submitted At: <strong>${d.submitted_at || d.created_at || '—'}</strong>
                     </div>
 
                     ${isRevertable && latestRevertReason ? `
-                    <div class="revert-reason-box" style="margin-bottom:20px;text-align:left;">
-                        <div class="revert-reason-header" style="display:flex;align-items:center;gap:4px;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                            ${String(displayStatus).toLowerCase().includes('revert') ? 'REVERT REASON / REMARKS' : 'REJECT REASON / REMARKS'}
+                    <div class="revert-reason-box" style="margin-bottom:20px;">
+                        <div class="revert-reason-header">
+                            <span class="revert-reason-title">${String(displayStatus).toLowerCase().includes('revert') ? 'Revert Reason/Remark:' : 'Rejection Reason/Remark:'}</span>
                         </div>
                         <div class="revert-reason-text">
                             ${escapeHtml(latestRevertReason)}
@@ -1565,86 +1520,86 @@
                     ` : ''}
 
                     <!-- Personal Information Card -->
-                    <div style="margin-bottom: 20px;">
-                        <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Personal Information</div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                            <div style="grid-column: 1/-1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Operator Name</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_name)}</div>
+                    <div>
+                        <div class="det-section-title">Personal Information</div>
+                        <div class="det-grid">
+                            <div class="det-card det-card-full">
+                                <div class="det-label">Operator Name</div>
+                                <div class="det-value">${escapeHtml(d.operator_name)}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Mobile Number</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_mobile)}</div>
+                            <div class="det-card">
+                                <div class="det-label">Mobile Number</div>
+                                <div class="det-value">${escapeHtml(d.operator_mobile)}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Email ID</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.primary_email || 'N/A')}</div>
+                            <div class="det-card">
+                                <div class="det-label">Email ID</div>
+                                <div class="det-value">${escapeHtml(d.primary_email || 'N/A')}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Aadhaar Card</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${maskedAadhaar}</div>
+                            <div class="det-card">
+                                <div class="det-label">Aadhaar Card</div>
+                                <div class="det-value">${maskedAadhaar}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">PAN Card</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.operator_pan || 'N/A')}</div>
+                            <div class="det-card">
+                                <div class="det-label">PAN Card</div>
+                                <div class="det-value">${escapeHtml(d.operator_pan || 'N/A')}</div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Address Card -->
-                    <div style="margin-bottom: 20px;">
-                        <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Address</div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">District</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.district_name)}</div>
+                    <div>
+                        <div class="det-section-title">Address</div>
+                        <div class="det-grid">
+                            <div class="det-card">
+                                <div class="det-label">District</div>
+                                <div class="det-value">${escapeHtml(d.district_name)}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Pincode</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.pincode || 'N/A')}</div>
+                            <div class="det-card">
+                                <div class="det-label">Pincode</div>
+                                <div class="det-value">${escapeHtml(d.pincode || 'N/A')}</div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Work & Certification Card -->
-                    <div style="margin-bottom: 20px;">
-                        <div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">Work &amp; Certification</div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Role</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.role || 'N/A')}</div>
+                    <div>
+                        <div class="det-section-title">Work &amp; Certification</div>
+                        <div class="det-grid">
+                            <div class="det-card">
+                                <div class="det-label">Role</div>
+                                <div class="det-value">${escapeHtml(d.role || 'N/A')}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">EA Code</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.ea_code || 'N/A')}</div>
+                            <div class="det-card">
+                                <div class="det-label">EA Code</div>
+                                <div class="det-value">${escapeHtml(d.ea_code || 'N/A')}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">User Code</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.user_code || 'N/A')}</div>
+                            <div class="det-card">
+                                <div class="det-label">User Code</div>
+                                <div class="det-value">${escapeHtml(d.user_code || 'N/A')}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Registrar Code</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.registrar_code || 'N/A')}</div>
+                            <div class="det-card">
+                                <div class="det-label">Registrar Code</div>
+                                <div class="det-value">${escapeHtml(d.registrar_code || 'N/A')}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certificate #</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.nseit_certificate_number || 'N/A')}</div>
+                            <div class="det-card">
+                                <div class="det-label">NSEIT Certificate #</div>
+                                <div class="det-value">${escapeHtml(d.nseit_certificate_number || 'N/A')}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Certification Date</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.nseit_certification_date || 'N/A')}</div>
+                            <div class="det-card">
+                                <div class="det-label">NSEIT Certification Date</div>
+                                <div class="det-value">${escapeHtml(d.nseit_certification_date || 'N/A')}</div>
                             </div>
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
-                                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">NSEIT Expiry Date</div>
-                                <div style="font-size: 13px; font-weight: 600; color: #495057;">${escapeHtml(d.nseit_certificate_expiry_date || 'N/A')}</div>
+                            <div class="det-card">
+                                <div class="det-label">NSEIT Expiry Date</div>
+                                <div class="det-value">${escapeHtml(d.nseit_certificate_expiry_date || 'N/A')}</div>
                             </div>
                         </div>
                     </div>
 
                     <!-- View Documents and View Remarks Buttons -->
-                    <div style="display: flex; justify-content: center; gap: 12px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-                        <button type="button" id="btn-show-docs" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Documents</button>
-                        <button type="button" id="btn-show-remarks" style="padding: 8px 16px; border-radius: 8px; background: #4f46e5; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">View Remarks</button>
+                    <div class="det-actions">
+                        <button type="button" id="btn-show-docs" class="det-btn">View Documents</button>
+                        <button type="button" id="btn-show-remarks" class="det-btn">View Remarks</button>
                     </div>
                 </div>
                 `;
@@ -1661,12 +1616,28 @@
                 width: '600px',
                 focusConfirm: false,
                 didOpen: () => {
-                    document.getElementById('btn-show-docs').onclick = () => {
-                        window.showActivationDetails(d, 'documents', id, requestNo, status);
-                    };
-                    document.getElementById('btn-show-remarks').onclick = () => {
-                        window.showActivationDetails(d, 'remarks', id, requestNo, status);
-                    };
+                    const popup = Swal.getPopup();
+                    if (popup) {
+                        const scrollable = popup.querySelector('div[style*="overflow-y: auto"]');
+                        if (scrollable) scrollable.scrollTop = 0;
+                        const htmlContainer = popup.querySelector('.swal2-html-container');
+                        if (htmlContainer) htmlContainer.scrollTop = 0;
+                    }
+                    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                        document.activeElement.blur();
+                    }
+                    const btnDocs = document.getElementById('btn-show-docs');
+                    if (btnDocs) {
+                        btnDocs.onclick = () => {
+                            window.showActivationDetails(d, 'documents', id, requestNo, status);
+                        };
+                    }
+                    const btnRemarks = document.getElementById('btn-show-remarks');
+                    if (btnRemarks) {
+                        btnRemarks.onclick = () => {
+                            window.showActivationDetails(d, 'remarks', id, requestNo, status);
+                        };
+                    }
                 }
             });
         }

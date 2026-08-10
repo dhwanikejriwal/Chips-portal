@@ -181,11 +181,11 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
             cands = filter_by_date(cands_q, Candidate).all()
             cand_holding_hours = calc_avg_holding(cands)
             
-            lms_reqs_q = db.query(LMS).join(Candidate, LMS.request_id == Candidate.id).filter(Candidate.district == dist_code)
+            lms_reqs_q = db.query(LMS).join(Candidate, LMS.request_id == Candidate.id).filter(Candidate.district == dist_code).options(joinedload(LMS.candidate))
             lms_reqs = filter_by_date(lms_reqs_q, LMS).all()
             lms_holding_hours = calc_avg_holding(lms_reqs)
             
-            nseit_reqs_q = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id).filter(Candidate.district == dist_code)
+            nseit_reqs_q = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id).filter(Candidate.district == dist_code).options(joinedload(NSEITRequest.candidate))
             nseit_reqs = filter_by_date(nseit_reqs_q, NSEITRequest).all()
             nseit_holding_hours = calc_avg_holding(nseit_reqs)
 
@@ -252,12 +252,66 @@ def get_dc_stats(timeframe: str = "all", db: Session = Depends(get_db)):
                 {}
             )
 
+            recent_requests = []
+            for r in cands:
+                sid = getattr(r, 'status_id', StatusEnum.PENDING.value)
+                st = 'PE'
+                if sid in (StatusEnum.APPROVED.value, StatusEnum.APPROVED_LEGACY.value): 
+                    st = 'AP'
+                elif sid == StatusEnum.REJECTED.value: 
+                    st = 'RJ'
+                elif sid in (StatusEnum.REVERTED.value, StatusEnum.REVERTED_BY_CHIPS.value): 
+                    st = 'RV'
+                    
+                code = getattr(r, 'request_code', "")
+                name = getattr(r, 'name', "")
+                t = getattr(r, 'created_at', None)
+                
+                # Convert time to string safely
+                t_str = t.strftime("%Y-%m-%d %H:%M:%S") if t else ""
+                
+                was_reverted = getattr(r, 'was_reverted', False)
+                recent_requests.append({
+                    "id": getattr(r, 'id', None),
+                    "type": "Candidate",
+                    "code": code,
+                    "name": name,
+                    "status": st,
+                    "was_reverted": was_reverted,
+                    "time": t_str,
+                    "time_obj": t  # Keep for sorting
+                })
+            
+            # Sort by time and take top 150
+            recent_requests.sort(key=lambda x: x["time_obj"] if x["time_obj"] else datetime.now(), reverse=True)
+            recent_requests = recent_requests[:150]
+            
+            # Fetch remarks for rejected candidates
+            rejected_ids = [rr["id"] for rr in recent_requests if rr["status"] == 'RJ' and rr["id"]]
+            if rejected_ids:
+                from backend.models.dc_remark import DCRemark
+                remarks = db.query(DCRemark.request_id, DCRemark.remark).filter(DCRemark.request_id.in_(rejected_ids)).order_by(DCRemark.time.desc()).all()
+                remark_dict = {}
+                for req_id, rm in remarks:
+                    if req_id not in remark_dict:
+                        remark_dict[req_id] = rm
+                
+                for rr in recent_requests:
+                    if rr["status"] == 'RJ' and rr["id"] in remark_dict:
+                        rr["remark"] = remark_dict[rr["id"]]
+
+            # Remove temp keys before returning
+            for rr in recent_requests:
+                del rr["time_obj"]
+                del rr["id"]
+
             result.append({
                 "district_code": dist_code,
                 "district_name": dist.district_name,
                 "dc_name": dc_info.get("name") or "Not Assigned",
                 "dc_email": dc_info.get("email") or "N/A",
                 "dc_phone": dc_info.get("phone") or "N/A",
+                "recent_requests": recent_requests,
                 "cand_holding_hours": cand_holding_hours,
                 "lms_holding_hours": lms_holding_hours,
                 "nseit_holding_hours": nseit_holding_hours,
@@ -523,8 +577,11 @@ def get_candidate_history(request_code: str, db: Session = Depends(get_db)):
         "qualification": candidate.qualification,
         "dob": candidate.dob.strftime("%Y-%m-%d") if candidate.dob else "",
         "aadhaar": candidate.aadhaar,
+        "photo_upload": candidate.photo_upload,
         "marksheet_upload": candidate.marksheet_upload,
         "tenth_marksheet_upload": candidate.tenth_marksheet_upload,
+        "lms_certificate_upload": candidate.lms_certificate_upload,
+        "nseit_certificate_upload": candidate.nseit_certificate_upload,
         "status": candidate.status,
         "lms_id": candidate.lms_id or "",
         "nseit_id": candidate.nseit_id or "",

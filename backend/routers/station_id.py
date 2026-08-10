@@ -43,6 +43,58 @@ def _remarks_list(remarks):
     ]
 
 
+def _get_unified_remarks_for_request(r: StationIDRequest, db: Session):
+    if not r.request_no:
+        return _remarks_list(r.remarks)
+    
+    # Query all request IDs sharing this request_no
+    sibling_ids = [s[0] for s in db.query(StationIDRequest.id).filter(StationIDRequest.request_no == r.request_no).all()]
+    if not sibling_ids:
+        return _remarks_list(r.remarks)
+        
+    remarks = db.query(StationIDRemark).filter(
+        StationIDRemark.request_id.in_(sibling_ids)
+    ).order_by(StationIDRemark.created_at.asc(), StationIDRemark.id.asc()).all()
+    
+    # Deduplicate identical remarks created at the same time across siblings (e.g. batch allotment remarks)
+    seen = set()
+    unique_remarks = []
+    for rm in remarks:
+        time_str = str(rm.created_at)[:16] if rm.created_at else ""
+        key = (rm.author_role.lower() if rm.author_role else "", (rm.remark or "").strip(), rm.status_after_id, time_str)
+        if key not in seen:
+            seen.add(key)
+            unique_remarks.append(rm)
+            
+    return _remarks_list(unique_remarks)
+
+
+def _get_batch_info(r: StationIDRequest, db: Session):
+    if not r.request_no:
+        return {
+            "total_kits": r.number_of_kits or 1,
+            "all_station_ids": [r.station_id_inserted] if r.station_id_inserted else []
+        }
+    
+    if r.status_id != StatusEnum.ALLOTTED.value:
+        return {
+            "total_kits": r.number_of_kits or 1,
+            "all_station_ids": [r.station_id_inserted] if r.station_id_inserted else []
+        }
+
+    siblings = db.query(StationIDRequest).filter(
+        StationIDRequest.request_no == r.request_no,
+        StationIDRequest.status_id == StatusEnum.ALLOTTED.value
+    ).all()
+    allotted_ids = [s.station_id_inserted for s in siblings if s.station_id_inserted]
+    kit_candidates = [s.number_of_kits for s in siblings if s.number_of_kits and s.number_of_kits > 0]
+    total_kits = max(kit_candidates + [len(siblings), len(allotted_ids), 1])
+    return {
+        "total_kits": total_kits,
+        "all_station_ids": allotted_ids
+    }
+
+
 # ─────────────────────────────────────────────
 # DC ROUTES
 # ─────────────────────────────────────────────
@@ -78,22 +130,25 @@ def submit_station_id_request(
     district_obj = db.query(District).filter(District.district_code == district_id).first()
     short_name = district_obj.district_short_name if district_obj and district_obj.district_short_name else "SID"
 
-    # Generate request_no sequentially based on the highest existing number (not count)
-    # Using count() is dangerous: deletions reduce the count and cause duplicate request_nos.
-    last_req = db.query(StationIDRequest).filter(
-        StationIDRequest.district_id == district_id,
+    # Find the true highest sequential number across all existing requests in this district
+    all_district_reqs = db.query(StationIDRequest.request_no).filter(
+        StationIDRequest.district_id == str(district_id),
         StationIDRequest.request_no.isnot(None),
         StationIDRequest.id != new_req.id
-    ).order_by(StationIDRequest.id.desc()).first()
+    ).all()
 
-    if last_req and last_req.request_no:
-        try:
-            last_num = int(re.sub(r'[^\d]', '', last_req.request_no.split('-K')[-1]))
-        except (ValueError, TypeError, IndexError):
-            last_num = 0
-    else:
-        last_num = 0
-    new_req.request_no = f"{short_name}-K{last_num + 1:04d}"
+    highest_num = 0
+    for req_tuple in all_district_reqs:
+        req_str = req_tuple[0]
+        if req_str and '-K' in req_str:
+            try:
+                num = int(re.sub(r'[^\d]', '', req_str.split('-K')[-1]))
+                if num > highest_num:
+                    highest_num = num
+            except (ValueError, TypeError):
+                pass
+
+    new_req.request_no = f"{short_name}-K{highest_num + 1:04d}"
     db.flush()
    
 
@@ -145,11 +200,13 @@ def get_dc_station_requests(dc_id: int, db: Session = Depends(get_db)):
         dist_name = r.district.district_name if r.district else f"District {r.district_id}"
         clean_status = str(r.status or "pending").strip().lower()
 
+        batch_info = _get_batch_info(r, db)
+        unified_remarks = _get_unified_remarks_for_request(r, db)
         
         revert_reason = ""
-        for rm in reversed(r.remarks):
-            if rm.status_after_id in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]:
-                revert_reason = rm.remark
+        for rm in reversed(unified_remarks):
+            if str(rm.get("status_after") or "").lower() in ["reverted", "rejected", "reverted_by_chips", "reverted by chips"]:
+                revert_reason = rm.get("remark", "")
                 break
 
         compiled_list.append({
@@ -161,15 +218,18 @@ def get_dc_station_requests(dc_id: int, db: Session = Depends(get_db)):
             "user_type": str(r.user_type).strip().lower(),
             "user_type_custom_reason": r.user_type_custom_reason,
             "slot": r.slot,
-            "number_of_kits": r.number_of_kits,
+            "number_of_kits": batch_info["total_kits"],
+            "total_kits_requested": batch_info["total_kits"],
             "status": clean_status,
             # 🌟 FIXED: Changed r.created_at to r.submitted_at to align with the database column model schema
             "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
             "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else "",
-            "updated_at": str(r.remarks[-1].created_at)[:16] if r.remarks else (str(r.reviewed_at)[:16] if r.reviewed_at else (str(r.submitted_at)[:16] if r.submitted_at else "")),
+            "updated_at": str(unified_remarks[-1]["created_at"]) if unified_remarks else (str(r.reviewed_at)[:16] if r.reviewed_at else (str(r.submitted_at)[:16] if r.submitted_at else "")),
 
             "assigned_station_id": r.station_id_inserted if r.station_id_inserted else "",
-            "remarks_history": _remarks_list(r.remarks),
+            "station_id_inserted": r.station_id_inserted if r.station_id_inserted else "",
+            "all_batch_station_ids": batch_info["all_station_ids"],
+            "remarks_history": unified_remarks,
             "revert_reason": revert_reason
         })
     return compiled_list
@@ -183,12 +243,13 @@ def get_all_station_requests_for_chips(db: Session = Depends(get_db)):
         StationIDRequest.submitted_at.desc()
     ).all()
 
-    
     compiled_list = []
     for r in requests:
         dist_name = r.district.district_name if r.district else f"District {r.district_id}"
         clean_status = str(r.status or "PENDING").strip().upper()
 
+        batch_info = _get_batch_info(r, db)
+        unified_remarks = _get_unified_remarks_for_request(r, db)
         
         compiled_list.append({
             "id": r.id,
@@ -199,15 +260,18 @@ def get_all_station_requests_for_chips(db: Session = Depends(get_db)):
             "user_type": str(r.user_type).strip().lower(),
             "user_type_custom_reason": r.user_type_custom_reason,
             "slot": r.slot,
-            "number_of_kits": r.number_of_kits,
+            "number_of_kits": batch_info["total_kits"],
+            "total_kits_requested": batch_info["total_kits"],
             "status": clean_status,
             # 🌟 FIXED: Changed r.created_at to r.submitted_at to align with the database column model schema
             "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
             "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else "",
-            "updated_at": str(r.remarks[-1].created_at)[:16] if r.remarks else (str(r.reviewed_at)[:16] if r.reviewed_at else (str(r.submitted_at)[:16] if r.submitted_at else "")),
+            "updated_at": str(unified_remarks[-1]["created_at"]) if unified_remarks else (str(r.reviewed_at)[:16] if r.reviewed_at else (str(r.submitted_at)[:16] if r.submitted_at else "")),
 
             "station_id_inserted": r.station_id_inserted if r.station_id_inserted else "",
-            "remarks_history": _remarks_list(r.remarks)
+            "assigned_station_id": r.station_id_inserted if r.station_id_inserted else "",
+            "all_batch_station_ids": batch_info["all_station_ids"],
+            "remarks_history": unified_remarks
         })
     return compiled_list
 
@@ -222,6 +286,8 @@ def get_station_request_individual_detail(request_id: int, db: Session = Depends
     dist_name = r.district.district_name if r.district else f"District {r.district_id}"
     clean_status = str(r.status or "PENDING").strip().upper()
 
+    batch_info = _get_batch_info(r, db)
+    unified_remarks = _get_unified_remarks_for_request(r, db)
     
     return {
         "id": r.id,
@@ -232,16 +298,18 @@ def get_station_request_individual_detail(request_id: int, db: Session = Depends
         "user_type": str(r.user_type).strip().lower(),
         "user_type_custom_reason": r.user_type_custom_reason,
         "slot": r.slot,
-        "number_of_kits": r.number_of_kits,
+        "number_of_kits": batch_info["total_kits"],
+        "total_kits_requested": batch_info["total_kits"],
         "status": clean_status,
         # 🌟 FIXED: Changed r.created_at to r.submitted_at to align with the database column model schema
         "submitted_at": str(r.submitted_at)[:16] if r.submitted_at else "",
         "reviewed_at": str(r.reviewed_at)[:16] if r.reviewed_at else "",
-        "updated_at": str(r.remarks[-1].created_at)[:16] if r.remarks else (str(r.reviewed_at)[:16] if r.reviewed_at else (str(r.submitted_at)[:16] if r.submitted_at else "")),
+        "updated_at": str(unified_remarks[-1]["created_at"]) if unified_remarks else (str(r.reviewed_at)[:16] if r.reviewed_at else (str(r.submitted_at)[:16] if r.submitted_at else "")),
 
         "station_id_inserted": r.station_id_inserted if r.station_id_inserted else "",
         "assigned_station_id": r.station_id_inserted if r.station_id_inserted else "",
-        "remarks_history": _remarks_list(r.remarks)
+        "all_batch_station_ids": batch_info["all_station_ids"],
+        "remarks_history": unified_remarks
     }
 
 
@@ -332,11 +400,12 @@ def approve_station_request(
 
     # One record per Station ID: the first stays on the original request row, and each
     # additional Station ID becomes a sibling row sharing the same request_no.
+    original_kit_count = r.number_of_kits if r.number_of_kits and r.number_of_kits > 0 else len(sids)
     r.status_id = StatusEnum.ALLOTTED.value
     r.station_id_inserted = sids[0]
     if slot and slot.strip():
         r.slot = slot.strip()
-    r.number_of_kits = 1
+    r.number_of_kits = original_kit_count
     r.reviewed_by = reviewed_by
     r.reviewed_at = reviewed_at
     db.add(StationIDRemark(
@@ -356,7 +425,7 @@ def approve_station_request(
             user_type=r.user_type,
             user_type_custom_reason=r.user_type_custom_reason,
             slot=r.slot,
-            number_of_kits=1,
+            number_of_kits=original_kit_count,
             status_id=StatusEnum.ALLOTTED.value,
             station_id_inserted=extra_sid,
             submitted_at=r.submitted_at,
@@ -506,7 +575,7 @@ def export_station_id_excel(ids: str = None, exclude_kits: bool = False, exclude
             "user_type_custom_reason": r.user_type_custom_reason or "None",
             "slot": r.slot or "",
             "number_of_kits": r.number_of_kits,
-            "station_id_inserted": r.station_id_inserted or "Not Assigned Yet",
+            "station_id_inserted": r.station_id_inserted if (r.station_id_inserted and r.station_id_inserted.strip()) else "Not Allotted Yet",
             "status": clean_status,
             "submitted_at": r.submitted_at.strftime("%Y-%m-%d %H:%M:%S") if r.submitted_at else "",
             "reviewed_at": updated_time.strftime("%Y-%m-%d %H:%M:%S") if updated_time else ""
@@ -524,7 +593,7 @@ def export_station_id_excel(ids: str = None, exclude_kits: bool = False, exclude
         "user_type_custom_reason": "Custom Specification Remarks",
         "slot": "Type of Slot",
         "number_of_kits": "Requested Kits Quantity",
-        "station_id_inserted": "Assigned Station ID",
+        "station_id_inserted": "Allotted Station ID",
         "status": "Status",
         "submitted_at": "Submission Timestamp",
         "reviewed_at": "Review  Timestamp"

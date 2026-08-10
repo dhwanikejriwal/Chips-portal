@@ -428,7 +428,7 @@ def export_candidate_requests_backend(db: Session = Depends(get_db)):
     # 3. Explicit column mapping configurations
     column_mappings = {
         "r_id": "Database Serial ID",
-        "request_code": "Request Code/ID",
+        "request_code": "Request ID",
         "district_name": "Operational District",
         "name": "Candidate Full Name",
         "mobile": "Mobile Number",

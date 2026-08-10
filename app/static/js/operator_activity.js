@@ -5,9 +5,19 @@
 
   console.log("[operator-activity] script build v7 loaded");
 
-  var API = "/auth/chips/operator-activity/api";        // GET proxy prefix
-  var UPLOAD_URL = "/auth/chips/operator-activity/api-upload";
-  var EXPORT_URL = "/auth/chips/operator-activity/api-export";
+  var isDC = window.location.pathname.indexOf("/dc/") !== -1;
+  var prefix = isDC ? "/auth/dc/operator-activity" : "/auth/chips/operator-activity";
+  var API = prefix + "/api";        // GET proxy prefix
+  var UPLOAD_URL = prefix + "/api-upload";
+  var EXPORT_URL = prefix + "/api-export";
+
+  // Hide upload button for DC users
+  if (isDC) {
+    document.addEventListener("DOMContentLoaded", function() {
+      var btn = document.getElementById("oaUploadBtn");
+      if (btn) btn.style.display = "none";
+    });
+  }
 
   var MEASURES = [
     ["New_Aadhaar_Enrolment", "New Enrolment"],

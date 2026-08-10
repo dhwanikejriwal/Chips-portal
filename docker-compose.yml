@@ -1,0 +1,70 @@
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: chips-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-YOUR_STRONG_PASSWORD}
+      POSTGRES_DB: chips_db_new
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - chips-network
+
+  backend:
+    build: .
+    container_name: chips-backend
+    restart: always
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 4
+    environment:
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD:-YOUR_STRONG_PASSWORD}@postgres:5432/chips_db_new
+      - SECRET_KEY=${SECRET_KEY:-generate_a_random_secure_string_here_for_production}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-360}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      - postgres
+    networks:
+      - chips-network
+
+  frontend:
+    build: .
+    container_name: chips-frontend
+    restart: always
+    command: ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:create_app()"]
+    environment:
+      - BACKEND_API_URL=http://backend:8000/api
+      - SECRET_KEY=${SECRET_KEY:-generate_a_random_secure_string_here_for_production}
+    depends_on:
+      - backend
+    networks:
+      - chips-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: chips-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+    networks:
+      - chips-network
+
+networks:
+  chips-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.100.0/24
+
+volumes:
+  postgres_data:
+  uploads_data:

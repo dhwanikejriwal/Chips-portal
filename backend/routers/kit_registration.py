@@ -1,6 +1,8 @@
 # backend/routers/kit_registration.py
+import math
 from datetime import date
 from typing import Optional, List
+from sqlalchemy import case
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -257,8 +259,50 @@ def _serialize(k: KitRegistration, status_names: dict,
     }
 
 
+def _build_kit_query(db: Session, search: str, sort_by: str, sort_order: str):
+    query = db.query(KitRegistration)
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (KitRegistration.request_no.ilike(search_term)) |
+            (KitRegistration.station_id.ilike(search_term)) |
+            (KitRegistration.district.ilike(search_term))
+        )
+
+    if sort_by == 'l1_pending_days':
+        is_pending = KitRegistration.l1_status_id.in_(L1_PENDING_STATES)
+        order_col = KitRegistration.station_id_provided_date.asc() if sort_order == 'desc' else KitRegistration.station_id_provided_date.desc()
+        query = query.order_by(
+            case((is_pending, 0), else_=1),
+            order_col.nullslast(),
+            KitRegistration.id.desc()
+        )
+    elif sort_by == 'l2_pending_days':
+        is_pending = KitRegistration.l2_status_id.in_(L2_PENDING_STATES)
+        order_col = KitRegistration.l1_done_date.asc() if sort_order == 'desc' else KitRegistration.l1_done_date.desc()
+        query = query.order_by(
+            case((is_pending, 0), else_=1),
+            order_col.nullslast(),
+            KitRegistration.id.desc()
+        )
+    else:
+        query = query.order_by(
+            KitRegistration.station_id_provided_date.desc().nullslast(),
+            KitRegistration.id.desc(),
+        )
+        
+    return query
+
+
 @router.get("/all")
-def get_all_kit_registrations(db: Session = Depends(get_db)):
+def get_all_kit_registrations(
+    page: int = 1,
+    per_page: int = 50,
+    search: str = "",
+    sort_by: str = "",
+    sort_order: str = "desc",
+    db: Session = Depends(get_db)
+):
     """Full kit-registration tracker for the frontend table (newest first).
 
     Reconciles L1/L2 status from the live registration-request tables first,
@@ -277,14 +321,23 @@ def get_all_kit_registrations(db: Session = Depends(get_db)):
         for r in db.query(L2RegistrationRequest.new_station_id).all()
     }
 
-    rows = db.query(KitRegistration).order_by(
-        KitRegistration.station_id_provided_date.desc().nullslast(),
-        KitRegistration.id.desc(),
-    ).all()
-    return [
+    query = _build_kit_query(db, search, sort_by, sort_order)
+    total = query.count()
+    
+    rows = query.offset((page - 1) * per_page).limit(per_page).all()
+    
+    items = [
         _serialize(r, status_names, r.station_id in l1_stations, r.station_id in l2_stations)
         for r in rows
     ]
+    
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "pages": math.ceil(total / per_page) if per_page > 0 else 0,
+        "per_page": per_page
+    }
 
 
 @router.patch("/{kit_id}/l1-done")
@@ -314,7 +367,12 @@ def mark_l2_done(kit_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/export-excel")
-def export_kit_registration_excel(ids: str = None, db: Session = Depends(get_db)):
+def export_kit_registration_excel(
+    search: str = "",
+    sort_by: str = "",
+    sort_order: str = "desc",
+    db: Session = Depends(get_db)
+):
     """Exports all information corresponding to the requested tracking entries."""
     _reconcile_kit_table(db)
 
@@ -329,15 +387,8 @@ def export_kit_registration_excel(ids: str = None, db: Session = Depends(get_db)
         for r in db.query(L2RegistrationRequest.new_station_id).all()
     }
 
-    query = db.query(KitRegistration)
-    if ids:
-        id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
-        query = query.filter(KitRegistration.id.in_(id_list))
-
-    rows = query.order_by(
-        KitRegistration.station_id_provided_date.desc().nullslast(),
-        KitRegistration.id.desc(),
-    ).all()
+    query = _build_kit_query(db, search, sort_by, sort_order)
+    rows = query.all()
 
     export_data = []
     for idx, r in enumerate(rows):

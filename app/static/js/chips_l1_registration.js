@@ -57,24 +57,20 @@ function approveL1Request(requestCode) {
 
 function revertL1Request(requestCode) {
     Swal.fire({
-        title: `<div style="text-align:left;font-size:18px;color:#dc2626;font-weight:800;">Revert Request</div>`,
-        html: `<div style="text-align:left;">
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#c2410c;">
-                Request <strong>${requestCode}</strong> will be sent back to the DC with your remark.
-            </div>
-            <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
-                Revert Reason <span style="color:#ef4444;">*</span>
-            </div>
-            <textarea id="swal-revert-reason"
-                style="width:100%;padding:10px 14px;border:1.5px solid #fca5a5;border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;min-height:90px;outline:none;box-sizing:border-box;"
-                placeholder="Clearly explain why this request is being reverted so the DC can correct it..." autofocus></textarea>
+        title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">Revert Request</span>`,
+        html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+            <div style="font-size:13px; margin-bottom:12px;">Reverting Request: <strong>${requestCode}</strong></div>
+            <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">REASON FOR REVERTING</div>
+            <textarea id="swal-revert-reason" class="swal2-textarea"
+                style="width:100%; height:90px; padding:10px 14px; border:1.5px solid var(--border-strong, #334155); border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; box-sizing:border-box; margin:0;"
+                placeholder="Enter the reason for reverting this request..." autofocus></textarea>
         </div>`,
         showCancelButton: true,
-        confirmButtonText: '↩ Revert Request',
-        confirmButtonColor: '#378ADD',
+        confirmButtonText: 'Revert Request',
+        confirmButtonColor: '#007bff',
         cancelButtonText: 'Cancel',
         cancelButtonColor: '#6c757d',
-        width: '500px',
+        width: '520px',
         focusConfirm: false,
         showLoaderOnConfirm: true,
         preConfirm: () => {
@@ -99,7 +95,7 @@ function revertL1Request(requestCode) {
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({ title: 'Reverted!', text: 'Request has been sent back to the DC.', icon: 'success', showConfirmButton: true, timer: 3000, timerProgressBar: true }).then(() => {
+            Swal.fire({ title: 'Request Reverted!', text: 'Request has been sent back to the District Coordinator.', icon: 'success', confirmButtonColor: '#f59e0b', showConfirmButton: true, timer: 3000, timerProgressBar: true }).then(() => {
                 sessionStorage.setItem('chips_action_reloading', 'true');
                 window.location.reload();
             });
@@ -116,7 +112,7 @@ function getStatusBadgeHtml(status) {
     const s = (status || '').trim().toLowerCase().replace(/_/g, ' ');
     let badgeClass = 'badge-pending';
     let label = 'Pending';
-    if (s.includes('approve') || s.includes('l1 done') || s.includes('l1_done')) { badgeClass = 'badge-approved'; label = 'L1 Done'; }
+    if (s.includes('approve') || s.includes('l1 done') || s.includes('l1_done') || s.includes('done')) { badgeClass = 'badge-approved'; label = 'L1 Done'; }
     else if (s.includes('revert')) { badgeClass = 'badge-reverted'; label = 'Reverted'; }
     else if (s.includes('forward') || s.includes('uidai')) { badgeClass = 'badge-forwarded'; label = s.includes('again') ? 'Forwarded Again' : 'Forwarded'; }
     else if (s.includes('reappl')) { badgeClass = 'badge-reapplied'; label = 'Reapplied'; }
@@ -136,13 +132,25 @@ function buildRemarksHtml(remarks) {
         const sender = isChips ? 'CHiPS Admin' : 'District Coordinator';
         const senderClass = isChips ? 'chips' : 'dc';
 
-        const action = r.action || '';
+        let action = r.action || '';
+        const remarkText = (r.remark || '').toLowerCase();
+        if (!action || action.toLowerCase() === 'pending' || action.toLowerCase() === 'none') {
+            if (remarkText.includes('marked as done') || remarkText.includes('l1 done') || remarkText.includes('approved') || remarkText.includes('completed')) {
+                action = 'DONE';
+            } else if (remarkText.includes('reverted') || remarkText.includes('revert')) {
+                action = 'REVERTED';
+            } else if (remarkText.includes('reapplied') || remarkText.includes('reapply')) {
+                action = 'REAPPLIED';
+            } else if (remarkText.includes('initialized') || remarkText.includes('submitted')) {
+                action = 'SUBMITTED';
+            }
+        }
         let statusBadgeHtmlInline = '';
         let markerClass = 'marker-pending';
         if (action) {
             statusBadgeHtmlInline = ' ' + getStatusBadgeHtml(action);
             const aLower = action.toLowerCase();
-            if (aLower.includes('approve') || aLower.includes('l1 done') || aLower.includes('l1_done')) markerClass = 'marker-approved';
+            if (aLower.includes('approve') || aLower.includes('done') || aLower.includes('l1 done') || aLower.includes('l1_done')) markerClass = 'marker-approved';
             else if (aLower.includes('revert') || aLower.includes('reject')) markerClass = 'marker-reverted';
             else if (aLower.includes('forward') || aLower.includes('uidai')) markerClass = 'marker-forwarded';
             else if (aLower.includes('reappl')) markerClass = 'marker-reapplied';
@@ -205,16 +213,16 @@ window.showL1Details = function (data, activeView) {
 
     if (activeView === 'details') {
         function infoCell(label, value) {
-            const v = (value && value !== 'null' && value !== 'undefined') ? escapeHtml(String(value)) : '<span style="color:#cbd5e1;">—</span>';
+            const v = (value && value !== 'null' && value !== 'undefined') ? escapeHtml(String(value)) : '<span style="color:#94a3b8;">—</span>';
             return `
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01); display: flex; flex-direction: column; gap: 3px;">
-                <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${label}</div>
-                <div style="font-size: 13px; font-weight: 600; color: #495057; word-break: break-word;">${v}</div>
+            <div class="l1-info-card">
+                <div class="l1-info-label">${label}</div>
+                <div class="l1-info-value">${v}</div>
             </div>`;
         }
 
         function sectionHead(title) {
-            return `<div style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; margin: 16px 0 12px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px;">${title}</div>`;
+            return `<div class="l1-section-header">${title}</div>`;
         }
 
         let htmlContent = `
@@ -230,8 +238,8 @@ window.showL1Details = function (data, activeView) {
             ${displayStatus === 'REVERTED' ? `
             <!-- Revert Reason / Remark Box -->
             <div class="revert-reason-box" style="margin-bottom: 18px;">
-                <div class="revert-reason-header" style="gap: 6px;">
-                    <span>💬</span> REVERT REASON / REMARK
+                <div class="revert-reason-header">
+                    <span class="revert-reason-title">Revert Reason/Remark:</span>
                 </div>
                 <div class="revert-reason-text">
                     ${escapeHtml(data.revert_reason || 'No reason note provided.')}
@@ -254,28 +262,13 @@ window.showL1Details = function (data, activeView) {
                 ${infoCell('Laptop Brand', data.laptop_brand || 'N/A')}
             </div>
 
-            ${sectionHead('Authentication Details')}
+            ${sectionHead('Ultra Viewer Credentials')}
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
                 ${infoCell('Ultra Viewer ID', data.uv_id)}
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.01); display: flex; flex-direction: column; gap: 3px;">
-                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Ultra Viewer Password</div>
-                ${infoCell('Laptop Serial Number', data.laptop_serial_no)}
-                ${infoCell('Laptop Brand', data.laptop_brand)}
-            </div>
-
-            ${sectionHead('Operator Details')}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-                ${infoCell('Operator Name', data.operator_name)}
-                ${infoCell('Operator ID', data.operator_id)}
-            </div>
-
-            ${sectionHead('Ultra Viewer Credentials')}
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-                ${infoCell('Ultra Viewer ID', data.uv_id)}
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;display:flex;flex-direction:column;gap:3px;">
-                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Ultra Viewer Password</div>
+                <div class="l1-info-card">
+                    <div class="l1-info-label">Ultra Viewer Password</div>
                     <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
-                        <input type="password" id="chips_uv_password_display" value="${escapeHtml(data.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: #495057; width: 100%; outline: none;" />
+                        <input type="password" id="chips_uv_password_display" value="${escapeHtml(data.uv_password || '')}" readonly style="background: transparent; border: none; font-size: 13px; font-weight: 600; color: inherit; width: 100%; outline: none;" />
                         <button type="button" onclick="togglePasswordVisibility('chips_uv_password_display', this)" style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #64748b;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>

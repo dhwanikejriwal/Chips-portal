@@ -3,14 +3,10 @@
 {% block title %}My L2 Registration Requests — CHiPS Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}?v=20">
 <style>
-    .delayed-row {
-        background-color: #fee2e2 !important;
-    }
-
+    .delayed-row,
     .delayed-row:hover {
-        background-color: #fecaca !important;
+        background-color: transparent !important;
     }
 </style>
 {% endblock %}
@@ -393,6 +389,7 @@
         data-tech-center-remarks="{{ r.tech_center_remarks or '' }}" data-unique-id="{{ r.unique_id }}"
         data-block="{{ r.block }}" data-address-of-govt-premises="{{ r.address_of_govt_premises }}"
         data-status="{{ r.status }}" data-created="{{ r.submitted_at }}"
+        data-updated="{{ r.updated_at or r.completed_at or r.reviewed_at or r.submitted_at }}"
         data-district="{{ r.district_name or 'Raipur' }}" data-remarks='{{ r.remarks_history | tojson | safe }}'>
 
         <td>{{ ns_reverted.count }}</td>
@@ -688,6 +685,27 @@
         }
 
         filterAllTables();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const qStatus = urlParams.get('status');
+        if (urlParams.has('from_notif') || qStatus) {
+            const df = document.getElementById('dc-date-filter');
+            if (df) df.value = 'all';
+            filterAllTables();
+        }
+        if (qStatus && (qStatus.toLowerCase().includes('revert') || qStatus.toLowerCase().includes('reject'))) {
+            const revTabBtn = document.querySelector('.req-tab[data-tab="reverted"]');
+            if (revTabBtn) revTabBtn.click();
+            setTimeout(() => {
+                const table = document.getElementById('reverted-requests-table') || document.querySelector('[data-panel="reverted"]');
+                if (table) {
+                    table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (typeof window.highlightNotificationRows === 'function') {
+                        window.highlightNotificationRows(table);
+                    }
+                }
+            }, 150);
+        }
     });
 
     // Popup Chat & Reapply Core Engine Logic 
@@ -778,7 +796,7 @@
         const isRevertable = ['reverted', 'rejected', 'reverted by chips', 'reverted_by_chips'].includes(normStatus);
         const isRejected = ((d.status || '').toLowerCase().replace(/ /g, '_') === 'rejected');
         const alertTitle = isRejected ? 'Action Required — Request Rejected' : 'Action Required — Request Reverted';
-        const reasonHeader = isRejected ? 'REJECT REASON / REMARKS' : 'REVERT REASON / REMARKS';
+        const reasonHeader = isRejected ? 'Rejection Reason/Remark' : 'Revert Reason/Remark';
 
         const statusBadge = getStatusBadgeHtml(d.status);
 
@@ -899,19 +917,19 @@
                 </div>
 
                 <!-- Action Required Notification Box -->
-                <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;">
-                    <div style="font-size: 14px; font-weight: 700; color: #c2410c; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                        <span>⚠️</span> ${alertTitle}
+                <div class="action-required-banner">
+                    <div class="action-required-title" style="color: var(--alert-warning-title) !important;">
+                        <span>⚠️</span> <span style="color: var(--alert-warning-title) !important;">${alertTitle}</span>
                     </div>
-                    <div style="font-size: 13px; color: #9a3412; font-weight: 500;">
+                    <div class="action-required-desc" style="color: var(--alert-warning-desc) !important;">
                         Review CHiPS Admin's remarks below, update details and click "Resubmit".
                     </div>
                 </div>
 
                 <!-- Revert Reason / Remark Box -->
                 <div class="revert-reason-box" style="margin-bottom: 18px;">
-                    <div class="revert-reason-header" style="gap: 6px;">
-                        <span>💬</span> ${reasonHeader}
+                    <div class="revert-reason-header">
+                        <span class="revert-reason-title">${reasonHeader}:</span>
                     </div>
                     <div class="revert-reason-text">
                         ${escapeHtml(latestRevertReason)}

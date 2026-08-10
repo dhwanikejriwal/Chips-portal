@@ -3,7 +3,6 @@
 {% block title %}LMS Credential Verification - DC/EDM Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/common/common_style.css') }}">
 <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 {% endblock %}
 
@@ -119,7 +118,7 @@ reverted_count + reverted_by_chips_count %}
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
         <label>Search Candidate</label>
-        <input type="text" id="admin-search-input" placeholder="Search by code, name, mobile or email..."
+        <input type="text" id="admin-search-input" placeholder="Search by request ID, name, mobile or email..."
             class="filter-input" oninput="filterAdminQueues()">
     </div>
     <!-- Hidden input to align javascript filters for district coordinate views -->
@@ -174,7 +173,7 @@ reverted_count + reverted_by_chips_count %}
     min_width=1050,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request code'},
+    {'label': 'Request ID'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -224,10 +223,9 @@ reverted_count + reverted_by_chips_count %}
         </td>
         <td style="text-align: center;">
             <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
-                <button type="button" class="btn btn-sm"
-                    style="background-color: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; font-weight: 600;"
+                <button type="button" class="btn-forward"
                     onclick="openForwardModal('{{ req.r_id }}', '{{ req.name }}')">Forward</button>
-                <button type="button" class="btn btn-sm" style="background-color: #dc3545;"
+                <button type="button" class="btn-revert"
                     onclick="openRevertModal('{{ req.r_id }}', '{{ req.name }}')">Revert</button>
                 <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -263,7 +261,7 @@ reverted_count + reverted_by_chips_count %}
     min_width=1050,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request code'},
+    {'label': 'Request ID'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -346,7 +344,7 @@ reverted_count + reverted_by_chips_count %}
     min_width=1050,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request code'},
+    {'label': 'Request ID'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -417,7 +415,7 @@ reverted_count + reverted_by_chips_count %}
     min_width=1050,
     columns=[
     {'label': 'S.No', 'cls': 'rs-col-sno'},
-    {'label': 'Request code'},
+    {'label': 'Request ID'},
     {'label': 'Candidate name'},
     {'label': 'Mobile no'},
     {'label': 'Email ID'},
@@ -763,11 +761,12 @@ reverted_count + reverted_by_chips_count %}
                 }).then(response => {
                     if (response.ok) {
                         Swal.fire({
-                            title: 'Reverted!',
+                            title: 'Request Reverted!',
                             text: 'LMS Request reverted back to candidate.',
-                            icon: 'warning',
-                            confirmButtonColor: '#dc3545',
-                            timer: 2500,
+                            icon: 'success',
+                            confirmButtonColor: '#f59e0b',
+                            showConfirmButton: true,
+                            timer: 3000,
                             timerProgressBar: true
                         }).then(() => {
                             sessionStorage.setItem('dc_action_reloading', 'true');
@@ -862,8 +861,8 @@ reverted_count + reverted_by_chips_count %}
                         <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
                         <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${fileName}">${shortFileName}</div>
                         ${showPostApprovalNote ? `
-                        <div style="font-size: 9px; font-weight: 700; color: #d97706; margin-top: 4px; padding: 2px 6px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; display: inline-block;">
-                            ⚠️ Uploaded post-approval
+                        <div class="post-approval-badge" style="color: var(--post-approval-text) !important; background: var(--post-approval-bg) !important; border: 1px solid var(--post-approval-border) !important;">
+                            <span>⚠️</span> <span style="color: var(--post-approval-text) !important;">Uploaded post-approval</span>
                         </div>` : ''}
                     </div>
                     <div style="display: flex; gap: 6px; flex-shrink: 0;">
@@ -941,18 +940,18 @@ reverted_count + reverted_by_chips_count %}
             let htmlContent = `
             <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; gap: 8px;">
-                    <span style="font-size: 13px; color: #64748b; font-weight: 500; white-space: nowrap;">Request: <strong style="color:#0f172a; font-weight:700;">${d.code}</strong></span>
+                    <span style="font-size: 13px; font-weight: 500; white-space: nowrap;" class="modal-req-label">Request: <strong style="font-weight:700;" class="modal-req-code">${d.code}</strong></span>
                     <span style="flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center;">${statusBadge}</span>
                 </div>
-                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px; color: #888;">
+                <div style="margin-top: -10px; margin-bottom: 15px; font-size: 12px;" class="modal-submitted-at">
                     Submitted At: <strong>${d.created}</strong>
                 </div>
 
                 ${latestRevertReason ? `
                 <!-- Revert Reason / Remark Box -->
                 <div class="revert-reason-box" style="margin-bottom: 18px;">
-                    <div class="revert-reason-header" style="gap: 6px;">
-                        <span>💬</span> REVERT REASON
+                    <div class="revert-reason-header">
+                        <span class="revert-reason-title">Revert Reason/Remark:</span>
                     </div>
                     <div class="revert-reason-text">
                         ${escapeHtml(latestRevertReason)}
@@ -961,13 +960,13 @@ reverted_count + reverted_by_chips_count %}
 
                 ${candidateReRequestReason ? `
                 <!-- Candidate Re-Request Reason Box -->
-                <div style="background: #fffbeb; border: 1px dashed #fcd34d; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;">
-                    <div style="font-size: 11px; font-weight: 750; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-                        <span>⚠️</span> CANDIDATE ALREADY HAS EXISTING ID / CERTIFICATE
+                <div class="candidate-rerequest-box">
+                    <div class="candidate-rerequest-title" style="color: var(--candidate-rerequest-title) !important;">
+                        <span>⚠️</span> <span style="color: var(--candidate-rerequest-title) !important;">CANDIDATE ALREADY HAS EXISTING ID / CERTIFICATE</span>
                     </div>
-                    <div style="font-size: 13px; font-weight: 600; color: #78350f; line-height: 1.5;">
-                        <strong>Reason for request:</strong><br>
-                        <span style="font-style: italic;">"${escapeHtml(candidateReRequestReason)}"</span>
+                    <div class="candidate-rerequest-body" style="color: var(--candidate-rerequest-text) !important;">
+                        <strong style="color: var(--candidate-rerequest-title) !important;">Reason for request:</strong><br>
+                        <span class="candidate-rerequest-reason" style="color: var(--candidate-rerequest-text) !important;">"${escapeHtml(candidateReRequestReason)}"</span>
                     </div>
                 </div>` : ''}
 
@@ -1351,6 +1350,19 @@ reverted_count + reverted_by_chips_count %}
                 }
             }
         });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('from_notif') || urlParams.get('status')) {
+            setTimeout(() => {
+                const table = document.getElementById('admin-pending-table') || document.querySelector('[data-panel="pending"]');
+                if (table) {
+                    table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    if (typeof window.highlightNotificationRows === 'function') {
+                        window.highlightNotificationRows(table);
+                    }
+                }
+            }, 150);
+        }
     });
 </script>
 {% endblock %}

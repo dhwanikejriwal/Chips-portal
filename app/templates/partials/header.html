@@ -945,6 +945,91 @@
         background: #1d4ed8;
     }
 
+    /* ---- Dark Theme adaptation for Notification Panel ---- */
+    html[data-theme="dark"] .notification-dropdown {
+        background: #1e293b;
+        border-color: #334155;
+        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+    }
+
+    html[data-theme="dark"] .notification-bell-btn:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
+    }
+
+    html[data-theme="dark"] .notification-panel-title {
+        color: #f8fafc;
+    }
+
+    html[data-theme="dark"] .notification-panel-subtitle {
+        color: #94a3b8;
+    }
+
+    html[data-theme="dark"] .notification-panel-close {
+        color: #94a3b8;
+    }
+
+    html[data-theme="dark"] .notification-panel-close:hover {
+        color: #f8fafc;
+    }
+
+    html[data-theme="dark"] .notification-group-card {
+        background: #0f172a;
+        border-color: #1e293b;
+    }
+
+    html[data-theme="dark"] .notification-group-name {
+        color: #f8fafc;
+    }
+
+    html[data-theme="dark"] .notification-group-desc {
+        color: #94a3b8;
+    }
+
+    html[data-theme="dark"] .notification-group-count {
+        color: #f8fafc;
+    }
+
+    html[data-theme="dark"] .notification-type-list {
+        border-top-color: #334155;
+    }
+
+    html[data-theme="dark"] .notification-type-row {
+        color: #cbd5e1;
+    }
+
+    html[data-theme="dark"] .notification-type-row:hover {
+        background: #334155;
+        color: #ffffff;
+    }
+
+    html[data-theme="dark"] .notification-type-row .notification-type-count {
+        background: #334155;
+        color: #94a3b8;
+    }
+
+    html[data-theme="dark"] .notification-type-row.has-new .notification-type-count {
+        background: #78350f;
+        color: #fef08a;
+    }
+
+    html[data-theme="dark"] .notification-empty-icon {
+        background: #0f172a;
+        color: #64748b;
+    }
+
+    html[data-theme="dark"] .notification-empty-title {
+        color: #f8fafc;
+    }
+
+    html[data-theme="dark"] .notification-empty-desc {
+        color: #94a3b8;
+    }
+
+    html[data-theme="dark"] .notification-view-all-wrap {
+        border-top-color: #334155;
+    }
+
     /* ---- Anonymous (logged-out) header actions ---- */
     .header-actions {
         display: flex;
@@ -1413,8 +1498,8 @@
             TYPE_URLS['station_id'] = '/auth/dc/station-id/list';
             TYPE_URLS['operator_activation'] = '/auth/dc/operator-activation/list';
             TYPE_URLS['operator_reactivation'] = '/auth/dc/reactivation';
-            TYPE_URLS['lms'] = '/auth/dc/candidate-requests';
-            TYPE_URLS['nseit'] = '/auth/dc/candidate-requests';
+            TYPE_URLS['lms'] = '/auth/dc/lms';
+            TYPE_URLS['nseit'] = '/auth/dc/nseit';
         }
 
         const REVERT_REJECT_TYPES = ['l1', 'l2', 'station_id', 'operator_activation', 'operator_reactivation'];
@@ -1427,8 +1512,16 @@
                 const row = document.createElement('a');
                 row.className = 'notification-type-row' + (t.count > 0 ? ' has-new' : '');
                 const qs = ['from_notif=1'];
-                if (data.baseline_at) qs.push(`highlight_since=${encodeURIComponent(data.baseline_at)}`);
-                if (!isChips && REVERT_REJECT_TYPES.indexOf(t.key) !== -1) qs.push('status=reverted_rejected');
+                if (data && data.baseline_at) {
+                    qs.push('cutoff=' + encodeURIComponent(data.baseline_at));
+                }
+                if (isChips) {
+                    qs.push('status=pending');
+                } else if (REVERT_REJECT_TYPES.indexOf(t.key) !== -1) {
+                    qs.push('status=reverted_rejected');
+                } else {
+                    qs.push('status=pending');
+                }
                 const sep = url.indexOf('?') !== -1 ? '&' : '?';
                 row.href = url + (qs.length ? (sep + qs.join('&')) : '');
                 // Tag each row so new candidate requests and returned
@@ -1489,20 +1582,20 @@
 
         function renderNotifications(data) {
             lastSummary = data;
+            if (data && data.baseline_at) {
+                sessionStorage.setItem('notification_baseline_at', data.baseline_at);
+            }
 
             const latchKey = badgeLatchKey(data);
             pruneOldLatches(latchKey);
 
             const liveCount = data.new_request_count || 0;
-            let latchedCount = parseInt(sessionStorage.getItem(latchKey) || '0', 10);
-            if (liveCount > latchedCount) {
-                latchedCount = liveCount;
-                sessionStorage.setItem(latchKey, String(latchedCount));
-            }
-            // Peak count seen this session — never drops back to 0 once shown.
-            const shownCount = latchedCount;
+            const seenKey = 'notif-seen-count-' + (USER_ROLE || 'x');
+            const seenCount = parseInt(sessionStorage.getItem(seenKey) || '0', 10);
 
-            badge.classList.toggle('is-visible', shownCount > 0);
+            // Show badge only if there are live new requests and they haven't been seen yet
+            const showBadge = liveCount > 0 && liveCount > seenCount;
+            badge.classList.toggle('is-visible', showBadge);
 
             const groups = data.groups || [];
             const registrationGroup = groups.find(g => g.name === 'Registration and activation');
@@ -1512,7 +1605,7 @@
             renderBreakdown(groupRegistrationBreakdown, registrationGroup);
             renderBreakdown(groupCredentialsBreakdown, credentialsGroup);
 
-            emptyState.style.display = shownCount > 0 ? 'none' : 'flex';
+            emptyState.style.display = liveCount > 0 ? 'none' : 'flex';
 
             if (isTypeListExpanded) renderTypeList(data);
         }
@@ -1558,6 +1651,11 @@
             e.stopPropagation();
             setDropdownOpen(!isDropdownOpen);
             if (isDropdownOpen) {
+                // When user opens the notification panel, mark current count as seen
+                const currentCount = lastSummary ? (lastSummary.new_request_count || 0) : 0;
+                const seenKey = 'notif-seen-count-' + (USER_ROLE || 'x');
+                sessionStorage.setItem(seenKey, String(currentCount));
+                badge.classList.remove('is-visible');
                 // Refresh so anything that arrived since page load shows up.
                 loadNotifications();
             }

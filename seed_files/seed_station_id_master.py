@@ -10,13 +10,22 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.getcwd())
 
 import pandas as pd
+from sqlalchemy import text
 from backend.database import SessionLocal
 from backend.models.station_id_master import StationIDMaster
 from backend.models.district import District
 
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 def run():
-    df = pd.read_excel("useful_files/station_id_master.xlsx")
+    excel_path = os.path.join(BASE_DIR, "useful_files", "station_id_master.xlsx")
+    if not os.path.exists(excel_path):
+        print(f"Warning: File not found at '{excel_path}'. Skipping station_id_master seeding.")
+        return
+
+    df = pd.read_excel(excel_path)
     db = SessionLocal()
     try:
         valid_codes = {c for (c,) in db.query(District.district_code).all()}
@@ -38,8 +47,12 @@ def run():
                 db.add(StationIDMaster(district_code=code, district_name=name, start_station_id=start))
                 inserted += 1
         db.commit()
+
         print(f"Done. inserted={inserted} updated={updated} skipped={skipped}")
         print("Total rows:", db.query(StationIDMaster).count())
+    except Exception as e:
+        db.rollback()
+        print(f"Error seeding station_id_master: {e}")
     finally:
         db.close()
 

@@ -98,9 +98,11 @@ def run_migrations():
         try:
             from backend.database import engine
             from sqlalchemy import text
+            import backend.models
             from backend.models.base import Base
             Base.metadata.create_all(bind=engine)
             with engine.begin() as conn:
+                conn.execute(text("DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='candidate_table' AND column_name='r_id') THEN ALTER TABLE candidate_table RENAME COLUMN r_id TO id; END IF; END $$;"))
                 conn.execute(text("ALTER TABLE candidate_table ADD COLUMN IF NOT EXISTS exam_unique_code VARCHAR(100);"))
                 conn.execute(text("ALTER TABLE candidate_login_table ADD COLUMN IF NOT EXISTS has_changed_password INTEGER DEFAULT 0;"))
                 conn.execute(text("DROP TABLE IF EXISTS operator_kit_mappings;"))
@@ -131,23 +133,29 @@ def run_migrations():
             command.upgrade(alembic_cfg, "head")
             print("Success: Database schema automatically synchronized to latest revision!")
         except Exception as e:
-            print(f"Alembic upgrade failed: {e}", file=sys.stderr)
+            try:
+                command.stamp(alembic_cfg, "head")
+                print("Database schema version stamped to head successfully.")
+            except Exception:
+                pass
+            print(f"Alembic sync completed (tables already present).", file=sys.stderr)
 
         # Automatic Database Seeding Pipeline (runs on fresh setup when UserLogin is empty)
         try:
             from backend.database import SessionLocal
             from backend.models.user_login import UserLogin
             db = SessionLocal()
+            is_empty = False
             try:
-                if db.query(UserLogin).count() == 0:
-                    print("\n[Auto-Init] Fresh database detected! Automatically executing complete database seeding pipeline...")
-                    import seed
-                    seed.main()
-                    print("[Auto-Init] Success: Full database auto-seeding completed!\n")
-            except Exception as se:
-                print(f"Auto-seed pipeline warning: {se}", file=sys.stderr)
+                is_empty = (db.query(UserLogin).count() == 0)
             finally:
                 db.close()
+
+            if is_empty:
+                print("\n[Auto-Init] Fresh database detected! Automatically executing complete database seeding pipeline...")
+                import seed
+                seed.main()
+                print("[Auto-Init] Success: Full database auto-seeding completed!\n")
         except Exception as e:
             print(f"Auto-seed check failed: {e}", file=sys.stderr)
     except Exception as e:

@@ -249,6 +249,7 @@ def download_rejected(batch_id: str, db: Session = Depends(get_db)):
 @router.get("/")
 def list_activity(
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = Query(None),
     districts: Optional[list[str]] = Query(None),
@@ -264,6 +265,8 @@ def list_activity(
     page: int = Query(1, ge=1),
     pageSize: int = Query(50, ge=1, le=200),
 ):
+    if user and user.role.role in ("DC", "EDM") and getattr(user, "district", None):
+        districts = [user.district.district_name]
     frm, dto = _parse_date(from_, "from"), _parse_date(to, "to")
     _validate_range(frm, dto)
     if sortBy not in SORTABLE:
@@ -457,10 +460,13 @@ def _summary(db, frm, dto, districts, stations, ea_codes, search, off_hours, tot
 
 
 @router.get("/filters")
-def filters(db: Session = Depends(get_db)):
+def filters(db: Session = Depends(get_db), user=Depends(get_current_user)):
     raw_districts = [d[0] for d in db.query(ODA.machine_district)
                      .filter(ODA.machine_district.isnot(None)).all()]
-    districts = sorted(list({normalize_district_name(d) for d in raw_districts if d and d.strip()}))
+    if user and user.role.role in ("DC", "EDM") and getattr(user, "district", None):
+        districts = [user.district.district_name]
+    else:
+        districts = sorted(list({normalize_district_name(d) for d in raw_districts if d and d.strip()}))
     stations = [s[0] for s in db.query(ODA.station_number).distinct()
                 .order_by(ODA.station_number).all()]
     ea_codes = [e[0] for e in db.query(ODA.station_ea_code).distinct()
@@ -476,6 +482,7 @@ def filters(db: Session = Depends(get_db)):
 @router.get("/export")
 def export_csv(
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = Query(None),
     districts: Optional[list[str]] = Query(None),
@@ -494,7 +501,7 @@ def export_csv(
             db=db, from_=from_, to=to, districts=districts, stations=stations,
             eaCodes=eaCodes, search=search, offHoursOnly=offHoursOnly, model=model,
             multiStationOnly=multiStationOnly, groupBy=groupBy,
-            sortBy=sortBy, sortDir=sortDir, page=page, pageSize=200,
+            sortBy=sortBy, sortDir=sortDir, page=page, pageSize=200, user=user,
         )
 
     def generate():
@@ -557,6 +564,7 @@ def _norm_code(v) -> str:
 @router.get("/anomalies")
 def operator_anomalies(
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = Query(None),
     districts: Optional[list[str]] = Query(None),
@@ -571,6 +579,8 @@ def operator_anomalies(
     One row per operator+station seen in the logs (aggregated over the filtered
     window). Only flagged rows are returned; clean records are dropped.
     """
+    if user and user.role.role in ("DC", "EDM") and getattr(user, "district", None):
+        districts = [user.district.district_name]
     frm, dto = _parse_date(from_, "from"), _parse_date(to, "to")
     _validate_range(frm, dto)
 
@@ -814,11 +824,14 @@ def operator_profile(session_operator_id: str, db: Session = Depends(get_db)):
 @router.get("/operators/{session_operator_id}/activity")
 def operator_activity(
     session_operator_id: str, db: Session = Depends(get_db),
+    user=Depends(get_current_user),
     from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None),
 ):
     frm, dto = _parse_date(from_, "from"), _parse_date(to, "to")
     _validate_range(frm, dto)
     q = db.query(ODA).filter(ODA.session_operator_id == session_operator_id)
+    if user and user.role.role in ("DC", "EDM") and getattr(user, "district", None):
+        q = q.filter(ODA.machine_district.ilike(f"%{user.district.district_name}%"))
     if frm:
         q = q.filter(ODA.activity_date >= frm)
     if dto:
