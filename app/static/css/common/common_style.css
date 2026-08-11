@@ -273,7 +273,8 @@ button {
    filter bar sits just below the tab strip and filters whichever section is
    active. All colours are theme tokens so light + dark both work. The generic
    click handler lives in base.html. ── */
-.req-tabs {
+.req-tabs,
+.sid-tabs {
     display: flex;
     gap: 4px;
     border-bottom: 1px solid var(--dc-border);
@@ -283,11 +284,13 @@ button {
     scrollbar-width: none;
 }
 
-.req-tabs::-webkit-scrollbar {
+.req-tabs::-webkit-scrollbar,
+.sid-tabs::-webkit-scrollbar {
     display: none;
 }
 
-.req-tab {
+.req-tab,
+.sid-tab {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -302,31 +305,110 @@ button {
     white-space: nowrap;
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
-    transition: color 0.15s ease;
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }
 
-.req-tab svg {
+.req-tab svg,
+.sid-tab svg {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
 }
 
-.req-tab:hover {
+.req-tab:hover,
+.sid-tab:hover {
     color: var(--dc-text-primary);
 }
 
-.req-tab.active {
+.req-tab.active,
+.sid-tab.active {
     color: var(--dc-primary);
     border-bottom-color: var(--dc-primary);
     font-weight: 700;
 }
 
+/* ── Tab Search Highlight & Match Badges ── */
+.req-tab.tab-has-matches,
+.sid-tab.tab-has-matches,
+.oa-chip.tab-has-matches,
+.oa-tab.tab-has-matches {
+    color: var(--tab-match-fg) !important;
+    font-weight: 700;
+}
+
+.req-tab.tab-has-matches:not(.active),
+.sid-tab.tab-has-matches:not(.active),
+.oa-chip.tab-has-matches:not(.active),
+.oa-tab.tab-has-matches:not(.active) {
+    background: var(--tab-match-bg);
+    border-radius: 6px;
+    border-bottom: 2px solid var(--tab-match-border);
+}
+
+.req-tab.tab-no-matches:not(.active),
+.sid-tab.tab-no-matches:not(.active),
+.oa-chip.tab-no-matches:not(.active),
+.oa-tab.tab-no-matches:not(.active) {
+    opacity: var(--tab-dim-opacity);
+}
+
+.tab-match-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 19px;
+    padding: 0 6px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    border-radius: 10px;
+    background: var(--tab-badge-bg);
+    color: var(--tab-badge-fg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    margin-left: 5px;
+    animation: tabBadgePop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes tabBadgePop {
+    0% {
+        transform: scale(0.6);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ── Theme-Aware Stat Count & Overview Values ── */
+.stat-count-val {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--stat-neutral-fg);
+    transition: color 0.15s ease;
+}
+
+.stat-count-val.pending {
+    color: var(--stat-pending-fg);
+}
+
+.stat-count-val.reverted {
+    color: var(--stat-reverted-fg);
+}
+
+.stat-count-val.rejected {
+    color: var(--stat-rejected-fg);
+}
+
 /* Only the active tab's panel (its section table) is shown. */
-.req-tabpanel {
+.req-tabpanel,
+.sid-tab-panel {
     display: none;
 }
 
-.req-tabpanel.active {
+.req-tabpanel.active,
+.sid-tab-panel.active {
     display: block;
 }
 
@@ -660,7 +742,6 @@ button {
 .btn-allot,
 .btn-activate-op,
 .btn-uidai-approved,
-.btn-download,
 .btn-success {
     background: var(--btn-success-bg) !important;
     border: 1px solid var(--btn-success-border) !important;
@@ -672,11 +753,22 @@ button {
 .btn-allot:hover,
 .btn-activate-op:hover,
 .btn-uidai-approved:hover,
-.btn-download:hover,
 .btn-success:hover {
     background: var(--btn-success-hover-bg) !important;
     border-color: var(--btn-success-hover-border) !important;
     color: var(--btn-success-hover-fg) !important;
+}
+
+/* 1b. Download Button (Solid Blue matching Export to CSV) */
+.btn-download {
+    background: var(--btn-download-bg) !important;
+    border: 1px solid var(--btn-download-border) !important;
+    color: var(--btn-download-fg) !important;
+}
+.btn-download:hover {
+    background: var(--btn-download-hover-bg) !important;
+    border-color: var(--btn-download-hover-border) !important;
+    color: var(--btn-download-hover-fg) !important;
 }
 
 /* 2. Red / Danger (Reject, Revert, Revert-Op, UIDAI Rejected, Delete) */
@@ -3802,4 +3894,54 @@ html[data-theme="dark"] #btn-toggle-batch-ids:hover,
 body.dark-mode #btn-toggle-batch-ids:hover {
     background: rgba(255, 255, 255, 0.12) !important;
     color: #ffffff !important;
+}
+
+/* ── Request Aging Report Component (Powered by theme_tokens.css) ── */
+.aging-card-container {
+    background: var(--aging-card-bg) !important;
+    border-color: var(--aging-card-border) !important;
+}
+
+.aging-title {
+    color: var(--aging-title-fg) !important;
+}
+
+.aging-badge {
+    background: var(--aging-badge-bg) !important;
+    color: var(--aging-badge-fg) !important;
+    border-color: var(--aging-badge-border) !important;
+}
+
+.aging-row-item {
+    transition: background 0.2s ease;
+}
+
+.aging-row-item:hover {
+    background: var(--aging-row-hover-bg) !important;
+}
+
+.aging-bucket-label {
+    background: var(--aging-bucket-bg) !important;
+    color: var(--aging-bucket-fg) !important;
+    border-color: var(--aging-bucket-border) !important;
+}
+
+.aging-bucket-label.aging-bucket-urgent {
+    background: var(--aging-bucket-urgent-bg) !important;
+    color: var(--aging-bucket-urgent-fg) !important;
+    border-color: var(--aging-bucket-urgent-border) !important;
+}
+
+.aging-bar-track {
+    background: var(--aging-track-bg) !important;
+}
+
+.aging-count-text {
+    color: var(--aging-count-fg) !important;
+    white-space: nowrap !important;
+}
+
+.aging-count-text-urgent {
+    color: var(--aging-count-urgent-fg) !important;
+    white-space: nowrap !important;
 }

@@ -3,7 +3,7 @@
 {% block title %}DC Monitoring Dashboard - CHIPS Admin Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/chips/dc_monitoring.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chips/dc_monitoring.css') }}?v=4">
 <!-- Include Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -218,11 +218,9 @@
                         <option value="nseit">NSEIT Request (Hrs)</option>
                     </select>
                     <input type="text" id="perf-district-search"
-                        onkeypress="if(event.key === 'Enter') filterByDistrict()"
+                        oninput="filterByDistrict()"
                         placeholder="Search by district name..."
                         style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155; width: 200px;">
-                    <button onclick="filterByDistrict()"
-                        style="padding: 8px 16px; border-radius: 6px; border: none; background-color: #3b82f6; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 0.2s;">Search</button>
                 </div>
             </div>
             <div style="overflow-x: auto;">
@@ -333,11 +331,9 @@
                         <option value="react">Reactivation %</option>
                     </select>
                     <input type="text" id="analysis-district-search"
-                        onkeypress="if(event.key === 'Enter') filterByDistrict()"
+                        oninput="filterByDistrict()"
                         placeholder="Search by district name..."
                         style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155; width: 200px;">
-                    <button onclick="filterByDistrict()"
-                        style="padding: 8px 16px; border-radius: 6px; border: none; background-color: #3b82f6; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 0.2s;">Search</button>
                 </div>
             </div>
             <div style="overflow-x: auto;">
@@ -412,17 +408,17 @@
             </div>
             <div class="kpi-card green" style="border-left: 4px solid #eab308;">
                 <div class="kpi-title">Total Pending</div>
-                <div class="kpi-value" id="kpi-total-pending" style="color: #ca8a04;">0</div>
+                <div class="kpi-value pending" id="kpi-total-pending">0</div>
                 <div class="kpi-sub">Requests awaiting action</div>
             </div>
             <div class="kpi-card red" style="border-left: 4px solid #ef4444;">
                 <div class="kpi-title">Total Rejected</div>
-                <div class="kpi-value" id="kpi-total-rejected" style="color: #dc2626;">0</div>
+                <div class="kpi-value rejected" id="kpi-total-rejected">0</div>
                 <div class="kpi-sub">Requests permanently rejected</div>
             </div>
             <div class="kpi-card orange" style="border-left: 4px solid #f97316;">
                 <div class="kpi-title">Total Reverted</div>
-                <div class="kpi-value" id="kpi-total-reverted" style="color: #ea580c;">0</div>
+                <div class="kpi-value reverted" id="kpi-total-reverted">0</div>
                 <div class="kpi-sub">Requests sent back for correction</div>
             </div>
         </div>
@@ -434,18 +430,16 @@
                 <h2 class="section-title" style="margin-bottom: 0;">Total Requests & Status Overview</h2>
                 <div class="search-box" style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <select id="totals-sort" onchange="sortTotalsTable()"
-                        style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155;">
+                        style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; width: auto;">
                         <option value="district">Sort by District A-Z (Default)</option>
                         <option value="pending">Highest Pending</option>
                         <option value="rejected">Highest Rejected</option>
                         <option value="total">Highest Total Requests</option>
                     </select>
                     <input type="text" id="totals-district-search"
-                        onkeypress="if(event.key === 'Enter') filterByDistrict()"
+                        oninput="filterByDistrict()"
                         placeholder="Search by district name..."
-                        style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; background: #f8fafc; color: #334155; width: 200px;">
-                    <button onclick="filterByDistrict()"
-                        style="padding: 8px 16px; border-radius: 6px; border: none; background-color: #3b82f6; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 0.2s;">Search</button>
+                        style="padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none; width: 200px;">
                 </div>
             </div>
             <div style="overflow-x: auto;">
@@ -467,24 +461,12 @@
                         <tr data-district="{{ d.district_code }}">
                             <td>{{ loop.index }}</td>
                             <td><strong>{{ d.district_name }}</strong></td>
-                            <td style="text-align: right;"><span
-                                    style="font-size: 15px; font-weight: 600; color: #1e293b;">{{ d.cand_total }}</span>
-                            </td>
-                            <td style="text-align: right;"><span
-                                    style="font-size: 15px; font-weight: 600; color: #1e293b;">{{ d.lms_total }}</span>
-                            </td>
-                            <td style="text-align: right;"><span
-                                    style="font-size: 15px; font-weight: 600; color: #1e293b;">{{ d.nseit_total
-                                    }}</span></td>
-                            <td style="text-align: right;"><span
-                                    style="font-size: 15px; font-weight: 600; color: #eab308;">{{ d.pending_total
-                                    }}</span></td>
-                            <td style="text-align: right;"><span
-                                    style="font-size: 15px; font-weight: 600; color: #f97316;">{{ d.reverted_total
-                                    }}</span></td>
-                            <td style="text-align: right;"><span
-                                    style="font-size: 15px; font-weight: 600; color: #ef4444;">{{ d.rejected_total
-                                    }}</span></td>
+                            <td style="text-align: right;"><span class="stat-count-val">{{ d.cand_total }}</span></td>
+                            <td style="text-align: right;"><span class="stat-count-val">{{ d.lms_total }}</span></td>
+                            <td style="text-align: right;"><span class="stat-count-val">{{ d.nseit_total }}</span></td>
+                            <td style="text-align: right;"><span class="stat-count-val pending">{{ d.pending_total }}</span></td>
+                            <td style="text-align: right;"><span class="stat-count-val reverted">{{ d.reverted_total }}</span></td>
+                            <td style="text-align: right;"><span class="stat-count-val rejected">{{ d.rejected_total }}</span></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -512,11 +494,9 @@
                         <option value="district">Sort by District A-Z</option>
                     </select>
                     <input type="text" id="leaderboard-district-search"
-                        onkeypress="if(event.key === 'Enter') renderLeaderboard()"
+                        oninput="renderLeaderboard()"
                         placeholder="Search by district name..."
                         style="padding: 8px 12px; border-radius: 6px; border: 1px solid #334155; font-size: 13px; outline: none; background: #1e293b; color: #f8fafc; width: 220px;">
-                    <button onclick="renderLeaderboard()"
-                        style="padding: 8px 16px; border-radius: 6px; border: none; background-color: #3b82f6; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 0.2s;">Search</button>
                 </div>
             </div>
             <div style="overflow-x: auto;">

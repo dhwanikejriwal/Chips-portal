@@ -491,7 +491,7 @@
 
             const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
             const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
-            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+            const matchDate = !searchVal ? checkDateMatch(row.getAttribute('data-created'), dateVal) : true;
 
             const reqStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
             const matchStatus = (pendingStatusVal === 'all') || (reqStatus === pendingStatusVal);
@@ -517,7 +517,7 @@
 
             const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
             const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
-            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+            const matchDate = !searchVal ? checkDateMatch(row.getAttribute('data-created'), dateVal) : true;
 
             if (matchSearch && matchDistrict && matchDate) {
                 row.style.display = '';
@@ -540,7 +540,7 @@
 
             const rowDistrict = row.getAttribute('data-district') ? row.getAttribute('data-district').toLowerCase() : '';
             const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
-            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+            const matchDate = !searchVal ? checkDateMatch(row.getAttribute('data-created'), dateVal) : true;
 
             const matchStatus = true;
 
@@ -566,6 +566,14 @@
         if (revertedCountEl) revertedCountEl.textContent = revertedIdx - 1;
         const revertedEmptyMsg = document.getElementById('reverted-empty-msg');
         if (revertedEmptyMsg) revertedEmptyMsg.style.display = (revertedIdx - 1 === 0) ? 'block' : 'none';
+
+        if (typeof window.updateTabSearchHighlights === 'function') {
+            window.updateTabSearchHighlights({
+                pending: pendingIdx - 1,
+                approved: approvedIdx - 1,
+                reverted: revertedIdx - 1
+            }, searchVal.length > 0);
+        }
 
         // Calculate metrics dynamically based on active filters
         let metricPending = 0;

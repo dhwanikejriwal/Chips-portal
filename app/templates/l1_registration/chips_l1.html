@@ -398,7 +398,7 @@
             const matchStatus = (pending_sf === 'all') || (status === pending_sf);
 
             let matchDate = true;
-            if (created && df !== 'all') {
+            if (!q && created && df !== 'all') {
                 const rowDate = new Date(created.replace(' ', 'T'));
                 if (df === 'today') {
                     matchDate = rowDate.toDateString() === now.toDateString();
@@ -436,7 +436,7 @@
             const matchDist = (selectedDistrict === 'all') || (dist === selectedDistrict.toLowerCase().trim());
 
             let matchDate = true;
-            if (created && df !== 'all') {
+            if (!q && created && df !== 'all') {
                 const rowDate = new Date(created.replace(' ', 'T'));
                 if (df === 'today') {
                     matchDate = rowDate.toDateString() === now.toDateString();
@@ -474,7 +474,7 @@
             const matchDist = (selectedDistrict === 'all') || (dist === selectedDistrict.toLowerCase().trim());
 
             let matchDate = true;
-            if (created && df !== 'all') {
+            if (!q && created && df !== 'all') {
                 const rowDate = new Date(created.replace(' ', 'T'));
                 if (df === 'today') {
                     matchDate = rowDate.toDateString() === now.toDateString();
@@ -498,6 +498,14 @@
         });
         if (document.getElementById('reverted-count')) document.getElementById('reverted-count').textContent = revertedIdx - 1;
         if (document.getElementById('reverted-empty-msg')) document.getElementById('reverted-empty-msg').style.display = (revertedIdx === 1) ? 'block' : 'none';
+
+        if (typeof window.updateTabSearchHighlights === 'function') {
+            window.updateTabSearchHighlights({
+                pending: pendingIdx - 1,
+                approved: approvedIdx - 1,
+                reverted: revertedIdx - 1
+            }, q.length > 0);
+        }
 
         // Calculate metrics dynamically based on filters
         let metricPending = 0;

@@ -28,65 +28,6 @@
         margin-left: 5px;
     }
 
-    /* ── Section tab bar (Pending / Log history) — mirrors the dashboard
-       tab strip. All colours are theme tokens so light + dark both work. ── */
-    .sid-tabs {
-        display: flex;
-        gap: 4px;
-        border-bottom: 1px solid var(--dc-border);
-        /* Tight 3px gap below the tab bar. */
-        margin-bottom: 3px;
-        overflow-x: auto;
-        scrollbar-width: none;
-    }
-
-    .sid-tabs::-webkit-scrollbar {
-        display: none;
-    }
-
-    .sid-tab {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        padding: 10px 16px;
-        border: none;
-        background: transparent;
-        color: var(--dc-text-secondary);
-        font-family: inherit;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        white-space: nowrap;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -1px;
-        transition: color 0.15s ease;
-    }
-
-    .sid-tab svg {
-        width: 16px;
-        height: 16px;
-        flex-shrink: 0;
-    }
-
-    .sid-tab:hover {
-        color: var(--dc-text-primary);
-    }
-
-    .sid-tab.active {
-        color: var(--dc-primary);
-        border-bottom-color: var(--dc-primary);
-        font-weight: 700;
-    }
-
-    /* Only the active tab's panel (filter bar + its table) is shown. */
-    .sid-tab-panel {
-        display: none;
-    }
-
-    .sid-tab-panel.active {
-        display: block;
-    }
-
     /* Tight 3px gap below the filter bar (page-scoped so other sections keep
        their default spacing). */
     .sid-tab-panel .filter-bar {
@@ -769,6 +710,10 @@
             return rowDate >= threshold;
         }
 
+        let visiblePendingCount = 0;
+        let visibleApprovedCount = 0;
+        let visibleRevertedCount = 0;
+
         function filterPending() {
             const q = (document.getElementById('sid-search').value || '').toLowerCase().trim();
             const df = document.getElementById('sid-date').value;
@@ -794,12 +739,13 @@
                 const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || stationId.includes(q);
                 const matchStatus = (sf === 'all') || (status === sf);
                 const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
-                const matchDate = sidDateMatch(created, df, now);
+                const matchDate = !q ? sidDateMatch(created, df, now) : true;
 
                 const show = matchQ && matchStatus && matchDistrict && matchDate;
                 row.style.display = show ? '' : 'none';
                 if (show) { visible++; if (row.cells[0]) row.cells[0].innerText = visible; }
             });
+            visiblePendingCount = visible;
             if (document.getElementById('pending-count')) document.getElementById('pending-count').textContent = visible;
             if (document.getElementById('pending-empty-msg')) document.getElementById('pending-empty-msg').style.display = (visible === 0) ? 'block' : 'none';
         }
@@ -826,12 +772,13 @@
 
                 const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || stationId.includes(q);
                 const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
-                const matchDate = sidDateMatch(created, df, now);
+                const matchDate = !q ? sidDateMatch(created, df, now) : true;
 
                 const show = matchQ && matchDistrict && matchDate;
                 row.style.display = show ? '' : 'none';
                 if (show) { visibleApproved++; if (row.cells[0]) row.cells[0].innerText = visibleApproved; }
             });
+            visibleApprovedCount = visibleApproved;
             if (document.getElementById('approved-count')) document.getElementById('approved-count').textContent = visibleApproved;
             if (document.getElementById('approved-empty-msg')) document.getElementById('approved-empty-msg').style.display = (visibleApproved === 0) ? 'block' : 'none';
 
@@ -847,12 +794,13 @@
 
                 const matchQ = !q || reqNo.includes(q) || dist.includes(q) || model.includes(q) || uType.includes(q) || stationId.includes(q);
                 const matchDistrict = (selectedDistrict === 'all') || (dist === selectedDistrict);
-                const matchDate = sidDateMatch(created, df, now);
+                const matchDate = !q ? sidDateMatch(created, df, now) : true;
 
                 const show = matchQ && matchDistrict && matchDate;
                 row.style.display = show ? '' : 'none';
                 if (show) { visibleReverted++; if (row.cells[0]) row.cells[0].innerText = visibleReverted; }
             });
+            visibleRevertedCount = visibleReverted;
             if (document.getElementById('reverted-count')) document.getElementById('reverted-count').textContent = visibleReverted;
             if (document.getElementById('reverted-empty-msg')) document.getElementById('reverted-empty-msg').style.display = (visibleReverted === 0) ? 'block' : 'none';
         }
@@ -896,7 +844,19 @@
         };
 
         // Kept for existing callers (init + window export).
-        function filterAdminQueues() { filterPending(); filterLog(); if (typeof window.updateStationMetrics === 'function') window.updateStationMetrics(); }
+        function filterAdminQueues() {
+            filterPending();
+            filterLog();
+            if (typeof window.updateStationMetrics === 'function') window.updateStationMetrics();
+            const q = (document.getElementById('sid-search').value || '').toLowerCase().trim();
+            if (typeof window.updateTabSearchHighlights === 'function') {
+                window.updateTabSearchHighlights({
+                    pending: visiblePendingCount,
+                    approved: visibleApprovedCount,
+                    reverted: visibleRevertedCount
+                }, q.length > 0);
+            }
+        }
         function clearAllFilters() { clearFilters('pending'); filterAdminQueues(); }
 
         function submitDynamicForm(action, fields) {

@@ -30,6 +30,11 @@ def login():
                 session["user_id"] = data.get("user_id")
                 session["has_changed_password"] = data.get("has_changed_password", 1)
                 session["full_name"] = data.get("full_name", "")
+
+                # Check if a valid next URL destination parameter was provided
+                next_url = request.args.get("next") or request.form.get("next")
+                if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+                    return redirect(next_url)
                 
                 # Redirect based on user role
                 if data["role"] == "Admin":
@@ -57,6 +62,9 @@ def login():
 def logout():
     role = session.get("role")
     access_token = session.get("access_token")
+    expired_user = request.args.get("expired_user") or session.get("username", "")
+    next_param = request.args.get("next", "")
+    reason = request.args.get("reason", "")
 
     if access_token and role in ["Admin", "DC", "EDM"]:
         backend_url = f"{current_app.config['BACKEND_API_URL']}/auth/logout"
@@ -67,10 +75,21 @@ def logout():
             print(f"Error calling backend logout: {e}")
 
     session.clear()
-    flash("You have been logged out successfully.", "success")
+
+    redirect_kwargs = {}
+    if reason == "expired":
+        flash("Your login session has expired. Please log in again.", "warning")
+    else:
+        flash("You have been logged out successfully.", "success")
+
     if role == "Candidate":
-        return redirect(url_for("auth.login", mode="candidate"))
-    return redirect(url_for("auth.login"))
+        redirect_kwargs["mode"] = "candidate"
+    if expired_user:
+        redirect_kwargs["expired_user"] = expired_user
+    if next_param and next_param.startswith("/") and not next_param.startswith("//"):
+        redirect_kwargs["next"] = next_param
+
+    return redirect(url_for("auth.login", **redirect_kwargs))
 
 
 @auth_bp.route("/forgot-password", methods=["GET"])

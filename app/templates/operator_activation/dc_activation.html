@@ -555,12 +555,13 @@
         }
 
         const configs = [
-            { tbodyId: 'pending-table-body', emptyMsgId: 'pending-empty-msg', tableId: 'pending-requests-table', countId: 'pending-count' },
-            { tbodyId: 'uidai-table-body', emptyMsgId: 'uidai-empty-msg', tableId: 'uidai-requests-table', countId: 'uidai-count-badge' },
-            { tbodyId: 'approved-table-body', emptyMsgId: 'approved-empty-msg', tableId: 'approved-requests-table', countId: 'approved-count-badge' },
-            { tbodyId: 'reverted-table-body', emptyMsgId: 'reverted-empty-msg', tableId: 'reverted-requests-table', countId: 'reverted-count-badge' }
+            { tabKey: 'pending', tbodyId: 'pending-table-body', emptyMsgId: 'pending-empty-msg', tableId: 'pending-requests-table', countId: 'pending-count' },
+            { tabKey: 'uidai', tbodyId: 'uidai-table-body', emptyMsgId: 'uidai-empty-msg', tableId: 'uidai-requests-table', countId: 'uidai-count-badge' },
+            { tabKey: 'approved', tbodyId: 'approved-table-body', emptyMsgId: 'approved-empty-msg', tableId: 'approved-requests-table', countId: 'approved-count-badge' },
+            { tabKey: 'reverted', tbodyId: 'reverted-table-body', emptyMsgId: 'reverted-empty-msg', tableId: 'reverted-requests-table', countId: 'reverted-count-badge' }
         ];
 
+        const tabCounts = {};
         configs.forEach(cfg => {
             let sfId = null;
             if (cfg.tbodyId === 'pending-table-body') {
@@ -605,23 +606,25 @@
                 }
 
                 let matchDate = true;
-                if (dateFilter === 'today') {
-                    matchDate = createdDate.startsWith(p.today);
-                } else if (dateFilter === 'week') {
-                    if (!createdDate) {
-                        matchDate = false;
-                    } else {
-                        const rowDate = new Date(createdDate.replace(' ', 'T'));
-                        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                        matchDate = rowDate >= sevenDaysAgo;
-                    }
-                } else if (dateFilter === 'month') {
-                    if (!createdDate) {
-                        matchDate = false;
-                    } else {
-                        const rowDate = new Date(createdDate.replace(' ', 'T'));
-                        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                        matchDate = rowDate >= thirtyDaysAgo;
+                if (!searchQuery) {
+                    if (dateFilter === 'today') {
+                        matchDate = createdDate.startsWith(p.today);
+                    } else if (dateFilter === 'week') {
+                        if (!createdDate) {
+                            matchDate = false;
+                        } else {
+                            const rowDate = new Date(createdDate.replace(' ', 'T'));
+                            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                            matchDate = rowDate >= sevenDaysAgo;
+                        }
+                    } else if (dateFilter === 'month') {
+                        if (!createdDate) {
+                            matchDate = false;
+                        } else {
+                            const rowDate = new Date(createdDate.replace(' ', 'T'));
+                            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                            matchDate = rowDate >= thirtyDaysAgo;
+                        }
                     }
                 }
 
@@ -637,6 +640,7 @@
                 }
             });
 
+            tabCounts[cfg.tabKey] = visibleRowsCount;
             const emptyMessageElement = document.getElementById(cfg.emptyMsgId);
             const countElement = document.getElementById(cfg.countId);
 
@@ -647,6 +651,10 @@
             }
             if (countElement) countElement.textContent = visibleRowsCount;
         });
+
+        if (typeof window.updateTabSearchHighlights === 'function') {
+            window.updateTabSearchHighlights(tabCounts, searchQuery.length > 0);
+        }
 
         // Calculate and update metrics dynamically
         let metricPending = 0;

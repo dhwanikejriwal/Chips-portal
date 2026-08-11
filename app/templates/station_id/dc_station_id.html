@@ -869,6 +869,7 @@
             sessionStorage.setItem('dc_sid_date', df);
             sessionStorage.setItem('dc_pending_status', pending_sf);
 
+            const tabCounts = {};
             ['pending', 'approved', 'reverted'].forEach(sec => {
                 const sf = (sec === 'pending') ? pending_sf : 'all';
                 const rows = document.querySelectorAll(`#${sec}-tbody tr[data-id]`);
@@ -888,34 +889,41 @@
                     const matchStatus = (sf === 'all') || (status === sf);
 
                     let matchDate = true;
-                    if (df === 'today') {
-                        matchDate = created.startsWith(p.today);
-                    } else if (df === 'week') {
-                        if (!created) {
-                            matchDate = false;
-                        } else {
-                            const rowDate = new Date(created.replace(' ', 'T'));
-                            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                            matchDate = rowDate >= sevenDaysAgo;
-                        }
-                    } else if (df === 'month') {
-                        if (!created) {
-                            matchDate = false;
-                        } else {
-                            const rowDate = new Date(created.replace(' ', 'T'));
-                            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                            matchDate = rowDate >= thirtyDaysAgo;
+                    if (!q) {
+                        if (df === 'today') {
+                            matchDate = created.startsWith(p.today);
+                        } else if (df === 'week') {
+                            if (!created) {
+                                matchDate = false;
+                            } else {
+                                const rowDate = new Date(created.replace(' ', 'T'));
+                                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                                matchDate = rowDate >= sevenDaysAgo;
+                            }
+                        } else if (df === 'month') {
+                            if (!created) {
+                                matchDate = false;
+                            } else {
+                                const rowDate = new Date(created.replace(' ', 'T'));
+                                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                                matchDate = rowDate >= thirtyDaysAgo;
+                            }
                         }
                     }
                     const show = matchQ && matchStatus && matchDate;
                     row.style.display = show ? '' : 'none';
                     if (show) visible++;
                 });
+                tabCounts[sec] = visible;
                 const emg = document.getElementById(`${sec}-empty-msg`);
                 const cnt = document.getElementById(`${sec}-count`) || document.getElementById(`${sec}-count-badge`);
                 if (emg) emg.style.display = (visible === 0) ? 'block' : 'none';
                 if (cnt) cnt.textContent = visible;
             });
+
+            if (typeof window.updateTabSearchHighlights === 'function') {
+                window.updateTabSearchHighlights(tabCounts, q.length > 0);
+            }
 
             // Calculate and update metrics dynamically
             let metricPending = 0;

@@ -685,6 +685,7 @@
             { id: 'reverted', sf: reverted_sf, tbody: 'reverted-table-body', table: 'reverted-requests-table', empty: 'reverted-empty-msg', count: 'reverted-count' }
         ];
 
+        const tabCounts = {};
         sections.forEach(sec => {
             const rows = document.querySelectorAll(`#${sec.tbody} tr[data-id]`);
             let visibleIndex = 1;
@@ -713,7 +714,7 @@
 
                 // 🌟 FIXED: Rolling Lookback Filter Calculations
                 let matchDate = true;
-                if (created && created !== '—') {
+                if (!q && created && created !== '—') {
                     const rowDate = new Date(created.replace(' ', 'T'));
                     if (df === 'today') {
                         matchDate = rowDate.toDateString() === now.toDateString();
@@ -736,6 +737,7 @@
                 }
             });
 
+            tabCounts[sec.id] = visibleIndex - 1;
             const tableEl = document.getElementById(sec.table);
             const emptyEl = document.getElementById(sec.empty);
             const countEl = document.getElementById(sec.count);
@@ -749,6 +751,10 @@
             }
             if (countEl) countEl.textContent = visibleIndex - 1;
         });
+
+        if (typeof window.updateTabSearchHighlights === 'function') {
+            window.updateTabSearchHighlights(tabCounts, q.length > 0);
+        }
 
         // Calculate and update metrics dynamically
         let metricPending = 0;

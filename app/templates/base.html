@@ -52,9 +52,83 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     {% block extra_css %}{% endblock %}
+
+    <!-- 🌟 DARK MODE STATUS BADGE & BUTTON OVERRIDES — Placed AFTER all external and page-specific stylesheets
+         so these rules always win via source-order when specificity is equal. Applied globally to every page in the portal. -->
+    <style id="dark-mode-global-overrides">
+        :is(html[data-theme="dark"], body.dark-mode) {
+            .badge-pending, .sid-badge-pending, .oa-badge-pending, .status-badge.pending, .remark-status-badge.pending, [class*="badge-pending"] {
+                background-color: var(--st-pending-bg, #3A2E05) !important;
+                color: var(--st-pending-fg, #F6D66B) !important;
+                border: 1px solid var(--st-pending-border, #a16207) !important;
+            }
+
+            .badge-approved, .sid-badge-approved, .oa-badge-approved, .badge-l1_done, .sid-badge-l1_done, .badge-l2_done, .sid-badge-l2_done, .badge-allotted, .sid-badge-allotted, .badge-reviewed, .sid-badge-reviewed, .badge-done, .sid-badge-done, .status-badge.approved, .remark-status-badge.approved {
+                background-color: var(--st-approved-bg, #22400F) !important;
+                color: var(--st-approved-fg, #B9DD90) !important;
+                border: 1px solid var(--st-approved-border, #15803d) !important;
+            }
+
+            .badge-reverted, .sid-badge-reverted, .oa-badge-reverted, .badge-reverted-by-chips, .status-badge.reverted, .remark-status-badge.reverted {
+                background-color: var(--st-reverted-bg, #4A2711) !important;
+                color: var(--st-reverted-fg, #F7B284) !important;
+                border: 1px solid var(--st-reverted-border, #c2410c) !important;
+            }
+
+            .badge-rejected, .sid-badge-rejected, .oa-badge-rejected, .status-badge.rejected, .remark-status-badge.rejected {
+                background-color: var(--st-rejected-bg, #4A1A1A) !important;
+                color: var(--st-rejected-fg, #F2A6A6) !important;
+                border: 1px solid var(--st-rejected-border, #b91c1c) !important;
+            }
+
+            .badge-forwarded, .sid-badge-sent_to_uidai, .oa-badge-sent_to_uidai, .badge-forwarded-again, .badge-sent_to_uidai, .status-badge.forwarded, .status-badge.forwarded-again, .remark-status-badge.forwarded {
+                background-color: var(--st-uidai-bg, #16324F) !important;
+                color: var(--st-uidai-fg, #9CC6EF) !important;
+                border: 1px solid var(--st-uidai-border, #2563eb) !important;
+            }
+
+            .badge-reapplied, .sid-badge-reapplied, .oa-badge-reapplied, .status-badge.reapplied, .remark-status-badge.reapplied {
+                background-color: var(--st-reapplied-bg, #3A2E05) !important;
+                color: var(--st-reapplied-fg, #F6D66B) !important;
+                border: 1px solid var(--st-reapplied-border, #ca8a04) !important;
+            }
+
+            /* Table Action Buttons */
+            .btn-issue, .btn-approve, .btn-mail, .btn-allot, .btn-activate-op, .btn-uidai-approved, .btn-success {
+                background: var(--btn-success-bg, rgba(16, 185, 129, 0.15)) !important;
+                border: 1px solid var(--btn-success-border, #10b981) !important;
+                color: var(--btn-success-fg, #34d399) !important;
+            }
+
+            .btn-download {
+                background: var(--btn-download-bg, #3B82E8) !important;
+                border: 1px solid var(--btn-download-border, #3B82E8) !important;
+                color: var(--btn-download-fg, #ffffff) !important;
+            }
+
+            .btn-revert, .btn-reject, .btn-revert-op, .btn-uidai-rejected, .btn-delete, .btn-danger {
+                background: var(--btn-danger-bg, rgba(239, 68, 68, 0.15)) !important;
+                border: 1px solid var(--btn-danger-border, #ef4444) !important;
+                color: var(--btn-danger-fg, #fca5a5) !important;
+            }
+
+            .btn-details, .btn-preview, .btn-secondary {
+                background: var(--btn-details-bg, rgba(148, 163, 184, 0.12)) !important;
+                border: 1px solid var(--btn-details-border, rgba(148, 163, 184, 0.35)) !important;
+                color: var(--btn-details-fg, #cbd5e1) !important;
+            }
+
+            .btn-forward, .btn-sent-to-uidai {
+                background: var(--btn-primary-bg, rgba(59, 130, 246, 0.15)) !important;
+                border: 1px solid var(--btn-primary-border, #3b82f6) !important;
+                color: var(--btn-primary-fg, #60a5fa) !important;
+            }
+        }
+    </style>
     <!-- Tab Session Enforcer -->
     {% if session.get('access_token') %}
     <script>
+        window.portalUsername = "{{ session.get('username', '') }}";
         (function () {
             var referrer = document.referrer || "";
             var isLoginRedirect = referrer.indexOf("/auth/login") !== -1;
@@ -270,6 +344,124 @@
                 // Save active tab
                 sessionStorage.setItem('active_tab_' + window.location.pathname, name);
             });
+
+            /**
+             * Global helper to update search match highlights and dynamic counter badges on tabs.
+             * @param {Object} countsByTab - Map of tab identifiers to match count, e.g. { pending: 3, approved: 0, reverted: 2 }
+             * @param {boolean} isSearching - True if user has entered an active search query
+             * @param {string|HTMLElement} [container] - Optional tab container selector or element
+             */
+            window.updateTabSearchHighlights = function (countsByTab, isSearching, container) {
+                if (!countsByTab || typeof countsByTab !== 'object') return;
+                var root = container ? (typeof container === 'string' ? document.querySelector(container) : container) : document;
+                if (!root) return;
+
+                Object.entries(countsByTab).forEach(function (entry) {
+                    var tabKey = entry[0];
+                    var count = Number(entry[1]) || 0;
+                    var tabBtn = root.querySelector('.req-tab[data-tab="' + tabKey + '"], .sid-tab[data-sid-tab="' + tabKey + '"], [data-tab="' + tabKey + '"], [data-view="' + tabKey + '"]');
+                    if (!tabBtn) return;
+
+                    var badge = tabBtn.querySelector('.tab-match-badge');
+
+                    if (!isSearching) {
+                        tabBtn.classList.remove('tab-has-matches', 'tab-no-matches');
+                        if (badge) badge.remove();
+                    } else {
+                        if (count > 0) {
+                            tabBtn.classList.add('tab-has-matches');
+                            tabBtn.classList.remove('tab-no-matches');
+                            if (!badge) {
+                                badge = document.createElement('span');
+                                badge.className = 'tab-match-badge';
+                                tabBtn.appendChild(badge);
+                            }
+                            badge.textContent = count;
+                            badge.setAttribute('title', count + ' matching record' + (count > 1 ? 's' : ''));
+                        } else {
+                            tabBtn.classList.remove('tab-has-matches');
+                            tabBtn.classList.add('tab-no-matches');
+                            if (badge) badge.remove();
+                        }
+                    }
+                });
+            };
+
+            /**
+             * Global Session Expiration Interceptor
+             * Intercepts 401/403 responses and auth redirects from fetch & XHR calls and shows a single SweetAlert2 popup.
+             */
+            var isShowingExpiredModal = false;
+
+            function triggerSessionExpiredModal() {
+                if (window.location.pathname.indexOf('/auth/login') !== -1) return;
+                if (isShowingExpiredModal) return;
+                isShowingExpiredModal = true;
+
+                var currentPath = window.location.pathname + window.location.search;
+                var activeUser = window.portalUsername || "{{ session.get('username', '') }}";
+                var logoutUrl = "{{ url_for('auth.logout') }}?reason=expired&next=" + encodeURIComponent(currentPath) + "&expired_user=" + encodeURIComponent(activeUser);
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Session Expired',
+                        text: 'Your login session has expired due to inactivity. Please log in again to continue.',
+                        icon: 'warning',
+                        confirmButtonText: 'Log In Again',
+                        confirmButtonColor: '#3b82f6',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        allowEnterKey: true,
+                        customClass: {
+                            popup: 'session-expired-popup'
+                        }
+                    }).then(function () {
+                        try { sessionStorage.removeItem('session_active'); } catch (e) {}
+                        window.location.href = logoutUrl;
+                    });
+                } else {
+                    alert('Session Expired: Your login session has expired. Please log in again.');
+                    try { sessionStorage.removeItem('session_active'); } catch (e) {}
+                    window.location.href = logoutUrl;
+                }
+            }
+
+            // 1. Intercept fetch API calls
+            var origFetch = window.fetch;
+            if (origFetch) {
+                window.fetch = function () {
+                    return origFetch.apply(this, arguments).then(function (response) {
+                        if (response.status === 401 || response.status === 403) {
+                            triggerSessionExpiredModal();
+                        } else if (response.redirected && response.url && response.url.indexOf('/auth/login') !== -1 && window.location.pathname.indexOf('/auth/login') === -1) {
+                            triggerSessionExpiredModal();
+                        }
+                        return response;
+                    }).catch(function (err) {
+                        throw err;
+                    });
+                };
+            }
+
+            // 2. Intercept XMLHttpRequest (XHR) calls
+            var origOpen = XMLHttpRequest.prototype.open;
+            var origSend = XMLHttpRequest.prototype.send;
+            XMLHttpRequest.prototype.open = function () {
+                this._xhrUrl = arguments[1];
+                return origOpen.apply(this, arguments);
+            };
+            XMLHttpRequest.prototype.send = function () {
+                this.addEventListener('load', function () {
+                    if (this.status === 401 || this.status === 403) {
+                        triggerSessionExpiredModal();
+                    } else if (this.responseURL && this.responseURL.indexOf('/auth/login') !== -1 && window.location.pathname.indexOf('/auth/login') === -1) {
+                        triggerSessionExpiredModal();
+                    }
+                });
+                return origSend.apply(this, arguments);
+            };
+
+            window.triggerSessionExpiredModal = triggerSessionExpiredModal;
         })();
     </script>
 

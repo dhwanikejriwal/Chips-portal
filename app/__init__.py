@@ -29,7 +29,6 @@ def create_app():
     from app.blueprints.operator_mapping import operator_mapping_bp
     from app.blueprints.operator_onboarding import operator_onboarding_bp
     from app.blueprints.report import report_bp
-    from app.blueprints.kit_registration import kit_registration_bp
     from app.blueprints.operator_activity_dashboard import operator_activity_dashboard_bp
     from app.blueprints.operator_data import operator_data_bp
 
@@ -50,7 +49,6 @@ def create_app():
     app.register_blueprint(operator_mapping_bp, url_prefix="/auth")
     app.register_blueprint(operator_onboarding_bp, url_prefix="/auth")
     app.register_blueprint(report_bp, url_prefix="/auth")
-    app.register_blueprint(kit_registration_bp, url_prefix="/auth")
     app.register_blueprint(operator_activity_dashboard_bp, url_prefix="/auth")
     app.register_blueprint(operator_data_bp, url_prefix="/auth")
 

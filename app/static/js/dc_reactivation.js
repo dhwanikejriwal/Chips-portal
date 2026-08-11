@@ -1527,22 +1527,24 @@ window.applyHistoryPanelFiltersPipeline = function () {
 
         const cleanStatusFilter = statusValue.toUpperCase().replace(" ", "_").trim();
 
-        let matchesDate = (dateFilter === 'all');
-        if (dateFilter === 'today') {
-            matchesDate = rowCreated.startsWith(todayPrefix);
-        } else if (dateFilter === 'week') {
-            if (rowCreated) {
-                const rowDate = new Date(rowCreated.replace(' ', 'T'));
-                const threshold = new Date();
-                threshold.setDate(now.getDate() - 7);
-                matchesDate = rowDate >= threshold;
-            }
-        } else if (dateFilter === 'month') {
-            if (rowCreated) {
-                const rowDate = new Date(rowCreated.replace(' ', 'T'));
-                const threshold = new Date();
-                threshold.setDate(now.getDate() - 30);
-                matchesDate = rowDate >= threshold;
+        let matchesDate = !searchQuery ? (dateFilter === 'all') : true;
+        if (!searchQuery) {
+            if (dateFilter === 'today') {
+                matchesDate = rowCreated.startsWith(todayPrefix);
+            } else if (dateFilter === 'week') {
+                if (rowCreated) {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 7);
+                    matchesDate = rowDate >= threshold;
+                }
+            } else if (dateFilter === 'month') {
+                if (rowCreated) {
+                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
+                    const threshold = new Date();
+                    threshold.setDate(now.getDate() - 30);
+                    matchesDate = rowDate >= threshold;
+                }
             }
         }
 
@@ -1655,6 +1657,13 @@ window.applyHistoryPanelFiltersPipeline = function () {
     const flatApprovedEmptyMsg = document.getElementById("flat-approved-empty-msg");
     if (flatApprovedEmptyMsg) {
         flatApprovedEmptyMsg.style.display = (visibleApproved === 0) ? "block" : "none";
+    }
+
+    if (typeof window.updateTabSearchHighlights === 'function') {
+        window.updateTabSearchHighlights({
+            batches: matchCount,
+            approved: visibleApproved
+        }, searchQuery.length > 0);
     }
 
     // Metric cards display all-time counts irrespective of active filters

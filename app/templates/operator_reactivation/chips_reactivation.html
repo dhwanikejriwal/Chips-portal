@@ -668,7 +668,7 @@
             const cardCreated = card.getAttribute('data-created') || '';
 
             let matchesDistrict = district === 'all' || cardDistrict === district;
-            let matchesDate = checkDateFilterMatches(cardCreated, dateFilter, now);
+            let matchesDate = !query ? checkDateFilterMatches(cardCreated, dateFilter, now) : true;
 
             let visibleOpsCount = 0;
             const opRows = card.querySelectorAll('.op-row-item');
@@ -714,7 +714,7 @@
             const opCreated = opRow.getAttribute('data-created') || '';
 
             const matchesDistrict = district === 'all' || opDistrict === district;
-            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesDate = !query ? checkDateFilterMatches(opCreated, dateFilter, now) : true;
             const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
 
             if (matchesDistrict && matchesDate && matchesQuery) {
@@ -742,7 +742,7 @@
             const opCreated = opRow.getAttribute('data-created') || '';
 
             const matchesDistrict = district === 'all' || opDistrict === district;
-            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesDate = !query ? checkDateFilterMatches(opCreated, dateFilter, now) : true;
             const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
 
             if (matchesDistrict && matchesDate && matchesQuery) {
@@ -765,7 +765,7 @@
             const opCreated = opRow.getAttribute('data-created') || '';
 
             const matchesDistrict = district === 'all' || opDistrict === district;
-            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesDate = !query ? checkDateFilterMatches(opCreated, dateFilter, now) : true;
             const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
 
             if (matchesDistrict && matchesDate && matchesQuery) {
@@ -790,7 +790,7 @@
             let opStatus = (opRow.getAttribute('data-status') || '').toUpperCase();
 
             const matchesDistrict = district === 'all' || opDistrict === district;
-            const matchesDate = checkDateFilterMatches(opCreated, dateFilter, now);
+            const matchesDate = !query ? checkDateFilterMatches(opCreated, dateFilter, now) : true;
             const matchesQuery = opCode.includes(query) || opDistrict.includes(query) || opName.includes(query) || opMobile.includes(query) || opEmail.includes(query);
 
             if (matchesDistrict && matchesDate && matchesQuery) {
@@ -831,6 +831,16 @@
         if (revertedCountEl) revertedCountEl.textContent = totalRevertedOperators;
         const revertedEmptyMsg = document.getElementById('reverted-empty-msg');
         if (revertedEmptyMsg) revertedEmptyMsg.style.display = (totalRevertedOperators === 0) ? 'block' : 'none';
+
+        if (typeof window.updateTabSearchHighlights === 'function') {
+            window.updateTabSearchHighlights({
+                pending: totalPendingOperators,
+                processing: totalProcessingOperators,
+                uidai: totalUidaiOperators,
+                reverted: totalRevertedOperators,
+                approved: totalApprovedOperators
+            }, query.length > 0);
+        }
 
         // Metric cards display all-time counts irrespective of active filters
     }
@@ -1633,7 +1643,7 @@
                     </div>
                     <div style="display: flex; gap: 6px; flex-shrink: 0;">
                         ${previewButtonHtml}
-                        <a href="${fileUrl}" download="${defaultName}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background-color: #ecfdf5; color: #10b981; text-decoration: none; cursor: pointer; transition: background-color 0.2s;" title="Download">
+                        <a href="${fileUrl}" download="${defaultName}" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; background-color: #eff6ff; color: #2563eb; text-decoration: none; cursor: pointer; transition: background-color 0.2s;" title="Download">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                         </a>
                     </div>

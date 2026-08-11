@@ -129,11 +129,12 @@
   // ── query params for the API ──
   function activityParams() {
     var pr = {};
-    if (state.from) pr.from = state.from;
-    if (state.to) pr.to = state.dateMode === "single" ? state.from : state.to;
+    var isSearching = Boolean(state.search && state.search.trim().length > 0);
+    if (state.from && (!isSearching || state.preset === "custom")) pr.from = state.from;
+    if (state.to && (!isSearching || state.preset === "custom")) pr.to = state.dateMode === "single" ? state.from : state.to;
     if (state.districts.length) pr.districts = state.districts;
     if (state.eaCodes.length) pr.eaCodes = state.eaCodes;
-    if (state.search) pr.search = state.search;
+    if (state.search) pr.search = state.search.trim();
     if (state.offHours) pr.offHoursOnly = "true";
     if (state.model) pr.model = state.model;
     pr.groupBy = state.groupBy; pr.sortBy = state.sortBy; pr.sortDir = state.sortDir;
@@ -256,6 +257,22 @@
     $("oaNext").onclick = function () { if (state.page < pg.pages) { state.page++; loadActivity(); } };
   }
 
+  var searchCounts = { all: 0, anomalies: 0 };
+  function refreshTabHighlights() {
+    var isSearching = Boolean(state.search && state.search.trim().length > 0);
+    if (!isSearching) {
+      searchCounts.all = 0;
+      searchCounts.anomalies = 0;
+      if (typeof window.updateTabSearchHighlights === "function") {
+        window.updateTabSearchHighlights({ all: 0, anomalies: 0 }, false, "#oaSectionTabs");
+      }
+      return;
+    }
+    if (typeof window.updateTabSearchHighlights === "function") {
+      window.updateTabSearchHighlights(searchCounts, true, "#oaSectionTabs");
+    }
+  }
+
   // The list endpoint is the router root; call it directly with the query string.
   function loadActivity() {
     serialiseURL();
@@ -263,6 +280,20 @@
       (fmtDate(state.from) + (state.dateMode === "single" ? "" : " – " + fmtDate(state.to))) : "All dates";
     apiActivity().then(function (data) {
       renderCards(data.summary); renderTable(data); renderPager(data.pagination);
+      var isSearching = Boolean(state.search && state.search.trim().length > 0);
+      if (isSearching) {
+        searchCounts.all = (data.pagination && data.pagination.total != null) ? data.pagination.total : data.rows.length;
+        refreshTabHighlights();
+        // Fetch anomalies count in background to keep both tabs' badges accurate
+        api("anomalies", anomParams()).then(function (anomData) {
+          searchCounts.anomalies = (anomData.pagination && anomData.pagination.total != null)
+            ? anomData.pagination.total
+            : (anomData.summary && anomData.summary.flagged_records != null ? anomData.summary.flagged_records : (anomData.rows ? anomData.rows.length : 0));
+          refreshTabHighlights();
+        }).catch(function () {});
+      } else {
+        refreshTabHighlights();
+      }
     }).catch(function (e) {
       $("oaEmpty").hidden = false;
       $("oaEmpty").innerHTML = "Error: " + (e.detail || "failed to load") + " <button class='oa-link' id='oaRetry'>Retry</button>";
@@ -299,10 +330,11 @@
 
   function anomParams() {
     var usp = new URLSearchParams();
-    if (state.from) usp.append("from", state.from);
-    if (state.to) usp.append("to", state.dateMode === "single" ? state.from : state.to);
+    var isSearching = Boolean(state.search && state.search.trim().length > 0);
+    if (state.from && (!isSearching || state.preset === "custom")) usp.append("from", state.from);
+    if (state.to && (!isSearching || state.preset === "custom")) usp.append("to", state.dateMode === "single" ? state.from : state.to);
     state.districts.forEach(function (d) { usp.append("districts", d); });
-    if (state.search) usp.append("search", state.search);
+    if (state.search) usp.append("search", state.search.trim());
     if (state.anomSortBy) { usp.append("sortBy", state.anomSortBy); usp.append("sortDir", state.anomSortDir); }
     usp.append("page", state.anomPage);
     usp.append("pageSize", state.pageSize);
@@ -313,7 +345,23 @@
     serialiseURL();
     $("oaRangeLabel").textContent = state.from ?
       (fmtDate(state.from) + (state.dateMode === "single" ? "" : " – " + fmtDate(state.to))) : "All dates";
-    api("anomalies", anomParams()).then(renderAnomalies).catch(function (e) {
+    api("anomalies", anomParams()).then(function (data) {
+      renderAnomalies(data);
+      var isSearching = Boolean(state.search && state.search.trim().length > 0);
+      if (isSearching) {
+        searchCounts.anomalies = (data.pagination && data.pagination.total != null)
+          ? data.pagination.total
+          : (data.summary && data.summary.flagged_records != null ? data.summary.flagged_records : (data.rows ? data.rows.length : 0));
+        refreshTabHighlights();
+        // Fetch activity count in background to keep both tabs' badges accurate
+        apiActivity().then(function (actData) {
+          searchCounts.all = (actData.pagination && actData.pagination.total != null) ? actData.pagination.total : (actData.rows ? actData.rows.length : 0);
+          refreshTabHighlights();
+        }).catch(function () {});
+      } else {
+        refreshTabHighlights();
+      }
+    }).catch(function (e) {
       $("oaAnomEmpty").hidden = false;
       $("oaAnomEmpty").innerHTML = "Error: " + (e.detail || "failed to load anomalies");
     });
@@ -453,6 +501,7 @@
     state.sortBy = "Total_Enrollment_and_Updates"; state.sortDir = "desc"; state.page = 1;
     state.anomPage = 1;
     applyPreset("last30");
+    refreshTabHighlights();
     syncControls(); loadFilters().then(loadCurrentView);
   }
 
@@ -750,6 +799,7 @@
     function resetPages() { state.page = 1; state.anomPage = 1; }
     $("oaFrom").addEventListener("change", function () {
       state.from = this.value;
+      state.preset = "custom";
       if (state.to && state.from && state.from > state.to) {
         state.to = state.from;
       }
@@ -759,6 +809,7 @@
     });
     $("oaTo").addEventListener("change", function () {
       state.to = this.value;
+      state.preset = "custom";
       if (state.from && state.to && state.to < state.from) {
         state.from = state.to;
       }

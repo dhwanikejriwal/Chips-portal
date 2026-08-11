@@ -508,7 +508,7 @@ reverted_count + reverted_by_chips_count %}
                 row.getAttribute('data-email').toLowerCase().includes(searchVal);
 
             const matchDistrict = (districtVal === 'all') || (row.getAttribute('data-district') === districtVal);
-            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+            const matchDate = !searchVal ? checkDateMatch(row.getAttribute('data-created'), dateVal) : true;
 
             const reqStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
             const matchStatus = (pendingStatusVal === 'all') || (reqStatus === pendingStatusVal);
@@ -533,7 +533,7 @@ reverted_count + reverted_by_chips_count %}
                 row.getAttribute('data-email').toLowerCase().includes(searchVal);
 
             const matchDistrict = (districtVal === 'all') || (row.getAttribute('data-district') === districtVal);
-            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+            const matchDate = !searchVal ? checkDateMatch(row.getAttribute('data-created'), dateVal) : true;
 
             const reqStatus = row.getAttribute('data-status').toLowerCase();
             const matchStatus = (chipsStatusVal === 'all') || (reqStatus === chipsStatusVal);
@@ -558,7 +558,7 @@ reverted_count + reverted_by_chips_count %}
                 row.getAttribute('data-email').toLowerCase().includes(searchVal);
 
             const matchDistrict = (districtVal === 'all') || (row.getAttribute('data-district') === districtVal);
-            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+            const matchDate = !searchVal ? checkDateMatch(row.getAttribute('data-created'), dateVal) : true;
 
             if (matchSearch && matchDistrict && matchDate) {
                 row.style.display = '';
@@ -580,7 +580,7 @@ reverted_count + reverted_by_chips_count %}
                 row.getAttribute('data-email').toLowerCase().includes(searchVal);
 
             const matchDistrict = (districtVal === 'all') || (row.getAttribute('data-district') === districtVal);
-            const matchDate = checkDateMatch(row.getAttribute('data-created'), dateVal);
+            const matchDate = !searchVal ? checkDateMatch(row.getAttribute('data-created'), dateVal) : true;
 
             const reqStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
             const matchStatus = (revertedStatusVal === 'all') || (reqStatus === revertedStatusVal.replace(/_/g, ' '));
@@ -620,6 +620,15 @@ reverted_count + reverted_by_chips_count %}
 
         const revertedEmptyMsg = document.getElementById('reverted-empty-msg');
         if (revertedEmptyMsg) revertedEmptyMsg.style.display = (revertedCount === 0) ? 'block' : 'none';
+
+        if (typeof window.updateTabSearchHighlights === 'function') {
+            window.updateTabSearchHighlights({
+                pending: pendingCount,
+                sent_to_chips: chipsCount,
+                reverted: revertedCount,
+                approved: approvedCount
+            }, searchVal.length > 0);
+        }
 
         // Calculate and update metrics dynamically
         let metricPending = 0;

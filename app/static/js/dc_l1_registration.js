@@ -85,6 +85,7 @@ function filterL1Table() {
     const todayPrefix = `${y}-${m}-${d}`;
     const monthPrefix = `${y}-${m}`;
 
+    const tabCounts = {};
     ['allotted', 'pending', 'approved', 'reverted'].forEach(sec => {
         const rows = document.querySelectorAll(`#${sec}-tbody tr[data-status]`);
         let visibleCount = 0;
@@ -106,23 +107,25 @@ function filterL1Table() {
             const matchStatus = (statusFilter === 'ALL') || (rowStatus === statusFilter);
 
             let matchDate = true;
-            if (dateFilter === 'today') {
-                matchDate = createdDate.startsWith(todayPrefix);
-            } else if (dateFilter === 'week') {
-                if (!createdDate) {
-                    matchDate = false;
-                } else {
-                    const rowDate = new Date(createdDate.replace(' ', 'T'));
-                    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                    matchDate = rowDate >= sevenDaysAgo;
-                }
-            } else if (dateFilter === 'month') {
-                if (!createdDate) {
-                    matchDate = false;
-                } else {
-                    const rowDate = new Date(createdDate.replace(' ', 'T'));
-                    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                    matchDate = rowDate >= thirtyDaysAgo;
+            if (!filter) {
+                if (dateFilter === 'today') {
+                    matchDate = createdDate.startsWith(todayPrefix);
+                } else if (dateFilter === 'week') {
+                    if (!createdDate) {
+                        matchDate = false;
+                    } else {
+                        const rowDate = new Date(createdDate.replace(' ', 'T'));
+                        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        matchDate = rowDate >= sevenDaysAgo;
+                    }
+                } else if (dateFilter === 'month') {
+                    if (!createdDate) {
+                        matchDate = false;
+                    } else {
+                        const rowDate = new Date(createdDate.replace(' ', 'T'));
+                        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        matchDate = rowDate >= thirtyDaysAgo;
+                    }
                 }
             }
 
@@ -135,12 +138,22 @@ function filterL1Table() {
             }
         });
 
+        tabCounts[sec] = visibleCount;
         const emg = document.getElementById(`${sec}-empty-msg`);
         const cnt = document.getElementById(`${sec}-count`) || document.getElementById(`${sec}-count-badge`) || document.getElementById('allotted-count');
 
         if (emg) emg.style.display = (visibleCount === 0) ? 'block' : 'none';
         if (cnt) cnt.textContent = visibleCount;
     });
+
+    if (typeof window.updateTabSearchHighlights === 'function') {
+        window.updateTabSearchHighlights({
+            awaiting: tabCounts['allotted'] || 0,
+            pending: tabCounts['pending'] || 0,
+            reverted: tabCounts['reverted'] || 0,
+            approved: tabCounts['approved'] || 0
+        }, filter.length > 0);
+    }
 
     // Calculate fixed all-time metrics across all requests (irrespective of active filters)
     let metricPending = 0;
