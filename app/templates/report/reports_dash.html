@@ -3,8 +3,46 @@
 {% block title %}Reports Dashboard - CHIPS Admin Portal{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/chips/reports.css') }}?v=24">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chips/reports.css') }}?v=25">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+.btn-sync-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    background: var(--btn-download-bg, #378ADD);
+    color: var(--btn-download-fg, #ffffff);
+    border: 1px solid var(--btn-download-border, #378ADD);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.btn-sync-live:hover {
+    background: var(--btn-download-hover-bg, #2C74BE);
+    border-color: var(--btn-download-hover-border, #2C74BE);
+    color: var(--btn-download-hover-fg, #ffffff);
+    box-shadow: 0 4px 12px rgba(55, 138, 221, 0.25);
+    transform: translateY(-1px);
+}
+.btn-sync-live:active {
+    transform: translateY(0);
+}
+.btn-sync-live.loading {
+    opacity: 0.75;
+    cursor: wait;
+    pointer-events: none;
+}
+.spin-anim {
+    animation: chipsSyncSpin 1s linear infinite;
+}
+@keyframes chipsSyncSpin {
+    100% { transform: rotate(360deg); }
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -64,6 +102,14 @@
                         directly from the portal's database.</p>
                 </div>
                 <div style="display: flex; gap: 12px; align-items: center;">
+                    {% if user_role in ['Admin', 'chips_admin'] %}
+                    <button class="btn-sync-live" id="btn-sync-live-data" onclick="triggerLiveReportsSync()" title="Synchronize latest Kit and Operator records from external portal">
+                        <svg id="sync-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                        </svg>
+                        <span id="sync-btn-text">Sync Live Data</span>
+                    </button>
+                    {% endif %}
 
                     <div class="view-toggle-container">
                         <button class="view-toggle-btn active" id="btn-grid-view" onclick="toggleViewMode('grid')"
@@ -102,8 +148,8 @@
                         <button class="btn-preview" onclick="openSystemPreviewModal('kit_tracker', 'Kit Tracker')">
                             Preview
                         </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/kit_tracker/download"
-                            data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/kit_tracker/download"
+                        <a href="/reports/proxy/system/kit_tracker/download"
+                            data-base-url="/reports/proxy/system/kit_tracker/download"
                             id="download-link-kit_tracker" class="btn-download system-download-link">
                             Download
                         </a>
@@ -121,8 +167,8 @@
                             onclick="openSystemPreviewModal('district_wise_kit_count', 'District Wise Kit Count')">
                             Preview
                         </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/district_wise_kit_count/download"
-                            data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/district_wise_kit_count/download"
+                        <a href="/reports/proxy/system/district_wise_kit_count/download"
+                            data-base-url="/reports/proxy/system/district_wise_kit_count/download"
                             id="download-link-district_wise_kit_count" class="btn-download system-download-link">
                             Download
                         </a>
@@ -138,8 +184,8 @@
                         <button class="btn-preview" onclick="openSystemPreviewModal('operator_list', 'Operator List')">
                             Preview
                         </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/operator_list/download"
-                            data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/operator_list/download"
+                        <a href="/reports/proxy/system/operator_list/download"
+                            data-base-url="/reports/proxy/system/operator_list/download"
                             id="download-link-operator_list" class="btn-download system-download-link">
                             Download
                         </a>
@@ -156,8 +202,8 @@
                             onclick="openSystemPreviewModal('l1_pending_list', 'L1 Pending List')">
                             Preview
                         </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/l1_pending_list/download"
-                            data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/l1_pending_list/download"
+                        <a href="/reports/proxy/system/l1_pending_list/download"
+                            data-base-url="/reports/proxy/system/l1_pending_list/download"
                             id="download-link-l1_pending_list" class="btn-download system-download-link">
                             Download
                         </a>
@@ -174,8 +220,8 @@
                             onclick="openSystemPreviewModal('l2_pending_list', 'L2 Pending List')">
                             Preview
                         </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/l2_pending_list/download"
-                            data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/l2_pending_list/download"
+                        <a href="/reports/proxy/system/l2_pending_list/download"
+                            data-base-url="/reports/proxy/system/l2_pending_list/download"
                             id="download-link-l2_pending_list" class="btn-download system-download-link">
                             Download
                         </a>
@@ -192,8 +238,8 @@
                             onclick="openSystemPreviewModal('onboard_pending_list', 'Onboard Pending List')">
                             Preview
                         </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/onboard_pending_list/download"
-                            data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/onboard_pending_list/download"
+                        <a href="/reports/proxy/system/onboard_pending_list/download"
+                            data-base-url="/reports/proxy/system/onboard_pending_list/download"
                             id="download-link-onboard_pending_list" class="btn-download system-download-link">
                             Download
                         </a>
@@ -210,8 +256,8 @@
                             onclick="openSystemPreviewModal('lms_summary', 'LMS Request Summary')">
                             Preview
                         </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/lms_summary/download"
-                            data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/lms_summary/download"
+                        <a href="/reports/proxy/system/lms_summary/download"
+                            data-base-url="/reports/proxy/system/lms_summary/download"
                             id="download-link-lms_summary" class="btn-download system-download-link">
                             Download
                         </a>
@@ -228,8 +274,8 @@
                             onclick="openSystemPreviewModal('nseit_summary', 'NSEIT Request Summary')">
                             Preview
                         </button>
-                        <a href="{{ config['BACKEND_API_URL'] }}/reports/system/nseit_summary/download"
-                            data-base-url="{{ config['BACKEND_API_URL'] }}/reports/system/nseit_summary/download"
+                        <a href="/reports/proxy/system/nseit_summary/download"
+                            data-base-url="/reports/proxy/system/nseit_summary/download"
                             id="download-link-nseit_summary" class="btn-download system-download-link">
                             Download
                         </a>
@@ -274,8 +320,7 @@
                             {% endfor %}
                         </div>
                         {% else %}
-                        <div
-                            style="text-align: center; padding: 40px 20px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                        <div class="rpt-empty-box">
                             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
                                 style="color: #94a3b8; margin-bottom: 10px;">
@@ -283,12 +328,8 @@
                                 <line x1="3" y1="9" x2="21" y2="9"></line>
                                 <line x1="9" y1="21" x2="9" y2="9"></line>
                             </svg>
-                            <h3 style="margin: 0 0 5px 0; color: #475569; font-size: 16px;">No reports generated yet
-                            </h3>
-                            <p style="margin: 0; color: #64748b; font-size: 14px;">Switch to the 'Generate New Report'
-                                tab to create your first report.</p>
-                            <h3>No reports generated yet</h3>
-                            <p>Switch to the 'Generate New Report' tab to create your first report.</p>
+                            <h3 style="margin: 0 0 5px 0; font-size: 16px;">No reports generated yet</h3>
+                            <p style="margin: 0; font-size: 14px;">Switch to the 'Generate New Report' tab to create your first report.</p>
                         </div>
                         {% endif %}
                     </div>
@@ -405,7 +446,7 @@
                                 class="rpt-file-input" required>
                         </div>
 
-                        <div style="display: flex; gap: 10px;">
+                        <div style="display: flex; gap: 10px; justify-content: center;">
                             <button type="button" onclick="generateReport('preview')" class="btn-gen-preview">
                                 Generate & Preview
                             </button>
@@ -455,6 +496,19 @@
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
                             </svg>
                             Clear Filters
+                        </button>
+                        <button id="modal-fullscreen-btn" type="button" class="modal-fullscreen-btn"
+                            onclick="toggleModalFullscreen()" title="Toggle Fullscreen">
+                            <svg id="fullscreen-expand-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                            </svg>
+                            <svg id="fullscreen-compress-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                style="display: none;">
+                                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
+                            </svg>
+                            <span id="fullscreen-btn-text">Fullscreen</span>
                         </button>
                     </div>
                 </div>

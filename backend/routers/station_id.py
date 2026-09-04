@@ -544,13 +544,31 @@ def reapply_station_request(
 
     return {"message": "Request reapplied successfully.", "request_id": r.id}
 
-@router.get("/export-excel")
-def export_station_id_excel(ids: str = None, exclude_kits: bool = False, exclude_slot: bool = False, exclude_assigned_id: bool = False, db: Session = Depends(get_db)):
+@router.api_route("/export-excel", methods=["GET", "POST"])
+def export_station_id_excel(
+    ids: str = None,
+    status: str = None,
+    district_id: str = None,
+    exclude_kits: bool = False,
+    exclude_slot: bool = False,
+    exclude_assigned_id: bool = False,
+    db: Session = Depends(get_db),
+    current_user: UserLogin = Depends(get_current_user)
+):
     query = db.query(StationIDRequest).join(District, StationIDRequest.district_id == District.district_code)
     
+    if current_user and getattr(current_user, "district_id", None):
+        query = query.filter(StationIDRequest.district_id == str(current_user.district_id))
+    elif district_id:
+        query = query.filter(StationIDRequest.district_id == str(district_id))
+
     if ids:
         id_list = [int(x) for x in ids.split(",") if x.isdigit()]
-        query = query.filter(StationIDRequest.id.in_(id_list))
+        if id_list:
+            query = query.filter(StationIDRequest.id.in_(id_list))
+            
+    if status:
+        query = query.filter(StationIDRequest.status == status.lower())
         
     station_records = query.order_by(StationIDRequest.submitted_at.desc()).all()
 

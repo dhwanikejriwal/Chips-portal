@@ -77,41 +77,48 @@
         <div class="chips-metric-card">
             <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 metrics.pending }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending Review
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.pendingReview">Pending Review
             </div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-processing" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 metrics.processing }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Under Processing
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.processing">Under Processing
             </div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-sent-to-uidai" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
                 {{ metrics.sent_to_uidai }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.sentToUidai">Sent to UIDAI
             </div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 metrics.reverted }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.reverted">Reverted</div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 metrics.rejected }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected by UIDAI
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.rejectedByUidai">Rejected by UIDAI
             </div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 metrics.approved }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.approved">Approved</div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 total_requests }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.totalRequests">Total Requests
             </div>
         </div>
     </div>
@@ -1004,17 +1011,22 @@
             }
         }
 
+        let targetTab = null;
         if (qStatus) {
             const st = qStatus.toLowerCase().trim();
-            let targetTab = null;
             if (st === 'pending') targetTab = 'pending';
             else if (st === 'approved') targetTab = 'approved';
             else if (st === 'rejected' || st === 'reverted') targetTab = 'reverted';
             else if (st === 'sent_to_uidai' || st === 'uidai') targetTab = 'uidai';
+            else if (st === 'processing') targetTab = 'processing';
+        } else {
+            targetTab = sessionStorage.getItem('active_tab_' + window.location.pathname);
+        }
 
-            if (targetTab) {
-                const activeTabBtn = document.querySelector(`.req-tab[data-tab="${targetTab}"]`);
-                if (activeTabBtn) activeTabBtn.click();
+        if (targetTab) {
+            const activeTabBtn = document.querySelector(`.req-tab[data-tab="${targetTab}"]`);
+            if (activeTabBtn) activeTabBtn.click();
+            if (qStatus) {
                 setTimeout(() => {
                     const table = document.getElementById(targetTab + '-table');
                     if (table) {

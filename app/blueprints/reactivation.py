@@ -2,11 +2,12 @@ import os, json
 import requests
 from flask import Blueprint, render_template, request, jsonify, session, redirect, Response
 from app.utils.aging import parse_aging_filter, filter_by_aging
+from app.utils.backend_url import get_backend_base_url
 
 reactivation_bp = Blueprint('reactivation', __name__)
 
-# URL of your FastAPI backend service
-FASTAPI_URL = "http://127.0.0.1:8000/reactivation"
+def _get_fastapi_url():
+    return f"{get_backend_base_url()}/reactivation"
 
 @reactivation_bp.route("/dc/reactivation", methods=["GET"])
 @reactivation_bp.route("/chips/reactivation", methods=["GET"])
@@ -24,7 +25,7 @@ def view_reactivation_dashboard():
         headers = {"Authorization": f"Bearer {str(raw_token).strip()}"}
             
         is_dc = request.path.startswith("/dc")
-        api_endpoint = f"{FASTAPI_URL}/requests-with-operators"
+        api_endpoint = f"{_get_fastapi_url()}/requests-with-operators"
         response = requests.get(api_endpoint, headers=headers, timeout=5)
         
         if response.status_code == 401:
@@ -81,7 +82,13 @@ def view_reactivation_dashboard():
                     "is_mailed": int(req.get("is_mailed") or 0),
                     "revert_reason": str(req.get("reject_reason") or req.get("revert_reason") or "None"),
                     "operators": [
-                        dict(op, timeline_logs=req.get("timeline_logs", []))
+                        dict(op, timeline_logs=[
+                            log for log in (req.get("timeline_logs") or [])
+                            if (
+                                (log.get("operator_id") is not None and str(log.get("operator_id")) == str(op.get("id")))
+                                or (log.get("operator_id") is None and ("operator '" not in str(log.get("message", "")).lower() or f"operator '{str(op.get('operator_name', '')).strip().lower()}'" in str(log.get("message", "")).lower()))
+                            )
+                        ])
                         for op in req.get("operators", [])
                     ] if isinstance(req.get("operators"), list) else [],
                     "timeline_logs": req.get("timeline_logs", [])
@@ -170,7 +177,7 @@ def view_reactivation_dashboard():
             op_flat["request_code"] = req.get("request_code", "")
             op_flat["district_name"] = req.get("district_name", "")
             op_flat["training_date"] = req.get("training_date", "")
-            op_flat["submitted_at"] = req.get("created_at", "")
+            op_flat["created_at"] = req.get("created_at", "")
             
             all_operators.append(op_flat)
             
@@ -215,7 +222,7 @@ def check_duplicate():
 
     try:
         response = requests.get(
-            f"{FASTAPI_URL}/check-duplicate",
+            f"{_get_fastapi_url()}/check-duplicate",
             params=params,
             headers=headers
         )
@@ -262,7 +269,7 @@ def submit_reactivation_form():
                 if uploaded_file.filename:
                     files_payload[key] = (uploaded_file.filename, uploaded_file.read(), uploaded_file.content_type)
 
-        backend_target = f"{FASTAPI_URL}/submit"
+        backend_target = f"{_get_fastapi_url()}/submit"
         response = requests.post(backend_target, headers=headers, data=form_data, files=files_payload, timeout=15)
 
         # Handle clean response checking
@@ -280,6 +287,7 @@ def submit_reactivation_form():
         return jsonify({"success": False, "error": f"Internal proxy error: {str(submit_err)}"}), 500
 
 @reactivation_bp.route("/dc/reactivation/operators/<request_code>", methods=["GET"])
+@reactivation_bp.route("/reactivation/operators/<request_code>", methods=["GET"])
 def proxy_fetch_historical_operators(request_code):
     if not session.get("username"):
         return jsonify({"error": "Unauthorized session context"}), 401
@@ -289,7 +297,7 @@ def proxy_fetch_historical_operators(request_code):
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
             
-        backend_route = f"{FASTAPI_URL}/operators/{request_code}"
+        backend_route = f"{_get_fastapi_url()}/operators/{request_code}"
         response = requests.get(backend_route, headers=headers, timeout=5)
         
         if response.status_code == 200:
@@ -297,6 +305,22 @@ def proxy_fetch_historical_operators(request_code):
         return jsonify({"error": f"Backend returned status code {response.status_code}"}), response.status_code
     except Exception as e:
         return jsonify({"error": f"Proxy link failed: {str(e)}"}), 500
+
+
+@reactivation_bp.route("/reactivation/operator/<int:operator_id>/update_reapply", methods=["POST"])
+@reactivation_bp.route("/dc/reactivation/operator/<int:operator_id>/update_reapply", methods=["POST"])
+def proxy_update_reapply_operator(operator_id):
+    if not session.get("username"):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        headers = {}
+        if session.get("access_token"):
+            headers["Authorization"] = f"Bearer {session.get('access_token')}"
+        backend_target = f"{_get_fastapi_url()}/operator/{operator_id}/update_reapply"
+        response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @reactivation_bp.route("/dc/reactivation/export/<request_code>", methods=["GET"])
@@ -309,7 +333,7 @@ def proxy_export_operators_excel(request_code):
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
 
-        backend_url = f"{FASTAPI_URL}/export-excel/{request_code}"
+        backend_url = f"{_get_fastapi_url()}/export-excel/{request_code}"
         file_response = requests.get(backend_url, headers=headers, stream=True, timeout=10)
 
         if file_response.status_code == 200:
@@ -332,7 +356,7 @@ def proxy_export_all_reactivation():
         return "Unauthorized", 401
         
     ids = request.args.get("ids", "")
-    backend_target_url = f"{FASTAPI_URL}/export-csv-all"
+    backend_target_url = f"{_get_fastapi_url()}/export-csv-all"
     
     try:
         # Forward request to FastAPI backend and stream the chunked CSV data back
@@ -358,7 +382,7 @@ def proxy_export_uidai_reactivation():
         return "Unauthorized", 401
         
     ids = request.args.get("ids", "")
-    backend_target_url = f"{FASTAPI_URL}/export-csv-uidai"
+    backend_target_url = f"{_get_fastapi_url()}/export-csv-uidai"
     
     try:
         # Forward request to FastAPI backend and stream the chunked CSV data back
@@ -388,7 +412,7 @@ def proxy_reactivation_file(request_code, file_type):
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
 
-        backend_url = f"{FASTAPI_URL}/requests/{request_code}/files/{file_type}"
+        backend_url = f"{_get_fastapi_url()}/requests/{request_code}/files/{file_type}"
         response = requests.get(backend_url, headers=headers, stream=True, timeout=10)
 
         if response.status_code == 200:
@@ -412,7 +436,7 @@ def proxy_activate_operator(operator_id):
         headers = {}
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
-        backend_target = f"{FASTAPI_URL}/operator/{operator_id}/activate"
+        backend_target = f"{_get_fastapi_url()}/operator/{operator_id}/activate"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
@@ -427,7 +451,7 @@ def proxy_send_to_uidai_operator(operator_id):
         headers = {}
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
-        backend_target = f"{FASTAPI_URL}/operator/{operator_id}/send-to-uidai"
+        backend_target = f"{_get_fastapi_url()}/operator/{operator_id}/send-to-uidai"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
@@ -442,7 +466,7 @@ def proxy_revert_operator(operator_id):
         headers = {}
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
-        backend_target = f"{FASTAPI_URL}/operator/{operator_id}/revert"
+        backend_target = f"{_get_fastapi_url()}/operator/{operator_id}/revert"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
@@ -457,7 +481,7 @@ def proxy_reject_operator(operator_id):
         headers = {}
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
-        backend_target = f"{FASTAPI_URL}/operator/{operator_id}/reject"
+        backend_target = f"{_get_fastapi_url()}/operator/{operator_id}/reject"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
@@ -472,7 +496,7 @@ def proxy_finalize_batch(request_code):
         headers = {}
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
-        backend_target = f"{FASTAPI_URL}/requests/{request_code}/finalize"
+        backend_target = f"{_get_fastapi_url()}/requests/{request_code}/finalize"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
@@ -487,7 +511,7 @@ def proxy_revert_batch(request_code):
         headers = {}
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
-        backend_target = f"{FASTAPI_URL}/requests/{request_code}/revert"
+        backend_target = f"{_get_fastapi_url()}/requests/{request_code}/revert"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
@@ -502,7 +526,7 @@ def proxy_send_to_uidai_batch(request_code):
         headers = {}
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
-        backend_target = f"{FASTAPI_URL}/requests/{request_code}/send-to-uidai"
+        backend_target = f"{_get_fastapi_url()}/requests/{request_code}/send-to-uidai"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
@@ -517,7 +541,7 @@ def proxy_approve_all_batch(request_code):
         headers = {}
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
-        backend_target = f"{FASTAPI_URL}/requests/{request_code}/approve-all"
+        backend_target = f"{_get_fastapi_url()}/requests/{request_code}/approve-all"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
@@ -532,13 +556,14 @@ def proxy_reject_all_batch(request_code):
         headers = {}
         if session.get("access_token"):
             headers["Authorization"] = f"Bearer {session.get('access_token')}"
-        backend_target = f"{FASTAPI_URL}/requests/{request_code}/reject-all"
+        backend_target = f"{_get_fastapi_url()}/requests/{request_code}/reject-all"
         response = requests.post(backend_target, headers=headers, data=request.form, timeout=10)
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @reactivation_bp.route("/dc/operator-reactivation/search", methods=["GET"])
+@reactivation_bp.route("/dc/reactivation/search-suspended-operators", methods=["GET"])
 def search_suspended_operators():
     if not session.get("username"):
         return jsonify({"error": "Unauthorized"}), 401
@@ -552,7 +577,7 @@ def search_suspended_operators():
         if raw_token:
             headers["Authorization"] = f"Bearer {str(raw_token).strip()}"
         
-        backend_url = f"{FASTAPI_URL}/search-suspended-operators"
+        backend_url = f"{_get_fastapi_url()}/search-suspended-operators"
         response = requests.get(f"{backend_url}?q={q}", headers=headers, timeout=5)
         
         if response.status_code == 200:
@@ -570,7 +595,7 @@ def chips_reactivation_export_mail_recipient():
         raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
     headers = {"Authorization": f"Bearer {str(raw_token).strip()}"}
     try:
-        response = requests.get(f"{FASTAPI_URL}/export-and-mail/recipient", headers=headers, timeout=5)
+        response = requests.get(f"{_get_fastapi_url()}/export-and-mail/recipient", headers=headers, timeout=5)
         if response.status_code == 200:
             return response.json()
     except requests.exceptions.RequestException:
@@ -588,7 +613,7 @@ def chips_reactivation_export_and_mail():
 
     try:
         response = requests.post(
-            f"{FASTAPI_URL}/export-and-mail",
+            f"{_get_fastapi_url()}/export-and-mail",
             json=data,
             headers=headers,
             timeout=35,

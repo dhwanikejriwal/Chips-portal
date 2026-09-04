@@ -52,6 +52,20 @@ def create_app():
     app.register_blueprint(operator_activity_dashboard_bp, url_prefix="/auth")
     app.register_blueprint(operator_data_bp, url_prefix="/auth")
 
+    @app.route("/reports/proxy/<path:subpath>", methods=["GET", "POST", "PUT", "DELETE"])
+    def global_reports_proxy(subpath):
+        from app.blueprints.report import proxy_backend_report
+        return proxy_backend_report(subpath)
+
+    @app.route("/reports/sync-live", methods=["POST"])
+    def global_reports_sync_live():
+        from app.blueprints.report import sync_live_data
+        return sync_live_data()
+
+    @app.route("/notifications/summary", methods=["GET"])
+    def global_notifications_summary_proxy():
+        from app.blueprints.auth import notification_summary_proxy
+        return notification_summary_proxy()
     # Start periodic background temp file cleaner (purging files older than 1 hour)
     import os
     from app.utils.temp_cleaner import start_periodic_temp_cleaner
@@ -121,22 +135,27 @@ def create_app():
         from flask import send_from_directory
         return send_from_directory(os.path.join(app.root_path, '..', 'uploads', 'temp'), filename)
 
-    # Multi-language support configuration context processor
+    # Load Hindi translations ONCE at startup and cache in memory.
+    # Previously this was read + parsed + re-serialized on EVERY page request
+    # (52KB file), which added unnecessary disk I/O on each render.
+    import json as _json
+    import os as _os
+    _translations_path = _os.path.join(app.root_path, 'static', 'i18n', 'hi.json')
+    _hindi_translations_str = "{}"
+    if _os.path.exists(_translations_path):
+        try:
+            with open(_translations_path, 'r', encoding='utf-8') as _f:
+                _hindi_translations_str = _json.dumps(
+                    _json.load(_f), ensure_ascii=False
+                )
+        except Exception as _e:
+            app.logger.error(f"Error loading hi.json: {_e}")
+
     @app.context_processor
     def inject_language_toggle():
-        import json
-        import os
-        translations_path = os.path.join(app.root_path, 'static', 'i18n', 'hi.json')
-        hindi_translations = {}
-        if os.path.exists(translations_path):
-            try:
-                with open(translations_path, 'r', encoding='utf-8') as f:
-                    hindi_translations = json.load(f)
-            except Exception as e:
-                app.logger.error(f"Error loading hi.json: {e}")
         return {
             'ENABLE_LANGUAGE_TOGGLE': app.config.get('ENABLE_LANGUAGE_TOGGLE', True),
-            'HINDI_TRANSLATIONS': json.dumps(hindi_translations, ensure_ascii=False)
+            'HINDI_TRANSLATIONS': _hindi_translations_str
         }
 
     return app

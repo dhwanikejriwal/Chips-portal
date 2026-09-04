@@ -456,101 +456,6 @@ async def send_rejection_email(email_to: str, name: str, reason: str):
         print(f"Failed to send email to {email_to}: {e}")
         raise e
 
-async def send_password_reset_email(email_to: str, name: str, reset_link: str):
-    """
-    Sends an automated HTML email for password reset.
-    """
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background-color: #f1f5f9;
-                padding: 20px;
-                color: #334155;
-            }}
-            .container {{
-                max-width: 600px;
-                margin: 0 auto;
-                background-color: #ffffff;
-                padding: 30px;
-                border-radius: 8px;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            }}
-            .header {{
-                text-align: center;
-                border-bottom: 2px solid #e2e8f0;
-                padding-bottom: 20px;
-                margin-bottom: 20px;
-            }}
-            .header h2 {{
-                color: #3b82f6;
-                margin: 0;
-            }}
-            .content p {{
-                font-size: 16px;
-                line-height: 1.5;
-            }}
-            .btn-reset {{
-                display: inline-block;
-                background-color: #3b82f6;
-                color: white !important;
-                padding: 12px 24px;
-                text-decoration: none;
-                border-radius: 4px;
-                font-weight: 600;
-                margin: 20px 0;
-            }}
-            .footer {{
-                margin-top: 30px;
-                text-align: center;
-                font-size: 14px;
-                color: #64748b;
-                border-top: 1px solid #e2e8f0;
-                padding-top: 20px;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2>Password Reset Request</h2>
-            </div>
-            <div class="content">
-                <p>Dear {name},</p>
-                <p>We received a request to reset your password for the CHiPS Admin Portal.</p>
-                <p>Click the button below to set a new password. This link is valid for 15 minutes.</p>
-                
-                <div style="text-align: center;">
-                    <a href="{reset_link}" class="btn-reset">Reset Password</a>
-                </div>
-                
-                <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
-                <p>Best regards,<br>The CHiPS Administration Team</p>
-            </div>
-            <div class="footer">
-                <p>This is an automated email. Please do not reply directly to this message.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-
-    message = MessageSchema(
-        subject="Password Reset - CHiPS Portal",
-        recipients=[email_to],
-        body=html_content,
-        subtype=MessageType.html
-    )
-
-    fm = FastMail(conf)
-    try:
-        await fm.send_message(message)
-    except Exception as e:
-        print(f"Failed to send email to {email_to}: {e}")
-
 async def send_password_reset_otp_email(email_to: str, name: str, otp_code: str):
     """
     Sends an automated HTML email for password reset via OTP.
@@ -618,7 +523,7 @@ async def send_password_reset_otp_email(email_to: str, name: str, otp_code: str)
             <div class="content">
                 <p>Dear {name},</p>
                 <p>We received a request to reset your password for the CHiPS Admin Portal.</p>
-                <p>Please use the following One-Time Password (OTP) to reset your password. This OTP is valid for 15 minutes.</p>
+                <p>Please use the following One-Time Password (OTP) to reset your password. This OTP is valid for 3 minutes.</p>
                 
                 <div class="otp-box">
                     {otp_code}

@@ -257,6 +257,7 @@
         _getItemSearchString(item) {
             if (typeof item === 'string') return item;
             return [
+                item.text,
                 item.name,
                 item.operator_name,
                 item.operator_id,
@@ -318,6 +319,35 @@
         }
 
         _defaultRenderItem(item, query) {
+            // String item support (e.g. plain station ID "63292")
+            if (typeof item === 'string') {
+                return `
+                    <div class="sc-item-header">
+                        <span class="sc-item-title" style="font-family: monospace; font-size: 13.5px; font-weight: 700;">${highlightMatch(item, query)}</span>
+                    </div>
+                `;
+            }
+
+            // Object with text support (e.g. operator dropdown with "NAME || MOBILE || USERCODE")
+            if (item.text && !item.name && !item.operator_name) {
+                const parts = String(item.text).split('||').map(s => s.trim());
+                if (parts.length >= 2) {
+                    const title = parts[0];
+                    const meta = parts.slice(1).join(' · ');
+                    return `
+                        <div class="sc-item-header">
+                            <span class="sc-item-title" style="font-weight: 700;">${highlightMatch(title, query)}</span>
+                        </div>
+                        <div class="sc-item-subtext" style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${highlightMatch(meta, query)}</div>
+                    `;
+                }
+                return `
+                    <div class="sc-item-header">
+                        <span class="sc-item-title">${highlightMatch(String(item.text), query)}</span>
+                    </div>
+                `;
+            }
+
             // Station ID item support
             if (item.station_id || item.new_station_id) {
                 const sid = String(item.station_id || item.new_station_id);
@@ -384,7 +414,7 @@
 
         selectItem(item) {
             this.selectedItem = item;
-            const displayName = item.station_id || item.new_station_id || item.name || item.operator_name || (typeof item === 'string' ? item : '');
+            const displayName = item.station_id || item.new_station_id || item.text || item.name || item.operator_name || (typeof item === 'string' ? item : '');
             this.input.value = displayName;
             this.clearBtn.style.display = displayName ? 'flex' : 'none';
             this.close();

@@ -40,18 +40,19 @@
 {% from 'partials/request_section.html' import request_section %}
 <!-- Jinja2 Metric Calculations -->
 {% set metric_source = unfiltered_requests if unfiltered_requests is defined else requests %}
-{% set total_requests = metric_source | length %}
-{% set metrics = namespace(pending=0, reverted=0, allotted=0) %}
+{% set metrics = namespace(pending=0, reverted=0, allotted=0, total_kits=0) %}
 {% for r in metric_source %}
+{% set k = (r.number_of_kits | int) if (r.number_of_kits is defined and r.number_of_kits) else 1 %}
 {% set st = r.status | upper %}
 {% if st in ['PENDING', 'REAPPLIED'] %}
-{% set metrics.pending = metrics.pending + 1 %}
+{% set metrics.pending = metrics.pending + k %}
 {% elif st == 'REVERTED' %}
-{% set metrics.reverted = metrics.reverted + 1 %}
+{% set metrics.reverted = metrics.reverted + k %}
 {% elif st == 'ALLOTTED' %}
 {% set metrics.allotted = metrics.allotted + 1 %}
 {% endif %}
 {% endfor %}
+{% set metrics.total_kits = metrics.pending + metrics.reverted + metrics.allotted %}
 
 <!-- Standardized CHiPS Header Banner -->
 <div class="chips-header-banner">
@@ -95,7 +96,7 @@
         </div>
         <div class="chips-metric-card">
             <div id="stat-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
-                total_requests }}
+                metrics.total_kits }}
             </div>
             <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requested
                 Kits</div>
@@ -830,12 +831,13 @@
                 const matchDate = sidDateMatch(created, df, now);
 
                 if (matchQ && matchDistrict && matchDate) {
+                    const k = parseInt(row.getAttribute('data-kits')) || 1;
                     if (status === 'pending' || status === 'reapplied') {
-                        metricPending++;
+                        metricPending += k;
                     } else if (status === 'reverted') {
-                        metricReverted++;
+                        metricReverted += k;
                     } else if (status === 'allotted') {
-                        metricAllotted++;
+                        metricAllotted += 1;
                     }
                 }
             });
@@ -923,31 +925,31 @@
             if (numKits <= 1) {
                 stationInputsHtml = `
                 <div style="margin-bottom:16px;">
-                    <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                    <div style="font-size:11px;font-weight:700;color:var(--text-secondary, #475569);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
                         ${t('modal.stationIdToAssign')} <span style="color:#ef4444;">*</span>
-                        <span style="font-size:10px;text-transform:none;font-weight:400;color:#94a3b8;"> ${t('modal.fiveDigits')}</span>
+                        <span style="font-size:10px;text-transform:none;font-weight:400;color:var(--text-secondary, #94a3b8);"> ${t('modal.fiveDigits')}</span>
                     </div>
                     <input id="swal-station-id-0" class="swal-station-id-input" type="text"
                         inputmode="numeric" pattern="[0-9]*" maxlength="5"
                         autocomplete="off" autocorrect="off" spellcheck="false"
-                        style="width:100%;height:44px;padding:0 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:16px;font-weight:700;letter-spacing:4px;font-family:monospace;outline:none;box-sizing:border-box;"
+                        style="width:100%;height:44px;padding:0 14px;border:1.5px solid var(--border-strong, #e2e8f0);border-radius:10px;font-size:16px;font-weight:700;letter-spacing:4px;font-family:monospace;outline:none;box-sizing:border-box;background:var(--surface-input, #fff);color:var(--text-primary, #0f172a);"
                         placeholder="e.g. 42420" autofocus
                         oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                 </div>`;
             } else {
                 stationInputsHtml = `<div style="margin-bottom:16px;">
-                <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                <div style="font-size:11px;font-weight:700;color:var(--text-secondary, #475569);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
                     ${t('modal.stationIdsToAssign')} <span style="color:#ef4444;">*</span>
                 </div>
                 <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px;">`;
                 for (let i = 0; i < numKits; i++) {
                     stationInputsHtml += `
                     <div>
-                        <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;">${t('modal.kitStationIdRow', { n: i + 1 })}</div>
+                        <div style="font-size:10px;font-weight:700;color:var(--text-secondary, #64748b);margin-bottom:4px;">${t('modal.kitStationIdRow', { n: i + 1 })}</div>
                         <input id="swal-station-id-${i}" class="swal-station-id-input" type="text"
                             inputmode="numeric" pattern="[0-9]*" maxlength="5"
                             autocomplete="off" autocorrect="off" spellcheck="false"
-                            style="width:100%;height:38px;padding:0 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:15px;font-weight:700;font-family:monospace;outline:none;box-sizing:border-box;"
+                            style="width:100%;height:38px;padding:0 12px;border:1.5px solid var(--border-strong, #e2e8f0);border-radius:8px;font-size:15px;font-weight:700;font-family:monospace;outline:none;box-sizing:border-box;background:var(--surface-input, #fff);color:var(--text-primary, #0f172a);"
                             placeholder="e.g. 42421" ${i === 0 ? 'autofocus' : ''}
                             oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                     </div>`;
@@ -956,46 +958,56 @@
             }
 
             Swal.fire({
-                title: `<div style="text-align:left;font-size:18px;font-weight:800;">${t('modal.allotTitle')}</div>`,
+                title: `<div class="notranslate" translate="no" style="text-align:left;font-size:18px;font-weight:800;">${t('modal.allotTitle')}</div>`,
                 html: `
-                <div style="text-align:left;">
-                    <div style="background:#f8fafc;border-radius:10px;padding:12px 16px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                        <div><div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">${t('col.requestId')}</div>
-                            <div style="font-weight:700;color:#4f46e5;margin-top:2px;">${requestNo}</div></div>
-                        <div><div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">${t('modal.modelKits')}</div>
-                            <div style="font-weight:600;color:#0f172a;margin-top:2px;">${model} · ${kits} ${t('modal.kits')}</div></div>
+                <div class="notranslate" translate="no" style="text-align:left;">
+                    <div style="background:var(--surface-subtle, #f8fafc);border:1px solid var(--border-subtle, #e2e8f0);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <div><div style="font-size:10px;font-weight:700;color:var(--text-secondary, #64748b);text-transform:uppercase;letter-spacing:0.4px;">${t('col.requestId')}</div>
+                            <div style="font-weight:700;color:var(--action, #4f46e5);margin-top:2px;">${requestNo}</div></div>
+                        <div><div style="font-size:10px;font-weight:700;color:var(--text-secondary, #64748b);text-transform:uppercase;letter-spacing:0.4px;">${t('modal.modelKits')}</div>
+                            <div style="font-weight:600;color:var(--text-primary, #0f172a);margin-top:2px;">${model} · ${kits} ${t('modal.kits')}</div></div>
                     </div>
                     <div id="swal-reco" style="margin-bottom:16px;"></div>
                     ${stationInputsHtml}
                     <div style="margin-bottom:16px;">
-                        <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                        <div style="font-size:11px;font-weight:700;color:var(--text-secondary, #475569);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
                             ${t('col.slotType')} <span style="color:#ef4444;">*</span>
                         </div>
                         <select id="swal-slot-select"
-                            style="width:100%;height:38px;padding:0 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;background:#fff;">
+                            style="width:100%;height:38px;padding:0 12px;border:1.5px solid var(--border-strong, #e2e8f0);border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;background:var(--surface-input, #fff);color:var(--text-primary, #0f172a);">
                             <option value="" disabled selected>Select Slot Type</option>
                             <option value="937 slot">937 Kits Slot</option>
                             <option value="300 slot">300 Kits Slot</option>
                         </select>
                     </div>
                     <div>
-                        <div style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
-                            ${t('modal.adminRemarks')} <span style="font-size:10px;text-transform:none;font-weight:400;color:#94a3b8;">${t('modal.optional')}</span>
+                        <div style="font-size:11px;font-weight:700;color:var(--text-secondary, #475569);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                            ${t('modal.adminRemarks')} <span style="font-size:10px;text-transform:none;font-weight:400;color:var(--text-secondary, #94a3b8);">${t('modal.optional')}</span>
                         </div>
                         <textarea id="swal-chips-remarks"
-                            style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;min-height:70px;outline:none;box-sizing:border-box;"
+                            style="width:100%;padding:10px 14px;border:1.5px solid var(--border-strong, #e2e8f0);border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;min-height:70px;outline:none;box-sizing:border-box;background:var(--surface-input, #fff);color:var(--text-primary, #0f172a);"
                             placeholder="${t('modal.approvalNotesPh')}"></textarea>
                     </div>
                 </div>`,
                 showCancelButton: true,
-                confirmButtonText: t('modal.allotConfirm'),
+                confirmButtonText: `<span class="notranslate" translate="no">${t('modal.allotConfirm')}</span>`,
                 confirmButtonColor: '#16a34a',
-                cancelButtonText: t('modal.cancel'),
+                cancelButtonText: `<span class="notranslate" translate="no">${t('modal.cancel')}</span>`,
                 cancelButtonColor: '#64748b',
                 width: '520px',
                 focusConfirm: false,
                 showLoaderOnConfirm: true,
-                didOpen: () => fetchStationRecommendation(requestId),
+                customClass: {
+                    container: 'notranslate',
+                    popup: 'notranslate'
+                },
+                didOpen: (popup) => {
+                    if (popup) {
+                        popup.classList.add('notranslate');
+                        popup.setAttribute('translate', 'no');
+                    }
+                    fetchStationRecommendation(requestId);
+                },
                 preConfirm: () => {
                     const inputs = document.querySelectorAll('.swal-station-id-input');
                     const values = [];
@@ -1083,8 +1095,8 @@
         // 2. Station ID Revert Modal (Fixed Asynchronous PATCH Stream)
         window.showRevertModal = function (requestId, requestNo) {
             Swal.fire({
-                title: `<span style="font-family:'Inter',sans-serif; font-weight:800;">${t('modal.revertTitle')}</span>`,
-                html: `<div style="text-align:left; font-family:'Inter',sans-serif;">
+                title: `<span class="notranslate" translate="no" style="font-family:'Inter',sans-serif; font-weight:800;">${t('modal.revertTitle')}</span>`,
+                html: `<div class="notranslate" translate="no" style="text-align:left; font-family:'Inter',sans-serif;">
                 <div style="font-size:13px; margin-bottom:12px;">${t('modal.revertingRequest')}: <strong>${requestNo}</strong></div>
                 <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">${t('modal.revertReason')}</div>
                 <textarea id="swal-revert-reason" class="swal2-textarea"
@@ -1092,13 +1104,23 @@
                     placeholder="${t('modal.revertReasonPh')}" autofocus></textarea>
             </div>`,
                 showCancelButton: true,
-                confirmButtonText: t('modal.revertConfirm'),
+                confirmButtonText: `<span class="notranslate" translate="no">${t('modal.revertConfirm')}</span>`,
                 confirmButtonColor: '#007bff',
-                cancelButtonText: t('modal.cancel'),
+                cancelButtonText: `<span class="notranslate" translate="no">${t('modal.cancel')}</span>`,
                 cancelButtonColor: '#6c757d',
                 width: '520px',
                 focusConfirm: false,
                 showLoaderOnConfirm: true,
+                customClass: {
+                    container: 'notranslate',
+                    popup: 'notranslate'
+                },
+                didOpen: (popup) => {
+                    if (popup) {
+                        popup.classList.add('notranslate');
+                        popup.setAttribute('translate', 'no');
+                    }
+                },
                 preConfirm: () => {
                     const reason = document.getElementById('swal-revert-reason').value.trim();
                     if (!reason) {
@@ -1141,7 +1163,7 @@
         // ── Details Modal ───────────────────────────────────────────────
         window.showDetailsModal = function (requestId, requestNo, status) {
             Swal.fire({
-                html: `<div style="padding:40px;text-align:center;">
+                html: `<div class="notranslate" translate="no" style="padding:40px;text-align:center;">
                 <div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
                 <div style="color:#94a3b8;font-size:14px;">${t('modal.fetchingDetails')}</div>
             </div>`,
@@ -1149,7 +1171,11 @@
                 allowOutsideClick: false,
                 width: '600px',
                 padding: '0',
-                background: '#fff'
+                background: '#fff',
+                customClass: {
+                    container: 'notranslate',
+                    popup: 'notranslate'
+                }
             });
 
             fetch(`/auth/chips/station-id/${requestId}/detail-json`)
@@ -1172,7 +1198,8 @@
             const remarksHtml = buildRemarksHtml(data.remarks_history || []);
             const userTypeLabel = data.user_type === 'new_user' ? t('value.newUser')
                 : data.user_type === 'machine_id' ? t('value.machineId')
-                    : t('modal.custom', { reason: escapeHtml(data.user_type_custom_reason || '') });
+                    : data.user_type === 'custom' ? (t('value.custom') || 'Custom')
+                        : (data.user_type ? data.user_type.replace(/_/g, ' ').toUpperCase() : '—');
 
             let latestRevertReason = t('modal.noReason');
             if (isRevertedOrRejected && data.remarks_history) {
@@ -1188,7 +1215,7 @@
 
             if (activeView === 'details') {
                 let htmlContent = `
-            <div style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
+            <div class="notranslate" translate="no" style="text-align: left; padding: 0 5px; max-height: 60vh; overflow-y: auto; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
                     <span style="font-size: 14px; color: #666;">${t('modal.request')}: <strong>${requestNo}</strong></span>
                     <span>${statusBadge}</span>
@@ -1253,12 +1280,14 @@
             `;
 
                 Swal.fire({
-                    title: `<span style="font-family:inherit; font-weight:800;">${t('modal.detailsTitle')}</span>`,
+                    title: `<span class="notranslate" translate="no" style="font-family:inherit; font-weight:800;">${t('modal.detailsTitle')}</span>`,
                     html: htmlContent,
                     showCancelButton: false,
                     showConfirmButton: true,
-                    confirmButtonText: t('modal.close'),
+                    confirmButtonText: `<span class="notranslate" translate="no">${t('modal.close')}</span>`,
                     customClass: {
+                        container: 'notranslate',
+                        popup: 'notranslate',
                         confirmButton: 'swal-btn-close'
                     },
                     width: '600px',
@@ -1272,7 +1301,7 @@
             }
             else if (activeView === 'remarks') {
                 let htmlContent = `
-            <div style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
+            <div class="notranslate" translate="no" style="text-align: left; padding: 0 5px; max-height: 60vh; display: flex; flex-direction: column; font-family: 'Inter', sans-serif;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; flex: 0 0 auto;">
                     <span style="font-size: 14px; color: #666;">${t('modal.request')}: <strong>${requestNo}</strong></span>
                     <span>${statusBadge}</span>
@@ -1282,14 +1311,16 @@
             `;
 
                 Swal.fire({
-                    title: `<span style="font-family:inherit; font-weight:800;">${t('modal.auditHistory')}</span>`,
+                    title: `<span class="notranslate" translate="no" style="font-family:inherit; font-weight:800;">${t('modal.auditHistory')}</span>`,
                     html: htmlContent,
                     showCancelButton: false,
                     showConfirmButton: true,
-                    confirmButtonText: t('modal.close'),
+                    confirmButtonText: `<span class="notranslate" translate="no">${t('modal.close')}</span>`,
                     showDenyButton: true,
-                    denyButtonText: t('modal.back'),
+                    denyButtonText: `<span class="notranslate" translate="no">${t('modal.back')}</span>`,
                     customClass: {
+                        container: 'notranslate',
+                        popup: 'notranslate',
                         confirmButton: 'swal-btn-close',
                         denyButton: 'swal-btn-back'
                     },
@@ -1303,14 +1334,17 @@
             }
         }
 
-        // Export helper function to fetch Excel stream from backend
+        // Export helper function to fetch CSV stream from backend
         function exportTableToExcel(tableID, filename = 'export.csv', excludeKits = false, excludeSlot = false) {
             const ids = [];
             let selector = '#pending-tbody tr';
+            let status = 'pending';
             if (tableID === 'approved-table') {
                 selector = '#approved-tbody tr';
+                status = 'allotted';
             } else if (tableID === 'reverted-table') {
                 selector = '#reverted-tbody tr';
+                status = 'reverted';
             }
             const rows = document.querySelectorAll(selector);
 
@@ -1324,14 +1358,30 @@
                 return;
             }
 
-            let url = `/auth/station-id/export?ids=${ids.join(',')}`;
-            if (excludeKits) {
-                url += `&exclude_kits=true`;
-            }
-            if (excludeSlot) {
-                url += `&exclude_slot=true`;
-            }
-            window.location.href = url;
+            // Use a dynamic form POST to avoid browser GET URL length limits with 1200+ IDs
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/auth/station-id/export';
+            form.style.display = 'none';
+
+            const addField = (name, val) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = val;
+                form.appendChild(input);
+            };
+
+            addField('ids', ids.join(','));
+            if (status) addField('status', status);
+            if (excludeKits) addField('exclude_kits', 'true');
+            if (excludeSlot) addField('exclude_slot', 'true');
+
+            document.body.appendChild(form);
+            form.submit();
+            setTimeout(() => {
+                if (document.body.contains(form)) document.body.removeChild(form);
+            }, 3000);
         }
 
         function showAllStationIds(idsStr) {

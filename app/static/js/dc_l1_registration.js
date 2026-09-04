@@ -202,6 +202,19 @@ function clearAllFilters() {
 function submitL1Registration(event) {
     event.preventDefault();
     const formElement = document.getElementById('l1RegistrationForm');
+
+    // Ensure hidden station_id and model_type are synced from input/select
+    const searchInput = document.getElementById('station_id_search_input');
+    const hiddenStationInput = document.getElementById('l1_selected_station_id');
+    if (searchInput && searchInput.value.trim() && (!hiddenStationInput.value || !hiddenStationInput.value.trim())) {
+        hiddenStationInput.value = searchInput.value.trim();
+    }
+    const mtSelect = document.getElementById('l1_model_type_select');
+    const mtHidden = document.getElementById('l1_model_type_hidden');
+    if (mtSelect && mtSelect.value && (!mtHidden.value || !mtHidden.value.trim())) {
+        mtHidden.value = mtSelect.value;
+    }
+
     const formData = new FormData(formElement);
 
     const requiredFields = ['station_id', 'machine_id', 'model_type', 'software_version', 'laptop_serial_no', 'laptop_brand', 'uv_id', 'uv_password'];
@@ -276,7 +289,7 @@ function openL1ReapplyModal(requestCode) {
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                         <div>
                             <label style="font-weight: 600; font-size: 13px;">Station ID *</label>
-                            <input type="text" name="station_id" value="${data.station_id}" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+                            <input type="text" name="station_id" value="${data.station_id}" readonly style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; background: #f1f5f9; color: #475569; cursor: not-allowed;">
                         </div>
                         <div>
                             <label style="font-weight: 600; font-size: 13px;">Machine ID *</label>
@@ -296,7 +309,8 @@ function openL1ReapplyModal(requestCode) {
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                         <div>
                             <label style="font-weight: 600; font-size: 13px;">Model Type *</label>
-                            <select name="model_type" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+                            <input type="hidden" name="model_type" value="${data.model_type || 'ECMP'}">
+                            <select disabled style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; background: #f1f5f9; color: #475569; cursor: not-allowed; opacity: 1;">
                                 <option value="ECMP" ${data.model_type === 'ECMP' ? 'selected' : ''}>ECMP</option>
                                 <option value="UCL" ${data.model_type === 'UCL' ? 'selected' : ''}>UCL</option>
                                 <option value="VLE" ${data.model_type === 'VLE' ? 'selected' : ''}>VLE</option>
@@ -505,7 +519,7 @@ window.showL1Details = function (d, activeView) {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                             <div>
                                 <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Station ID *</label>
-                                <input type="text" name="station_id" value="${d.station_id}" style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px;">
+                                <input type="text" name="station_id" value="${d.station_id}" readonly style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px; background: #f1f5f9; color: #475569; cursor: not-allowed;">
                             </div>
                             <div>
                                 <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Machine ID *</label>
@@ -527,7 +541,8 @@ window.showL1Details = function (d, activeView) {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                             <div>
                                 <label style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:5px;">Model Type *</label>
-                                <select name="model_type" style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px; background:#fff;">
+                                <input type="hidden" name="model_type" value="${d.model_type || 'ECMP'}">
+                                <select disabled style="width: 100%; height:38px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size:13px; background:#f1f5f9; color: #475569; cursor: not-allowed; opacity: 1;">
                                     <option value="ECMP" ${d.model_type === 'ECMP' ? 'selected' : ''}>ECMP</option>
                                     <option value="UCL" ${d.model_type === 'UCL' ? 'selected' : ''}>UCL</option>
                                     <option value="VLE" ${d.model_type === 'VLE' ? 'selected' : ''}>VLE</option>
@@ -634,11 +649,11 @@ window.showL1Details = function (d, activeView) {
                         </div>
                         <div class="l1-info-card">
                             <div class="l1-info-label">Laptop Serial Number</div>
-                            <div class="l1-info-value">${d.laptop_serial_no || 'N/A'}</div>
+                            <div class="l1-info-value notranslate" translate="no">${d.laptop_serial_no || 'N/A'}</div>
                         </div>
                         <div class="l1-info-card">
                             <div class="l1-info-label">Laptop Brand</div>
-                            <div class="l1-info-value">${d.laptop_brand || 'N/A'}</div>
+                            <div class="l1-info-value notranslate" translate="no">${d.laptop_brand || 'N/A'}</div>
                         </div>
                     </div>
                 </div>
@@ -791,7 +806,14 @@ function openL1DetailsModal(requestCode) {
 
 function clearL1Form() {
     sessionStorage.removeItem('l1_request_draft');
-    document.getElementById('l1RegistrationForm').reset();
+    const form = document.getElementById('l1RegistrationForm');
+    if (form) form.reset();
+    const mtSelect = document.getElementById('l1_model_type_select');
+    const mtHidden = document.getElementById('l1_model_type_hidden');
+    if (mtSelect) mtSelect.value = '';
+    if (mtHidden) mtHidden.value = '';
+    const clearBtn = document.getElementById('station-search-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
 }
 
 function togglePasswordVisibility(inputId, btn) {
@@ -848,11 +870,23 @@ window.loadL1Draft = function () {
         const draft = JSON.parse(draftStr);
         for (let key in draft) {
             const el = document.getElementById(key) || document.getElementsByName(key)[0];
-            if (el && el.type !== 'file' && el.type !== 'hidden') {
+            if (el && el.type !== 'file') {
                 el.value = draft[key];
                 el.dispatchEvent(new Event('input', { bubbles: true }));
                 el.dispatchEvent(new Event('change', { bubbles: true }));
             }
+        }
+        if (draft.station_id) {
+            const input = document.getElementById('station_id_search_input');
+            const clearBtn = document.getElementById('station-search-clear-btn');
+            if (input) input.value = draft.station_id;
+            if (clearBtn) clearBtn.style.display = 'block';
+        }
+        if (draft.model_type) {
+            const mtSelect = document.getElementById('l1_model_type_select');
+            const mtHidden = document.getElementById('l1_model_type_hidden');
+            if (mtSelect) mtSelect.value = draft.model_type;
+            if (mtHidden) mtHidden.value = draft.model_type;
         }
     } catch (e) {
         console.error("Error loading L1 draft", e);
@@ -890,4 +924,215 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Attempt load if not just cleared
     window.loadL1Draft();
+});
+
+/* ===================================================================
+   🔍 STATION ID SEARCH & DROPDOWN ENGINE
+   =================================================================== */
+let stationSearchTimeout = null;
+
+window.debounceStationSearch = function (query) {
+    clearTimeout(stationSearchTimeout);
+    const clearBtn = document.getElementById('station-search-clear-btn');
+    if (clearBtn) {
+        clearBtn.style.display = (query && query.trim()) ? 'block' : 'none';
+    }
+
+    const hiddenInput = document.getElementById('l1_selected_station_id');
+    const mtSelect = document.getElementById('l1_model_type_select');
+    const mtHidden = document.getElementById('l1_model_type_hidden');
+
+    const clean = (query || '').trim();
+    if (hiddenInput) {
+        hiddenInput.value = clean;
+    }
+
+    // Check if the typed query matches an allotted station
+    const stations = window.allottedStationsData || [];
+    const matched = stations.find(s => String(s.station_id).toLowerCase() === clean.toLowerCase());
+    if (matched) {
+        if (mtSelect) {
+            mtSelect.value = matched.model || 'ECMP';
+            mtSelect.disabled = true;
+            mtSelect.style.cursor = 'not-allowed';
+            mtSelect.style.background = '#f1f5f9';
+        }
+        if (mtHidden) {
+            mtHidden.value = matched.model || 'ECMP';
+        }
+    } else if (clean) {
+        // Custom/New Station ID: Unlock Model Type so user can choose ECMP / UCL / VLE
+        if (mtSelect) {
+            mtSelect.disabled = false;
+            mtSelect.style.cursor = 'pointer';
+            mtSelect.style.background = '';
+            if (mtSelect.value) {
+                if (mtHidden) mtHidden.value = mtSelect.value;
+            }
+        }
+    } else {
+        if (mtSelect) {
+            mtSelect.value = '';
+            mtSelect.disabled = true;
+            mtSelect.style.cursor = 'not-allowed';
+            mtSelect.style.background = '#f1f5f9';
+        }
+        if (mtHidden) {
+            mtHidden.value = '';
+        }
+    }
+
+    stationSearchTimeout = setTimeout(() => {
+        renderStationOptions(query);
+    }, 200);
+};
+
+window.clearStationSearchInput = function () {
+    const input = document.getElementById('station_id_search_input');
+    const hiddenInput = document.getElementById('l1_selected_station_id');
+    const clearBtn = document.getElementById('station-search-clear-btn');
+    const mtSelect = document.getElementById('l1_model_type_select');
+    const mtHidden = document.getElementById('l1_model_type_hidden');
+    if (input) input.value = '';
+    if (hiddenInput) hiddenInput.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (mtSelect) mtSelect.value = '';
+    if (mtHidden) mtHidden.value = '';
+    renderStationOptions('');
+};
+
+window.toggleStationDropdown = function (forceOpen = null) {
+    const dropdown = document.getElementById('station_id_search_dropdown');
+    const chevron = document.getElementById('station-chevron-icon');
+    if (!dropdown) return;
+
+    const isCurrentlyOpen = dropdown.style.display === 'block';
+    const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
+
+    if (shouldOpen) {
+        dropdown.style.display = 'block';
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+        const input = document.getElementById('station_id_search_input');
+        const q = input ? input.value : '';
+        renderStationOptions(q);
+    } else {
+        dropdown.style.display = 'none';
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
+};
+
+window.renderStationOptions = function (query = '') {
+    const dropdown = document.getElementById('station_id_search_dropdown');
+    if (!dropdown) return;
+
+    let stations = window.allottedStationsData || [];
+    const cleanQ = (query || '').trim().toLowerCase();
+
+    if (cleanQ) {
+        stations = stations.filter(s => {
+            const sid = strVal(s.station_id).toLowerCase();
+            const model = strVal(s.model).toLowerCase();
+            const dist = strVal(s.district_name).toLowerCase();
+            const reqNo = strVal(s.request_no).toLowerCase();
+            return sid.includes(cleanQ) || model.includes(cleanQ) || dist.includes(cleanQ) || reqNo.includes(cleanQ);
+        });
+    }
+
+    dropdown.innerHTML = '';
+
+    if (!stations || stations.length === 0) {
+        dropdown.innerHTML = '<div style="padding: 14px; color: var(--text-secondary, #94a3b8); font-size: 13px; text-align: center;">No allotted Station IDs found.</div>';
+    } else {
+        stations.forEach(s => {
+            const sidStr = strVal(s.station_id);
+            const modelStr = strVal(s.model || 'UCL');
+            const distStr = strVal(s.district_name || 'District');
+
+            const div = document.createElement('div');
+            div.className = 'oa-search-result-item';
+            div.onclick = () => selectStationOption(s);
+
+            const highlightedSid = highlightStationMatch(sidStr, query);
+            const modelBadge = `<span style="background: rgba(99, 102, 241, 0.15); color: #818cf8; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-family: monospace; letter-spacing: 0.5px;">${escapeHtmlString(modelStr)}</span>`;
+
+            div.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span class="oa-search-result-title" style="font-size: 14px; font-weight: 700;">${highlightedSid}</span>
+                    ${modelBadge}
+                </div>
+                <div class="oa-search-result-subtext" style="font-size: 12px; margin-top: 2px;">
+                    ${escapeHtmlString(distStr)}
+                </div>
+            `;
+            dropdown.appendChild(div);
+        });
+    }
+    dropdown.style.display = 'block';
+    const chevron = document.getElementById('station-chevron-icon');
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+};
+
+function strVal(val) {
+    if (val === null || val === undefined) return '';
+    return String(val);
+}
+
+function highlightStationMatch(text, query) {
+    if (!text) return '';
+    const safeText = escapeHtmlString(text);
+    if (!query || !query.trim()) return safeText;
+    const cleanQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${cleanQuery})`, 'gi');
+    return safeText.replace(regex, '<mark style="background-color: rgba(250, 204, 21, 0.4); color: inherit; font-weight: 800; border-radius: 2px; padding: 0 2px;">$1</mark>');
+}
+
+function escapeHtmlString(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+window.selectStationOption = function (s) {
+    if (!s) return;
+    const sid = strVal(s.station_id);
+    const model = strVal(s.model);
+
+    const input = document.getElementById('station_id_search_input');
+    const hiddenInput = document.getElementById('l1_selected_station_id');
+    const clearBtn = document.getElementById('station-search-clear-btn');
+
+    if (input) input.value = sid;
+    if (hiddenInput) hiddenInput.value = sid;
+    if (clearBtn) clearBtn.style.display = 'block';
+
+    // Auto-select and lock Model Type
+    const mtSelect = document.getElementById('l1_model_type_select');
+    const mtHidden = document.getElementById('l1_model_type_hidden');
+    if (model) {
+        if (mtSelect) mtSelect.value = model;
+        if (mtHidden) mtHidden.value = model;
+    }
+
+    // Close dropdown
+    const dropdown = document.getElementById('station_id_search_dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    const chevron = document.getElementById('station-chevron-icon');
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+
+    if (typeof window.saveL1Draft === 'function') window.saveL1Draft();
+};
+
+// Outside click listener for Station ID search dropdown
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('station_id_search_dropdown');
+    const searchContainer = document.getElementById('station_id_search_container');
+    if (dropdown && searchContainer && !searchContainer.contains(e.target)) {
+        dropdown.style.display = 'none';
+        const chevron = document.getElementById('station-chevron-icon');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
 });

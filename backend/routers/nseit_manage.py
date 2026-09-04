@@ -54,55 +54,46 @@ def get_nseit_requests(district_code: str | None = None, db: Session = Depends(g
                 "status_after": r.status_after
             })
         
-        # Check if NSEIT certificate was uploaded post-approval
-        nseit_uploaded_post_approval = False
-        lms_uploaded_post_approval = False
-        
-        approval_time = None
-        for r in remarks:
-            if r.status_after_id == StatusEnum.APPROVED.value:
-                approval_time = r.time
-                break
-                
-        if approval_time:
-            from datetime import timezone, timedelta
-            approval_utc = approval_time - timedelta(hours=5, minutes=30)
-            approval_timestamp = approval_utc.replace(tzinfo=timezone.utc).timestamp()
-            
-            import os
-            uploads_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "candidate")
-            
-            if c.nseit_certificate_upload:
-                cleaned_path = c.nseit_certificate_upload.lstrip("/")
-                if cleaned_path.startswith("candidate_uploads/"):
-                    parts = cleaned_path.split("/", 1)
-                    if len(parts) > 1:
-                        cleaned_path = parts[1]
-                full_path = os.path.abspath(os.path.join(uploads_dir, cleaned_path))
-                if os.path.exists(full_path):
-                    file_timestamp = os.path.getmtime(full_path)
-                    # Allow 5 seconds safety window
-                    if file_timestamp > (approval_timestamp + 5.0):
-                        nseit_uploaded_post_approval = True
-                        
-            if c.lms_certificate_upload:
-                cleaned_path = c.lms_certificate_upload.lstrip("/")
-                if cleaned_path.startswith("candidate_uploads/"):
-                    parts = cleaned_path.split("/", 1)
-                    if len(parts) > 1:
-                        cleaned_path = parts[1]
-                full_path = os.path.abspath(os.path.join(uploads_dir, cleaned_path))
-                if os.path.exists(full_path):
-                    file_timestamp = os.path.getmtime(full_path)
-                    # Allow 5 seconds safety window
-                    if file_timestamp > (approval_timestamp + 5.0):
-                        lms_uploaded_post_approval = True
+        # Check if NSEIT / LMS certificate was uploaded post-approval or updated
+        has_nseit_update_remark = any(
+            ("Candidate updated ID" in r.remark) or
+            ("Candidate uploaded new NSEIT" in r.remark) or
+            ("Candidate uploaded NSEIT Certificate" in r.remark) or
+            ("Candidate updated NSEIT" in r.remark)
+            for r in remarks
+        )
+        had_nseit_at_registration = any(
+            ("CANDIDATE ALREADY HAS EXISTING ID" in r.remark) or
+            ("Reason for requesting NSEIT" in r.remark)
+            for r in remarks
+        )
 
-        had_nseit_at_registration = False
-        if any("CANDIDATE ALREADY HAS EXISTING ID" in r.remark for r in remarks):
-            had_nseit_at_registration = True
-        elif c.nseit_id and not c.nseit_id.startswith('NSEIT00') and not nseit_uploaded_post_approval:
-            had_nseit_at_registration = True
+        nseit_uploaded_post_approval = False
+        if has_nseit_update_remark:
+            nseit_uploaded_post_approval = True
+        elif not had_nseit_at_registration and (n.status_id == StatusEnum.APPROVED.value or any(r.status_after_id == StatusEnum.APPROVED.value for r in remarks)) and c.nseit_certificate_upload:
+            nseit_uploaded_post_approval = True
+
+        lms_req = c.lms_requests[0] if c.lms_requests else None
+        lms_remarks_list = lms_req.remarks if lms_req else []
+        has_lms_update_remark = any(
+            ("Candidate updated ID" in r.remark) or
+            ("Candidate uploaded new LMS" in r.remark) or
+            ("Candidate uploaded LMS Certificate" in r.remark) or
+            ("Candidate updated LMS" in r.remark)
+            for r in lms_remarks_list
+        )
+        had_lms_at_registration = any(
+            ("CANDIDATE ALREADY HAS EXISTING ID" in r.remark) or
+            ("Reason for requesting LMS" in r.remark)
+            for r in lms_remarks_list
+        )
+
+        lms_uploaded_post_approval = False
+        if has_lms_update_remark:
+            lms_uploaded_post_approval = True
+        elif not had_lms_at_registration and lms_req and (lms_req.status_id == StatusEnum.APPROVED.value or any(r.status_after_id == StatusEnum.APPROVED.value for r in lms_remarks_list)) and c.lms_certificate_upload:
+            lms_uploaded_post_approval = True
 
         result.append({
             "had_nseit_at_registration": had_nseit_at_registration,
@@ -146,35 +137,28 @@ def forward_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
     if not nseit:
         raise HTTPException(status_code=404, detail="NSEIT Request not found")
         
-    # Check if this request has any remarks from CHiPS (Admin role) in its history
-    from backend.models.candidate import CandidateLogin
-    import sqlalchemy as sa
-    has_chips_remark = db.query(NSEITRemark).join(
-        NSEITRequest, NSEITRemark.request_id == NSEITRequest.id
-    ).join(
-        Candidate, NSEITRequest.request_id == Candidate.id
-    ).join(
-        CandidateLogin, Candidate.id == CandidateLogin.request_id
-    ).join(
-        UserLogin, NSEITRemark.sender_id == UserLogin.id
-    ).join(
-        MasterUserRole, UserLogin.roleid == MasterUserRole.id
-    ).filter(
-        NSEITRemark.request_id == nseit.id,
-        MasterUserRole.role == "Admin",
-        NSEITRemark.sender_id != CandidateLogin.id
-    ).first() is not None
+    # Check if this request was previously sent to CHiPS or acted upon by CHiPS
+    has_been_sent_to_chips_before = False
+    for rem in nseit.remarks:
+        if rem.status_after_id in [StatusEnum.FORWARDED.value, StatusEnum.FORWARDED_AGAIN.value, StatusEnum.REVERTED_BY_CHIPS.value]:
+            has_been_sent_to_chips_before = True
+            break
+        if rem.sender_admin and rem.sender_admin.role and rem.sender_admin.role.role == "Admin":
+            has_been_sent_to_chips_before = True
+            break
 
-    if nseit.status_id in [StatusEnum.REAPPLIED.value, StatusEnum.FORWARDED_AGAIN.value] or has_chips_remark:
+    if has_been_sent_to_chips_before:
         nseit.status_id = StatusEnum.FORWARDED_AGAIN.value
+        default_forward_remark = "NSEIT request verified and forwarded again."
     else:
         nseit.status_id = StatusEnum.FORWARDED.value
+        default_forward_remark = "NSEIT request verified and forwarded."
     nseit.updated_at = get_ist_now()
     
     chips_user = db.query(UserLogin).join(MasterUserRole).filter(MasterUserRole.role == "Admin").first()
     new_remark = NSEITRemark(
         request_id=nseit.id,
-        remark=clean_remark or "NSEIT request verified and forwarded.",
+        remark=clean_remark or default_forward_remark,
         sender_id=payload.by_user_id,
         receiver_id=chips_user.id if chips_user else None,
         is_public=1,
@@ -196,9 +180,10 @@ def approve_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
         
     nseit.status_id = StatusEnum.APPROVED.value
     nseit.updated_at = get_ist_now()
+    
     candidate_login_id = None
-    if candidate.login:
-        candidate_login_id = candidate.login.id
+    if nseit.candidate and nseit.candidate.login:
+        candidate_login_id = nseit.candidate.login.id
 
     new_remark = NSEITRemark(
         request_id=nseit.id,
@@ -215,7 +200,7 @@ def approve_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = 
         try:
             import asyncio
             from backend.utils.email_utils import send_nseit_approval_email
-            
+
             nseit_booking_link = "https://uidai.dexitglobalexams.com/UIDAI/LoginAction_input.action"
             
             asyncio.run(send_nseit_approval_email(
@@ -237,7 +222,7 @@ def revert_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = D
     if not nseit:
         raise HTTPException(status_code=404, detail="NSEIT Request not found")
         
-    # Check if the reverting user has Admin (CHiPS) role
+    # Check if reverting user is Admin (CHiPS)
     user = db.query(UserLogin).filter(UserLogin.id == payload.by_user_id).first()
     if user and user.role and user.role.role == "Admin":
         nseit.status_id = StatusEnum.REVERTED_BY_CHIPS.value
@@ -245,10 +230,9 @@ def revert_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = D
         nseit.status_id = StatusEnum.REVERTED.value
     nseit.updated_at = get_ist_now()
     
-    candidate = db.query(Candidate).filter(Candidate.id == r_id).first()
     candidate_login_id = None
-    if candidate and candidate.login:
-        candidate_login_id = candidate.login.id
+    if nseit.candidate and nseit.candidate.login:
+        candidate_login_id = nseit.candidate.login.id
 
     new_remark = NSEITRemark(
         request_id=nseit.id,
@@ -265,8 +249,7 @@ def revert_nseit_request(r_id: int, payload: NSEITActionRequest, db: Session = D
 @router.get("/export-excel")
 def export_nseit_excel(ids: str = None, table_id: str = None, db: Session = Depends(get_db)):
     """
-    🌟 FIXED: Fetches comprehensive profile field values directly from the database context
-    and streams them as a fully itemized, un-truncated CSV report.
+    🌟 FIXED: Centralized export function using standard system stream processing.
     """
     # Join Candidate to pull all related columns
     query = db.query(NSEITRequest).join(Candidate, NSEITRequest.request_id == Candidate.id)
@@ -286,28 +269,26 @@ def export_nseit_excel(ids: str = None, table_id: str = None, db: Session = Depe
         
         status_upper = n.status.upper() if n.status else ""
         if status_upper in ["APPROVED", "APPROVED_LEGACY"]:
-            is_pending = False
             nseit_status_str = "Approved"
         elif status_upper == "REVERTED_BY_CHIPS":
-            is_pending = False
             nseit_status_str = "Reverted by CHiPS"
         elif status_upper == "REVERTED":
-            is_pending = False
             nseit_status_str = "Reverted"
         elif status_upper == "SKIPPED":
-            is_pending = False
             nseit_status_str = "Skipped"
         elif status_upper in ["FORWARDED", "PENDING"]:
             if table_id == "admin-chips-table":
-                is_pending = False
                 nseit_status_str = "Forwarded"
             else:
-                is_pending = True
                 nseit_status_str = "Pending"
-        else:
-            is_pending = False
+        elif status_upper == "FORWARDED_AGAIN":
             if table_id == "admin-chips-table":
                 nseit_status_str = "Forwarded Again"
+            else:
+                nseit_status_str = "Reapplied"
+        else:
+            if table_id == "admin-chips-table":
+                nseit_status_str = "Forwarded"
             else:
                 nseit_status_str = "Reapplied"
 
@@ -331,7 +312,7 @@ def export_nseit_excel(ids: str = None, table_id: str = None, db: Session = Depe
             "nseit_certificate_id": c.nseit_id or "None",
             "nseit_status": nseit_status_str,
             "submitted_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else "",
-            "updated_at": (n.updated_at.strftime("%Y-%m-%d %H:%M:%S") if n.updated_at else "") if not is_pending else ""
+            "updated_at": (n.updated_at or n.created_at).strftime("%Y-%m-%d %H:%M:%S") if (n.updated_at or n.created_at) else ""
         })
 
     # 🌟 Full column profile headers layout dictionary map

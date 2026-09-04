@@ -3,8 +3,13 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 import requests
 from app.utils.aging import parse_aging_filter, filter_by_aging
 
+from app.utils.backend_url import get_backend_base_url
+
 l2_registration_bp = Blueprint("l2_registration", __name__)
-BACKEND = "http://127.0.0.1:8000/l2-registration"
+
+def _backend():
+    return f"{get_backend_base_url()}/l2-registration"
+
 
 # Statuses that are NOT part of the pending queue for aging purposes
 _L2_NON_PENDING = {"approved", "activated", "rejected", "reverted", "reverted_by_chips", "sent_to_uidai"}
@@ -26,7 +31,7 @@ def dc_list():
     dc_id = session.get("user_id")
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
-        response = requests.get(f"{BACKEND}/dc/{dc_id}", headers=headers)
+        response = requests.get(f"{_backend()}/dc/{dc_id}", headers=headers)
         if response.status_code == 401:
             return redirect(url_for("auth.logout"))
         requests_list = response.json() if response.status_code == 200 else []
@@ -35,7 +40,7 @@ def dc_list():
 
     # Stations whose L1 is Done but still awaiting an L2 request from the DC
     try:
-        awaiting_resp = requests.get(f"{BACKEND}/awaiting-l2/{dc_id}", headers=headers, timeout=5)
+        awaiting_resp = requests.get(f"{_backend()}/awaiting-l2/{dc_id}", headers=headers, timeout=5)
         awaiting_l2 = awaiting_resp.json() if awaiting_resp.status_code == 200 else []
         if not isinstance(awaiting_l2, list):
             awaiting_l2 = []
@@ -56,14 +61,16 @@ def dc_list():
     }
     for r in requests_list:
         st = str(r.get("status") or "").upper().strip()
-        if "UIDAI" in st and st != "REJECTED":
+        if "UIDAI" in st and "REJECT" not in st:
             all_time_metrics["sent_to_uidai"] += 1
-        elif st in ["APPROVED", "REVIEWED", "ACTIVATED", "L2_DONE", "DONE"]:
+        elif st in ["APPROVED", "REVIEWED", "ACTIVATED", "L2_DONE", "L2 DONE", "DONE"]:
             all_time_metrics["approved"] += 1
-        elif st in ["REVERTED", "REVERTED_BY_CHIPS"]:
+        elif st in ["REVERTED", "REVERTED_BY_CHIPS", "REVERT_BACK"]:
             all_time_metrics["reverted"] += 1
-        elif st in ["REJECTED"]:
+        elif st in ["REJECTED", "REJECTED_BY_UIDAI"]:
             all_time_metrics["rejected"] += 1
+        elif st in ["PENDING", "REAPPLIED"]:
+            all_time_metrics["pending"] += 1
         else:
             all_time_metrics["pending"] += 1
 
@@ -109,7 +116,7 @@ def dc_new():
         }
         headers = {"Authorization": f"Bearer {jwt_token}"}
         try:
-            response = requests.post(f"{BACKEND}/submit", data=form_data, headers=headers)
+            response = requests.post(f"{_backend()}/submit", data=form_data, headers=headers)
             
             # 🌟 FIX: Accept both 200 OK and 201 Created response states safely from the backend microservice
             if response.status_code in [200, 201]:
@@ -131,7 +138,7 @@ def dc_new():
     dc_id = session.get("user_id")
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
-        awaiting_resp = requests.get(f"{BACKEND}/awaiting-l2/{dc_id}", headers=headers, timeout=5)
+        awaiting_resp = requests.get(f"{_backend()}/awaiting-l2/{dc_id}", headers=headers, timeout=5)
         awaiting_l2 = awaiting_resp.json() if awaiting_resp.status_code == 200 else []
         if not isinstance(awaiting_l2, list):
             awaiting_l2 = []
@@ -149,7 +156,7 @@ def dc_l2_prefill(station_id):
         return jsonify({}), 401
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
-        resp = requests.get(f"{BACKEND}/prefill/{station_id}", headers=headers, timeout=5)
+        resp = requests.get(f"{_backend()}/prefill/{station_id}", headers=headers, timeout=5)
         return Response(
             resp.content,
             status=resp.status_code,
@@ -187,7 +194,7 @@ def dc_reapply(request_id):
     
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
-        response = requests.post(f"{BACKEND}/dc/{request_id}/reapply", data=form_data, headers=headers)
+        response = requests.post(f"{_backend()}/dc/{request_id}/reapply", data=form_data, headers=headers)
         if response.status_code == 200:
             return jsonify({"status": "success", "message": "Reapplied successfully."})
         else:
@@ -204,7 +211,7 @@ def chips_list():
         
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
-        response = requests.get(f"{BACKEND}/all", headers=headers)
+        response = requests.get(f"{_backend()}/all", headers=headers)
         if response.status_code == 401:
             return redirect(url_for("auth.logout"))
         requests_list = response.json() if response.status_code == 200 else []
@@ -237,7 +244,7 @@ def chips_detail_json(request_id):
     
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
-        response = requests.get(f"{BACKEND}/{request_id}", headers=headers)
+        response = requests.get(f"{_backend()}/{request_id}", headers=headers)
         return Response(
             response.content,
             status=response.status_code,
@@ -258,7 +265,7 @@ def chips_send_to_uidai(request_id):
         "reviewed_by": session.get("user_id"),
         "uidai_remarks": request.form.get("uidai_remarks", "")
     }
-    requests.patch(f"{BACKEND}/{request_id}/send-to-uidai", data=form_data, headers=headers)
+    requests.patch(f"{_backend()}/{request_id}/send-to-uidai", data=form_data, headers=headers)
     return redirect(url_for("l2_registration.chips_list"))
 
 
@@ -273,7 +280,7 @@ def chips_uidai_approve(request_id):
         "reviewed_by": session.get("user_id"),
         "uidai_remarks": request.form.get("uidai_remarks", "")
     }
-    requests.patch(f"{BACKEND}/{request_id}/uidai-approve", data=form_data, headers=headers)
+    requests.patch(f"{_backend()}/{request_id}/uidai-approve", data=form_data, headers=headers)
     return redirect(url_for("l2_registration.chips_list"))
 
 
@@ -288,7 +295,7 @@ def chips_uidai_reject(request_id):
         "reviewed_by": session.get("user_id"),
         "uidai_remarks": request.form.get("uidai_remarks", "")
     }
-    requests.patch(f"{BACKEND}/{request_id}/uidai-reject", data=form_data, headers=headers)
+    requests.patch(f"{_backend()}/{request_id}/uidai-reject", data=form_data, headers=headers)
     return redirect(url_for("l2_registration.chips_list"))
 
 
@@ -303,7 +310,7 @@ def chips_revert(request_id):
         "reviewed_by": session.get("user_id"),
         "revert_reason": request.form.get("revert_reason", "")
     }
-    requests.patch(f"{BACKEND}/{request_id}/revert", data=form_data, headers=headers)
+    requests.patch(f"{_backend()}/{request_id}/revert", data=form_data, headers=headers)
     return redirect(url_for("l2_registration.chips_list"))
 
 
@@ -314,7 +321,7 @@ def export_uidai():
     headers = {"Authorization": f"Bearer {jwt_token}"}
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
-    response = requests.get(f"{BACKEND}/export-excel/uidai", headers=headers, params=params, stream=True)
+    response = requests.get(f"{_backend()}/export-excel/uidai", headers=headers, params=params, stream=True)
     return Response(
         response.content,
         mimetype="text/csv",
@@ -328,7 +335,7 @@ def export_pending():
     headers = {"Authorization": f"Bearer {jwt_token}"}
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
-    response = requests.get(f"{BACKEND}/export-excel/pending", headers=headers, params=params, stream=True)
+    response = requests.get(f"{_backend()}/export-excel/pending", headers=headers, params=params, stream=True)
     return Response(
         response.content,
         mimetype="text/csv",
@@ -342,7 +349,7 @@ def export_creds():
     headers = {"Authorization": f"Bearer {jwt_token}"}
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
-    response = requests.get(f"{BACKEND}/export-excel/credentials", headers=headers, params=params, stream=True)
+    response = requests.get(f"{_backend()}/export-excel/credentials", headers=headers, params=params, stream=True)
     return Response(
         response.content,
         mimetype="text/csv",
@@ -356,7 +363,7 @@ def dc_export_pending():
     headers = {"Authorization": f"Bearer {jwt_token}"}
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
-    response = requests.get(f"{BACKEND}/export-excel/pending", headers=headers, params=params, stream=True)
+    response = requests.get(f"{_backend()}/export-excel/pending", headers=headers, params=params, stream=True)
     return Response(
         response.content,
         mimetype="text/csv",
@@ -370,7 +377,7 @@ def dc_export_creds():
     headers = {"Authorization": f"Bearer {jwt_token}"}
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
-    response = requests.get(f"{BACKEND}/export-excel/credentials", headers=headers, params=params, stream=True)
+    response = requests.get(f"{_backend()}/export-excel/credentials", headers=headers, params=params, stream=True)
     return Response(
         response.content,
         mimetype="text/csv",
@@ -383,7 +390,7 @@ def dc_export_uidai():
     headers = {"Authorization": f"Bearer {jwt_token}"}
     ids = request.args.get("ids", "")
     params = {"ids": ids} if ids else {}
-    response = requests.get(f"{BACKEND}/export-excel/pending", headers=headers, params=params, stream=True)
+    response = requests.get(f"{_backend()}/export-excel/pending", headers=headers, params=params, stream=True)
     return Response(
         response.content,
         mimetype="text/csv",
@@ -396,7 +403,7 @@ def chips_l2_export_mail_recipient():
     jwt_token = get_valid_token()
     headers = {"Authorization": f"Bearer {jwt_token}"}
     try:
-        response = requests.get(f"{BACKEND}/export-and-mail/recipient", headers=headers, timeout=5)
+        response = requests.get(f"{_backend()}/export-and-mail/recipient", headers=headers, timeout=5)
         if response.status_code == 200:
             return response.json()
     except requests.exceptions.RequestException:
@@ -413,7 +420,7 @@ def chips_l2_export_and_mail():
 
     try:
         response = requests.post(
-            f"{BACKEND}/export-and-mail",
+            f"{_backend()}/export-and-mail",
             json=data,
             headers=headers,
             timeout=35,

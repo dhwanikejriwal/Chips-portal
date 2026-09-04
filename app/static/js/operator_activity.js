@@ -764,7 +764,30 @@
     if (pollTimer) clearInterval(pollTimer);
     $("oaProgress").hidden = true;
     var el = $("oaUploadSummary"); el.hidden = false; el.className = "oa-upload-summary err";
-    el.innerHTML = '<b>Upload failed.</b><p>' + (e.detail || "Unknown error") + '</p>';
+
+    var detail = e.detail || "Unknown error";
+
+    // ── Detect "Missing required column(s): A, B, C" pattern ──
+    var missingMatch = String(detail).match(/Missing required column\(s\):\s*(.+)/i);
+    if (missingMatch) {
+      var cols = missingMatch[1].split(",").map(function (c) { return c.trim(); }).filter(Boolean);
+      var chips = cols.map(function (c) {
+        return '<span class="oa-err-col-chip">' + c + '</span>';
+      }).join("");
+      el.innerHTML =
+        '<div class="oa-err-header">'
+        + '<span class="oa-err-icon">&#x26A0;&#xFE0F;</span>'
+        + '<div>'
+        + '<b class="oa-err-title">Upload failed — wrong file format</b>'
+        + '<p class="oa-err-desc">The file is missing ' + cols.length + ' required column' + (cols.length === 1 ? '' : 's') + '. '
+        + 'Make sure you are uploading the correct RegistrarEA export.</p>'
+        + '</div>'
+        + '</div>'
+        + '<div class="oa-err-cols-label">Missing columns:</div>'
+        + '<div class="oa-err-col-chips">' + chips + '</div>';
+    } else {
+      el.innerHTML = '<b>Upload failed.</b><p class="oa-err-generic">' + detail + '</p>';
+    }
   }
   function loadHistory() {
     api("uploads").then(function (rows) {

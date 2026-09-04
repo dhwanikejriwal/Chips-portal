@@ -1,5 +1,7 @@
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
+sys.path.append(os.getcwd())
 
 from backend.database import SessionLocal
 from backend.models import (

@@ -20,12 +20,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def run():
-    excel_path = os.path.join(BASE_DIR, "useful_files", "station_id_master.xlsx")
-    if not os.path.exists(excel_path):
-        print(f"Warning: File not found at '{excel_path}'. Skipping station_id_master seeding.")
-        return
+    from backend.database import engine
+    from backend.models.base import Base
+    Base.metadata.create_all(bind=engine)
 
-    df = pd.read_excel(excel_path)
+    df = pd.read_excel("useful_files/station_id_master.xlsx")
     db = SessionLocal()
     try:
         valid_codes = {c for (c,) in db.query(District.district_code).all()}

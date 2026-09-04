@@ -1,4 +1,5 @@
 # backend/routers/l1_registration.py
+import re
 from fastapi import APIRouter, Depends, HTTPException, Form, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -8,7 +9,7 @@ import pandas as pd
 import io
 from backend.database import get_db
 from backend.routers.auth import get_current_user
-from backend.models import User, District, StationIDRequest
+from backend.models import User, District, StationIDRequest, L2RegistrationRequest
 from backend.models.l1_registration import L1RegistrationRequest, L1RegistrationRemarkHistory
 from backend.models.base import to_name, StatusEnum
 from backend.utils.exporter import generate_csv_export
@@ -16,30 +17,33 @@ from backend.utils.exporter import generate_csv_export
 
 router = APIRouter()
 
-def generate_l1_request_code(db: Session, district_id: int, district_name: str) -> str:
-    name_clean = district_name.strip().lower()
-    district_map = {"raipur": "RP", "bilaspur": "BP", "durg": "DG"}
-    prefix = district_map.get(name_clean, "".join([c for c in name_clean if c.isalnum()])[:2].upper())
-    if len(prefix) != 2: prefix = "XX"
-    
-    last_req = db.query(L1RegistrationRequest).filter(
-        L1RegistrationRequest.district_id == district_id
-    ).order_by(L1RegistrationRequest.id.desc()).first()
-    
-    next_num = 1
-    if last_req and last_req.request_code and "-L1-" in last_req.request_code:
-        try:
-            next_num = int(last_req.request_code.split("-L1-")[1]) + 1
-        except ValueError:
-            next_num = db.query(L1RegistrationRequest).filter(
-                L1RegistrationRequest.district_id == district_id
-            ).count() + 1
-    else:
-        next_num = db.query(L1RegistrationRequest).filter(
-            L1RegistrationRequest.district_id == district_id
-        ).count() + 1
+def generate_l1_request_code(db: Session, district_id: int | str, station_id: str = "") -> str:
+    district_obj = db.query(District).filter(District.district_code == str(district_id)).first()
+    short_name = district_obj.district_short_name if district_obj and district_obj.district_short_name else "SID"
 
-    return f"{prefix}-L1-{next_num:04d}"
+    # Find highest sequence number in this district across L1, L2, and StationID
+    highest_num = 0
+    for q_model, q_col in [
+        (L1RegistrationRequest, L1RegistrationRequest.request_code),
+        (L2RegistrationRequest, L2RegistrationRequest.request_no),
+        (StationIDRequest, StationIDRequest.request_no)
+    ]:
+        rows = db.query(q_col).filter(q_model.district_id == str(district_id)).all()
+        for r_tup in rows:
+            val = r_tup[0]
+            if val and '-K' in val:
+                try:
+                    part = val.split('-K')[1]
+                    digits = re.match(r'^\d+', part)
+                    if digits:
+                        num = int(digits.group(0)[:4])
+                        if num > highest_num:
+                            highest_num = num
+                except Exception:
+                    pass
+
+    clean_sid = station_id.strip() if station_id else ""
+    return f"{short_name}-K{highest_num + 1:04d}{clean_sid}"
 
 def get_user_role_str(current_user: User) -> str:
     if hasattr(current_user.role, "role"):
@@ -72,18 +76,41 @@ async def submit_l1_registration(
         if not current_user.district_id: 
             raise HTTPException(status_code=400, detail="Missing user district layout configuration mapping.")
 
-        # Check if there is an approved StationIDRequest matching the station_id
+        # 1. Check if there is an approved StationIDRequest matching the station_id
         station_req = db.query(StationIDRequest).filter(
             StationIDRequest.station_id_inserted == station_id.strip(),
             StationIDRequest.status_id == StatusEnum.ALLOTTED.value
         ).first()
 
-        if station_req:
+        if station_req and station_req.request_no:
             req_code = f"{station_req.request_no}{station_id.strip()}"
         else:
-            district = db.query(District).filter(District.district_code == current_user.district_id).first()
-            district_name = district.district_name if district else "Unknown"
-            req_code = generate_l1_request_code(db, current_user.district_id, district_name)
+            # 2. Check if a prior L1 or L2 request already exists for this station_id / machine_id (repeated kit!)
+            existing_l1 = db.query(L1RegistrationRequest).filter(
+                L1RegistrationRequest.station_id == station_id.strip(),
+                L1RegistrationRequest.request_code.isnot(None)
+            ).order_by(L1RegistrationRequest.id.desc()).first()
+
+            if not existing_l1 and machine_id:
+                existing_l1 = db.query(L1RegistrationRequest).filter(
+                    L1RegistrationRequest.machine_id == machine_id.strip(),
+                    L1RegistrationRequest.request_code.isnot(None)
+                ).order_by(L1RegistrationRequest.id.desc()).first()
+
+            if existing_l1 and existing_l1.request_code:
+                req_code = existing_l1.request_code
+            else:
+                existing_l2 = db.query(L2RegistrationRequest).filter(
+                    (L2RegistrationRequest.new_station_id == station_id.strip()) |
+                    (L2RegistrationRequest.old_station_id == station_id.strip()),
+                    L2RegistrationRequest.request_no.isnot(None)
+                ).order_by(L2RegistrationRequest.id.desc()).first()
+
+                if existing_l2 and existing_l2.request_no:
+                    req_code = existing_l2.request_no
+                else:
+                    # 3. New VLE request: Generate uniform {short_name}-K0001{station_id}
+                    req_code = generate_l1_request_code(db, current_user.district_id, station_id)
 
 
         new_request = L1RegistrationRequest(

@@ -74,9 +74,12 @@
 
                 <!-- 🌟 Mirrored Dynamic ID Addition/Modification Module from lms.html -->
                 <div class="card-box" style="margin-bottom: 24px; border-radius: 12px; padding: 20px;">
-                    {% set has_valid_nseit = (status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00') and status_data.nseit_id != 'None') %}
-                    {% set is_old_nseit = ((status_data.nseit_status|upper) != 'NOT INITIATED' and status_data.had_nseit_at_registration and not status_data.nseit_uploaded_post_approval) %}
-                    {% set is_nseit_locked = (status_data.nseit_uploaded_post_approval or (has_valid_nseit and not is_old_nseit)) %}
+                    {% set has_valid_nseit = (status_data.nseit_id and not status_data.nseit_id.startswith('NSEIT00')
+                    and status_data.nseit_id != 'None') %}
+                    {% set is_old_nseit = ((status_data.nseit_status|upper) != 'NOT INITIATED' and
+                    status_data.had_nseit_at_registration and not status_data.nseit_uploaded_post_approval) %}
+                    {% set is_nseit_locked = (status_data.nseit_uploaded_post_approval or (has_valid_nseit and not
+                    is_old_nseit)) %}
                     <div
                         style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                         <span class="form-label" style="font-weight: 600; margin-bottom: 0;">Your NSEIT
@@ -85,7 +88,7 @@
                         <button type="button" id="btn-toggle-nseit-form" onclick="toggleEditNseitForm()"
                             class="btn btn-xs btn-outline"
                             style="background: #4f46e5; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                            Add NSEIT ID
+                            {% if is_old_nseit %}Replace with New NSEIT ID{% else %}Add NSEIT ID{% endif %}
                         </button>
                         {% endif %}
                     </div>
@@ -447,19 +450,35 @@
             method: 'POST',
             body: formData
         })
-            .then(res => res.json())
+            .then(async res => {
+                if (!res.ok) {
+                    let errMsg = "Verification failed on the server.";
+                    try {
+                        const errData = await res.json();
+                        if (errData && errData.error) errMsg = errData.error;
+                    } catch (e) {
+                        if (res.status === 504 || res.status === 502) {
+                            errMsg = "Verification request timed out. Please try again or enter details manually.";
+                        }
+                    }
+                    throw new Error(errMsg);
+                }
+                return res.json();
+            })
             .then(data => {
                 if (statusDiv) statusDiv.style.display = 'none';
-                if (data.success && data.id) {
+                if (data.success) {
                     const input = document.getElementById(targetInputId);
-                    input.value = data.id;
-                    input.style.borderColor = '#10b981';
-                    input.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.3)';
-                    input.style.transition = 'all 0.5s ease';
-                    setTimeout(() => {
-                        input.style.borderColor = '';
-                        input.style.boxShadow = '';
-                    }, 1500);
+                    if (data.id && input) {
+                        input.value = data.id;
+                        input.style.borderColor = '#10b981';
+                        input.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.3)';
+                        input.style.transition = 'all 0.5s ease';
+                        setTimeout(() => {
+                            input.style.borderColor = '';
+                            input.style.boxShadow = '';
+                        }, 1500);
+                    }
                     const display = document.getElementById(type === 'lms' ? 'lms_file_name_display' : 'nseit_file_name_display');
                     if (display) {
                         display.textContent = `✓ ${file.name}`;
@@ -491,7 +510,7 @@
             .catch(err => {
                 if (statusDiv) statusDiv.style.display = 'none';
                 if (errorDiv) {
-                    errorDiv.textContent = "Error connecting to OCR server.";
+                    errorDiv.textContent = err.message || "Error connecting to OCR server.";
                     errorDiv.style.display = 'block';
                 }
             });

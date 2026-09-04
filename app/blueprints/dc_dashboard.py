@@ -1,10 +1,9 @@
 # app/blueprints/dc_dashboard.py
 from flask import Blueprint, render_template, redirect, url_for, session, flash
 import requests
+from app.utils.backend_url import get_backend_base_url
 
 dc_dashboard_bp = Blueprint("dc_dashboard", __name__)
-
-FASTAPI_BASE = "http://127.0.0.1:8000"
 
 
 def _get(path, token=None):
@@ -15,7 +14,7 @@ def _get(path, token=None):
             token = token.get("token", "") or token.get("access_token", "")
         headers["Authorization"] = f"Bearer {str(token).strip()}"
     try:
-        resp = requests.get(f"{FASTAPI_BASE}{path}", headers=headers, timeout=12)
+        resp = requests.get(f"{get_backend_base_url()}{path}", headers=headers, timeout=12)
         if resp.status_code == 200:
             return resp.json()
     except Exception:

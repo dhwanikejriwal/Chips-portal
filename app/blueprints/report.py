@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, session, Response, jsonify
 import requests
 
 from backend.utils.district_mapper import get_division_for_district, is_lwe_district
@@ -41,7 +41,8 @@ def download(report_id):
         flash('Unauthorized access.', 'error')
         return redirect(url_for('auth.login'))
         
-    backend_url = f"{current_app.config['BACKEND_API_URL']}/reports/download/{report_id}"
+    from app.utils.backend_url import get_backend_base_url
+    backend_url = f"{get_backend_base_url()}/api/reports/download/{report_id}"
     try:
         response = requests.get(backend_url, stream=True)
         if response.status_code == 200:
@@ -58,3 +59,82 @@ def download(report_id):
     except Exception as e:
         flash('Error connecting to backend.', 'error')
         return redirect(url_for('report.index'))
+
+
+@report_bp.route('/reports/delete/<int:report_id>', methods=['DELETE', 'POST'])
+@report_bp.route('/delete/<int:report_id>', methods=['DELETE', 'POST'])
+def delete_report_direct(report_id):
+    from flask import Response, jsonify
+    from app.utils.backend_url import get_backend_base_url
+    backend_target = f"{get_backend_base_url()}/api/reports/{report_id}"
+    raw_token = session.get("access_token", "")
+    if isinstance(raw_token, dict):
+        raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+    headers = {"Authorization": f"Bearer {str(raw_token).strip()}"} if raw_token else {}
+    try:
+        resp = requests.delete(backend_target, headers=headers, timeout=30)
+        return Response(resp.content, status=resp.status_code, content_type=resp.headers.get("Content-Type", "application/json"))
+    except Exception as e:
+        return jsonify({"error": str(e), "detail": str(e)}), 500
+
+
+@report_bp.route('/reports/proxy/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@report_bp.route('/proxy/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def proxy_backend_report(subpath):
+    from flask import Response, jsonify
+    from app.utils.backend_url import get_backend_base_url
+    backend_target = f"{get_backend_base_url()}/api/reports/{subpath}"
+    
+    raw_token = session.get("access_token", "")
+    if isinstance(raw_token, dict):
+        raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+    headers = {"Authorization": f"Bearer {str(raw_token).strip()}"} if raw_token else {}
+    
+    try:
+        if request.method == 'POST':
+            if request.files:
+                files_payload = {}
+                for k, v in request.files.items():
+                    files_payload[k] = (v.filename, v.read(), v.content_type)
+                resp = requests.post(
+                    backend_target,
+                    files=files_payload,
+                    data=request.form,
+                    headers=headers,
+                    params=request.args,
+                    timeout=120
+                )
+            else:
+                json_data = request.get_json(silent=True)
+                if json_data is not None:
+                    resp = requests.post(backend_target, json=json_data, headers=headers, params=request.args, timeout=120)
+                else:
+                    resp = requests.post(backend_target, data=request.form, headers=headers, params=request.args, timeout=120)
+        elif request.method == 'DELETE':
+            resp = requests.delete(backend_target, headers=headers, params=request.args, timeout=30)
+        elif request.method == 'PUT':
+            resp = requests.put(backend_target, json=request.get_json(silent=True), headers=headers, params=request.args, timeout=60)
+        else:
+            resp = requests.get(backend_target, headers=headers, params=request.args, timeout=60)
+            
+        return Response(resp.content, status=resp.status_code, content_type=resp.headers.get("Content-Type", "application/json"))
+    except Exception as e:
+        return jsonify({"error": str(e), "detail": str(e)}), 500
+
+
+@report_bp.route('/reports/sync-live', methods=['POST'])
+def sync_live_data():
+    role = session.get('role')
+    if not role or role not in ['Admin', 'chips_admin']:
+        return jsonify({"success": False, "message": "Unauthorized access. Admin privileges required."}), 403
+    
+    from app.utils.backend_url import get_backend_base_url
+    backend_url = f"{get_backend_base_url()}/api/reports/sync/external"
+    dry_run = request.args.get("dry_run", "false").lower() in ("true", "1")
+    exact_mirror = request.args.get("exact_mirror", "true").lower() in ("true", "1")
+    try:
+        resp = requests.post(backend_url, params={"dry_run": dry_run, "exact_mirror": exact_mirror}, timeout=120)
+        return Response(resp.content, status=resp.status_code, content_type=resp.headers.get("Content-Type", "application/json"))
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+

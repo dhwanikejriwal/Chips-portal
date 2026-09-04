@@ -54,13 +54,29 @@ def seed_tracker():
     db.commit()
     
     print("Reading Excel...")
-    excel_file = os.path.join(BASE_DIR, 'sample reports', 'Kit Tracker Chips.xlsx')
-    if not os.path.exists(excel_file):
-        print(f"Warning: File not found at '{excel_file}'. Skipping kit tracker seeding.")
-        db.close()
+    candidate_files = [
+        'sample reports/Kit Tracker Chips.xlsx',
+        'sample reports/District wise kit count chips.xlsx',
+        'sample reports/District_Wise_Kit_Count_Chips.xlsx',
+    ]
+    excel_path = None
+    for f in candidate_files:
+        if os.path.exists(f):
+            excel_path = f
+            break
+            
+    if not excel_path and os.path.exists('sample reports'):
+        for fname in os.listdir('sample reports'):
+            if fname.lower().endswith('.xlsx') and ('kit' in fname.lower() or 'tracker' in fname.lower()):
+                excel_path = os.path.join('sample reports', fname)
+                break
+
+    if not excel_path:
+        print("Warning: Kit tracker sample Excel file not found in 'sample reports/'. Skipping kit tracker seed.")
         return
 
-    df = pd.read_excel(excel_file, header=1)
+    print(f"Loading seed data from '{excel_path}'...")
+    df = pd.read_excel(excel_path, header=1)
     df = df.replace({np.nan: None})
     
     inserted_ops = {}

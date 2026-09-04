@@ -48,28 +48,32 @@
                 <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                     metrics.pending }}
                 </div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.pendingReview">Pending
                     Review</div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
                     {{ metrics.reverted }}
                 </div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.reverted">Reverted
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
                     {{ metrics.approved }}
                 </div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.approved">Approved
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                     total_requests }}
                 </div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.totalRequests">Total
                     Requests</div>
             </div>
         </div>
@@ -108,12 +112,12 @@
     <!-- Unified Filter Controls -->
     <div class="filter-bar">
         <div class="filter-group filter-group-search">
-            <label>Search Candidate</label>
+            <label for="admin-search-input">Search Candidate</label>
             <input type="text" id="admin-search-input" placeholder="Search by request ID, name, mobile or email..."
                 class="filter-input" oninput="filterAdminQueues()">
         </div>
         <div class="filter-group">
-            <label>District</label>
+            <label for="admin-district-filter">District</label>
             <select id="admin-district-filter" class="filter-input" onchange="filterAdminQueues()">
                 <option value="all">All Districts</option>
                 {% for d in [
@@ -130,7 +134,7 @@
             </select>
         </div>
         <div class="filter-group">
-            <label>Time Period</label>
+            <label for="admin-date-filter">Time Period</label>
             <select id="admin-date-filter" class="filter-input" onchange="filterAdminQueues()">
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
@@ -217,7 +221,7 @@
             <td style="padding: 12px 15px; font-size: 14px;">
                 {% if (req.lms_status|upper) in ['FORWARDED_AGAIN', 'REAPPLIED'] %}
                 <span class="badge badge-reapplied"
-                    style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background-color: #fef3c7; color: #d97706;">Reapplied</span>
+                    style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>
                 {% else %}
                 <span class="badge badge-pending"
                     style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>
@@ -413,24 +417,16 @@
             sessionStorage.removeItem('chips_lms_search');
             sessionStorage.removeItem('chips_lms_district');
             sessionStorage.removeItem('chips_lms_date');
-            sessionStorage.removeItem('chips_lms_pending_status');
-            sessionStorage.removeItem('chips_lms_reverted_status');
         }
 
         if (sessionStorage.getItem('chips_lms_search') !== null) {
             document.getElementById('admin-search-input').value = sessionStorage.getItem('chips_lms_search');
             document.getElementById('admin-district-filter').value = sessionStorage.getItem('chips_lms_district');
             document.getElementById('admin-date-filter').value = sessionStorage.getItem('chips_lms_date');
-            if (document.getElementById('admin-pending-status-filter')) {
-                document.getElementById('admin-pending-status-filter').value = sessionStorage.getItem('chips_lms_pending_status');
-            }
         } else {
             document.getElementById('admin-search-input').value = '';
             document.getElementById('admin-district-filter').value = 'all';
             document.getElementById('admin-date-filter').value = 'month';
-            if (document.getElementById('admin-pending-status-filter')) {
-                document.getElementById('admin-pending-status-filter').value = 'all';
-            }
         }
 
 
@@ -461,7 +457,6 @@
         document.getElementById('admin-search-input').value = '';
         document.getElementById('admin-district-filter').value = 'all';
         document.getElementById('admin-date-filter').value = 'month';
-        document.getElementById('admin-pending-status-filter').value = 'all';
         filterAdminQueues();
     }
 
@@ -470,13 +465,14 @@
         const searchVal = document.getElementById('admin-search-input').value.toLowerCase().trim();
         const districtVal = document.getElementById('admin-district-filter').value.toLowerCase();
         const dateVal = document.getElementById('admin-date-filter').value;
-        const pendingStatusVal = document.getElementById('admin-pending-status-filter') ? document.getElementById('admin-pending-status-filter').value : 'all';
+
+        const pendingStatusEl = document.getElementById('admin-pending-status-filter');
+        const pendingStatusVal = pendingStatusEl ? pendingStatusEl.value.toLowerCase() : 'all';
 
         // Save current filter criteria to sessionStorage dynamically
         sessionStorage.setItem('chips_lms_search', document.getElementById('admin-search-input').value);
         sessionStorage.setItem('chips_lms_district', districtVal);
         sessionStorage.setItem('chips_lms_date', dateVal);
-        sessionStorage.setItem('chips_lms_pending_status', pendingStatusVal);
 
         // Filter Pending Queue
         const pendingRows = document.querySelectorAll('#admin-queue-body tr');
@@ -493,7 +489,7 @@
             const matchDistrict = (districtVal === 'all') || (rowDistrict === districtVal);
             const matchDate = !searchVal ? checkDateMatch(row.getAttribute('data-created'), dateVal) : true;
 
-            const reqStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
+            const reqStatus = (row.getAttribute('data-status') || '').toLowerCase();
             const matchStatus = (pendingStatusVal === 'all') || (reqStatus === pendingStatusVal);
 
             if (matchSearch && matchDistrict && matchDate && matchStatus) {
@@ -594,7 +590,7 @@
 
             if (matchSearch && matchDistrict && matchDate) {
                 const reqStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').toLowerCase() : '';
-                if (reqStatus === 'pending' || reqStatus === 'reapplied') {
+                if (reqStatus === 'pending') {
                     metricPending++;
                 } else if (reqStatus === 'reverted' || reqStatus === 'revert back' || reqStatus === 'reverted by chips') {
                     metricReverted++;
@@ -637,7 +633,7 @@
             html: `
                 <div style="text-align: left;">
                     <p>Approve candidate <strong>${name}</strong>'s LMS request.</p>
-                    <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Approval Remarks (Optional)</label>
+                    <label for="swal-remark" style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Approval Remarks (Optional)</label>
                     <textarea id="swal-remark" class="swal2-textarea" placeholder="Enter remarks..." style="margin: 0; width: 100%; box-sizing: border-box; height: 100px;"></textarea>
                 </div>
             `,
@@ -736,7 +732,7 @@
             html: `
                 <div style="text-align: left;">
                     <p>Provide a reason for reverting candidate <strong>${name}</strong>'s request:</p>
-                    <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Revert Reason (Mandatory) *</label>
+                    <label for="swal-revert-reason" style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Revert Reason (Mandatory) *</label>
                     <textarea id="swal-revert-reason" class="swal2-textarea" placeholder="Enter reason for revert..." style="margin: 0; width: 100%; box-sizing: border-box; height: 100px;"></textarea>
                 </div>
             `,
@@ -765,7 +761,7 @@
                             title: 'Request Reverted!',
                             text: 'LMS Certificate request reverted back to candidate.',
                             icon: 'success',
-                            confirmButtonColor: '#f59e0b',
+                            confirmButtonColor: '#2563eb',
                             showConfirmButton: true,
                             timer: 3000,
                             timerProgressBar: true
@@ -864,8 +860,8 @@
                         <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
                         <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${fileName}">${shortFileName}</div>
                         ${showPostApprovalNote ? `
-                        <div class="post-approval-badge" style="color: var(--post-approval-text) !important; background: var(--post-approval-bg) !important; border: 1px solid var(--post-approval-border) !important;">
-                            <span>⚠️</span> <span style="color: var(--post-approval-text) !important;">Uploaded post-approval</span>
+                        <div class="post-approval-badge" style="color: #92400e !important; background: rgba(217,119,6,0.15) !important; border: 1px solid rgba(217,119,6,0.4) !important; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 4px;">
+                            <span>⚠️</span> <span>Uploaded post-request</span>
                         </div>` : ''}
                     </div>
                     <div style="display: flex; gap: 6px; flex-shrink: 0;">
@@ -886,9 +882,7 @@
             statusBadge = '<span class="badge badge-approved" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Approved</span>';
         } else if (normStatus === 'forwarded') {
             statusBadge = '<span class="badge badge-pending" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Pending</span>';
-        } else if (normStatus === 'forwarded again' || normStatus === 'forwarded_again') {
-            statusBadge = '<span class="badge badge-reapplied" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>';
-        } else if (normStatus === 'reapplied') {
+        } else if (normStatus === 'forwarded again' || normStatus === 'forwarded_again' || normStatus === 'reapplied') {
             statusBadge = '<span class="badge badge-reapplied" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>';
         } else if (normStatus === 'reverted_by_chips' || normStatus === 'reverted by chips') {
             statusBadge = '<span class="badge badge-reverted-by-chips" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reverted by CHiPS</span>';
@@ -915,25 +909,30 @@
             }
         }
 
+        let hasExistingLmsId = (d.hadLmsAtRegistration === true || d.hadLmsAtRegistration === 'true');
         let candidateReRequestReason = '';
-        const hasExistingLmsId = d.hadLmsAtRegistration === true || d.hadLmsAtRegistration === 'true';
-        if (hasExistingLmsId) {
-            try {
-                let remarks = [];
-                try { remarks = JSON.parse(d.remarksStr || '[]'); } catch (e) { }
-                const candidateLogs = remarks.filter(r => (r.sender_role || '').toLowerCase() === 'candidate');
-                const firstCandidateLog = candidateLogs.find(r => {
-                    const rem = (r.remark || '').trim();
-                    return rem !== '' &&
-                        !rem.toLowerCase().includes('lms request submitted') &&
-                        !rem.toLowerCase().includes('nseit request submitted');
-                });
-                if (firstCandidateLog) {
-                    candidateReRequestReason = firstCandidateLog.remark.replace(/^CANDIDATE ALREADY HAS EXISTING ID:\s*/i, '').trim();
+        try {
+            let remarks = [];
+            try { remarks = JSON.parse(d.remarksStr || '[]'); } catch (e) { }
+            // 1. Look for explicit existing ID remark in any log entry
+            const existingIdLog = remarks.find(r => (r.remark || '').toUpperCase().includes('CANDIDATE ALREADY HAS EXISTING ID') || (r.remark || '').toUpperCase().includes('REASON FOR REQUESTING LMS'));
+            if (existingIdLog) {
+                hasExistingLmsId = true;
+                const rem = existingIdLog.remark.trim();
+                if (rem.toUpperCase().includes('REASON:')) {
+                    candidateReRequestReason = rem.split(/Reason:\s*/i)[1] || rem;
+                } else if (rem.toUpperCase().includes('CANDIDATE ALREADY HAS EXISTING ID:')) {
+                    candidateReRequestReason = rem.replace(/^CANDIDATE ALREADY HAS EXISTING ID:\s*/i, '').trim();
+                } else {
+                    candidateReRequestReason = rem;
                 }
-            } catch (e) {
-                console.error("Error parsing candidate reason:", e);
             }
+        } catch (e) {
+            console.error("Error parsing candidate reason:", e);
+        }
+
+        if (hasExistingLmsId && !candidateReRequestReason) {
+            candidateReRequestReason = 'Candidate already had an existing LMS ID during registration.';
         }
 
         const maskedAadhaar = d.aadhaar ? `XXXX XXXX ${d.aadhaar.slice(-4)}` : 'N/A';
@@ -960,9 +959,9 @@
                     </div>
                 </div>` : ''}
 
-                ${candidateReRequestReason ? `
+                ${(hasExistingLmsId && candidateReRequestReason) ? `
                 <!-- Candidate Re-Request Reason Box -->
-                <div class="candidate-rerequest-box">
+                <div class="candidate-rerequest-box" style="margin-bottom: 18px;">
                     <div class="candidate-rerequest-title" style="color: var(--candidate-rerequest-title) !important;">
                         <span>⚠️</span> <span style="color: var(--candidate-rerequest-title) !important;">CANDIDATE ALREADY HAS EXISTING ID / CERTIFICATE</span>
                     </div>
@@ -1149,20 +1148,21 @@
                         badgeClass = 'badge-reverted';
                         label = 'Reverted';
                     }
+                } else if (s.includes('forward again') || s.includes('forwarded again') || (s.includes('forward') && s.includes('again'))) {
+                    badgeClass = 'badge-forwarded-again';
+                    label = 'Forwarded Again';
                 } else if (s.includes('forward') || s.includes('uidai')) {
-                    if (s.includes('again')) {
-                        badgeClass = 'badge-forwarded-again';
-                        label = 'Forwarded Again';
-                    } else {
-                        badgeClass = 'badge-forwarded';
-                        label = 'Forwarded';
-                    }
+                    badgeClass = 'badge-forwarded';
+                    label = 'Forwarded';
                 } else if (s.includes('reappl')) {
                     badgeClass = 'badge-reapplied';
                     label = 'Reapplied';
                 } else if (s.includes('reject')) {
                     badgeClass = 'badge-rejected';
                     label = 'Rejected';
+                } else if (s.includes('skip')) {
+                    badgeClass = 'badge-skipped';
+                    label = 'Skipped';
                 }
                 return `<span class="badge ${badgeClass}">${label}</span>`;
             }
@@ -1181,9 +1181,10 @@
                     let markerClass = 'marker-pending';
                     if (statusAfter) {
                         statusBadgeInline = getStatusBadgeHtml(statusAfter);
-                        const sLower = statusAfter.toLowerCase();
+                        const sLower = statusAfter.toLowerCase().replace(/_/g, ' ');
                         if (sLower.includes('approve')) markerClass = 'marker-approved';
                         else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                        else if (sLower.includes('forward again') || sLower.includes('forwarded again') || (sLower.includes('forward') && sLower.includes('again'))) markerClass = 'marker-forwarded-again';
                         else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
                         else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
                     }

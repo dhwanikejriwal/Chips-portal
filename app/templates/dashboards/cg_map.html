@@ -668,19 +668,36 @@
         .attr('style', 'pointer-events: none;');
     }
 
+    function isHiMapActive() {
+      try {
+        if (window.i18n && typeof window.i18n.getLang === 'function') return window.i18n.getLang() === 'hi';
+        const l = document.documentElement.getAttribute('lang') || localStorage.getItem('lang') || sessionStorage.getItem('portal_lang');
+        return l === 'hi';
+      } catch (e) { return false; }
+    }
+
     // centroid labels (only short names to avoid clutter)
-    labelG.selectAll('text')
-      .data(GEO_DATA.features)
-      .join('text')
-        .attr('class', 'cgm-district-label')
-        .attr('transform', f => {
-          const c = geoPath.centroid(f);
-          return `translate(${c[0]},${c[1]})`;
-        })
-        .text(f => {
-          const n = f.properties.dist_name;
-          return n.length <= 9 ? n : n.split('-')[0];
-        });
+    function renderCentroidLabels() {
+      labelG.selectAll('text')
+        .data(GEO_DATA.features)
+        .join('text')
+          .attr('class', 'cgm-district-label notranslate')
+          .attr('translate', 'no')
+          .attr('transform', f => {
+            const c = geoPath.centroid(f);
+            return `translate(${c[0]},${c[1]})`;
+          })
+          .text(f => {
+            const n = f.properties.dist_name;
+            if (isHiMapActive() && window.i18n && typeof window.i18n.district === 'function') {
+              const hi = window.i18n.district(n);
+              return hi ? (hi.length <= 12 ? hi : hi.split('-')[0]) : n;
+            }
+            return n.length <= 9 ? n : n.split('-')[0];
+          });
+    }
+    renderCentroidLabels();
+    document.addEventListener('langchange', renderCentroidLabels);
 
     document.getElementById('cgm-meta').textContent =
       '33 districts · hover to preview · click to lock detail';

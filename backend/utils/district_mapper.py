@@ -93,13 +93,13 @@ DISTRICT_ALIAS_MAP = {
     "mahasamund": "Mahasamund",
     
     # Manendragarh-Chirmiri-Bharatpur (MCB)
-    "manendragarh-chirmiri-bharatpur": "Manendragarh-Chirmiri-Bharatpur (MCB)",
-    "manendragarh-chirmiri-bharatpur (mcb)": "Manendragarh-Chirmiri-Bharatpur (MCB)",
-    "manendragarh-chirmiri-bharatpur(m c b)": "Manendragarh-Chirmiri-Bharatpur (MCB)",
-    "manendragarh-chirmiri-bharatpur(mcb)": "Manendragarh-Chirmiri-Bharatpur (MCB)",
-    "manendragarh chirmiri bharatpur": "Manendragarh-Chirmiri-Bharatpur (MCB)",
-    "manendragarh": "Manendragarh-Chirmiri-Bharatpur (MCB)",
-    "mcb": "Manendragarh-Chirmiri-Bharatpur (MCB)",
+    "manendragarh-chirmiri-bharatpur": "Manendragarh-Chirmiri-Bharatpur(M C B)",
+    "manendragarh-chirmiri-bharatpur (mcb)": "Manendragarh-Chirmiri-Bharatpur(M C B)",
+    "manendragarh-chirmiri-bharatpur(m c b)": "Manendragarh-Chirmiri-Bharatpur(M C B)",
+    "manendragarh-chirmiri-bharatpur(mcb)": "Manendragarh-Chirmiri-Bharatpur(M C B)",
+    "manendragarh chirmiri bharatpur": "Manendragarh-Chirmiri-Bharatpur(M C B)",
+    "manendragarh": "Manendragarh-Chirmiri-Bharatpur(M C B)",
+    "mcb": "Manendragarh-Chirmiri-Bharatpur(M C B)",
     
     # Mohla-Manpur-Ambagarh Chouki
     "mohla-manpur-chowki": "Mohla-Manpur-Ambagarh Chouki",
@@ -180,7 +180,7 @@ def normalize_district_name(district_name: str) -> str:
     if 'khairagarh' in clean_val or 'kcg' in clean_val:
         return "Khairagarh-Chhuikhadan-Gandai"
     if any(k in clean_val for k in ['manendragarh', 'mcb']):
-        return "Manendragarh-Chirmiri-Bharatpur (MCB)"
+        return "Manendragarh-Chirmiri-Bharatpur(M C B)"
     if 'mohla' in clean_val:
         return "Mohla-Manpur-Ambagarh Chouki"
     if 'sarangarh' in clean_val:
@@ -224,7 +224,7 @@ DIVISIONS_MASTER_MAP = {
         "Balrampur-Ramanujganj",
         "Jashpur",
         "Korea",
-        "Manendragarh-Chirmiri-Bharatpur (MCB)",
+        "Manendragarh-Chirmiri-Bharatpur(M C B)",
         "Surajpur",
         "Surguja"
     ],
@@ -280,5 +280,26 @@ def is_district_in_division(district_name: str, division_key: str) -> bool:
         return False
     norm_key = str(division_key).lower().replace('div', '').strip()
     return norm_key in target_div.lower()
+
+def get_district_search_terms(district_name: str | None, district_code: str | None) -> set:
+    """
+    Returns all search variants (code, name, aliases) for querying database columns.
+    """
+    terms = set()
+    if district_code:
+        terms.add(str(district_code).strip())
+    if district_name:
+        clean_name = district_name.strip()
+        norm = normalize_district_name(clean_name)
+        terms.add(clean_name)
+        if norm:
+            terms.add(norm)
+        # Find all variants in centralized DISTRICT_ALIAS_MAP that match
+        for alias_key, standard_name in DISTRICT_ALIAS_MAP.items():
+            if standard_name.lower() == norm.lower() or standard_name.lower() == clean_name.lower():
+                terms.add(alias_key)
+                terms.add(standard_name)
+    return terms
+
 
 

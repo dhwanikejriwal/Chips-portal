@@ -38,10 +38,48 @@
             <h2 class="container-sub-title">Hardware & User Details</h2>
 
             <div class="form-grid-2x">
-                <div class="input-group">
+                <div class="input-group" style="position: relative;" id="station_id_search_container">
                     <label>Station ID <span class="required-star">*</span></label>
-                    <div id="l1-station-combobox-container" style="width: 100%;"></div>
-                    <input type="hidden" name="station_id" id="l1-station-id-select" required>
+                    <input type="hidden" name="station_id" id="l1_selected_station_id" required>
+
+                    <div class="oa-search-bar-wrapper" style="position: relative; display: flex; align-items: center; width: 100%;">
+                        <span class="oa-search-icon" style="position: absolute; left: 14px; color: #64748b; pointer-events: none; display: flex; align-items: center;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                        </span>
+
+                        <input type="text" id="station_id_search_input" class="form-control-input oa-search-input"
+                            placeholder="Search Station ID..."
+                            style="width: 100%; padding: 10px 64px 10px 42px; border-radius: 8px; font-size: 14px;"
+                            oninput="debounceStationSearch(this.value)"
+                            onclick="toggleStationDropdown(true)"
+                            onfocus="toggleStationDropdown(true)">
+
+                        <div style="position: absolute; right: 10px; display: flex; align-items: center; gap: 4px;">
+                            <button type="button" id="station-search-clear-btn" onclick="clearStationSearchInput()"
+                                style="display: none; background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; border-radius: 4px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+
+                            <button type="button" id="station-search-dropdown-toggle" onclick="toggleStationDropdown()"
+                                style="background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                                <svg id="station-chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s ease;">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dropdown Popup for Search Results -->
+                    <div id="station_id_search_dropdown" class="oa-search-dropdown"
+                        style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1000; border-radius: 8px; max-height: 280px; overflow-y: auto;">
+                        <!-- Options populated by JS -->
+                    </div>
                 </div>
                 <div class="input-group">
                     <label>Machine ID <span class="required-star">*</span></label>
@@ -67,9 +105,11 @@
 
             <div class="form-grid-2x">
                 <div class="input-group">
-                    <label>Model Type <span class="required-star">*</span></label>
-                    <select name="model_type" class="form-control-input" required
-                        style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
+                    <label><span data-i18n="a.model_type">Model Type</span> <span class="required-star">*</span></label>
+                    <input type="hidden" name="model_type" id="l1_model_type_hidden" value="" required>
+                    <select id="l1_model_type_select" class="form-control-input" disabled
+                        onchange="document.getElementById('l1_model_type_hidden').value = this.value; if(typeof window.saveL1Draft === 'function') window.saveL1Draft();"
+                        style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px; background: #f1f5f9; color: #334155; cursor: not-allowed; opacity: 1;">
                         <option value="" disabled selected hidden>Select Model Type</option>
                         <option value="ECMP">ECMP</option>
                         <option value="UCL">UCL</option>
@@ -77,7 +117,7 @@
                     </select>
                 </div>
                 <div class="input-group">
-                    <label>Software Version <span class="required-star">*</span></label>
+                    <label><span data-i18n="a.software_version">Software Version</span> <span class="required-star">*</span></label>
                     <select name="software_version" class="form-control-input" required
                         style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
                         <option value="" disabled selected hidden>Select Software Version</option>
@@ -97,17 +137,17 @@
 
             <div class="form-grid-2x">
                 <div class="input-group">
-                    <label>Laptop Serial Number <span class="required-star">*</span></label>
+                    <label><span data-i18n="a.laptop_serial_number">Laptop Serial Number</span> <span class="required-star">*</span></label>
                     <input type="text" name="laptop_serial_no" class="form-control-input"
                         placeholder="Enter Laptop Serial Number" required>
                 </div>
                 <div class="input-group">
-                    <label>Laptop Brand <span class="required-star">*</span></label>
+                    <label><span data-i18n="a.laptop_brand">Laptop Brand</span> <span class="required-star">*</span></label>
                     <select name="laptop_brand" class="form-control-input" required
                         style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
-                        <option value="" disabled selected hidden>Select Laptop Brand</option>
-                        <option value="HP">HP</option>
-                        <option value="Acer">Acer</option>
+                        <option value="" disabled selected hidden data-i18n="a.select_laptop_brand">Select Laptop Brand</option>
+                        <option value="HP" data-i18n="a.brand_hp">HP</option>
+                        <option value="Acer" data-i18n="a.brand_acer">Acer</option>
                     </select>
                 </div>
             </div>
@@ -201,36 +241,42 @@
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-pending">{{
                     pending_count }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.pending">Pending</div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-reapplied">{{
                     reapplied_count }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.reapplied">Reapplied
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-awaiting-l1">
                     {{
                     allotted_stations|length }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Awaiting L1
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.awaitingL1">Awaiting L1
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-reverted">{{
                     reverted_count }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.reverted">Reverted
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-approved">{{
                     approved_count }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">L1 Done</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.l1Done">L1 Done</div>
             </div>
             <div class="chips-metric-card">
                 <div style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;" id="stat-total">{{
                     total_requests }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.totalRequestedKits">Total
                     Requested Kits</div>
             </div>
         </div>
@@ -537,6 +583,7 @@
 </script>
 <script>
     const allottedStationsData = JSON.parse(document.getElementById('allotted-stations-data').textContent || '[]');
+    window.allottedStationsData = allottedStationsData;
 
     document.addEventListener('DOMContentLoaded', function () {
         const container = document.getElementById('l1-station-combobox-container');
@@ -596,32 +643,34 @@
             const form = document.getElementById('l1RegistrationForm');
             if (!form) return;
 
-            // Pre-select the chosen Station ID in the combobox
-            const hiddenInput = document.getElementById('l1-station-id-select');
+            const input = document.getElementById('station_id_search_input');
+            const hiddenInput = document.getElementById('l1_selected_station_id');
+            const clearBtn = document.getElementById('station-search-clear-btn');
+            if (input) input.value = stationId;
             if (hiddenInput) hiddenInput.value = stationId;
+            if (clearBtn) clearBtn.style.display = 'block';
 
-            if (window.l1StationCombobox) {
-                const found = (allottedStationsData || []).find(s => s.station_id === stationId);
-                if (found) window.l1StationCombobox.selectItem(found);
-                else window.l1StationCombobox.input.value = stationId;
-            }
-
-            const mt = form.querySelector('[name="model_type"]');
-            if (mt && model) {
-                const opt = Array.from(mt.options).find(o => o.value === model);
-                if (opt) mt.value = model;
+            const mtSelect = document.getElementById('l1_model_type_select');
+            const mtHidden = document.getElementById('l1_model_type_hidden');
+            if (model) {
+                if (mtSelect) mtSelect.value = model;
+                if (mtHidden) mtHidden.value = model;
             }
             if (typeof window.saveL1Draft === 'function') window.saveL1Draft();
         });
     }
 
-    // Reset the Station ID dropdown for a blank "New Request".
     function resetL1StationField() {
-        if (window.l1StationCombobox) {
-            window.l1StationCombobox.clear();
-        }
-        const sel = document.getElementById('l1-station-id-select');
-        if (sel) sel.value = '';
+        const input = document.getElementById('station_id_search_input');
+        const hiddenInput = document.getElementById('l1_selected_station_id');
+        const clearBtn = document.getElementById('station-search-clear-btn');
+        const mtSelect = document.getElementById('l1_model_type_select');
+        const mtHidden = document.getElementById('l1_model_type_hidden');
+        if (input) input.value = '';
+        if (hiddenInput) hiddenInput.value = '';
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (mtSelect) mtSelect.value = '';
+        if (mtHidden) mtHidden.value = '';
     }
 
     document.addEventListener("DOMContentLoaded", function () {

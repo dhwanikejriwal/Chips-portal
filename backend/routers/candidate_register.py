@@ -125,12 +125,12 @@ def check_mobile(mobile: str, db: Session = Depends(get_db)):
 async def send_otp(payload: SendOtpRequest, db: Session = Depends(get_db)):
     from email_validator import validate_email, EmailNotValidError
     try:
-        # Validate deliverability (check MX records)
-        validate_email(payload.email, check_deliverability=True)
+        # Syntax & format validation (disable network MX deliverability check to prevent DNS timeouts on VM)
+        validate_email(payload.email, check_deliverability=False)
     except EmailNotValidError as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Email delivery check failed: {str(e)}"
+            detail=f"Invalid email address format: {str(e)}"
         )
 
     email_exists = db.query(Candidate).filter(Candidate.email == payload.email).first()
@@ -244,7 +244,13 @@ def register_candidate(payload: CandidateRegisterRequest, db: Session = Depends(
     short_name = district_obj.district_short_name or "CAN"
     dist_code = district_obj.district_code or ""
     mobile_suffix = payload.mobile[-5:] if payload.mobile else "12345"
-    request_code = f"{short_name}-{mobile_suffix}{dist_code}C{global_count + 1:04d}"
+    
+    count_offset = 0
+    while True:
+        request_code = f"{short_name}-{mobile_suffix}{dist_code}C{global_count + 1 + count_offset:04d}"
+        if not db.query(Candidate).filter(Candidate.request_code == request_code).first():
+            break
+        count_offset += 1
 
     try:
         dob_parsed = datetime.strptime(payload.dob, "%Y-%m-%d").date()

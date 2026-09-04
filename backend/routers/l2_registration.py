@@ -10,7 +10,7 @@ from backend.utils.exporter import generate_excel_export
 from sqlalchemy.orm import Session
 from sqlalchemy import text, or_
 from backend.database import SessionLocal
-from backend.models import L2RegistrationRequest, L2RegistrationRemark, User, District, StationIDRequest
+from backend.models import L2RegistrationRequest, L2RegistrationRemark, L1RegistrationRequest, User, District, StationIDRequest
 from backend.models.base import get_ist_time, StatusEnum
 
 from backend.routers.auth import get_current_user
@@ -77,29 +77,85 @@ def submit_l2_request(
     db.commit()
     db.refresh(new_req)
 
-    # Look up approved StationIDRequest matching new_station_id
-    station_req = db.query(StationIDRequest).filter(
-        StationIDRequest.station_id_inserted == new_station_id.strip(),
-        StationIDRequest.status_id == StatusEnum.ALLOTTED.value
-    ).first()
+    # 1. Look for existing L1RegistrationRequest matching new_station_id or machine_id (same VLE kit across L1 and L2!)
+    clean_sid = new_station_id.strip() if new_station_id else ""
+    clean_mid = new_machine_id.strip() if new_machine_id else ""
+    clean_old_sid = old_station_id.strip() if old_station_id else ""
 
-    if station_req:
-        new_req.request_no = f"{station_req.request_no}{new_station_id.strip()}"
+    l1_req = None
+    if clean_sid:
+        l1_req = db.query(L1RegistrationRequest).filter(
+            L1RegistrationRequest.station_id == clean_sid,
+            L1RegistrationRequest.request_code.isnot(None)
+        ).order_by(L1RegistrationRequest.id.desc()).first()
+
+    if not l1_req and clean_mid:
+        l1_req = db.query(L1RegistrationRequest).filter(
+            L1RegistrationRequest.machine_id == clean_mid,
+            L1RegistrationRequest.request_code.isnot(None)
+        ).order_by(L1RegistrationRequest.id.desc()).first()
+
+    if not l1_req and clean_old_sid:
+        l1_req = db.query(L1RegistrationRequest).filter(
+            L1RegistrationRequest.station_id == clean_old_sid,
+            L1RegistrationRequest.request_code.isnot(None)
+        ).order_by(L1RegistrationRequest.id.desc()).first()
+
+    if l1_req and l1_req.request_code:
+        new_req.request_no = l1_req.request_code
     else:
-        last_req = db.query(L2RegistrationRequest).filter(
-            L2RegistrationRequest.request_no.isnot(None),
-            L2RegistrationRequest.id != new_req.id
-        ).order_by(L2RegistrationRequest.id.desc()).first()
+        # 2. Look up approved StationIDRequest matching new_station_id
+        station_req = db.query(StationIDRequest).filter(
+            StationIDRequest.station_id_inserted == clean_sid,
+            StationIDRequest.status_id == StatusEnum.ALLOTTED.value
+        ).first()
 
-        if last_req and last_req.request_no:
-            try:
-                num_str = last_req.request_no.replace("L2-A", "")
-                last_num = int(re.sub(r'[^\d]', '', num_str)) if num_str else 0
-            except (ValueError, TypeError):
-                last_num = 0
+        if station_req and station_req.request_no:
+            new_req.request_no = f"{station_req.request_no}{clean_sid}"
         else:
-            last_num = 0
-        new_req.request_no = f"L2-A{last_num + 1:04d}"
+            # 3. Check for previous L2 registration of this same kit (repeated kit!)
+            prev_l2 = None
+            if clean_sid or clean_mid:
+                conditions = []
+                if clean_sid:
+                    conditions.append(L2RegistrationRequest.new_station_id == clean_sid)
+                    conditions.append(L2RegistrationRequest.old_station_id == clean_sid)
+                if clean_mid:
+                    conditions.append(L2RegistrationRequest.new_machine_id == clean_mid)
+                prev_l2 = db.query(L2RegistrationRequest).filter(
+                    L2RegistrationRequest.id != new_req.id,
+                    L2RegistrationRequest.request_no.isnot(None),
+                    or_(*conditions)
+                ).order_by(L2RegistrationRequest.id.desc()).first()
+
+            if prev_l2 and prev_l2.request_no:
+                new_req.request_no = prev_l2.request_no
+            else:
+                # 4. Generate uniform request code: {short_name}-K{highest_num:04d}{station_id}
+                district_obj = db.query(District).filter(District.district_code == str(district_id)).first()
+                short_name = district_obj.district_short_name if district_obj and district_obj.district_short_name else "SID"
+
+                highest_num = 0
+                for q_model, q_col in [
+                    (L2RegistrationRequest, L2RegistrationRequest.request_no),
+                    (L1RegistrationRequest, L1RegistrationRequest.request_code),
+                    (StationIDRequest, StationIDRequest.request_no)
+                ]:
+                    rows = db.query(q_col).filter(q_model.district_id == str(district_id)).all()
+                    for r_tup in rows:
+                        val = r_tup[0]
+                        if val and '-K' in val:
+                            try:
+                                part = val.split('-K')[1]
+                                digits = re.match(r'^\d+', part)
+                                if digits:
+                                    num = int(digits.group(0)[:4])
+                                    if num > highest_num:
+                                        highest_num = num
+                            except Exception:
+                                pass
+
+                new_req.request_no = f"{short_name}-K{highest_num + 1:04d}{clean_sid}"
 
     initial_remark = L2RegistrationRemark(
         request_id=new_req.id,
@@ -147,7 +203,7 @@ def get_dc_requests(dc_id: int, db: Session = Depends(get_db)):
         
         # 🌟 UNIFORM SCHEMA FIX: Map strictly to district_name & clean lowercase status keys
         dist_name = r.district.district_name if r.district else "—"
-        clean_status = str(r.status or "PENDING").strip().upper()
+        clean_status = "L2_DONE" if r.status_id in [StatusEnum.L2_DONE.value, StatusEnum.APPROVED.value, 20, 2] or str(r.status or "").strip().upper() in ["APPROVED", "L2_DONE", "L2 DONE", "DONE", "ACTIVATED"] else str(r.status or "PENDING").strip().upper()
 
         
         revert_reason = ""
@@ -479,6 +535,7 @@ def uidai_reject(
         raise HTTPException(status_code=404, detail="Request not found.")
 
     r.status_id = StatusEnum.REJECTED.value
+    r.is_mailed = 0
 
     r.reviewed_by = reviewed_by
     r.reviewed_at = get_ist_time()
@@ -507,6 +564,7 @@ def revert_request(
         raise HTTPException(status_code=404, detail="Request not found.")
 
     r.status_id = StatusEnum.REVERTED.value
+    r.is_mailed = 0
 
     r.reviewed_by = reviewed_by
     r.reviewed_at = get_ist_time()
@@ -569,6 +627,7 @@ def reapply_l2_request(
     r.block = block.strip() if block else ""
     r.address_of_govt_premises = address_of_govt_premises.strip() if address_of_govt_premises else ""
     r.status_id = StatusEnum.REAPPLIED.value
+    r.is_mailed = 0
 
     r.reviewed_at = None
     r.reviewed_by = None

@@ -10,7 +10,6 @@ from jose import jwt, JWTError
 
 from backend.database import get_db
 from backend.models import UserLogin, CandidateLogin , UserProfile
-from backend.utils.email_utils import send_password_reset_email
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -34,19 +33,46 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt
 
+from sqlalchemy import func
+from backend.models.district import District
+from backend.models.user_profile import UserProfile
+
 @router.post("/login")
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(UserLogin).filter(UserLogin.username == payload.username).first()
+    clean_username = payload.username.strip().lower()
+    
+    # 1. Exact case-insensitive match on UserLogin.username
+    user = db.query(UserLogin).filter(func.lower(UserLogin.username) == clean_username).first()
+    
+    # 2. Match by email in UserProfile
     if not user:
-        # Fallback: check if payload.username matches email in UserProfile
-        profile = db.query(UserProfile).filter(UserProfile.email.ilike(payload.username)).first()
-        if profile and profile.user_id:
-            user = db.query(UserLogin).filter(UserLogin.id == profile.user_id).first()
+        profile = db.query(UserProfile).filter(func.lower(UserProfile.email) == clean_username).first()
+        if profile and profile.user:
+            user = profile.user
+            
+    # 3. Match by district alias e.g. "dc.bemetara@chips.in", "dc.bemetara", "dc.durg", "edm.raipur"
+    if not user and (clean_username.startswith("dc") or clean_username.startswith("edm")):
+        target_roleid = 2 if clean_username.startswith("dc") else 3
+        dist_hint = clean_username.split("@")[0].replace("dc.", "").replace("edm.", "").replace("dc", "").replace("edm", "").replace("-", "").replace("_", "").strip()
+        
+        if dist_hint:
+            districts = db.query(District).all()
+            target_dist = None
+            for d in districts:
+                norm_dname = d.district_name.lower().replace(" ", "").replace("-", "")
+                if norm_dname == dist_hint or d.district_code == dist_hint or norm_dname.startswith(dist_hint) or dist_hint in norm_dname:
+                    target_dist = d
+                    break
+            if target_dist:
+                user = db.query(UserLogin).filter(
+                    UserLogin.district_id == target_dist.district_code,
+                    UserLogin.roleid == target_roleid
+                ).first()
 
     is_candidate = False
     candidate_login = None
     if not user:
-        candidate_login = db.query(CandidateLogin).filter(CandidateLogin.user_id == payload.username).first()
+        candidate_login = db.query(CandidateLogin).filter(func.lower(CandidateLogin.user_id) == clean_username).first()
         if not candidate_login:
             from backend.models.candidate import Candidate
             cand = db.query(Candidate).filter(
@@ -416,7 +442,7 @@ async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(
         )
     
     # Return canonical_username so the frontend knows what to send to reset-password
-    return {"success": True, "detail": "An OTP has been sent to your email address. (Please check spam folder if not received.)", "canonical_username": canonical_username}
+    return {"success": True, "detail": "An OTP has been sent to your email address. (If not received, please check your spam folder or resend OTP.)", "canonical_username": canonical_username}
 
 @router.post("/reset-password")
 def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):

@@ -23,9 +23,11 @@ _ACTIVATION_NON_PENDING_STATUSES = {
     "rejected",
 }
 
+from app.utils.backend_url import get_backend_base_url
+
 def backend_url():
-    api_url = current_app.config.get("BACKEND_API_URL", "http://127.0.0.1:8000/api")
-    return api_url.removesuffix("/api") + "/operator-activation"
+    return f"{get_backend_base_url()}/operator-activation"
+
 
 
 # ─────────────────────────────────────────────
@@ -61,10 +63,12 @@ def search_eligible_candidates():
 @operator_activation_bp.route("/dc/operator-activation/autofill-nseit", methods=["POST"])
 def autofill_from_certificate():
     jwt_token = session.get("access_token")
+    if isinstance(jwt_token, dict):
+        jwt_token = jwt_token.get("token", "") or jwt_token.get("access_token", "")
     if not jwt_token:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
-    headers = {"Authorization": f"Bearer {jwt_token}"}
+    headers = {"Authorization": f"Bearer {str(jwt_token).strip()}"}
     
     file_obj = request.files.get("nseit_certificate")
     if not file_obj or not file_obj.filename:
@@ -81,7 +85,8 @@ def autofill_from_certificate():
             f"{backend_url()}/autofill-from-certificate",
             files=files,
             data=data,
-            headers=headers
+            headers=headers,
+            timeout=60
         )
         if response.status_code == 200:
             return jsonify(response.json()), 200
@@ -91,8 +96,12 @@ def autofill_from_certificate():
             except Exception:
                 err_detail = response.text or "Autofill failed"
             return jsonify({"status": "error", "message": err_detail}), response.status_code
+    except requests.exceptions.Timeout:
+        return jsonify({"status": "error", "message": "OCR verification timed out. Please check image quality or enter details manually."}), 504
     except requests.exceptions.ConnectionError:
         return jsonify({"status": "error", "message": "Backend offline"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @operator_activation_bp.route("/dc/operator-activation/check-duplicate", methods=["GET"])
@@ -112,16 +121,23 @@ def check_duplicate():
         response = requests.get(
             f"{backend_url()}/check-duplicate",
             params=params,
-            headers=headers
+            headers=headers,
+            timeout=15
         )
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+def _get_clean_jwt_token():
+    tok = session.get("access_token")
+    if isinstance(tok, dict):
+        tok = tok.get("token", "") or tok.get("access_token", "")
+    return str(tok or "").strip()
+
 @operator_activation_bp.route("/dc/operator-activation/validate-document", methods=["POST"])
 def validate_single_document():
-    jwt_token = session.get("access_token")
+    jwt_token = _get_clean_jwt_token()
     if not jwt_token:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
@@ -147,16 +163,19 @@ def validate_single_document():
             f"{backend_url()}/validate-document",
             files=files,
             data=data,
-            headers=headers
+            headers=headers,
+            timeout=60
         )
         return jsonify(response.json()), response.status_code
+    except requests.exceptions.Timeout:
+        return jsonify({"status": "error", "message": "Document validation timed out."}), 504
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @operator_activation_bp.route("/dc/operator-activation/validate_ocr", methods=["POST"])
 def validate_ocr_proxy():
-    jwt_token = session.get("access_token")
+    jwt_token = _get_clean_jwt_token()
     if not jwt_token:
         return jsonify({"success": False, "error": "Unauthorized"}), 401
 

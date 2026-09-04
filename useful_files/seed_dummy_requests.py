@@ -31,14 +31,22 @@ It needs only a migrated database with district_table rows, a CHiPS admin user
 (roleid=1) and at least one DC user (roleid=2). Missing prerequisites stop the
 run with an explanatory message before anything is written.
 
-Run:  python seed_portal_requests.py
-      python seed_portal_requests.py --clear    (remove seeded rows, insert nothing)
+Run:  python useful_files/seed_dummy_requests.py
+      python useful_files/seed_dummy_requests.py --clear    (remove seeded rows, insert nothing)
 """
 from __future__ import annotations
 
+import os
+import sys
+
+# Ensure root project directory is in python path
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+sys.path.append(os.getcwd())
+
 from collections import defaultdict
 import random
-import sys
 from typing import Any
 from datetime import date, datetime, timedelta, timezone
 

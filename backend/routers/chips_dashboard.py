@@ -21,6 +21,7 @@ from backend.models import (
     L2RegistrationRequest,
     Operator,
 )
+from backend.models.base import StatusEnum
 
 from backend.utils.dashboard_analytics import (
     _compute_monthly_trend,
@@ -309,8 +310,8 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         l2_analysis["monthly_trend"] = _compute_monthly_trend(
             db, L2RegistrationRequest, L2RegistrationRequest.submitted_at,
             L2RegistrationRequest.status, L2RegistrationRequest.submitted_at,
-            approved_values=["approved", "activated"],
-            rejected_values=["rejected", "reverted", "reverted_by_chips"],
+            approved_values=["approved", "activated", "l2_done", "L2 Done", "L2 DONE", "APPROVED", "done", "DONE"],
+            rejected_values=["rejected", "reverted", "reverted_by_chips", "REJECTED", "REVERTED", "REVERTED_BY_CHIPS", "REVERT_BACK"],
         )
     except Exception:
         pass
@@ -349,7 +350,8 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
     # 1. LMS List
     lms_raw = db.query(LMS, Candidate, District.district_name)\
         .join(Candidate, LMS.request_id == Candidate.id)\
-        .outerjoin(District, Candidate.district == District.district_code).all()
+        .outerjoin(District, Candidate.district == District.district_code)\
+        .filter(LMS.status_id != StatusEnum.SKIPPED.value).all()
     
     lms_requests = []
     for r, cand, dname in lms_raw:
@@ -366,7 +368,8 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
     # 2. NSEIT List
     nseit_raw = db.query(NSEITRequest, Candidate, District.district_name)\
         .join(Candidate, NSEITRequest.request_id == Candidate.id)\
-        .outerjoin(District, Candidate.district == District.district_code).all()
+        .outerjoin(District, Candidate.district == District.district_code)\
+        .filter(NSEITRequest.status_id != StatusEnum.SKIPPED.value).all()
     
     nseit_requests = []
     for r, cand, dname in nseit_raw:
@@ -413,13 +416,17 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
     
     station_id_requests = []
     for r, dname in station_raw:
+        kits_cnt = r.number_of_kits if r.number_of_kits else 1
         station_id_requests.append({
             "id": r.id,
             "district": dname or "Unknown",
             "status": (r.status or "pending").strip().lower(),
             "submitted_days_ago": _days_ago(r.submitted_at),
+            "number_of_kits": kits_cnt,
+            "operator_count": kits_cnt,
         })
 
+    # 5. L2 List
     # 5. L2 List
     l2_raw = db.query(L2RegistrationRequest, District.district_name)\
         .outerjoin(District, L2RegistrationRequest.district_id == District.district_code).all()
@@ -436,10 +443,26 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
                 resp_hours = max(0, (rev_dt - sub_dt).total_seconds() / 3600)
             except Exception:
                 pass
+        
+        st_lower = str(r.status or "pending").strip().lower()
+        st_id = getattr(r, "status_id", None)
+        
+        if st_id in [StatusEnum.APPROVED.value, StatusEnum.L2_DONE.value, 20, 2] or st_lower in ["approved", "activated", "l2_done", "l2 done", "done"]:
+            l2_status = "approved"
+        elif st_id in [StatusEnum.SENT_TO_UIDAI.value, 6] or st_lower in ["sent_to_uidai", "sent to uidai"]:
+            l2_status = "sent_to_uidai"
+        elif st_id in [StatusEnum.REVERTED.value, 3] or st_lower in ["reverted", "reverted_by_chips", "reverted by chips", "revert_back"]:
+            l2_status = "reverted"
+        elif st_id in [StatusEnum.REJECTED.value, 14] or st_lower in ["rejected", "rejected_by_uidai"]:
+            l2_status = "rejected"
+        else:
+            l2_status = "pending"
+
         l2_requests.append({
             "id": r.id,
             "district": dname or "Unknown",
-            "status": (r.status or "pending").strip().lower(),
+            "status": l2_status,
+            "is_mailed": int(getattr(r, "is_mailed", 0) or 0),
             "client_type": getattr(r, "client_type", ""),
             "submitted_days_ago": _days_ago(submitted_at),
             "response_time_hours": resp_hours,
@@ -461,10 +484,12 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
                 resp_hours = max(0, (rev_dt - sub_dt).total_seconds() / 3600)
             except Exception:
                 pass
+        is_done = getattr(r, "status_id", None) in [StatusEnum.L1_DONE.value, StatusEnum.APPROVED.value] or str(r.status or "").lower() in ["l1_done", "approved", "done"]
+        l1_status = "approved" if is_done else ((r.status or "pending").strip().lower())
         l1_requests.append({
             "id": r.id,
             "district": dname or "Unknown",
-            "status": (r.status or "pending").strip().lower(),
+            "status": l1_status,
             "submitted_days_ago": _days_ago(submitted_at),
             "response_time_hours": resp_hours,
         })
@@ -503,7 +528,7 @@ def get_chips_dashboard_summary(db: Session = Depends(get_db)):
 
     # District Resources Map
     resources = get_districts_with_resources(db)
-    resources_map = {d["district_name"]: d.get("aadhaar_resources") for d in resources if isinstance(d, dict) and d.get("district_name")}
+    resources_map = {d["district_name"]: d.get("aadhaar_resources") or d.get("resources") for d in resources if isinstance(d, dict) and d.get("district_name")}
 
     return {
         "districts": dist_names,
@@ -641,6 +666,9 @@ def update_district_settings_post(settings: DistrictSettingsUpdateWithCode, db: 
 @router.get("/districts-with-resources")
 def get_districts_with_resources(db: Session = Depends(get_db)):
     districts = db.query(District).order_by(District.district_name).all()
+    
+    # Map district codes to district names for easy lookup
+    code_to_name = {str(d.district_code).strip(): d.district_name for d in districts}
 
     all_users = db.query(User).filter(
         User.district_id.isnot(None),
@@ -649,9 +677,11 @@ def get_districts_with_resources(db: Session = Depends(get_db)):
 
     district_resources = {}
     for user in all_users:
-        dist_id = user.district_id
-        if dist_id not in district_resources:
-            district_resources[dist_id] = {
+        raw_dist_id = str(user.district_id).strip()
+        dist_key = code_to_name.get(raw_dist_id, raw_dist_id)
+        
+        if dist_key not in district_resources:
+            district_resources[dist_key] = {
                 "edm_name": "", "edm_contact": "", "edm_email": "",
                 "dc_name": "", "dc_contact": "", "dc_email": "",
                 "mto_name": "", "mto_contact": "", "mto_email": "",
@@ -659,30 +689,31 @@ def get_districts_with_resources(db: Session = Depends(get_db)):
             }
         
         profile = user.profile
-        name = profile.full_name if (profile and profile.full_name) else ""
+        name = profile.full_name if (profile and profile.full_name) else (user.username or "")
         contact = profile.phone if (profile and profile.phone) else ""
         email = profile.email if (profile and profile.email) else (user.username or "")
 
         if user.roleid == 3:
-            district_resources[dist_id]["edm_name"] = name
-            district_resources[dist_id]["edm_contact"] = contact
-            district_resources[dist_id]["edm_email"] = email
+            district_resources[dist_key]["edm_name"] = name
+            district_resources[dist_key]["edm_contact"] = contact
+            district_resources[dist_key]["edm_email"] = email
         elif user.roleid == 2:
-            district_resources[dist_id]["dc_name"] = name
-            district_resources[dist_id]["dc_contact"] = contact
-            district_resources[dist_id]["dc_email"] = email
+            district_resources[dist_key]["dc_name"] = name
+            district_resources[dist_key]["dc_contact"] = contact
+            district_resources[dist_key]["dc_email"] = email
         elif user.roleid == 5:
-            district_resources[dist_id]["mto_name"] = name
-            district_resources[dist_id]["mto_contact"] = contact
-            district_resources[dist_id]["mto_email"] = email
+            district_resources[dist_key]["mto_name"] = name
+            district_resources[dist_key]["mto_contact"] = contact
+            district_resources[dist_key]["mto_email"] = email
         elif user.roleid == 6:
-            district_resources[dist_id]["adc_name"] = name
-            district_resources[dist_id]["adc_contact"] = contact
-            district_resources[dist_id]["adc_email"] = email
+            district_resources[dist_key]["adc_name"] = name
+            district_resources[dist_key]["adc_contact"] = contact
+            district_resources[dist_key]["adc_email"] = email
 
     res = []
     for d in districts:
-        res_info = district_resources.get(d.district_code)
+        d_code = str(d.district_code).strip()
+        res_info = district_resources.get(d.district_name) or district_resources.get(d_code)
         if not res_info:
             res_info = {
                 "edm_name": "", "edm_contact": "", "edm_email": "",
@@ -694,6 +725,7 @@ def get_districts_with_resources(db: Session = Depends(get_db)):
             "district_code": d.district_code,
             "district_name": d.district_name,
             "district_short_name": d.district_short_name,
-            "aadhaar_resources": res_info
+            "aadhaar_resources": res_info,
+            "resources": res_info
         })
     return res

@@ -32,6 +32,10 @@ from backend.models.operator import Operator
 
 router = APIRouter()
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "reactivation")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 def get_user_role_str(current_user) -> str:
     if hasattr(current_user.role, "role"):
         return str(current_user.role.role).lower()
@@ -41,63 +45,133 @@ def get_user_role_str(current_user) -> str:
         return str(current_user.role.name).lower()
     return str(current_user.role).lower()
 
-
 def validate_attendance_excel_records(attendance_file_or_path, operator_rows):
     """
-    Parses the Attendance Excel sheet and validates that all operators in operator_rows
-    (matched by mobile, email, user code, or name) are present in the file.
+    Parses the Attendance Excel sheet and validates that each operator in operator_rows
+    matches BOTH their name and mobile number within the file.
     """
+    import io
+    import re
+    import os
     import openpyxl
-    
-    excel_text = ""
+    import pandas as pd
+    from backend.utils.ocr_utils import _match_operator_name
+
+    raw_bytes = None
     try:
         if isinstance(attendance_file_or_path, bytes):
-            wb = openpyxl.load_workbook(io.BytesIO(attendance_file_or_path), data_only=True)
-        elif hasattr(attendance_file_or_path, 'read'):
+            raw_bytes = attendance_file_or_path
+        elif hasattr(attendance_file_or_path, 'file') and hasattr(attendance_file_or_path.file, 'read'):
+            attendance_file_or_path.file.seek(0)
+            raw_bytes = attendance_file_or_path.file.read()
+            attendance_file_or_path.file.seek(0)
+        elif hasattr(attendance_file_or_path, 'read') and not hasattr(attendance_file_or_path, '__await__'):
             raw_bytes = attendance_file_or_path.read()
             if hasattr(attendance_file_or_path, 'seek'):
                 attendance_file_or_path.seek(0)
-            wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), data_only=True)
-        else:
-            wb = openpyxl.load_workbook(attendance_file_or_path, data_only=True)
-            
-        cell_contents = []
+        elif isinstance(attendance_file_or_path, str):
+            resolved_path = attendance_file_or_path
+            if not os.path.exists(resolved_path) and not os.path.isabs(resolved_path):
+                candidate_p = os.path.join(BASE_DIR, resolved_path.lstrip("/\\"))
+                if os.path.exists(candidate_p):
+                    resolved_path = candidate_p
+            if os.path.exists(resolved_path):
+                with open(resolved_path, 'rb') as f:
+                    raw_bytes = f.read()
+    except Exception as e:
+        print(f"Warning reading attendance file bytes: {e}")
+
+    if not raw_bytes:
+        return [f"'{op.get('name', op.get('operator_name', 'Operator'))}' (Empty or unreadable Excel sheet)" for op in operator_rows]
+
+    rows = []
+    # 1. Try openpyxl across all worksheets (preserves exact values, numbers, formats)
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), data_only=True)
         for sheet in wb.worksheets:
             for row in sheet.iter_rows(values_only=True):
+                cell_strs = []
                 for cell in row:
-                    if cell is not None:
-                        val_str = str(cell).strip()
-                        if val_str:
-                            cell_contents.append(val_str)
-        excel_text = " ".join(cell_contents).lower()
-    except Exception as e:
-        print(f"Warning: Unable to parse attendance Excel with openpyxl: {e}")
-        return []
+                    if cell is None:
+                        continue
+                    if isinstance(cell, float) and cell.is_integer():
+                        cell_strs.append(str(int(cell)))
+                    elif isinstance(cell, (int, float)):
+                        cell_strs.append(f"{cell:.0f}" if isinstance(cell, float) and cell.is_integer() else str(cell))
+                    else:
+                        cell_strs.append(str(cell).strip())
+                cell_strs = [c for c in cell_strs if c and c.lower() not in ("none", "nan", "")]
+                if cell_strs:
+                    rows.append(" ".join(cell_strs))
+    except Exception:
+        pass
+
+    # 2. Fallback to pandas with header=None across all sheets
+    if not rows:
+        try:
+            excel_file = pd.ExcelFile(io.BytesIO(raw_bytes))
+            for sheet_name in excel_file.sheet_names:
+                df = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, dtype=str)
+                for _, r in df.iterrows():
+                    cell_strs = [str(val).strip() for val in r.values if pd.notna(val) and str(val).strip().lower() not in ("nan", "none", "")]
+                    if cell_strs:
+                        rows.append(" ".join(cell_strs))
+        except Exception:
+            pass
+
+    # 3. Fallback to CSV
+    if not rows:
+        try:
+            for enc in ['utf-8', 'latin-1', 'cp1252']:
+                try:
+                    df = pd.read_csv(io.BytesIO(raw_bytes), header=None, dtype=str, encoding=enc)
+                    for _, r in df.iterrows():
+                        cell_strs = [str(val).strip() for val in r.values if pd.notna(val) and str(val).strip().lower() not in ("nan", "none", "")]
+                        if cell_strs:
+                            rows.append(" ".join(cell_strs))
+                    if rows:
+                        break
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    if not rows:
+        return [f"'{op.get('name', op.get('operator_name', 'Operator'))}' (Empty or unreadable Excel sheet)" for op in operator_rows]
+
+    from backend.utils.ocr_utils import _match_operator_in_excel_row
 
     missing = []
     for op in operator_rows:
-        name = str(op.get('name', '')).strip()
-        mobile = str(op.get('mobile', '')).strip()
-        email = str(op.get('email', '')).strip()
-        user = str(op.get('user', '')).strip()
+        name = str(op.get('name', op.get('operator_name', ''))).strip()
+        mobile = str(op.get('mobile', op.get('operator_mobile', ''))).strip()
 
-        match = False
-        if mobile and mobile.lower() in excel_text:
-            match = True
-        elif email and email.lower() in excel_text:
-            match = True
-        elif user and len(user) >= 3 and user.lower() in excel_text:
-            match = True
-        elif name:
-            name_lower = name.lower()
-            if name_lower in excel_text:
-                match = True
-            else:
-                name_parts = [p for p in name_lower.split() if len(p) >= 3]
-                if name_parts and all(part in excel_text for part in name_parts):
-                    match = True
+        row_matched = False
+        found_mob_anywhere = False
+        found_name_anywhere = False
 
-        if not match:
+        for row_text in rows:
+            mob_in_row, name_in_row = _match_operator_in_excel_row(name, mobile, row_text)
+            if mob_in_row:
+                found_mob_anywhere = True
+            if name_in_row:
+                found_name_anywhere = True
+
+            # STRICT COMBINATION MATCH: Both must match in the exact same row
+            if mob_in_row and name_in_row:
+                row_matched = True
+                break
+
+        if row_matched:
+            continue
+
+        if found_mob_anywhere and not found_name_anywhere:
+            missing.append(f"'{name or 'Operator'}' (Mobile {mobile} matched, but name did not match row)")
+        elif found_name_anywhere and not found_mob_anywhere:
+            missing.append(f"'{name or 'Operator'}' (Name matched, but mobile {mobile} not found in row)")
+        elif found_mob_anywhere and found_name_anywhere:
+            missing.append(f"'{name or 'Operator'}' (Mobile and name found in different rows, must be in same row)")
+        else:
             missing.append(f"'{name or 'Operator'}' (Mobile: {mobile or 'N/A'})")
 
     return missing
@@ -108,10 +182,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "reactivation")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def generate_dynamic_request_code(db: Session, district_id: str, district_name: str) -> str:
     district = db.query(District).filter(District.district_code == str(district_id)).first()
@@ -175,7 +245,17 @@ async def submit_operator_reactivation(
             raise HTTPException(status_code=400, detail="The operator log datagrid cannot be processed with zero rows.")
 
         # 📊 Validate Attendance Excel sheet contents against submitted operator rows
-        target_attendance_input = attendance_list
+        has_new_attendance = False
+        if attendance_list and getattr(attendance_list, 'filename', None):
+            try:
+                attendance_list.file.seek(0, 2)
+                if attendance_list.file.tell() > 0:
+                    has_new_attendance = True
+                attendance_list.file.seek(0)
+            except Exception:
+                has_new_attendance = True
+
+        target_attendance_input = attendance_list if has_new_attendance else None
         if not target_attendance_input and reapply_request_code:
             existing_doc = db.query(ReactivationDocument).join(
                 OperatorReactivationRequest, ReactivationDocument.request_id == OperatorReactivationRequest.id
@@ -183,7 +263,7 @@ async def submit_operator_reactivation(
                 OperatorReactivationRequest.request_code == reapply_request_code,
                 ReactivationDocument.doc_type == "attendance_list"
             ).first()
-            if existing_doc and os.path.exists(existing_doc.path):
+            if existing_doc and existing_doc.path and os.path.exists(existing_doc.path):
                 target_attendance_input = existing_doc.path
 
         if target_attendance_input:
@@ -209,30 +289,10 @@ async def submit_operator_reactivation(
             
             req_code = reapply_request_code
             
-            # Count the untouched operators in the batch (e.g. APPROVED or SENT_TO_UIDAI)
-            untouched_count = db.query(ReactivationOperator).filter(
-                ReactivationOperator.request_id == req.id,
-                ~ReactivationOperator.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value])
-            ).count()
-            req.operator_count = untouched_count + len(operator_rows)
-            
             req.training_date = date.fromisoformat(training_date.strip())
             req.status_id = StatusEnum.REAPPLIED.value
-            
-            # Delete only the specific reverted/rejected operators that are being resubmitted
-            submitted_ids = [op.get('id') for op in operator_rows if op.get('id')]
-            if submitted_ids:
-                db.query(ReactivationOperator).filter(
-                    ReactivationOperator.request_id == req.id,
-                    ReactivationOperator.id.in_(submitted_ids)
-                ).delete()
-            else:
-                db.query(ReactivationOperator).filter(
-                    ReactivationOperator.request_id == req.id,
-                    ReactivationOperator.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value])
-                ).delete()
+            req.is_mailed = 0
         else:
-
             req_code = generate_dynamic_request_code(db, str(current_user.district_id), district_name)
     
             new_request = OperatorReactivationRequest(
@@ -259,7 +319,6 @@ async def submit_operator_reactivation(
             # If replacing an existing document during reapply, delete the old record for this doc_type
             if reapply_request_code:
                 db.query(ReactivationDocument).filter(ReactivationDocument.request_id == active_req_id, ReactivationDocument.doc_type == doc_type).delete()
-                
 
             uploaded_file.file.seek(0, 2)
             bytes_size = uploaded_file.file.tell()
@@ -276,63 +335,101 @@ async def submit_operator_reactivation(
             op_email = str(op.get('email', '')).strip()
             op_id = op.get('id')
             
-            # Check for existing duplicate in DB
+            # Check for existing duplicate in DB outside this batch/operator
             mobile_query = db.query(ReactivationOperator).filter(ReactivationOperator.operator_mobile == op_mobile)
             if op_id:
-                mobile_query = mobile_query.filter(ReactivationOperator.id != op_id)
+                mobile_query = mobile_query.filter(ReactivationOperator.id != int(op_id))
+            elif reapply_request_code:
+                mobile_query = mobile_query.filter(ReactivationOperator.request_id != req.id)
             if mobile_query.first():
                 raise HTTPException(status_code=400, detail=f"Operator Reactivation Request already exists with mobile number: {op_mobile}")
                 
             if op_email:
                 email_query = db.query(ReactivationOperator).filter(ReactivationOperator.email_id == op_email)
                 if op_id:
-                    email_query = email_query.filter(ReactivationOperator.id != op_id)
+                    email_query = email_query.filter(ReactivationOperator.id != int(op_id))
+                elif reapply_request_code:
+                    email_query = email_query.filter(ReactivationOperator.request_id != req.id)
                 if email_query.first():
                     raise HTTPException(status_code=400, detail=f"Operator Reactivation Request already exists with email address: {op_email}")
 
             parsed_cert_date = date.fromisoformat(op['certDate']) if op.get('certDate') else None
             if parsed_cert_date:
-                # Check if older than 3 years (3 * 365 days)
                 three_years_ago = date.today() - timedelta(days=3*365)
                 if parsed_cert_date < three_years_ago:
                     raise HTTPException(status_code=400, detail=f"NSEIT Certification Date for {op.get('name')} must not be more than 3 years old.")
 
-            new_op = ReactivationOperator(
-                request_id=active_req_id,
+            existing_op = None
+            if op_id:
+                try:
+                    existing_op = db.query(ReactivationOperator).filter(
+                        ReactivationOperator.id == int(op_id),
+                        ReactivationOperator.request_id == active_req_id
+                    ).first()
+                except Exception:
+                    existing_op = None
+                    
+            if not existing_op and reapply_request_code:
+                existing_op = db.query(ReactivationOperator).filter(
+                    ReactivationOperator.request_id == active_req_id,
+                    ReactivationOperator.operator_mobile == op_mobile
+                ).first()
 
-                role=op.get('role', '').strip(),
-                operator_name=str(op.get('name', '')).strip(),
-                registrar_code=op.get('reg', '').strip(),
-                ea_code=op.get('ea', '').strip(),
-                user_code=op.get('user', '').strip(),
-                certificate_number=op.get('cert', '').strip(),
-                lms_certificate_id=op.get('lmsId', '').strip(),
-                operator_mobile=op_mobile,
-                email_id=op_email,
-                aadhaar_number=str(op.get('aadhar', '')).strip(),
-                certification_date=parsed_cert_date,
-                remarks=op.get('remarks', '').strip(),
-                model_type=op.get('model', '').strip(),      
-                status="REAPPLIED" if reapply_request_code else "PENDING"
-            )
-            db.add(new_op)
-            operators_added.append(new_op)
+            if existing_op:
+                existing_op.role = op.get('role', '').strip()
+                existing_op.operator_name = str(op.get('name', '')).strip()
+                existing_op.registrar_code = op.get('reg', '').strip()
+                existing_op.ea_code = op.get('ea', '').strip()
+                existing_op.user_code = op.get('user', '').strip()
+                existing_op.certificate_number = op.get('cert', '').strip()
+                existing_op.lms_certificate_id = op.get('lmsId', '').strip()
+                existing_op.operator_mobile = op_mobile
+                existing_op.email_id = op_email
+                existing_op.aadhaar_number = str(op.get('aadhar', '')).strip()
+                existing_op.certification_date = parsed_cert_date
+                existing_op.remarks = op.get('remarks', '').strip()
+                existing_op.model_type = op.get('model', '').strip()
+                existing_op.status_id = StatusEnum.REAPPLIED.value
+                existing_op.reject_reason = None
+                operators_added.append(existing_op)
+            else:
+                new_op = ReactivationOperator(
+                    request_id=active_req_id,
+                    role=op.get('role', '').strip(),
+                    operator_name=str(op.get('name', '')).strip(),
+                    registrar_code=op.get('reg', '').strip(),
+                    ea_code=op.get('ea', '').strip(),
+                    user_code=op.get('user', '').strip(),
+                    certificate_number=op.get('cert', '').strip(),
+                    lms_certificate_id=op.get('lmsId', '').strip(),
+                    operator_mobile=op_mobile,
+                    email_id=op_email,
+                    aadhaar_number=str(op.get('aadhar', '')).strip(),
+                    certification_date=parsed_cert_date,
+                    remarks=op.get('remarks', '').strip(),
+                    model_type=op.get('model', '').strip(),      
+                    status_id=StatusEnum.REAPPLIED.value if reapply_request_code else StatusEnum.PENDING.value
+                )
+                db.add(new_op)
+                operators_added.append(new_op)
             
         db.flush()
+
+        if reapply_request_code:
+            req.operator_count = db.query(ReactivationOperator).filter(ReactivationOperator.request_id == req.id).count()
         
-        for new_op in operators_added:
-            msg = f"Operator '{new_op.operator_name}' {'is reapplied' if reapply_request_code else 'is submitted'} by DC"
+        for op_item in operators_added:
+            msg = f"Operator '{op_item.operator_name}' {'is reapplied' if reapply_request_code else 'is submitted'} by DC"
             if reapply_request_code and dc_remark:
                 msg += f". Remarks: {dc_remark.strip()}"
                 
             db.add(ReactivationRemarkHistory(
                 request_id=active_req_id,
-                operator_id=new_op.id,
+                operator_id=op_item.id,
                 author_id=current_user.id,
                 remark_history=msg,
                 sender_role="DC",
                 status_after="REAPPLIED" if reapply_request_code else "PENDING"
-
             ))
             
         db.commit()
@@ -383,8 +480,11 @@ async def get_reactivation_requests(
     
     query = db.query(OperatorReactivationRequest, District.district_name)\
               .outerjoin(District, OperatorReactivationRequest.district_id == District.district_code)
-    if user_role_str == "dc":
-        query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
+    if user_role_str in ["dc", "edm"]:
+        query = query.filter(
+            (OperatorReactivationRequest.district_id == str(current_user.district_id)) |
+            (OperatorReactivationRequest.dc_id == current_user.id)
+        )
     
     requests = query.order_by(OperatorReactivationRequest.updated_at.desc()).all()
         
@@ -396,7 +496,8 @@ async def get_reactivation_requests(
             "operator_count": req.operator_count,
             "training_date": str(req.training_date) if req.training_date else "",
             "status": to_name(req.status_id).upper().replace(" ", "_").strip(),
-            "submitted_at": str(req.created_at)[:19] if req.created_at else "",
+            "created_at": str(req.created_at)[:19] if req.created_at else "",
+            "updated_at": str(req.updated_at)[:19] if req.updated_at else "",
             "district_name": dist_name or "Raipur",
             "revert_reason": next((r.remark_history for r in reversed(req.remarks) if r.status_after_id in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]), "")
 
@@ -413,8 +514,11 @@ async def get_reactivation_requests_with_operators(
     
     query = db.query(OperatorReactivationRequest, District.district_name)\
               .outerjoin(District, OperatorReactivationRequest.district_id == District.district_code)
-    if user_role_str == "dc":
-        query = query.filter(OperatorReactivationRequest.district_id == str(current_user.district_id))
+    if user_role_str in ["dc", "edm"]:
+        query = query.filter(
+            (OperatorReactivationRequest.district_id == str(current_user.district_id)) |
+            (OperatorReactivationRequest.dc_id == current_user.id)
+        )
     
     requests = query.order_by(OperatorReactivationRequest.updated_at.desc()).all()
         
@@ -468,7 +572,7 @@ async def get_reactivation_requests_with_operators(
             "operator_count": req.operator_count,
             "training_date": str(req.training_date) if req.training_date else "",
             "status": to_name(req.status_id).upper().replace(" ", "_").strip(),
-            "submitted_at": str(req.created_at)[:19] if req.created_at else "",
+            "created_at": str(req.created_at)[:19] if req.created_at else "",
             "updated_at": str(req.updated_at)[:19] if req.updated_at else "",
             "is_mailed": int(req.is_mailed or 0),
             "district_name": dist_name or "Raipur",
@@ -613,10 +717,11 @@ async def revert_individual_operator(operator_id: int, reason: str = Form(...), 
         op.status_id = StatusEnum.REVERTED.value
         op.reject_reason = reason
         
-        # Update parent's updated_at
+        # Update parent's updated_at and reset is_mailed
         parent = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
         if parent:
             parent.updated_at = get_ist_now()
+            parent.is_mailed = 0
 
         db.add(ReactivationRemarkHistory(
             request_id=op.request_id,
@@ -636,10 +741,11 @@ async def reject_individual_operator(operator_id: int, reason: str = Form(...), 
         op.status_id = StatusEnum.REJECTED.value
         op.reject_reason = reason
         
-        # Update parent's updated_at
+        # Update parent's updated_at and reset is_mailed
         parent = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
         if parent:
             parent.updated_at = get_ist_now()
+            parent.is_mailed = 0
 
         db.add(ReactivationRemarkHistory(
             request_id=op.request_id,
@@ -648,7 +754,6 @@ async def reject_individual_operator(operator_id: int, reason: str = Form(...), 
             remark_history=reason.strip(),
             sender_role="CHIPS_ADMIN",
             status_after_id=op.status_id
-
         ))
         db.commit()
     return {"success": True}
@@ -670,7 +775,6 @@ async def update_and_reapply_operator(
     user_code: str = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
-
 ):
     op = db.query(ReactivationOperator).filter(ReactivationOperator.id == operator_id).first()
     if not op:
@@ -690,11 +794,12 @@ async def update_and_reapply_operator(
     
     op.status_id = StatusEnum.REAPPLIED.value
     
-    # Also update the batch status back to REAPPLIED if it was REVERTED
+    # Also update the batch status back to REAPPLIED and reset is_mailed
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.id == op.request_id).first()
     if req:
         req.updated_at = get_ist_now()
-        if req.status_id == StatusEnum.REVERTED.value:
+        req.is_mailed = 0
+        if req.status_id in [StatusEnum.REVERTED.value, StatusEnum.REJECTED.value, StatusEnum.REVERTED_BY_CHIPS.value]:
             req.status_id = StatusEnum.REAPPLIED.value
 
     db.add(ReactivationRemarkHistory(
@@ -704,7 +809,6 @@ async def update_and_reapply_operator(
         remark_history=f"Operator '{op.operator_name}' Reapplied and Details Updated",
         sender_role="DC",
         status_after_id=req.status_id if req else StatusEnum.REAPPLIED.value
-
     ))
 
     db.commit()
@@ -762,6 +866,7 @@ async def revert_batch_request(request_code: str, revert_reason: str = Form(...)
     req = db.query(OperatorReactivationRequest).filter(OperatorReactivationRequest.request_code == request_code).first()
     if req: 
         req.status_id = StatusEnum.REVERTED.value
+        req.is_mailed = 0
         req.reviewed_by = current_user.id
         req.updated_at = get_ist_now()
         
@@ -1066,19 +1171,35 @@ async def get_reactivation_file(request_code: str, file_type: str, db: Session =
 async def search_suspended_operators(q: str = "", db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     user_role_str = get_user_role_str(current_user)
     
-    # Query mobile & email numbers of operators with active (non-reverted/rejected) reactivation requests
-    active_mobiles = set(
-        mob.strip() for (mob,) in db.query(ReactivationOperator.operator_mobile).filter(
-            ~ReactivationOperator.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]),
-            ReactivationOperator.operator_mobile.isnot(None)
-        ).all() if mob and mob.strip()
-    )
-    active_emails = set(
-        em.strip().lower() for (em,) in db.query(ReactivationOperator.email_id).filter(
-            ~ReactivationOperator.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value]),
-            ReactivationOperator.email_id.isnot(None)
-        ).all() if em and em.strip()
-    )
+    import re
+    def norm_mob(m: str | None) -> str:
+        if not m:
+            return ""
+        digits = re.sub(r"\D", "", str(m))
+        return digits[-10:] if len(digits) >= 10 else digits
+
+    def norm_str(s: str | None) -> str:
+        if not s:
+            return ""
+        return str(s).strip().lower()
+
+    # Query all operators who have already applied in ReactivationOperator (irrespective of status)
+    applied_records = db.query(
+        ReactivationOperator.operator_mobile,
+        ReactivationOperator.email_id,
+        ReactivationOperator.user_code,
+        ReactivationOperator.certificate_number
+    ).all()
+
+    applied_mobiles = {norm_mob(r[0]) for r in applied_records if r[0]}
+    applied_emails = {norm_str(r[1]) for r in applied_records if r[1]}
+    applied_user_codes = {norm_str(r[2]) for r in applied_records if r[2]}
+    applied_certs = {norm_str(r[3]) for r in applied_records if r[3]}
+
+    applied_mobiles.discard("")
+    applied_emails.discard("")
+    applied_user_codes.discard("")
+    applied_certs.discard("")
 
     from sqlalchemy import or_
     query = db.query(Operator).filter(
@@ -1099,82 +1220,69 @@ async def search_suspended_operators(q: str = "", db: Session = Depends(get_db),
             )
         )
         
-    if q:
+    if q and q.strip():
+        search_term = f"%{q.strip().lower()}%"
         query = query.filter(
-            (Operator.name.ilike(f"%{q}%")) |
-            (Operator.mobile.ilike(f"%{q}%")) |
-            (Operator.email.ilike(f"%{q}%")) |
-            (Operator.user_code.ilike(f"%{q}%"))
+            (Operator.name.ilike(search_term)) |
+            (Operator.mobile.ilike(search_term)) |
+            (Operator.email.ilike(search_term)) |
+            (Operator.user_code.ilike(search_term)) |
+            (Operator.nseit_certificate_number.ilike(search_term))
         )
         
-    operators = query.all()
+    operators = query.order_by(Operator.id.desc()).limit(50).all()
 
-    # Fallback: if no operators found with specific suspended filter for DC, return all non-active operators in DC's domain
-    if not operators and user_role_str == "dc":
+    # Fallback: if no operators found for DC filter with search term, search across all operators
+    if not operators and q and q.strip():
+        search_term = f"%{q.strip().lower()}%"
         fallback_query = db.query(Operator).filter(
-            or_(
-                Operator.mapped_dc_id == current_user.id,
-                Operator.district_id == str(current_user.district_id),
-                Operator.district_id == current_user.district_id
-            )
+            (Operator.name.ilike(search_term)) |
+            (Operator.mobile.ilike(search_term)) |
+            (Operator.email.ilike(search_term)) |
+            (Operator.user_code.ilike(search_term)) |
+            (Operator.nseit_certificate_number.ilike(search_term))
         )
-        if q:
-            fallback_query = fallback_query.filter(
-                (Operator.name.ilike(f"%{q}%")) |
-                (Operator.mobile.ilike(f"%{q}%")) |
-                (Operator.email.ilike(f"%{q}%")) |
-                (Operator.user_code.ilike(f"%{q}%"))
-            )
-        operators = fallback_query.all()
+        operators = fallback_query.order_by(Operator.id.desc()).limit(50).all()
 
-    # Also query OperatorMaster table for suspended records
-    from backend.models.operator_master import OperatorMaster
-    master_query = db.query(OperatorMaster).filter(OperatorMaster.status.ilike("%suspended%"))
-    if q:
-        master_query = master_query.filter(
-            (OperatorMaster.name.ilike(f"%{q}%")) |
-            (OperatorMaster.operator_code.ilike(f"%{q}%"))
-        )
-    master_ops = master_query.limit(50).all()
+    # Fallback: if empty query, return top 50 operators
+    if not operators and not (q and q.strip()):
+        operators = db.query(Operator).order_by(Operator.id.desc()).limit(50).all()
 
-    seen_ids = set()
     results = []
+    seen_ids = set()
     for o in operators:
-        mob = (o.mobile or "").strip()
-        em = (o.email or "").strip().lower()
-        if (mob and mob in active_mobiles) or (em and em in active_emails):
+        mob = norm_mob(o.mobile)
+        em = norm_str(o.email)
+        uc = norm_str(o.user_code)
+        cert = norm_str(o.nseit_certificate_number)
+
+        # Exclude operators who have already applied at least once (irrespective of current status)
+        if (mob and mob in applied_mobiles) or \
+           (em and em in applied_emails) or \
+           (uc and uc in applied_user_codes) or \
+           (cert and cert in applied_certs):
             continue
 
+        if o.id in seen_ids:
+            continue
         seen_ids.add(o.id)
+
+        clean_mob_val = str(o.mobile).strip() if o.mobile else ""
+        if clean_mob_val.endswith(".0"):
+            clean_mob_val = clean_mob_val[:-2]
+
         results.append({
             "id": o.id,
             "name": o.name,
-            "mobile": o.mobile or "—",
-            "email": o.email or "",
+            "mobile": clean_mob_val if clean_mob_val and clean_mob_val != "None" else "—",
+            "email": o.email if o.email and o.email != "None" else "—",
             "role": o.role or "Operator",
             "nseit_id": o.nseit_certificate_number or "",
-            "user_code": o.user_code or "",
-            "registrar_code": o.registrar_code or "",
-            "ea_code": o.ea_code or "",
+            "user_code": o.user_code or f"OP-{o.id:04d}",
+            "registrar_code": o.registrar_code or "986",
+            "ea_code": o.ea_code or "2084",
             "aadhaar_last4": o.aadhaar_last4 or ""
         })
-
-    for m in master_ops:
-        key = f"m_{m.id}"
-        if key not in seen_ids:
-            seen_ids.add(key)
-            results.append({
-                "id": m.id,
-                "name": m.name,
-                "mobile": "—",
-                "email": "",
-                "role": "Operator",
-                "nseit_id": "",
-                "user_code": m.operator_code,
-                "registrar_code": m.registrar_code,
-                "ea_code": "",
-                "aadhaar_last4": m.aadhar_last4 or ""
-            })
 
     return results
 

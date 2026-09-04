@@ -11,9 +11,13 @@ from flask import (
 )
 import requests as http
 from app.utils.aging import parse_aging_filter, filter_by_aging
+from app.utils.backend_url import get_backend_base_url
 
 station_id_bp = Blueprint("station_id", __name__)
-BACKEND = "http://127.0.0.1:8000/station-id"
+
+def _backend():
+    return f"{get_backend_base_url()}/station-id"
+
 
 # Statuses that are NOT part of the pending queue for aging purposes
 _STATION_NON_PENDING = {"allotted", "approved", "activated", "rejected", "reverted", "reverted_by_chips"}
@@ -34,7 +38,7 @@ def dc_list():
 
     dc_id = session.get("user_id")
     try:
-        resp = http.get(f"{BACKEND}/dc/{dc_id}", headers=_headers())
+        resp = http.get(f"{_backend()}/dc/{dc_id}", headers=_headers())
         if resp.status_code == 401:
             return redirect(url_for("auth.logout"))
         raw_list = resp.json() if resp.status_code == 200 else []
@@ -67,19 +71,19 @@ def dc_list():
         "reverted": 0,
         "allotted": 0,
     }
-    total_kits = 0
     for r in requests_list:
         kits = int(r.get("number_of_kits") or 1)
-        total_kits += kits
         st = str(r.get("status") or "").lower().strip()
         if st in ["allotted", "allocated", "approved", "activated"]:
-            all_time_metrics["allotted"] += kits
+            all_time_metrics["allotted"] += 1
         elif st in ["reverted", "reverted_by_chips"]:
             all_time_metrics["reverted"] += kits
         elif st in ["reapplied"]:
             all_time_metrics["reapplied"] += kits
         else:
             all_time_metrics["pending"] += kits
+
+    total_kits = all_time_metrics["pending"] + all_time_metrics["reapplied"] + all_time_metrics["reverted"] + all_time_metrics["allotted"]
 
     return render_template("station_id/dc_station_id.html", requests=requests_list, metrics=all_time_metrics, total_requests=total_kits)
 
@@ -107,7 +111,7 @@ def dc_submit():
     }
 
     try:
-        resp = http.post(f"{BACKEND}/submit", data=form_data, headers=_headers())
+        resp = http.post(f"{_backend()}/submit", data=form_data, headers=_headers())
         if resp.status_code == 200:
             return jsonify({"success": True, "data": resp.json()})
         else:
@@ -131,7 +135,7 @@ def dc_reapply_json(request_id):
     }
 
     resp = http.post(
-        f"{BACKEND}/dc/{request_id}/reapply",
+        f"{_backend()}/dc/{request_id}/reapply",
         data=form_data,
         headers=_headers(),
     )
@@ -153,7 +157,7 @@ def chips_list():
         return redirect(url_for("auth.login"))
 
     try:
-        resp = http.get(f"{BACKEND}/all", headers=_headers())
+        resp = http.get(f"{_backend()}/all", headers=_headers())
         if resp.status_code == 401:
             return redirect(url_for("auth.logout"))
         requests_list = resp.json() if resp.status_code == 200 else []
@@ -183,7 +187,7 @@ def chips_detail_json(request_id):
     if not session.get("access_token"):
         return jsonify({"detail": "Unauthorized"}), 401
 
-    resp = http.get(f"{BACKEND}/{request_id}/detail", headers=_headers())
+    resp = http.get(f"{_backend()}/{request_id}/detail", headers=_headers())
     return Response(
         resp.content,
         status=resp.status_code,
@@ -198,7 +202,7 @@ def chips_recommend_station_ids(request_id):
         return jsonify({"available": False, "error": "Session expired."}), 401
     try:
         resp = http.get(
-            f"{BACKEND}/{request_id}/recommend-station-ids",
+            f"{_backend()}/{request_id}/recommend-station-ids",
             headers=_headers(),
             timeout=10,
         )
@@ -232,7 +236,7 @@ def chips_approve(request_id):
 
     try:
         # 🌟 FIXED: Use data=form_payload to explicitly encode as clean x-www-form-urlencoded data streams
-        resp = http.patch(f"{BACKEND}/{request_id}/approve", data=form_payload, headers=_headers(), timeout=10)
+        resp = http.patch(f"{_backend()}/{request_id}/approve", data=form_payload, headers=_headers(), timeout=10)
         
         if resp.status_code == 200:
             return jsonify({"success": True, "message": "Station ID allocated and verified successfully."})
@@ -259,20 +263,32 @@ def chips_revert(request_id):
         "revert_reason": request.form.get("revert_reason", ""),
     }
 
-    http.patch(f"{BACKEND}/{request_id}/revert", data=form_data, headers=_headers())
+    http.patch(f"{_backend()}/{request_id}/revert", data=form_data, headers=_headers())
     return redirect(url_for("station_id.chips_list"))
 
 
-@station_id_bp.route("/dc/station-id/export", methods=["GET"])
+@station_id_bp.route("/dc/station-id/export", methods=["GET", "POST"])
 def dc_export_csv():
     if not session.get("access_token"):
         return "Unauthorized", 401
-    ids = request.args.get("ids", "")
+    ids = request.values.get("ids", "")
+    status = request.values.get("status", "")
+    exclude_kits = request.values.get("exclude_kits", "")
+    exclude_slot = request.values.get("exclude_slot", "")
+    exclude_assigned_id = request.values.get("exclude_assigned_id", "")
     try:
         params = {}
         if ids:
             params["ids"] = ids
-        response = http.get(f"{BACKEND}/export-excel", params=params, headers=_headers(), stream=True)
+        if status:
+            params["status"] = status
+        if exclude_kits:
+            params["exclude_kits"] = exclude_kits
+        if exclude_slot:
+            params["exclude_slot"] = exclude_slot
+        if exclude_assigned_id:
+            params["exclude_assigned_id"] = exclude_assigned_id
+        response = http.post(f"{_backend()}/export-excel", params=params, headers=_headers(), stream=True)
         if response.status_code == 200:
             from flask import Response as FlaskResponse
             return FlaskResponse(
@@ -288,30 +304,38 @@ def dc_export_csv():
         return f"Connection error: {str(e)}", 500
 
 
-@station_id_bp.route("/station-id/export", methods=["GET"])
+@station_id_bp.route("/station-id/export", methods=["GET", "POST"])
 def export_station_id_proxy():
     if not session.get("access_token"):
         return "Unauthorized", 401
-    ids = request.args.get("ids", "")
-    exclude_kits = request.args.get("exclude_kits", "")
-    exclude_slot = request.args.get("exclude_slot", "")
-    exclude_assigned_id = request.args.get("exclude_assigned_id", "")
+    ids = request.values.get("ids", "")
+    status = request.values.get("status", "")
+    district_id = request.values.get("district_id", "")
+    exclude_kits = request.values.get("exclude_kits", "")
+    exclude_slot = request.values.get("exclude_slot", "")
+    exclude_assigned_id = request.values.get("exclude_assigned_id", "")
     try:
-        params = {"ids": ids}
+        params = {}
+        if ids:
+            params["ids"] = ids
+        if status:
+            params["status"] = status
+        if district_id:
+            params["district_id"] = district_id
         if exclude_kits:
             params["exclude_kits"] = exclude_kits
         if exclude_slot:
             params["exclude_slot"] = exclude_slot
         if exclude_assigned_id:
             params["exclude_assigned_id"] = exclude_assigned_id
-        response = http.get(f"{BACKEND}/export-excel", params=params, headers=_headers(), stream=True)
+        response = http.post(f"{_backend()}/export-excel", params=params, headers=_headers(), stream=True)
         if response.status_code == 200:
             from flask import Response as FlaskResponse
             return FlaskResponse(
                 response.iter_content(chunk_size=4096),
-                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                content_type="text/csv",
                 headers={
-                    "Content-Disposition": response.headers.get("Content-Disposition", "attachment; filename=station_id_requests.xlsx"),
+                    "Content-Disposition": response.headers.get("Content-Disposition", "attachment; filename=station_id_requests.csv"),
                     "Cache-Control": "no-cache"
                 }
             )

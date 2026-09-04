@@ -1,5 +1,6 @@
 # backend/routers/operator_activation.py
 import re
+from typing import Optional
 
 import os
 import shutil
@@ -101,21 +102,34 @@ def search_eligible_candidates(q: str = "", db: Session = Depends(get_db)):
         candidates = db.query(Candidate).order_by(Candidate.id.desc()).limit(100).all()
     
     # Query mobile numbers, emails, and request numbers of operators who have ALREADY applied
-    applied_requests = db.query(OperatorActivationRequest).filter(
-        ~OperatorActivationRequest.status_id.in_([StatusEnum.REVERTED.value, StatusEnum.REJECTED.value])
-    ).all()
+    applied_requests = db.query(OperatorActivationRequest).all()
 
-    applied_mobiles = {r.operator_mobile.strip() for r in applied_requests if r.operator_mobile}
-    applied_emails = {r.primary_email.strip().lower() for r in applied_requests if r.primary_email}
-    applied_req_nos = {r.request_no.strip() for r in applied_requests if r.request_no}
+    def norm_mob(m: str | None) -> str:
+        if not m:
+            return ""
+        digits = re.sub(r"\D", "", str(m))
+        return digits[-10:] if len(digits) >= 10 else digits
+
+    def norm_email(e: str | None) -> str:
+        if not e:
+            return ""
+        return str(e).strip().lower()
+
+    applied_mobiles = {norm_mob(r.operator_mobile) for r in applied_requests if r.operator_mobile}
+    applied_emails = {norm_email(r.primary_email) for r in applied_requests if r.primary_email}
+    applied_req_nos = {str(r.request_no).strip().upper() for r in applied_requests if r.request_no}
+
+    applied_mobiles.discard("")
+    applied_emails.discard("")
+    applied_req_nos.discard("")
 
     results = []
     for c in candidates:
-        c_mob = (c.mobile or "").strip()
-        c_email = (c.email or "").strip().lower()
-        c_req = (c.request_code or "").strip()
+        c_mob = norm_mob(c.mobile)
+        c_email = norm_email(c.email)
+        c_req = (c.request_code or "").strip().upper()
 
-        # Exclude candidates who already have an active / submitted activation request
+        # Exclude candidates who already have an applied activation request
         if (c_mob and c_mob in applied_mobiles) or \
            (c_email and c_email in applied_emails) or \
            (c_req and c_req in applied_req_nos):
@@ -132,7 +146,7 @@ def search_eligible_candidates(q: str = "", db: Session = Depends(get_db)):
         if is_eligible:
             results.append({
                 "id": c.id,
-                "request_code": c.request_code or "",
+                "request_code": c.request_code or f"CAN-{c.id:04d}",
                 "name": c.name,
                 "mobile": c.mobile,
                 "email": c.email,
@@ -168,11 +182,11 @@ def autofill_from_certificate(
     # Check if LMS
     is_lms = "ACCOMPLISHMENT" in text_upper and "SUCCESSFULLY COMPLETED" in text_upper
     if is_lms:
-        return {"status": "error", "message": "Invalid Document: The uploaded file appears to be an LMS Certificate, not an NSEIT Certificate."}
+        return {"status": "error", "message": "Uploaded document is an LMS Certificate, not an NSEIT Certificate."}
         
     # Check if PAN
     if "INCOME TAX DEPARTMENT" in text_upper or "PERMANENT ACCOUNT NUMBER" in text_upper:
-        return {"status": "error", "message": "Invalid Document: The uploaded file appears to be a PAN Card, not an NSEIT Certificate."}
+        return {"status": "error", "message": "Uploaded document is a PAN Card, not an NSEIT Certificate."}
         
     # Check if Aadhaar Card (Look for specific Aadhaar Card phrases without certificate exam phrases)
     aadhaar_card_markers = [
@@ -192,48 +206,49 @@ def autofill_from_certificate(
     nseit_keywords = ["ELIGIBILITY", "OPERATOR ELIGIBILITY", "PASSED THE EXAMINATION", "NSEIT", "DEXIT", "TESTING AND CERTIFICATION", "CERTIFICATE NO", "CERTIFICATE NUMBER"]
     is_nseit = any(kw in text_upper for kw in nseit_keywords)
     if not is_nseit:
-        return {"status": "error", "message": "The uploaded document does not appear to be a valid NSEIT Operator Eligibility Certificate."}
+        return {"status": "error", "message": "Uploaded document is not a valid NSEIT Certificate."}
     
     # 1. Certificate Number
-    # Use regex to find an alphanumeric word containing digits after "Certificate No."
     cert_no = None
-    match = re.search(r'(?:Certificate\s*No\.?|CERTIFICATE\s*NO\.?)', extracted_text, re.IGNORECASE)
+    match = re.search(r'(?:Certificate\s*No\.?|CERTIFICATE\s*NO\.?|CERTIFICATE\s*NO)', extracted_text, re.IGNORECASE)
     if match:
         text_after = extracted_text[match.end():]
-        # Match alphanumeric strings including unicode artifacts, ensuring it has at least one digit
-        words = re.findall(r'\b[A-Za-z0-9\-\ufffd]{6,}\b', text_after)
+        words = re.findall(r'\b[A-Za-z0-9\-\ufffd]{5,}\b', text_after)
         for w in words:
             if any(char.isdigit() for char in w):
-                # Clean up artifacts
                 cert_no = "".join(c for c in w if c.isalnum()).upper()
                 break
     
     if not cert_no:
-        # Fallback: Just find ANY alphanumeric word with digits >= 6 chars that isn't the Registration No.
-        all_words = re.findall(r'\b[A-Za-z0-9\-\ufffd]{6,15}\b', extracted_text)
-        for w in reversed(all_words):
-            cleaned = "".join(c for c in w if c.isalnum()).upper()
-            if 6 <= len(cleaned) <= 10 and any(char.isdigit() for char in cleaned):
-                cert_no = cleaned
-                break
+        ns_match = re.search(r'\bNS[0-9O]{5,10}\b', text_upper)
+        if ns_match:
+            cert_no = ns_match.group(0).replace('O', '0')
+        else:
+            all_words = re.findall(r'\b[A-Za-z0-9\-\ufffd]{6,15}\b', extracted_text)
+            for w in reversed(all_words):
+                cleaned = "".join(c for c in w if c.isalnum()).upper()
+                if 6 <= len(cleaned) <= 10 and any(char.isdigit() for char in cleaned):
+                    cert_no = cleaned
+                    break
     
-    # 2. Issue Date (handle both "Date of Issue: 24-Aug-2020" and "ISSUE DATE\n02-07-2026")
+    # 2. Issue Date
     parsed_issue_date = None
-    issue_date_match = re.search(r'(?:Date of Issue|ISSUE DATE).*?([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}|[0-9]{1,2}-[0-9]{1,2}-[0-9]{4})', extracted_text, re.IGNORECASE | re.DOTALL)
+    issue_date_match = re.search(r'(?:Date of Issue|ISSUE DATE).*?([0-9]{1,2}[-/.\s][A-Za-z]{3}[-/.\s][0-9]{4}|[0-9]{1,2}[-/.\s][0-9]{1,2}[-/.\s][0-9]{4})', extracted_text, re.IGNORECASE | re.DOTALL)
     if issue_date_match:
-        date_str = issue_date_match.group(1).strip()
+        date_str = issue_date_match.group(1).strip().replace('.', '-').replace('/', '-').replace(' ', '-')
         try:
-            if len(date_str) > 3 and date_str[3].isalpha(): # 24-Aug-2020 format
-                dt = datetime.strptime(date_str, '%d-%b-%Y')
-            else: # 02-07-2026 format
-                dt = datetime.strptime(date_str, '%d-%m-%Y')
-            parsed_issue_date = dt.strftime('%Y-%m-%d')
+            parts = date_str.split('-')
+            if len(parts) == 3:
+                if parts[1].isalpha():
+                    dt = datetime.strptime(date_str, '%d-%b-%Y')
+                else:
+                    dt = datetime.strptime(date_str, '%d-%m-%Y')
+                parsed_issue_date = dt.strftime('%Y-%m-%d')
         except Exception:
             parsed_issue_date = None
-    
-    # Try multiple patterns for Name
+
+    # 3. Name Parsing
     parsed_name = None
-    # Support "has successfully passed the" or "has successfully passed the examination"
     name_match = re.search(r'This is to certify that\s*\n+([A-Za-z\s]+?)\s*\n+has successfully passed', extracted_text, re.IGNORECASE)
     if name_match:
         parsed_name = name_match.group(1).strip()
@@ -245,18 +260,15 @@ def autofill_from_certificate(
     if parsed_name:
         parsed_name = re.sub(r'UIDAI.*', '', parsed_name).strip()
 
-    # 4. If operator_name was provided by the frontend, strictly cross-verify it against the certificate
+    # 4. If operator_name was provided by the frontend, cross-verify against certificate
     if operator_name:
-        # We can reuse our strict validation logic
         from backend.utils.ocr_utils import validate_nseit_certificate
-        # We only check the name here, so pass cert_no directly
         err = validate_nseit_certificate(extracted_text, operator_name, cert_no)
         if err:
             return {"status": "error", "message": err}
 
     return {
         "status": "success",
-        "match_type": "parsed_only",
         "parsed_data": {
             "name": parsed_name or "",
             "cert_no": cert_no or "",
@@ -298,11 +310,11 @@ def check_duplicate(
 def validate_single_document(
     doc_type: str = Form(...),
     file: UploadFile = File(...),
-    name_as_per_aadhaar: str = Form(...),
-    operator_aadhaar: str = Form(None),
-    operator_pan: str = Form(None),
-    operator_mobile: str = Form(None),
-    nseit_certificate_number: str = Form(None),
+    name_as_per_aadhaar: Optional[str] = Form(None),
+    operator_aadhaar: Optional[str] = Form(None),
+    operator_pan: Optional[str] = Form(None),
+    operator_mobile: Optional[str] = Form(None),
+    nseit_certificate_number: Optional[str] = Form(None),
 ):
     err = None
     try:
@@ -396,6 +408,21 @@ def submit_operator_activation(
             status_code=400,
             detail="An Operator Activation Request has already been submitted with this mobile number or email address."
         )
+
+    # Validate Excel sheet contents if uploaded
+    if excel_sheet and getattr(excel_sheet, 'filename', None):
+        try:
+            excel_sheet.file.seek(0)
+            ex_bytes = excel_sheet.file.read()
+            excel_sheet.file.seek(0)
+            if ex_bytes:
+                excel_err = validate_excel_sheet(ex_bytes, name_as_per_aadhaar, operator_mobile)
+                if excel_err:
+                    raise HTTPException(status_code=400, detail=excel_err)
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"Warning validating Excel sheet on submit: {e}")
 
     # If candidate exists, check if they have completed NSEIT
     # If candidate does not exist, we still allow the process to proceed (as requested by user)
@@ -1094,6 +1121,7 @@ def reject_request(
         )
 
     r.status_id = StatusEnum.REVERTED.value
+    r.is_mailed = 0
 
     r.reviewed_by = reviewed_by
     r.chips_remarks = chips_remarks
@@ -1206,6 +1234,7 @@ def uidai_reject(
     if not r:
         raise HTTPException(status_code=404, detail="Request not found.")
     r.status_id = StatusEnum.REJECTED.value
+    r.is_mailed = 0
     r.reviewed_by = reviewed_by
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
@@ -1334,6 +1363,7 @@ def reapply_request(
 
     # Reset status
     r.status_id = StatusEnum.REAPPLIED.value
+    r.is_mailed = 0
     r.reviewed_at = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
     # Handle files
@@ -1469,7 +1499,7 @@ async def validate_ocr(
                 err = validate_pan(extracted_text, name_as_per_aadhaar, operator_pan)
         elif doc_type == "passbook":
             err = validate_passbook(extracted_text, name_as_per_aadhaar)
-        elif doc_type == "consent_form":
+        elif doc_type in ["consent_form", "hard_copy_form"]:
             err = validate_consent_form(extracted_text, name_as_per_aadhaar)
         elif doc_type == "nseit_certificate":
             err = validate_nseit_certificate(extracted_text, name_as_per_aadhaar, nseit_id)

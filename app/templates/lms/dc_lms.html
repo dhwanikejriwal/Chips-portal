@@ -43,35 +43,41 @@ reverted_count + reverted_by_chips_count %}
         <div class="chips-metric-card">
             <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 pending_count + reapplied_count }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.pending">Pending</div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-forwarded" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 forwarded_count + forwarded_again_count }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Forwarded to
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.forwardedToChips">Forwarded to
                 CHiPS</div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 reverted_count }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.reverted">Reverted</div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-reverted-by-chips"
                 style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ reverted_by_chips_count
                 }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted by CHiPS
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.revertedByChips">Reverted by CHiPS
             </div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 approved_count }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved</div>
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.approved">Approved</div>
         </div>
         <div class="chips-metric-card">
             <div id="metric-total" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                 total_requests }}</div>
-            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total Requests
+            <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                data-i18n="stat.totalRequests">Total Requests
             </div>
         </div>
     </div>
@@ -117,14 +123,14 @@ reverted_count + reverted_by_chips_count %}
 <!-- Unified Filter Controls -->
 <div class="filter-bar">
     <div class="filter-group filter-group-search">
-        <label>Search Candidate</label>
+        <label for="admin-search-input">Search Candidate</label>
         <input type="text" id="admin-search-input" placeholder="Search by request ID, name, mobile or email..."
             class="filter-input" oninput="filterAdminQueues()">
     </div>
     <!-- Hidden input to align javascript filters for district coordinate views -->
     <input type="hidden" id="admin-district-filter" value="all">
     <div class="filter-group">
-        <label>Time Period</label>
+        <label for="admin-date-filter">Time Period</label>
         <select id="admin-date-filter" class="filter-input" onchange="filterAdminQueues()">
             <option value="all">All Time</option>
             <option value="today">Today</option>
@@ -228,8 +234,7 @@ reverted_count + reverted_by_chips_count %}
                 <button type="button" class="btn-revert"
                     onclick="openRevertModal('{{ req.r_id }}', '{{ req.name }}')">Revert</button>
                 <button type="button" class="btn-details" onclick="openDetailsModal(this.closest('tr'))">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2.5">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <circle cx="11" cy="11" r="8" />
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
@@ -242,7 +247,6 @@ reverted_count + reverted_by_chips_count %}
     {% endcall %}
 </div><!-- /panel pending -->
 
-<!-- Sent to CHiPS Table Section -->
 {% set chips_controls %}
 <select id="admin-chips-status-filter" class="rs-filter" onchange="filterAdminQueues()">
     <option value="all">All statuses</option>
@@ -281,7 +285,7 @@ reverted_count + reverted_by_chips_count %}
         data-pincode="{{ req.pincode or '' }}" data-is-operator="{{ 'Yes' if req.is_existing_operator else 'No' }}"
         data-photo="{{ req.photo_upload or '' }}" data-nseit-id="{{ req.nseit_id or '' }}"
         data-marksheet="{{ req.marksheet_upload }}" data-tenth-marksheet="{{ req.tenth_marksheet_upload or '' }}"
-        data-status="{{ req.lms_status }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
+        data-status="{{ req.lms_status.replace('_', ' ') | title }}" data-lms-certificate="{{ req.lms_certificate_upload or '' }}"
         data-nseit-certificate="{{ req.nseit_certificate_upload or '' }}"
         data-had-lms-at-registration="{{ 'true' if req.had_lms_at_registration else 'false' }}"
         data-lms-uploaded-post-approval="{{ 'true' if req.lms_uploaded_post_approval else 'false' }}"
@@ -296,7 +300,7 @@ reverted_count + reverted_by_chips_count %}
         <td>
             {% if (req.lms_status|upper) == 'FORWARDED_AGAIN' %}
             <span class="badge badge-forwarded-again"
-                style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded Again</span>
+                style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background-color: #ede9fe; color: #7c3aed;">Forwarded Again</span>
             {% else %}
             <span class="badge badge-forwarded"
                 style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>
@@ -692,17 +696,17 @@ reverted_count + reverted_by_chips_count %}
     // Modal forms submission triggers
     function openForwardModal(r_id, name) {
         Swal.fire({
-            title: 'Approve LMS Request',
+            title: 'Forward LMS Request',
             html: `
                 <div style="text-align: left;">
-                    <p>Verify details and approve candidate <strong>${name}</strong>'s request:</p>
-                    <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Approval Remarks (Optional)</label>
+                    <p>Verify details and forward candidate <strong>${name}</strong>'s request to CHiPS:</p>
+                    <label for="swal-remark" style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Forward Remarks (Optional)</label>
                     <textarea id="swal-remark" class="swal2-textarea" placeholder="Enter remarks..." style="margin: 0; width: 100%; box-sizing: border-box; height: 100px;"></textarea>
                 </div>
             `,
             showCancelButton: true,
-            confirmButtonText: 'Approve',
-            confirmButtonColor: '#28a745',
+            confirmButtonText: 'Forward',
+            confirmButtonColor: '#2563eb',
             preConfirm: () => {
                 const remark = document.getElementById('swal-remark').value.trim();
                 return { remark: remark };
@@ -718,10 +722,10 @@ reverted_count + reverted_by_chips_count %}
                 }).then(response => {
                     if (response.ok) {
                         Swal.fire({
-                            title: 'Approved!',
-                            text: 'LMS Request Forwarded to Chips successfully.',
+                            title: 'Forwarded!',
+                            text: 'LMS Request forwarded to CHiPS successfully.',
                             icon: 'success',
-                            confirmButtonColor: '#28a745',
+                            confirmButtonColor: '#2563eb',
                             timer: 2000,
                             timerProgressBar: true
                         }).then(() => {
@@ -744,7 +748,7 @@ reverted_count + reverted_by_chips_count %}
             html: `
                 <div style="text-align: left;">
                     <p>Provide a reason for reverting candidate <strong>${name}</strong>'s request:</p>
-                    <label style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Revert Reason (Mandatory) *</label>
+                    <label for="swal-revert-reason" style="font-weight: 600; font-size: 13px; color: #4a5568; display: block; margin-bottom: 6px;">Revert Reason (Mandatory) *</label>
                     <textarea id="swal-revert-reason" class="swal2-textarea" placeholder="Enter reason for revert..." style="margin: 0; width: 100%; box-sizing: border-box; height: 100px;"></textarea>
                 </div>
             `,
@@ -773,7 +777,7 @@ reverted_count + reverted_by_chips_count %}
                             title: 'Request Reverted!',
                             text: 'LMS Request reverted back to candidate.',
                             icon: 'success',
-                            confirmButtonColor: '#f59e0b',
+                            confirmButtonColor: '#2563eb',
                             showConfirmButton: true,
                             timer: 3000,
                             timerProgressBar: true
@@ -870,8 +874,8 @@ reverted_count + reverted_by_chips_count %}
                         <div style="font-size: 12px; font-weight: 700; color: #1a202c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;" title="${title}">${title}</div>
                         <div style="font-size: 10px; color: #a0aec0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;" title="${fileName}">${shortFileName}</div>
                         ${showPostApprovalNote ? `
-                        <div class="post-approval-badge" style="color: var(--post-approval-text) !important; background: var(--post-approval-bg) !important; border: 1px solid var(--post-approval-border) !important;">
-                            <span>⚠️</span> <span style="color: var(--post-approval-text) !important;">Uploaded post-approval</span>
+                        <div class="post-approval-badge" style="color: #92400e !important; background: rgba(217,119,6,0.15) !important; border: 1px solid rgba(217,119,6,0.4) !important; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 4px;">
+                            <span>⚠️</span> <span>Uploaded post-request</span>
                         </div>` : ''}
                     </div>
                     <div style="display: flex; gap: 6px; flex-shrink: 0;">
@@ -894,7 +898,7 @@ reverted_count + reverted_by_chips_count %}
         } else if (normStatus === 'forwarded') {
             statusBadge = '<span class="badge badge-forwarded" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded</span>';
         } else if (normStatus === 'forwarded again' || normStatus === 'forwarded_again') {
-            statusBadge = '<span class="badge badge-forwarded-again" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Forwarded Again</span>';
+            statusBadge = '<span class="badge badge-forwarded-again" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background-color: #ede9fe; color: #7c3aed;">Forwarded Again</span>';
         } else if (normStatus === 'reapplied') {
             statusBadge = '<span class="badge badge-reapplied" style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Reapplied</span>';
         } else if (normStatus === 'reverted_by_chips' || normStatus === 'reverted by chips') {
@@ -922,25 +926,30 @@ reverted_count + reverted_by_chips_count %}
             }
         }
 
+        let hasExistingLmsId = (d.hadLmsAtRegistration === true || d.hadLmsAtRegistration === 'true');
         let candidateReRequestReason = '';
-        const hasExistingLmsId = d.hadLmsAtRegistration === true || d.hadLmsAtRegistration === 'true';
-        if (hasExistingLmsId) {
-            try {
-                let remarks = [];
-                try { remarks = JSON.parse(d.remarksStr || '[]'); } catch (e) { }
-                const candidateLogs = remarks.filter(r => (r.sender_role || '').toLowerCase() === 'candidate');
-                const firstCandidateLog = candidateLogs.find(r => {
-                    const rem = (r.remark || '').trim();
-                    return rem !== '' &&
-                        !rem.toLowerCase().includes('lms request submitted') &&
-                        !rem.toLowerCase().includes('nseit request submitted');
-                });
-                if (firstCandidateLog) {
-                    candidateReRequestReason = firstCandidateLog.remark.replace(/^CANDIDATE ALREADY HAS EXISTING ID:\s*/i, '').trim();
+        try {
+            let remarks = [];
+            try { remarks = JSON.parse(d.remarksStr || '[]'); } catch (e) { }
+            // 1. Look for explicit existing ID remark in any log entry
+            const existingIdLog = remarks.find(r => (r.remark || '').toUpperCase().includes('CANDIDATE ALREADY HAS EXISTING ID') || (r.remark || '').toUpperCase().includes('REASON FOR REQUESTING LMS'));
+            if (existingIdLog) {
+                hasExistingLmsId = true;
+                const rem = existingIdLog.remark.trim();
+                if (rem.toUpperCase().includes('REASON:')) {
+                    candidateReRequestReason = rem.split(/Reason:\s*/i)[1] || rem;
+                } else if (rem.toUpperCase().includes('CANDIDATE ALREADY HAS EXISTING ID:')) {
+                    candidateReRequestReason = rem.replace(/^CANDIDATE ALREADY HAS EXISTING ID:\s*/i, '').trim();
+                } else {
+                    candidateReRequestReason = rem;
                 }
-            } catch (e) {
-                console.error("Error parsing candidate reason:", e);
             }
+        } catch (e) {
+            console.error("Error parsing candidate reason:", e);
+        }
+
+        if (hasExistingLmsId && !candidateReRequestReason) {
+            candidateReRequestReason = 'Candidate already had an existing LMS ID during registration.';
         }
 
         const maskedAadhaar = d.aadhaar ? `XXXX XXXX ${d.aadhaar.slice(-4)}` : 'N/A';
@@ -967,9 +976,9 @@ reverted_count + reverted_by_chips_count %}
                     </div>
                 </div>` : ''}
 
-                ${candidateReRequestReason ? `
+                ${(hasExistingLmsId && candidateReRequestReason) ? `
                 <!-- Candidate Re-Request Reason Box -->
-                <div class="candidate-rerequest-box">
+                <div class="candidate-rerequest-box" style="margin-bottom: 18px;">
                     <div class="candidate-rerequest-title" style="color: var(--candidate-rerequest-title) !important;">
                         <span>⚠️</span> <span style="color: var(--candidate-rerequest-title) !important;">CANDIDATE ALREADY HAS EXISTING ID / CERTIFICATE</span>
                     </div>
@@ -1156,20 +1165,21 @@ reverted_count + reverted_by_chips_count %}
                         badgeClass = 'badge-reverted';
                         label = 'Reverted';
                     }
+                } else if (s.includes('forward again') || s.includes('forwarded again') || (s.includes('forward') && s.includes('again'))) {
+                    badgeClass = 'badge-forwarded-again';
+                    label = 'Forwarded Again';
                 } else if (s.includes('forward') || s.includes('uidai')) {
-                    if (s.includes('again')) {
-                        badgeClass = 'badge-forwarded-again';
-                        label = 'Forwarded Again';
-                    } else {
-                        badgeClass = 'badge-forwarded';
-                        label = 'Forwarded';
-                    }
+                    badgeClass = 'badge-forwarded';
+                    label = 'Forwarded';
                 } else if (s.includes('reappl')) {
                     badgeClass = 'badge-reapplied';
                     label = 'Reapplied';
                 } else if (s.includes('reject')) {
                     badgeClass = 'badge-rejected';
                     label = 'Rejected';
+                } else if (s.includes('skip')) {
+                    badgeClass = 'badge-skipped';
+                    label = 'Skipped';
                 }
                 return `<span class="badge ${badgeClass}">${label}</span>`;
             }
@@ -1188,9 +1198,10 @@ reverted_count + reverted_by_chips_count %}
                     let markerClass = 'marker-pending';
                     if (statusAfter) {
                         statusBadgeInline = getStatusBadgeHtml(statusAfter);
-                        const sLower = statusAfter.toLowerCase();
+                        const sLower = statusAfter.toLowerCase().replace(/_/g, ' ');
                         if (sLower.includes('approve')) markerClass = 'marker-approved';
                         else if (sLower.includes('revert') || sLower.includes('reject')) markerClass = 'marker-reverted';
+                        else if (sLower.includes('forward again') || sLower.includes('forwarded again') || (sLower.includes('forward') && sLower.includes('again'))) markerClass = 'marker-forwarded-again';
                         else if (sLower.includes('forward') || sLower.includes('uidai')) markerClass = 'marker-forwarded';
                         else if (sLower.includes('reappl')) markerClass = 'marker-reapplied';
                     }
@@ -1362,6 +1373,11 @@ reverted_count + reverted_by_chips_count %}
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('from_notif') || urlParams.get('status')) {
+            const df = document.getElementById('admin-date-filter');
+            if (df) {
+                df.value = 'all';
+                if (typeof filterAdminQueues === 'function') filterAdminQueues();
+            }
             setTimeout(() => {
                 const table = document.getElementById('admin-pending-table') || document.querySelector('[data-panel="pending"]');
                 if (table) {

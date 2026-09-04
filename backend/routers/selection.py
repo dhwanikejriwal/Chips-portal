@@ -44,6 +44,8 @@ def get_dc_candidates(district_code: str | None = None, db: Session = Depends(ge
         ).all()
         if old_pendings:
             for cand in old_pendings:
+                # Remove existing hold candidate if duplicate id exists to avoid primary key collisions
+                db.query(HoldCandidate).filter(HoldCandidate.id == cand.id).delete()
                 hold_cand = HoldCandidate(
                     id=cand.id,
                     request_code=cand.request_code,

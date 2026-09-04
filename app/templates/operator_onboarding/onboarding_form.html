@@ -110,9 +110,8 @@
 
         <div class="form-group" style="max-width: 500px;">
             <label>Station ID <span style="color: #dc2626;">*</span></label>
-            <select id="station_id" required>
-                <option value="" disabled selected>--- Select Station Id ---</option>
-            </select>
+            <div id="station-combobox-container"></div>
+            <input type="hidden" id="station_id" name="station_id" required>
         </div>
 
         <div class="row-3">
@@ -157,13 +156,42 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    let stationCombobox = null;
+
     document.addEventListener("DOMContentLoaded", function () {
+        const stationContainer = document.getElementById('station-combobox-container');
+        const stationHidden = document.getElementById('station_id');
+
+        if (stationContainer && typeof window.SearchableCombobox === 'function') {
+            stationCombobox = new SearchableCombobox({
+                container: stationContainer,
+                placeholder: 'Search or select Station ID...',
+                items: [],
+                onSelect: (item) => {
+                    const sid = typeof item === 'string' ? item : (item.station_id || item.text || '');
+                    stationHidden.value = sid;
+                    stationHidden.dispatchEvent(new Event('change', { bubbles: true }));
+                },
+                onClear: () => {
+                    stationHidden.value = '';
+                    stationHidden.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+
+            if (stationCombobox && stationCombobox.input) {
+                stationCombobox.input.addEventListener('input', (e) => {
+                    const typed = (e.target.value || '').trim();
+                    stationHidden.value = typed;
+                });
+            }
+        }
+
         loadOptions();
 
         document.getElementById('onboarding-form').addEventListener('submit', async function (e) {
             e.preventDefault();
 
-            const stationId = document.getElementById('station_id').value;
+            const stationId = stationHidden ? stationHidden.value : document.getElementById('station_id').value;
             const onboardingStatus = document.getElementById('onboarding_status').value;
             const askKitStatus = document.getElementById('ask_kit_status').value;
             const permitted18 = document.getElementById('permitted_18_plus').value;
@@ -202,7 +230,9 @@
                     });
 
                     document.getElementById('onboarding-form').reset();
-                    loadOptions(); // Refresh the list of pending station IDs
+                    if (stationCombobox) stationCombobox.clear();
+                    if (stationHidden) stationHidden.value = '';
+                    await loadOptions(); // Refresh the list of pending station IDs
                 } else {
                     Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'Could not save details.' });
                 }
@@ -220,16 +250,11 @@
             const res = await fetch('/auth/dc/operator-onboarding/options');
             if (!res.ok) return;
             const data = await res.json();
+            const stationIds = data.station_ids || [];
 
-            const stationSelect = document.getElementById('station_id');
-            stationSelect.innerHTML = '<option value="" disabled selected>--- Select Station Id ---</option>';
-            data.station_ids.forEach(sid => {
-                const opt = document.createElement('option');
-                opt.value = sid;
-                opt.textContent = sid;
-                stationSelect.appendChild(opt);
-            });
-
+            if (stationCombobox) {
+                stationCombobox.setItems(stationIds);
+            }
         } catch (e) {
             console.error("Failed to load options", e);
         }

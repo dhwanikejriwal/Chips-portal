@@ -164,8 +164,17 @@
             if (/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(trimmed) ||
                 (/^[A-Za-z0-9_-]{5,}$/.test(trimmed) && /[0-9]/.test(trimmed) && /[A-Za-z]/.test(trimmed))) {
                 if (n.parentNode && n.parentNode.nodeType === 1) {
-                    n.parentNode.classList.add('notranslate');
-                    n.parentNode.setAttribute('translate', 'no');
+                    var pTag = (n.parentNode.tagName || '').toUpperCase();
+                    if (n.parentNode.childNodes.length === 1 && !['P', 'DIV', 'BODY', 'SECTION', 'ARTICLE', 'MAIN', 'TD', 'TH', 'LI'].includes(pTag)) {
+                        n.parentNode.classList.add('notranslate');
+                        n.parentNode.setAttribute('translate', 'no');
+                    } else if (n.parentNode.childNodes.length > 1) {
+                        var span = document.createElement('span');
+                        span.className = 'notranslate';
+                        span.setAttribute('translate', 'no');
+                        span.textContent = n.nodeValue;
+                        n.parentNode.replaceChild(span, n);
+                    }
                 }
                 continue;
             }
@@ -179,8 +188,11 @@
             var next = current === 'hi' ? (m[1] + v + m[2]) : (m[1] + base.trim() + m[2]);
             if (n.nodeValue !== next) n.nodeValue = next;
             if (current === 'hi' && n.parentNode && n.parentNode.nodeType === 1) {
-                n.parentNode.classList.add('notranslate');
-                n.parentNode.setAttribute('translate', 'no');
+                var pTag2 = (n.parentNode.tagName || '').toUpperCase();
+                if (!['BODY', 'HTML', 'SECTION', 'ARTICLE', 'MAIN', 'HEADER', 'NAV'].includes(pTag2)) {
+                    n.parentNode.classList.add('notranslate');
+                    n.parentNode.setAttribute('translate', 'no');
+                }
             }
         }
     }
@@ -321,7 +333,18 @@
                 var added = muts[i].addedNodes;
                 for (var j = 0; j < added.length; j++) {
                     var n = added[j];
-                    if (n.nodeType === 1) apply(n);
+                    if (n.nodeType === 1) {
+                        if (n.classList && (n.classList.contains('swal2-container') || n.classList.contains('swal2-popup') || n.classList.contains('modal'))) {
+                            n.classList.add('notranslate');
+                            n.setAttribute('translate', 'no');
+                        }
+                        var popups = n.querySelectorAll ? n.querySelectorAll('.swal2-container, .swal2-popup') : [];
+                        for (var k = 0; k < popups.length; k++) {
+                            popups[k].classList.add('notranslate');
+                            popups[k].setAttribute('translate', 'no');
+                        }
+                        apply(n);
+                    }
                     else if (n.nodeType === 3) translateTextNodes(n);
                 }
                 if (muts[i].type === 'characterData' && muts[i].target) {

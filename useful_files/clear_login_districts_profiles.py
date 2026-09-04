@@ -13,7 +13,9 @@ Resets auto-increment primary key sequences back to 1.
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
+sys.path.append(os.getcwd())
 
 from sqlalchemy import text
 from backend.database import SessionLocal, engine

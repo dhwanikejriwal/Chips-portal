@@ -313,3 +313,20 @@ def profile():
 
     return render_template("auth/admin_dc_profile.html", profile_data=profile_data)
 
+
+@auth_bp.route("/notifications/summary", methods=["GET"])
+def notification_summary_proxy():
+    from flask import jsonify
+    from app.utils.backend_url import get_backend_base_url
+    raw_token = session.get("access_token", "")
+    if isinstance(raw_token, dict):
+        raw_token = raw_token.get("token", "") or raw_token.get("access_token", "")
+    headers = {"Authorization": f"Bearer {str(raw_token).strip()}"} if raw_token else {}
+    
+    backend_target = f"{get_backend_base_url()}/api/notifications/summary"
+    try:
+        resp = requests.get(backend_target, headers=headers, timeout=10)
+        return Response(resp.content, status=resp.status_code, content_type="application/json")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+

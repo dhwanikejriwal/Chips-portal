@@ -39,22 +39,22 @@ def map_status(status_str):
     if 'rejected' in s: return 4
     return None
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
+def _find_file(keyword, default_path):
+    if os.path.exists(default_path):
+        return default_path
+    if os.path.exists('sample reports'):
+        for fname in os.listdir('sample reports'):
+            if fname.lower().endswith('.xlsx') and keyword.lower() in fname.lower():
+                return os.path.join('sample reports', fname)
+    return default_path
 
 def run():
     db = SessionLocal()
     
-    l1_file = os.path.join(BASE_DIR, 'sample reports', 'L1 Pending List (1) chips.xlsx')
-    l2_file = os.path.join(BASE_DIR, 'sample reports', 'L2 Pending List (1) chips.xlsx')
-    op_file = os.path.join(BASE_DIR, 'sample reports', 'Operator List (2) chips.xlsx')
-    onboard_file = os.path.join(BASE_DIR, 'sample reports', 'Onboard Pending List (1) chips.xlsx')
-
-    for fname, path in [('L1 List', l1_file), ('L2 List', l2_file), ('Operator List', op_file), ('Onboard List', onboard_file)]:
-        if not os.path.exists(path):
-            print(f"Warning: File '{fname}' not found at '{path}'. Skipping {fname}.")
-            db.close()
-            return
+    l1_file = _find_file('L1 Pending', 'sample reports/L1 Pending List (1) chips.xlsx')
+    l2_file = _find_file('L2 Pending', 'sample reports/L2 Pending List (1) chips.xlsx')
+    op_file = _find_file('Operator List', 'sample reports/Operator List (2) chips.xlsx')
+    onboard_file = _find_file('Onboard Pending', 'sample reports/Onboard Pending List (1) chips.xlsx')
     
     # Existing Kits
     existing_kits = {k[0] for k in db.query(KitRegistration.station_id).all()}

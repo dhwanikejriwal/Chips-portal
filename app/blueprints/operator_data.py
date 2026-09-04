@@ -11,8 +11,13 @@ from flask import (
 )
 import requests as http
 
+from app.utils.backend_url import get_backend_base_url
+
 operator_data_bp = Blueprint("operator_data", __name__)
-BACKEND = "http://127.0.0.1:8000/operator-data"
+
+def _backend():
+    return f"{get_backend_base_url()}/operator-data"
+
 
 
 def _headers():
@@ -74,7 +79,7 @@ def api_upload():
         return jsonify({"detail": "No file provided"}), 400
     try:
         resp = http.post(
-            f"{BACKEND}/upload", headers=_headers(),
+            f"{_backend()}/upload", headers=_headers(),
             files={"file": (f.filename, f.stream, f.mimetype)},
             data={"agency": request.form.get("agency", "")}, timeout=300)
         return _relay(resp)
@@ -88,7 +93,7 @@ def api_search():
     if not _authed():
         return jsonify({"detail": "Session expired"}), 401
     try:
-        resp = http.get(f"{BACKEND}/search", headers=_headers(),
+        resp = http.get(f"{_backend()}/search", headers=_headers(),
                         params={"aadhar": request.args.get("aadhar", "")}, timeout=30)
         return _relay(resp)
     except Exception as e:
@@ -101,7 +106,7 @@ def api_search_by_name():
     if not _authed():
         return jsonify({"detail": "Session expired"}), 401
     try:
-        resp = http.get(f"{BACKEND}/search-by-name", headers=_headers(), params={
+        resp = http.get(f"{_backend()}/search-by-name", headers=_headers(), params={
             "name": request.args.get("name", ""),
             "last4": request.args.get("last4", ""),
             "code": request.args.get("code", ""),
@@ -119,7 +124,7 @@ def api_reveal():
     if not _is_admin():
         return jsonify({"detail": "Admin access required."}), 403
     try:
-        resp = http.post(f"{BACKEND}/reveal", headers=_headers(),
+        resp = http.post(f"{_backend()}/reveal", headers=_headers(),
                          json={"record_id": (request.get_json(silent=True) or {}).get("record_id")},
                          timeout=30)
         return _relay(resp)

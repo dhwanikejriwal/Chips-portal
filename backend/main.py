@@ -25,14 +25,17 @@ from fastapi import Request
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    print(f"❌ [CRITICAL ERROR] Exception on {request.url}:", file=sys.stderr)
+    print(traceback.format_exc(), file=sys.stderr)
     try:
-        os.makedirs("c:\\chips-portal", exist_ok=True)
-        with open("c:\\chips-portal\\error.log", "a") as f:
+        log_dir = os.path.join(os.getcwd(), "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        with open(os.path.join(log_dir, "error.log"), "a") as f:
             f.write(f"Exception on {request.url}:\n")
             f.write(traceback.format_exc())
             f.write("\n")
     except Exception:
-        print(traceback.format_exc())
+        pass
     return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 # Register routers (Friend's / Shared)
@@ -64,6 +67,7 @@ from backend.routers.operator_data import router as operator_data_router
 app.include_router(auth_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(candidate_register_router, prefix="/api")
+app.include_router(candidate_register_router)
 app.include_router(selection_router, prefix="/api")
 app.include_router(candidate_router, prefix="/api")
 app.include_router(lms_manage_router, prefix="/api")
@@ -79,6 +83,7 @@ app.include_router(operator_onboarding_router, prefix="/operator-onboarding")
 app.include_router(dc_dashboard_router)
 app.include_router(chips_dashboard_router)
 app.include_router(report_router, prefix="/api/reports")
+app.include_router(report_router, prefix="/reports")
 app.include_router(kit_registration_router, prefix="/kit-registration")
 app.include_router(operator_activity_router, prefix="/operator-activity")
 app.include_router(operator_data_router, prefix="/operator-data")
@@ -122,6 +127,7 @@ def run_migrations():
                 conn.execute(text("ALTER TABLE operator_activation_requests ADD COLUMN IF NOT EXISTS is_mailed INTEGER DEFAULT 0;"))
                 conn.execute(text("ALTER TABLE operator_reactivation_requests ADD COLUMN IF NOT EXISTS is_mailed INTEGER DEFAULT 0;"))
                 conn.execute(text("ALTER TABLE l2_registration_requests ADD COLUMN IF NOT EXISTS is_mailed INTEGER DEFAULT 0;"))
+                conn.execute(text("ALTER TABLE report_history ADD COLUMN IF NOT EXISTS original_filename VARCHAR(255);"))
 
             print("Success: Checked and added new columns if missing!")
         except Exception as e:

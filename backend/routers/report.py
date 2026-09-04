@@ -12,7 +12,9 @@ from backend.models.report import ReportHistory
 from backend.utils.district_mapper import normalize_district_name, DIVISIONS_MASTER_MAP, get_division_for_district, is_district_in_division, is_lwe_district, LWE_MASTER_DISTRICTS
 
 router = APIRouter(tags=["Reports"])
-REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "reports")
+BASE_PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+UPLOADS_DIR = os.getenv("UPLOADS_DIR", os.path.join(BASE_PROJECT_DIR, "uploads"))
+REPORTS_DIR = os.getenv("REPORTS_DIR", os.path.join(UPLOADS_DIR, "reports"))
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 def clean_mobile_val(val):
@@ -62,91 +64,171 @@ async def generate_report(
         output_filename = f"report_{report_type}_{timestamp}_{unique_id}.xlsx"
         output_filepath = os.path.join(REPORTS_DIR, output_filename)
         
-        # Auto-detect header row
+        def _detect_header_row(raw_df):
+            for i in range(min(20, len(raw_df))):
+                row = raw_df.iloc[i]
+                non_empty = [str(x).strip().lower() for x in row.values if pd.notna(x) and str(x).strip()]
+                # A valid header row contains multiple columns (at least 2) and references district or s.no
+                if len(non_empty) >= 2:
+                    if any('district' in v for v in non_empty) or any(v in ['s.no', 'sr no', 'sno', 'sl no', 'sl.no', 'state'] for v in non_empty):
+                        return i
+            return 0
+
+        # Auto-detect header row for CSV and Excel files
         if file.filename.endswith('.csv'):
-            df = pd.read_csv(io.BytesIO(contents))
+            try:
+                df_raw = pd.read_csv(io.BytesIO(contents), header=None)
+            except Exception:
+                df_raw = pd.read_csv(io.BytesIO(contents), header=None, encoding='latin1')
+            header_row = _detect_header_row(df_raw)
+            try:
+                df = pd.read_csv(io.BytesIO(contents), header=header_row)
+            except Exception:
+                df = pd.read_csv(io.BytesIO(contents), header=header_row, encoding='latin1')
         else:
-            df = pd.read_excel(io.BytesIO(contents), header=None)
-            
-            # Find the row containing 'District Name' or 'District' to use as header
-            header_row = 0
-            for i in range(min(15, len(df))):
-                row_vals = [str(x).strip().lower() for x in df.iloc[i].values if pd.notna(x)]
-                # Check if any value contains 'district' and either 'name' or just 'district'
-                if any('district' in v and ('name' in v or v == 'district') for v in row_vals):
-                    header_row = i
-                    break
-                    
+            df_raw = pd.read_excel(io.BytesIO(contents), header=None)
+            header_row = _detect_header_row(df_raw)
             df = pd.read_excel(io.BytesIO(contents), header=header_row)
 
         # Standardize the district column name for internal processing
         dist_col = None
         for col in df.columns:
             c = str(col).strip().lower()
-            if 'district' in c and ('name' in c or c == 'district'):
+            if 'district' in c and 'code' not in c and 'id' not in c:
                 dist_col = col
                 break
+        if not dist_col:
+            for col in df.columns:
+                if 'district' in str(col).strip().lower():
+                    dist_col = col
+                    break
         
         if not dist_col:
-            raise Exception("District Name column not found in dataset")
+            raise HTTPException(status_code=400, detail="Invalid Dataset: Could not find a 'District Name' or 'District' column in the uploaded file. Please check your file.")
 
-        # Clean up the dataset (remove metadata rows usually starting with '(3)')
+        # Clean up the dataset (remove metadata rows usually starting with '(1)', '(2)', '(3)')
         if 'Academic Year' in df.columns:
-            df = df[df['Academic Year'] != '(3)']
+            df = df[~df['Academic Year'].astype(str).str.strip().str.startswith('(')]
+        df = df[~df[dist_col].astype(str).str.strip().str.startswith('(')]
 
         # Define columns to keep
         keep_cols = [dist_col]
         if 'Academic Year' in df.columns:
             keep_cols.append('Academic Year')
-            
-        # Filter specific columns based on report type
-        if report_type == '18_plus_pendency':
-            desired = ['Total Pending', 'Total Rejected', 'Total Approved']
-            matched = []
-            for d in desired:
-                for c in df.columns:
-                    if str(c).strip().lower() == d.lower():
-                        matched.append(c)
-                        break
-            if len(matched) < len(desired):
-                raise Exception(f"Invalid dataset uploaded for 18 Plus Pendency. Please ensure you uploaded the correct dataset.")
-            df = df[keep_cols + matched]
-            
-        elif report_type == 'mbu_district_wise':
-            desired = [
-                'Total Student',
-                'Total Students AADHAAR Provided',
-                'AADHAAR Verified-Passed(Yes)',
-                'AADHAAR Verified-Failed(No)',
-                'AADHAAR Verified-To be Done',
-                'MBU Pending (Age 5-15)', 
-                'MBU Pending (Age 15 and above)',
-                'MBU Not Required',
-                'MBU Not Applicable',
-                'Status Check to be done'
-            ]
+
+        # Auto-detect report category from dataset columns
+        category_names = {
+            'mbu_district_wise': 'MBU Report (District Wise)',
+            'mbu': 'MBU Report (District Wise)',
+            '18_plus_pendency': '18 Plus Pendency',
+            'district_pendency': '18 Plus Pendency',
+            'cenetarian_district_report': 'Centenarian District Report',
+            'centenarian': 'Centenarian District Report',
+        }
+
+        normalized_report_type = report_type
+        if report_type in ['mbu', 'mbu_district_wise']:
+            normalized_report_type = 'mbu_district_wise'
+        elif report_type in ['18_plus_pendency', 'district_pendency']:
+            normalized_report_type = '18_plus_pendency'
+        elif report_type in ['cenetarian_district_report', 'centenarian']:
+            normalized_report_type = 'cenetarian_district_report'
+
+        cols_clean = [str(c).strip().lower() for c in df.columns if c != dist_col]
+        cols_joined = ' '.join(cols_clean)
+
+        detected_type = None
+        detected_name = None
+
+        # 1. Centenarian signature: contains field verification categories (alive, deceased, verifiable)
+        has_alive = any('alive' in c for c in cols_clean)
+        has_deceased = any('deceased' in c for c in cols_clean)
+        has_verifiable = any('verifiable' in c for c in cols_clean)
+        if (has_alive and has_deceased) or (has_alive and has_verifiable) or (has_deceased and has_verifiable) or 'centenarian' in cols_joined:
+            detected_type = 'cenetarian_district_report'
+            detected_name = 'Centenarian District Report'
+
+        # 2. MBU signature: contains student MBU mandatory update columns
+        has_mbu_word = any('mbu' in c for c in cols_clean)
+        has_student = any('student' in c for c in cols_clean)
+        if not detected_type:
+            if has_mbu_word or (has_student and any(k in cols_joined for k in ['aadhaar', 'verified', 'pending', 'not required', 'applicable'])):
+                detected_type = 'mbu_district_wise'
+                detected_name = 'MBU Report (District Wise)'
+
+        # 3. 18 Plus Pendency signature: contains state portal / web service verification workflows
+        has_state_workflow = any(k in cols_joined for k in ['approved at state', 'rejected at state', 'pending at state', 'pending with web service', 'web service', 'packet received', '18 plus', '18+'])
+        has_state_pendency_cols = any('pending at state' in c or 'approved at state' in c or 'rejected at state' in c for c in cols_clean)
+        has_general_pendency = ('total pending' in cols_joined or 'pending' in cols_joined) and ('total approved' in cols_joined or 'total rejected' in cols_joined or 'approved' in cols_joined)
+        if not detected_type:
+            if has_state_workflow or has_state_pendency_cols:
+                detected_type = '18_plus_pendency'
+                detected_name = '18 Plus Pendency'
+            elif has_general_pendency and not has_mbu_word and not has_student and not has_alive and not has_deceased:
+                state_cols = [c for c in cols_clean if any(k in c for k in ['total approved', 'total rejected', 'total pending', 'approved at', 'rejected at', 'pending at'])]
+                if len(state_cols) >= 2:
+                    detected_type = '18_plus_pendency'
+                    detected_name = '18 Plus Pendency'
+
+        selected_name = category_names.get(normalized_report_type, report_type)
+
+        # STRICT VALIDATION: If the file does not match ANY of the three valid report types, REJECT it immediately
+        if not detected_type:
+            raise HTTPException(
+                status_code=400,
+                detail="Unrecognized Dataset: The uploaded file does not match any of the 3 supported report formats (MBU Report, 18 Plus Pendency, or Centenarian District Report). Please upload a valid report dataset."
+            )
+
+        # STRICT VALIDATION: If the file matches a valid report type other than what the user selected, REJECT it with the custom category mismatch error
+        if detected_type != normalized_report_type:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Incorrect Category Selected: The uploaded file is a '{detected_name}', but you selected '{selected_name}'. Please select '{detected_name}' from the dropdown and try again."
+            )
+
+        # Filter and validate specific columns based on report type column names
+        if report_type in ['18_plus_pendency', 'district_pendency']:
             matched = []
             for col in df.columns:
-                col_clean = str(col).strip().lower()
-                for d in desired:
-                    d_clean = d.lower()
-                    if col_clean == d_clean or (d_clean == 'total student' and col_clean in ['total student', 'total students']):
-                        matched.append(col)
-                        break
-            if not matched:
-                raise Exception(f"Invalid dataset uploaded for MBU District Wise. Please ensure you uploaded the correct dataset.")
+                c_clean = str(col).strip().lower()
+                if any(kw in c_clean for kw in ['total pending', 'total rejected', 'total approved', 'approved at', 'rejected at', 'pending at', 'pending with web service', 'packet received', 'web service']) and col != dist_col:
+                    matched.append(col)
+            if len(matched) < 1:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Invalid Dataset Schema: The uploaded file does not contain required 18 Plus Pendency columns ('Total Pending', 'Total Rejected', 'Total Approved', etc.). Please upload a valid 18 Plus Pendency dataset."
+                )
             df = df[keep_cols + matched]
             
-        elif report_type == 'cenetarian_district_report':
-            desired = ['Pending Total', 'Not verifiable Total', 'Deceased Total', 'Alive Total']
+        elif report_type in ['mbu_district_wise', 'mbu']:
             matched = []
-            for d in desired:
-                for c in df.columns:
-                    if str(c).strip().lower() == d.lower():
-                        matched.append(c)
-                        break
-            if len(matched) < len(desired):
-                raise Exception(f"Invalid dataset uploaded for Cenetarian District Report. Please ensure you uploaded the correct dataset.")
+            mbu_keywords = ['student', 'mbu', 'aadhaar verified', 'aadhaar provided', 'pending', 'not required', 'not applicable', 'status check']
+            for col in df.columns:
+                c_clean = str(col).strip().lower()
+                if any(kw in c_clean for kw in mbu_keywords) and col != dist_col:
+                    matched.append(col)
+            if len(matched) < 1:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Invalid Dataset Schema: The uploaded file does not contain required MBU Report columns ('Total Student', 'MBU Pending', etc.). Please upload a valid MBU dataset."
+                )
+            df = df[keep_cols + matched]
+            
+        elif report_type in ['cenetarian_district_report', 'centenarian']:
+            matched = []
+            centenarian_specific = []
+            for col in df.columns:
+                c_clean = str(col).strip().lower()
+                if any(kw in c_clean for kw in ['pending', 'verifiable', 'deceased', 'alive', 'total']):
+                    if col != dist_col:
+                        matched.append(col)
+                if any(kw in c_clean for kw in ['alive', 'deceased', 'verifiable']):
+                    centenarian_specific.append(col)
+            if len(matched) < 1 or len(centenarian_specific) < 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid Dataset Schema: The uploaded file does not contain required Centenarian Report columns ('Alive Total', 'Deceased Total', 'Not verifiable Total', etc.). Please upload a valid Centenarian dataset."
+                )
             df = df[keep_cols + matched]
 
             
@@ -201,12 +283,16 @@ async def generate_report(
                     passed_yes_col = next((c for c in summary_df.columns if 'passed(yes)' in str(c).lower() or 'verified-passed' in str(c).lower()), None)
                     not_app_col = next((c for c in summary_df.columns if 'not applicable' in str(c).lower()), None)
                     if passed_yes_col:
-                        denom = summary_df[passed_yes_col] - (summary_df[not_app_col] if not_app_col else 0)
+                        denom = (summary_df[passed_yes_col] - (summary_df[not_app_col] if not_app_col else 0)).replace(0, 1)
                     elif 'Total Students AADHAAR Provided' in summary_df.columns:
-                        denom = summary_df['Total Students AADHAAR Provided']
+                        denom = summary_df['Total Students AADHAAR Provided'].replace(0, 1)
+                    elif 'Total Students' in summary_df.columns:
+                        denom = summary_df['Total Students'].replace(0, 1)
+                    elif 'Total Student' in summary_df.columns:
+                        denom = summary_df['Total Student'].replace(0, 1)
                     else:
-                        denom = 1
-                    summary_df['MBU Pendency %'] = ((summary_df['Total Pending'] / denom.replace(0, 1)) * 100).round(2).astype(str) + '%'
+                        denom = pd.Series(1, index=summary_df.index)
+                    summary_df['MBU Pendency %'] = ((summary_df['Total Pending'] / denom) * 100).round(2).astype(str) + '%'
                 elif report_type in ['cenetarian_district_report', '18_plus_pendency']:
                     pending_col = next((c for c in summary_df.columns if str(c).strip().lower() in ['pending total', 'total pending']), None)
                     req_col = next((c for c in summary_df.columns if str(c).strip().lower() in ['total requests', 'total_requests']), None)
@@ -237,19 +323,42 @@ async def generate_report(
             combined_df = add_derived_cols(combined_df)
             combined_df.insert(0, 'S.No', range(1, len(combined_df) + 1))
 
-            def filter_mbu_cols(summary_df, main_col_name):
-                if report_type != 'mbu_district_wise':
+            def filter_custom_report_cols(summary_df, main_col_name):
+                if report_type == 'mbu_district_wise':
+                    target_order = [
+                        'S.No',
+                        main_col_name,
+                        'Total Student',
+                        'Total Students AADHAAR Provided',
+                        'MBU Pending (Age 5-15)',
+                        'MBU Pending (Age 15 and above)',
+                        'Total Pending',
+                        'MBU Pendency %'
+                    ]
+                elif report_type in ['cenetarian_district_report', 'centenarian']:
+                    target_order = [
+                        'S.No',
+                        main_col_name,
+                        'Alive Total',
+                        'Deceased Total',
+                        'Not verifiable Total',
+                        'Pending Total',
+                        'Total Requests',
+                        'Pending %'
+                    ]
+                elif report_type in ['18_plus_pendency', 'district_pendency']:
+                    target_order = [
+                        'S.No',
+                        main_col_name,
+                        'Total Approved',
+                        'Total Rejected',
+                        'Total Pending',
+                        'Total Requests',
+                        'Pending %'
+                    ]
+                else:
                     return summary_df
-                target_order = [
-                    'S.No',
-                    main_col_name,
-                    'Total Student',
-                    'Total Students AADHAAR Provided',
-                    'MBU Pending (Age 5-15)',
-                    'MBU Pending (Age 15 and above)',
-                    'Total Pending',
-                    'MBU Pendency %'
-                ]
+
                 avail = list(summary_df.columns)
                 final_cols = []
                 for t in target_order:
@@ -259,9 +368,11 @@ async def generate_report(
                         if c_clean == t_clean or (t_clean == 'total student' and c_clean in ['total student', 'total students']):
                             final_cols.append(c)
                             break
+                if not final_cols:
+                    return summary_df
                 return summary_df[final_cols]
 
-            combined_export = filter_mbu_cols(combined_df, dist_col)
+            combined_export = filter_custom_report_cols(combined_df, dist_col)
             combined_export.to_excel(writer, index=False, sheet_name='Combined')
             
             # LWE and Division Sheets (matching Kit Tracker tabs: Combined, LWE, Bilaspur Div, Raipur Div, Durg Div, Bastar Div, Surguja Div)
@@ -272,7 +383,7 @@ async def generate_report(
                     lwe_summary = lwe_df.groupby(dist_col)[numeric_cols].sum().reset_index()
                     lwe_summary = add_derived_cols(lwe_summary)
                     lwe_summary.insert(0, 'S.No', range(1, len(lwe_summary) + 1))
-                    lwe_export = filter_mbu_cols(lwe_summary, dist_col)
+                    lwe_export = filter_custom_report_cols(lwe_summary, dist_col)
                     lwe_export.to_excel(writer, index=False, sheet_name='LWE')
                 else:
                     pd.DataFrame(columns=['S.No', dist_col] + numeric_cols).to_excel(writer, index=False, sheet_name='LWE')
@@ -286,8 +397,10 @@ async def generate_report(
                         div_summary = div_df.groupby(dist_col)[numeric_cols].sum().reset_index()
                         div_summary = add_derived_cols(div_summary)
                         div_summary.insert(0, 'S.No', range(1, len(div_summary) + 1))
-                        div_export = filter_mbu_cols(div_summary, dist_col)
+                        div_export = filter_custom_report_cols(div_summary, dist_col)
                         div_export.to_excel(writer, index=False, sheet_name=div_name)
+                    else:
+                        pd.DataFrame(columns=['S.No', dist_col] + numeric_cols).to_excel(writer, index=False, sheet_name=div_name)
             
             # Sheet per Academic Year
             if 'Academic Year' in df.columns:
@@ -297,7 +410,7 @@ async def generate_report(
                         year_summary = year_df.groupby(dist_col)[numeric_cols].sum().reset_index()
                         year_summary = add_derived_cols(year_summary)
                         year_summary.insert(0, 'S.No', range(1, len(year_summary) + 1))
-                        year_export = filter_mbu_cols(year_summary, dist_col)
+                        year_export = filter_custom_report_cols(year_summary, dist_col)
                         safe_sheet_name = str(year).replace('/', '-').replace('*', '')[:31]
                         year_export.to_excel(writer, index=False, sheet_name=safe_sheet_name)
 
@@ -318,6 +431,8 @@ async def generate_report(
             "filename": output_filename
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         error_str = str(e).lower()
         if "excel file format cannot be determined" in error_str or "file is not a zip file" in error_str or "no engine for file type" in error_str or "invalid file" in error_str or "token" in error_str:
@@ -333,16 +448,62 @@ def get_report_history(db: Session = Depends(get_db)):
     reports = db.query(ReportHistory).order_by(ReportHistory.report_type.asc(), ReportHistory.created_at.desc()).all()
     return reports
 
+def resolve_report_filepath(report: ReportHistory) -> Optional[str]:
+    """
+    Robustly resolves the existing file path on disk for a report,
+    handling VM volume mounts (/app/uploads on VM), environment variables,
+    directory moves, or Docker container path differences.
+    """
+    # 1. Check direct file_path in DB
+    if report.file_path and os.path.isfile(report.file_path):
+        return report.file_path
+        
+    # 2. Check local/mounted REPORTS_DIR by filename
+    if report.filename:
+        local_path = os.path.join(REPORTS_DIR, report.filename)
+        if os.path.isfile(local_path):
+            return local_path
+            
+    # 3. Check REPORTS_DIR by basename of file_path
+    if report.file_path:
+        base_name = os.path.basename(report.file_path)
+        local_path = os.path.join(REPORTS_DIR, base_name)
+        if os.path.isfile(local_path):
+            return local_path
+
+    # 4. Search common VM container volume paths and workspace root
+    filename = report.filename or (os.path.basename(report.file_path) if report.file_path else None)
+    if filename:
+        vm_candidate_roots = [
+            "/app/uploads/reports",
+            "/data/uploads/reports",
+            "/mnt/data/uploads/reports",
+            os.path.join(BASE_PROJECT_DIR, "uploads", "reports")
+        ]
+        for root in vm_candidate_roots:
+            candidate = os.path.join(root, filename)
+            if os.path.isfile(candidate):
+                return candidate
+
+    return None
+
 @router.get("/preview/{report_id}")
 def preview_report(report_id: int, db: Session = Depends(get_db)):
     report = db.query(ReportHistory).filter(ReportHistory.id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-    if not os.path.exists(report.file_path):
+        
+    filepath = resolve_report_filepath(report)
+    if not filepath or not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Report file missing on server")
         
+    # Self-heal file_path in DB if location changed
+    if report.file_path != filepath:
+        report.file_path = filepath
+        db.commit()
+        
     try:
-        dfs = pd.read_excel(report.file_path, sheet_name=None, engine='openpyxl')
+        dfs = pd.read_excel(filepath, sheet_name=None, engine='openpyxl')
         html_sheets = {}
         for sheet_name, df in dfs.items():
             df = clean_dataframe_mobile_cols(df)
@@ -375,11 +536,18 @@ def download_report(report_id: int, db: Session = Depends(get_db)):
     report = db.query(ReportHistory).filter(ReportHistory.id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-    if not os.path.exists(report.file_path):
+        
+    filepath = resolve_report_filepath(report)
+    if not filepath or not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Report file missing on server")
         
+    # Self-heal file_path in DB if location changed
+    if report.file_path != filepath:
+        report.file_path = filepath
+        db.commit()
+        
     return FileResponse(
-        path=report.file_path, 
+        path=filepath, 
         filename=report.filename,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
@@ -390,16 +558,39 @@ def delete_report(report_id: int, db: Session = Depends(get_db)):
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
         
-    # Attempt to delete file from disk
-    if os.path.exists(report.file_path):
-        try:
-            os.remove(report.file_path)
-        except:
-            pass # We still want to delete DB record even if file deletion fails
+    # Attempt to delete file from disk across all candidate paths
+    candidates_to_delete = set()
+    
+    resolved_path = resolve_report_filepath(report)
+    if resolved_path:
+        candidates_to_delete.add(os.path.normpath(resolved_path))
+        
+    if report.file_path:
+        candidates_to_delete.add(os.path.normpath(report.file_path))
+        
+    if report.filename:
+        candidates_to_delete.add(os.path.normpath(os.path.join(REPORTS_DIR, report.filename)))
+        
+    if report.file_path:
+        candidates_to_delete.add(os.path.normpath(os.path.join(REPORTS_DIR, os.path.basename(report.file_path))))
+        
+    filename = report.filename or (os.path.basename(report.file_path) if report.file_path else None)
+    if filename:
+        for root in ["/app/uploads/reports", "/data/uploads/reports", "/mnt/data/uploads/reports"]:
+            candidates_to_delete.add(os.path.normpath(os.path.join(root, filename)))
             
+    file_deleted = False
+    for path in candidates_to_delete:
+        if path and os.path.exists(path):
+            try:
+                os.remove(path)
+                file_deleted = True
+            except Exception as e:
+                print(f"Warning: Failed to delete report file {path}: {e}")
+                
     db.delete(report)
     db.commit()
-    return {"success": True, "message": "Report deleted successfully"}
+    return {"success": True, "message": "Report deleted successfully", "file_deleted": file_deleted}
 
 # Using centralized LWE_MASTER_DISTRICTS and is_lwe_district from district_mapper.py
 
@@ -951,8 +1142,8 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
                 "Station Status": st_status,
                 "Onboarding Status": ob.onboarding_status,
                 "Visit Status": ob.visit_status or "",
-                "Visit Date": ob.visit_date.strftime("%Y-%m-%d") if ob.visit_date else "",
-                "Onboard Date": ob.onboard_date.strftime("%Y-%m-%d") if ob.onboard_date else "",
+                "Visit Date": format_date_val(ob.visit_date),
+                "Onboard Date": format_date_val(ob.onboard_date),
                 "Permitted 18+": ob.permitted_18_plus,
                 "ASK Kit Working Status": ob.ask_kit_working_status,
                 "Remark": ob.remark or ""
@@ -983,7 +1174,7 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
                 "Station ID Assigned": req.station_id_inserted or "",
                 "Machine ID (L1)": l1.machine_id if l1 else "",
                 "L1 Status": l1.status if l1 else "",
-                "Submitted At": req.submitted_at.strftime("%Y-%m-%d %H:%M:%S") if req.submitted_at else ""
+                "Submitted At": format_date_val(req.submitted_at, "%Y-%m-%d %H:%M:%S")
             })
         if not data:
             columns = ["Request No", "DC Name", "District", "Model", "Number of Kits", "Station ID Request Status", "Station ID Assigned", "Machine ID (L1)", "L1 Status", "Submitted At"]
@@ -1017,7 +1208,7 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
                     "Station ID": k.station_id,
                     "Operator Name": op_name,
                     "Operator ID": op_id,
-                    "Station ID Provided Date": k.station_id_provided_date.strftime("%Y-%m-%d") if k.station_id_provided_date else "",
+                    "Station ID Provided Date": format_date_val(k.station_id_provided_date),
                     "L1 Status": "No",
                     "L1 Status Date /(Pending days)": calculate_pending_days(k.station_id_provided_date)
                 })
@@ -1061,9 +1252,9 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
                     "Machine Id": k.machine_id,
                     "Laptop Serial No.": k.laptop_serial_no,
                     "Laptop Name": k.laptop_name,
-                    "Station ID Provided Date": k.station_id_provided_date.strftime("%Y-%m-%d") if k.station_id_provided_date else "",
+                    "Station ID Provided Date": format_date_val(k.station_id_provided_date),
                     "L1 Status": "Yes",
-                    "L1 Done Date": k.l1_done_date.strftime("%Y-%m-%d") if k.l1_done_date else "",
+                    "L1 Done Date": format_date_val(k.l1_done_date),
                     "L2 Status": l2_name,
                     "L2 Done Date /(Pending days)": calculate_pending_days(k.l1_done_date),
                     "Current Stay Status": l2_name
@@ -1196,11 +1387,11 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
                         "Machine Id": k.machine_id,
                         "Laptop Serial No.": k.laptop_serial_no,
                         "Laptop Name": k.laptop_name,
-                        "Station ID Provided Date": k.station_id_provided_date.strftime("%Y-%m-%d") if k.station_id_provided_date else "",
+                        "Station ID Provided Date": format_date_val(k.station_id_provided_date),
                         "L1 Status": "Yes",
-                        "L1 Done Date": k.l1_done_date.strftime("%Y-%m-%d") if k.l1_done_date else "",
+                        "L1 Done Date": format_date_val(k.l1_done_date),
                         "L2 Status": "Yes",
-                        "L2 Done Date": k.l2_done_date.strftime("%Y-%m-%d") if k.l2_done_date else "",
+                        "L2 Done Date": format_date_val(k.l2_done_date),
                         "On-Boarding Status": status_onb,
                         "On-Boarding Date /(Pending days)": calculate_pending_days(k.l2_done_date)
                     })
@@ -1366,7 +1557,7 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
                 "Is LWE District": is_lwe_district(k.district),
                 "Kit Slot": k.category,
                 "Station ID": k.station_id,
-                "Station ID Allotted Date": k.station_id_provided_date.strftime("%Y-%m-%d") if k.station_id_provided_date else "",
+                "Station ID Allotted Date": format_date_val(k.station_id_provided_date),
                 "Machine ID": k.machine_id,
                 "Laptop Serial No.": k.laptop_serial_no,
                 "Laptop Name": k.laptop_name,
@@ -1374,25 +1565,25 @@ def get_system_report_dataframe(report_name: str, db: Session) -> pd.DataFrame:
                 "Operator Id": op.user_code if op else "",
                 "Operator Mobile": clean_mobile_val(op.mobile if op else ""),
                 "Security Deposit Status": op.security_deposit_status if op else "",
-                "Security Deposit Date": op.security_deposit_date.strftime("%Y-%m-%d") if (op and op.security_deposit_date) else "",
+                "Security Deposit Date": format_date_val(op.security_deposit_date if op else None),
                 "L1 Status": l1_status_name,
-                "L1 Date": k.l1_done_date.strftime("%Y-%m-%d") if k.l1_done_date else "",
+                "L1 Date": format_date_val(k.l1_done_date),
                 "L2 Status": l2_status_name,
-                "L2 Date": k.l2_done_date.strftime("%Y-%m-%d") if k.l2_done_date else "",
+                "L2 Date": format_date_val(k.l2_done_date),
                 "Block": k.block,
                 "Category": k.category,
                 "Locality": k.locality,
                 "ASK Address": k.ask_address,
                 "Operator Status": op.status if op else "",
                 "Inactive Reason": op.inactive_reason if op else "",
-                "Inactive Date": op.inactive_date.strftime("%Y-%m-%d") if (op and op.inactive_date) else "",
+                "Inactive Date": format_date_val(op.inactive_date if op else None),
                 "18+ Permit": onb.permitted_18_plus if onb else "",
                 "Station Status": k.station_status,
                 "Onboarding Status": onb.onboarding_status if onb else "",
-                "Onboard Date": onb.onboard_date.strftime("%Y-%m-%d") if (onb and onb.onboard_date) else "",
+                "Onboard Date": format_date_val(onb.onboard_date if onb else None),
                 "Kit Working": onb.ask_kit_working_status if onb else "",
                 "Visit Status": onb.visit_status if onb else "",
-                "Visit Date": onb.visit_date.strftime("%Y-%m-%d") if (onb and onb.visit_date) else "",
+                "Visit Date": format_date_val(onb.visit_date if onb else None),
                 "Remark": onb.remark if onb else ""
             })
             sr_no += 1
@@ -1438,16 +1629,20 @@ def clean_dataframe_mobile_cols(df):
         df[col] = df[col].apply(clean_mobile_val)
     return df
 
-
-
 def calculate_pending_days(start_date):
     if not start_date:
         return ""
-    from datetime import date
-    if isinstance(start_date, datetime):
-        start_date = start_date.date()
-    days = (date.today() - start_date).days
-    return f"{days} Days pending"
+    from datetime import date, datetime
+    try:
+        if isinstance(start_date, str):
+            val_str = start_date.strip().split()[0]
+            start_date = datetime.strptime(val_str, "%Y-%m-%d").date()
+        elif isinstance(start_date, datetime):
+            start_date = start_date.date()
+        days = (date.today() - start_date).days
+        return f"{days} Days pending" if days >= 0 else ""
+    except Exception:
+        return ""
 
 def get_status_name(status_id: int, statuses_dict: dict) -> str:
     if not status_id: return "Pending"
@@ -1652,8 +1847,11 @@ def apply_system_filters(df, lwe: bool, division: Optional[str], district: Optio
         df = df[df[dist_col].apply(lambda d: is_district_in_division(d, division))]
 
     lwe_col = _get_df_col(df, "Is LWE District")
-    if lwe and lwe_col:
-        df = df[df[lwe_col] == "Yes"]
+    if lwe:
+        if lwe_col:
+            df = df[df[lwe_col] == "Yes"]
+        elif dist_col:
+            df = df[df[dist_col].apply(lambda d: is_lwe_district(d) == "Yes")]
 
     search_term = search or station_search or operator_search
     if search_term:
@@ -1667,15 +1865,6 @@ def apply_system_filters(df, lwe: bool, division: Optional[str], district: Optio
     if sno_col and not df.empty:
         df[sno_col] = list(range(1, len(df) + 1))
             
-    if lwe_col:
-        try:
-            import warnings
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                df = df.drop(columns=[lwe_col])
-        except Exception:
-            pass
-        
     return df
 
 @router.get("/system/{report_name}/preview")
@@ -1727,6 +1916,8 @@ def preview_system_report(
             }
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to generate preview: {str(e)}")
 
 @router.get("/system/{report_name}/download")
@@ -1768,3 +1959,49 @@ def download_system_report(report_name: str, lwe: bool = False, division: Option
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate report: {str(e)}")
+
+
+# ─────────────────────────────────────────────────────────────
+# External Portal Live Sync Endpoints
+# ─────────────────────────────────────────────────────────────
+
+_LAST_SYNC_CACHE = {
+    "status": "Ready",
+    "timestamp": None,
+    "stats": None
+}
+
+@router.post("/sync/external")
+def trigger_external_reports_sync(
+    dry_run: bool = False,
+    exact_mirror: bool = True,
+    db: Session = Depends(get_db)
+):
+    """
+    Triggers synchronization of Kit Tracker, Operators,
+    Mappings, and Onboarding records from the live external portal.
+    When exact_mirror=True, stale records in the local DB not found in the external portal are pruned.
+    """
+    global _LAST_SYNC_CACHE
+    from backend.services.external_reports_sync import sync_reports_data_from_external
+    try:
+        stats = sync_reports_data_from_external(db, dry_run=dry_run, exact_mirror=exact_mirror)
+        _LAST_SYNC_CACHE = {
+            "status": "Success",
+            "timestamp": stats.get("synced_at"),
+            "stats": stats
+        }
+        return {"success": True, "stats": stats}
+    except Exception as e:
+        _LAST_SYNC_CACHE = {
+            "status": "Failed",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
+        raise HTTPException(status_code=500, detail=f"External sync failed: {str(e)}")
+
+
+@router.get("/sync/last-status")
+def get_external_sync_last_status():
+    """Returns the cached status and timestamp of the most recent sync."""
+    return _LAST_SYNC_CACHE

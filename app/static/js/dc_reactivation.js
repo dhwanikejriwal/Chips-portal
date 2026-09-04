@@ -53,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const st = qStatus.toUpperCase().trim();
         const statusInput = document.getElementById("filter-status");
         if (statusInput) {
-            if (st === "REVERTED_REJECTED" || st === "REVERTED" || st === "REVERTED_CHIPS" || st === "REVERTED_BY_CHIPS") {
+            if (st === "REVERTED" || st === "REVERTED_CHIPS" || st === "REVERTED_BY_CHIPS" || st === "REVERTED_REJECTED" || st === "REVERT" || st === "REVERT_BACK") {
                 statusInput.value = "REVERTED";
             } else if (st === "REJECTED") {
                 statusInput.value = "REJECTED";
@@ -63,6 +63,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 statusInput.value = "APPROVED";
             } else if (st === "SENT_TO_UIDAI" || st === "UIDAI") {
                 statusInput.value = "SENT_TO_UIDAI";
+            } else {
+                const opt = Array.from(statusInput.options).find(o => o.value.toUpperCase() === st);
+                if (opt) statusInput.value = opt.value;
             }
         }
     }
@@ -698,44 +701,77 @@ window.handleFormSubmissionPipeline = function (event) {
             try {
                 const data = new Uint8Array(e.target.result);
                 const workbook = window.XLSX.read(data, { type: 'array' });
-                let excelText = '';
-
+                const rowTexts = [];
                 workbook.SheetNames.forEach(sheetName => {
                     const worksheet = workbook.Sheets[sheetName];
                     const json = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
                     json.forEach(row => {
                         if (Array.isArray(row)) {
-                            excelText += ' ' + row.join(' ').toLowerCase();
+                            const cells = row.filter(c => c !== null && c !== undefined && String(c).trim() !== '').map(c => String(c).trim().toLowerCase());
+                            if (cells.length > 0) {
+                                rowTexts.push(cells.join(' '));
+                            }
                         }
                     });
                 });
 
                 const missingOperators = [];
                 (structuredOperatorList || []).forEach(op => {
-                    const name = (op.name || '').trim().toLowerCase();
-                    const mobile = (op.mobile || '').trim().toLowerCase();
-                    const email = (op.email || '').trim().toLowerCase();
-                    const user = (op.user || '').trim().toLowerCase();
+                    const name = (op.name || '').trim();
+                    const mobile = (op.mobile || '').trim();
 
-                    let match = false;
-                    if (mobile && excelText.includes(mobile)) {
-                        match = true;
-                    } else if (email && excelText.includes(email)) {
-                        match = true;
-                    } else if (user && user.length >= 3 && excelText.includes(user)) {
-                        match = true;
-                    } else if (name) {
-                        if (excelText.includes(name)) {
-                            match = true;
+                    const cleanMob = mobile.replace(/\D/g, '');
+                    const mobTarget = cleanMob.length >= 10 ? cleanMob.slice(-10) : cleanMob;
+
+                    const nameStr = name.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').trim();
+                    const rawTokens = nameStr.split(/\s+/).filter(w => w.length >= 2);
+                    const nameTokens = rawTokens.filter(w => !['MR', 'MRS', 'MS', 'SHRI', 'SMT', 'SH'].includes(w));
+                    const tokensToUse = nameTokens.length > 0 ? nameTokens : rawTokens;
+                    const cleanFullName = tokensToUse.join(' ');
+                    const nameNoSpace = tokensToUse.join('');
+
+                    let rowMatched = false;
+                    for (const rowStr of rowTexts) {
+                        const rowUpper = rowStr.toUpperCase();
+                        const rowDigits = rowStr.replace(/\D/g, '');
+                        const rowNoSpace = rowUpper.replace(/[^A-Z0-9]/g, '');
+
+                        // Mobile in row check
+                        const mobInRow = mobTarget ? (rowDigits.includes(mobTarget) || rowUpper.includes(mobTarget)) : true;
+
+                        // Name in row check
+                        let nameInRow = false;
+                        if (tokensToUse.length === 0) {
+                            nameInRow = true;
+                        } else if (rowUpper.includes(cleanFullName) || (nameNoSpace.length >= 4 && rowNoSpace.includes(nameNoSpace))) {
+                            nameInRow = true;
                         } else {
-                            const nameParts = name.split(/\s+/).filter(p => p.length >= 3);
-                            if (nameParts.length > 0 && nameParts.every(part => excelText.includes(part))) {
-                                match = true;
+                            const rowWords = rowUpper.split(/[^A-Z0-9]+/).filter(w => w.length >= 2 && isNaN(w));
+                            let matchedCount = 0;
+                            tokensToUse.forEach(tok => {
+                                if (rowWords.includes(tok) || rowWords.some(rw => rw.includes(tok) || tok.includes(rw))) {
+                                    matchedCount++;
+                                }
+                            });
+
+                            if (tokensToUse.length === 1) {
+                                nameInRow = (matchedCount >= 1);
+                            } else if (tokensToUse.length === 2) {
+                                nameInRow = (matchedCount === 2);
+                            } else {
+                                const firstMatched = rowWords.includes(tokensToUse[0]) || rowWords.some(rw => rw.includes(tokensToUse[0]));
+                                nameInRow = (matchedCount >= tokensToUse.length - 1 && firstMatched);
                             }
+                        }
+
+                        // STRICT COMBINATION: Both mobile AND name must match on this SAME row
+                        if (mobInRow && nameInRow) {
+                            rowMatched = true;
+                            break;
                         }
                     }
 
-                    if (!match) {
+                    if (!rowMatched) {
                         missingOperators.push(`<li><strong>${escapeHtmlString(op.name || 'Operator')}</strong> (Mobile: ${escapeHtmlString(op.mobile || 'N/A')})</li>`);
                     }
                 });
@@ -814,7 +850,7 @@ window.openHistoricalOperatorsModal = function (requestCode) {
         }
     });
 
-    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}?_t=${Date.now()}`)
+    fetch(`/reactivation/operators/${requestCode}?_t=${Date.now()}`)
         .then(res => {
             if (!res.ok) throw new Error('Server returned an error');
             return res.json();
@@ -943,7 +979,7 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
         didOpen: () => { Swal.showLoading(); }
     });
 
-    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}?_t=${Date.now()}`)
+    fetch(`/auth/dc/reactivation/operators/${requestCode}?_t=${Date.now()}`)
         .then(res => {
             if (!res.ok) throw new Error('Failed to load previous operators');
             return res.json();
@@ -969,7 +1005,8 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
             }
 
             // Toggle batch revert reason displays
-            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED'].includes((payload.batch_status || '').toUpperCase());
+            const batchStatusUpper = (payload.batch_status || '').toUpperCase();
+            const isBatchRevertedOrRejected = ['REVERTED', 'REJECTED', 'REVERTED_BY_CHIPS'].includes(batchStatusUpper) || batchStatusUpper.includes('REVERT') || batchStatusUpper.includes('REJECT');
             const batchReason = payload.batch_revert_reason || '';
 
             const p1BatchContainer = document.getElementById('batch-revert-reason-container-p1');
@@ -982,7 +1019,7 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
 
             if (isBatchRevertedOrRejected && batchReason) {
                 window.isReapplyBatchReverted = true;
-                const labelText = (payload.batch_status || '').toUpperCase() === 'REJECTED' ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
+                const labelText = batchStatusUpper.includes('REJECT') ? 'BATCH REJECT REASON' : 'BATCH REVERT REASON / REMARKS';
 
                 if (p1BatchContainer && p1BatchText && p1BatchLabel) {
                     p1BatchText.innerText = batchReason;
@@ -1005,7 +1042,8 @@ window.reapplyReactivatedBatch = function (requestCode, trainingDate) {
             const operators = payload.operators || [];
             operators.forEach(op => {
                 const status = (op.status || '').toLowerCase().replace(/_/g, ' ');
-                if (['reverted', 'revert back', 'rejected'].includes(status)) {
+                const isOpRev = status.includes('revert') || status.includes('reject');
+                if (isOpRev || (isBatchRevertedOrRejected && !['approved', 'active', 'activated', 'sent to uidai'].includes(status))) {
                     structuredOperatorList.push({
                         id: op.id,
                         name: op.operator_name || '',
@@ -1291,12 +1329,20 @@ window.showIndividualOperatorDetails = function (arrayIndex, activeView) {
                 Swal.close();
                 let timelineHtml = '';
                 const logsRaw = payload.timeline_logs || [];
+                const opName = (op && (op.operator_name || op.name)) ? String(op.operator_name || op.name).trim().toLowerCase() : '';
+                const currentOpId = op ? (op.id || op.operator_id) : null;
+
                 const logs = logsRaw.filter(log => {
-                    if (log.operator_id) {
-                        return String(log.operator_id) === String(op.id);
+                    // 1. If log has a specific operator_id, match it strictly to this operator
+                    if (log.operator_id !== null && log.operator_id !== undefined && log.operator_id !== '') {
+                        return currentOpId !== null && String(log.operator_id) === String(currentOpId);
                     }
-                    const msg = log.message || '';
-                    return !msg.includes("Operator '") || msg.includes(`Operator '${op.operator_name}'`);
+                    // 2. If log has no operator_id (legacy log or batch-level log):
+                    const msg = (log.message || log.remark || '').toLowerCase();
+                    if (msg.includes("operator '")) {
+                        return opName ? msg.includes(`operator '${opName}'`) : false;
+                    }
+                    return true;
                 });
 
                 if (logs.length > 0) {
@@ -1522,42 +1568,58 @@ window.applyHistoryPanelFiltersPipeline = function () {
     const todayPrefix = `${y}-${m}-${d}`;
 
     rows.forEach(row => {
-        const rowId = row.getAttribute("data-request-id") || "";
-        const rowCreated = row.getAttribute("data-created") || "";
+        const rowId = (row.getAttribute("data-request-id") || "").toLowerCase();
+        const batchStatus = (row.getAttribute("data-status") || "").toUpperCase();
+        let rowCreated = row.getAttribute("data-created") || "";
+        let rowUpdated = row.getAttribute("data-updated") || "";
+        if (rowCreated === "None" || rowCreated === "—") rowCreated = "";
+        if (rowUpdated === "None" || rowUpdated === "—") rowUpdated = "";
+        const dateToCheck = (rowUpdated && rowUpdated.trim() !== '') ? rowUpdated : rowCreated;
 
-        const cleanStatusFilter = statusValue.toUpperCase().replace(" ", "_").trim();
+        const cleanStatusFilter = (statusValue || "ALL").toUpperCase().replace(/ /g, "_").trim();
+        const isAll = !cleanStatusFilter || cleanStatusFilter === "ALL";
 
-        let matchesDate = !searchQuery ? (dateFilter === 'all') : true;
-        if (!searchQuery) {
+        let matchesDate = (dateFilter === 'all');
+        if (dateFilter !== 'all') {
             if (dateFilter === 'today') {
-                matchesDate = rowCreated.startsWith(todayPrefix);
+                matchesDate = dateToCheck.startsWith(todayPrefix);
             } else if (dateFilter === 'week') {
-                if (rowCreated) {
-                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
-                    const threshold = new Date();
-                    threshold.setDate(now.getDate() - 7);
-                    matchesDate = rowDate >= threshold;
+                if (dateToCheck) {
+                    const rowDate = new Date(dateToCheck.replace(' ', 'T'));
+                    if (!isNaN(rowDate)) {
+                        const threshold = new Date();
+                        threshold.setDate(now.getDate() - 7);
+                        matchesDate = rowDate >= threshold;
+                    }
                 }
             } else if (dateFilter === 'month') {
-                if (rowCreated) {
-                    const rowDate = new Date(rowCreated.replace(' ', 'T'));
-                    const threshold = new Date();
-                    threshold.setDate(now.getDate() - 30);
-                    matchesDate = rowDate >= threshold;
+                if (dateToCheck) {
+                    const rowDate = new Date(dateToCheck.replace(' ', 'T'));
+                    if (!isNaN(rowDate)) {
+                        const threshold = new Date();
+                        threshold.setDate(now.getDate() - 30);
+                        matchesDate = rowDate >= threshold;
+                    }
                 }
             }
         }
 
         if (matchesDate) {
-            let isBatchMatch = !searchQuery || rowId.toLowerCase().includes(searchQuery);
+            let isBatchMatch = !searchQuery || rowId.includes(searchQuery);
             let visibleOpsCount = 0;
+            let visibleIndex = 0;
             const opRows = row.querySelectorAll('.op-row-item');
 
             opRows.forEach(opRow => {
                 const opName = (opRow.getAttribute('data-name') || "").toLowerCase();
                 const opMobile = (opRow.getAttribute('data-mobile') || "").toLowerCase();
                 const opEmail = (opRow.getAttribute('data-email') || "").toLowerCase();
-                const opStatus = (opRow.getAttribute('data-status') || "").toUpperCase();
+                let opStatus = (opRow.getAttribute('data-status') || "").toUpperCase();
+
+                if (!opStatus || opStatus === 'PENDING') {
+                    if (batchStatus.includes('REVERT')) opStatus = 'REVERTED';
+                    else if (batchStatus.includes('REJECT')) opStatus = 'REJECTED';
+                }
 
                 const matchesSearch = isBatchMatch || opName.includes(searchQuery) || opMobile.includes(searchQuery) || opEmail.includes(searchQuery);
 
@@ -1571,10 +1633,27 @@ window.applyHistoryPanelFiltersPipeline = function () {
                     else if (opStatus === 'APPROVED') opApprovedCount++;
                 }
 
-                const matchesOpStatus = (statusValue === "ALL") || (opStatus === cleanStatusFilter);
+                let matchesOpStatus = false;
+                if (isAll) {
+                    matchesOpStatus = true;
+                } else if (cleanStatusFilter === "REVERTED" || cleanStatusFilter === "REVERTED_REJECTED" || cleanStatusFilter === "REVERT" || cleanStatusFilter === "REVERT_BACK" || cleanStatusFilter === "REVERTED_BY_CHIPS") {
+                    matchesOpStatus = (opStatus === "REVERTED" || opStatus === "REVERT_BACK" || opStatus.includes("REVERT") || (cleanStatusFilter === "REVERTED_REJECTED" && (opStatus === "REJECTED" || opStatus.includes("REJECT"))));
+                } else if (cleanStatusFilter === "REJECTED") {
+                    matchesOpStatus = (opStatus === "REJECTED" || opStatus.includes("REJECT"));
+                } else if (cleanStatusFilter === "PENDING") {
+                    matchesOpStatus = (opStatus === "PENDING");
+                } else if (cleanStatusFilter === "REAPPLIED") {
+                    matchesOpStatus = (opStatus === "REAPPLIED");
+                } else if (cleanStatusFilter === "APPROVED") {
+                    matchesOpStatus = (opStatus === "APPROVED" || opStatus === "ACTIVATED" || opStatus === "ACTIVE");
+                } else if (cleanStatusFilter === "SENT_TO_UIDAI") {
+                    matchesOpStatus = (opStatus === "SENT_TO_UIDAI" || opStatus.includes("UIDAI"));
+                } else {
+                    matchesOpStatus = (opStatus === cleanStatusFilter || opStatus.includes(cleanStatusFilter));
+                }
 
                 // Highlight delayed/aged > 7 days reverted and rejected items
-                if (['REVERTED', 'REJECTED'].includes(opStatus)) {
+                if (['REVERTED', 'REJECTED'].includes(opStatus) || opStatus.includes('REVERT') || opStatus.includes('REJECT')) {
                     let dateAttr = opRow.getAttribute('data-updated') || row.getAttribute('data-updated');
                     if (!dateAttr || dateAttr === 'None' || dateAttr === '—' || dateAttr.trim() === '') {
                         dateAttr = opRow.getAttribute('data-created') || row.getAttribute('data-created');
@@ -1594,12 +1673,24 @@ window.applyHistoryPanelFiltersPipeline = function () {
                 if (matchesSearch && matchesOpStatus) {
                     opRow.style.display = "";
                     visibleOpsCount++;
+                    visibleIndex++;
+                    const snoCell = opRow.querySelector('td:first-child');
+                    if (snoCell) snoCell.textContent = visibleIndex;
                 } else {
                     opRow.style.display = "none";
                 }
             });
 
-            if (visibleOpsCount > 0 || (opRows.length === 0 && isBatchMatch && statusValue === "ALL")) {
+            const isBatchStatusMatch = isAll ||
+                ((cleanStatusFilter === "REVERTED" || cleanStatusFilter === "REVERTED_REJECTED" || cleanStatusFilter === "REVERT" || cleanStatusFilter === "REVERT_BACK" || cleanStatusFilter === "REVERTED_BY_CHIPS") && (batchStatus.includes("REVERT") || (cleanStatusFilter === "REVERTED_REJECTED" && batchStatus.includes("REJECT")))) ||
+                (cleanStatusFilter === "REJECTED" && batchStatus.includes("REJECT")) ||
+                (cleanStatusFilter === "PENDING" && batchStatus === "PENDING") ||
+                (cleanStatusFilter === "REAPPLIED" && batchStatus === "REAPPLIED") ||
+                (cleanStatusFilter === "APPROVED" && (batchStatus === "APPROVED" || batchStatus === "ACTIVATED" || batchStatus === "ACTIVE")) ||
+                (cleanStatusFilter === "SENT_TO_UIDAI" && (batchStatus === "SENT_TO_UIDAI" || batchStatus.includes("UIDAI"))) ||
+                (batchStatus === cleanStatusFilter || batchStatus.includes(cleanStatusFilter));
+
+            if (visibleOpsCount > 0 || (opRows.length === 0 && isBatchMatch && isBatchStatusMatch)) {
                 row.style.display = "";
                 matchCount++;
                 totalVisibleOperators += visibleOpsCount;
@@ -1794,7 +1885,7 @@ window.submitOperatorReapplication = function (data) {
     formData.append('ea_code', data.ea);
     formData.append('user_code', data.userCode);
 
-    fetch(`http://127.0.0.1:8000/reactivation/operator/${data.id}/update_reapply`, {
+    fetch(`/auth/reactivation/operator/${data.id}/update_reapply`, {
         method: 'POST',
         body: formData
     })
@@ -1986,7 +2077,7 @@ window.reapplyIndividualOperator = function (operatorId, requestCode, trainingDa
         didOpen: () => { Swal.showLoading(); }
     });
 
-    fetch(`http://127.0.0.1:8000/reactivation/operators/${requestCode}`)
+    fetch(`/auth/dc/reactivation/operators/${requestCode}?_t=${Date.now()}`)
         .then(res => {
             if (!res.ok) throw new Error('Failed to load previous operators');
             return res.json();
@@ -2235,3 +2326,171 @@ window.switchMainView = function (viewType, btn) {
         btn.style.fontWeight = '700';
     }
 };
+
+/* ===================================================================
+   🔍 SEARCH SUSPENDED OPERATOR DROPDOWN ENGINE
+   =================================================================== */
+let suspendedSearchTimeout = null;
+
+window.debounceSuspendedSearch = function (query) {
+    clearTimeout(suspendedSearchTimeout);
+    const spinner = document.getElementById('search_spinner');
+    const clearBtn = document.getElementById('oa-search-clear-btn');
+
+    if (clearBtn) {
+        clearBtn.style.display = (query && query.trim()) ? 'block' : 'none';
+    }
+
+    if (spinner) spinner.style.display = 'block';
+
+    suspendedSearchTimeout = setTimeout(() => {
+        fetchSuspendedOperators(query);
+    }, 300);
+};
+
+window.clearSuspendedSearchInput = function () {
+    const input = document.getElementById('suspended_operator_search_input');
+    const clearBtn = document.getElementById('oa-search-clear-btn');
+    if (input) input.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    fetchSuspendedOperators('');
+};
+
+window.toggleSuspendedOperatorDropdown = async function (forceOpen = null) {
+    const dropdown = document.getElementById('suspended_search_results_dropdown');
+    const chevron = document.getElementById('oa-chevron-icon');
+    if (!dropdown) return;
+
+    const isCurrentlyOpen = dropdown.style.display === 'block';
+    const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
+
+    if (shouldOpen) {
+        dropdown.style.display = 'block';
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+        const input = document.getElementById('suspended_operator_search_input');
+        const q = input ? input.value : '';
+        await fetchSuspendedOperators(q);
+    } else {
+        dropdown.style.display = 'none';
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
+};
+
+window.fetchSuspendedOperators = async function (query = '') {
+    const spinner = document.getElementById('search_spinner');
+    const dropdown = document.getElementById('suspended_search_results_dropdown');
+    if (!dropdown) return;
+
+    try {
+        const res = await fetch(`/auth/dc/reactivation/search-suspended-operators?q=${encodeURIComponent(query || '')}`);
+        if (res.ok) {
+            const operators = await res.json();
+            dropdown.innerHTML = '';
+
+            if (!operators || operators.length === 0) {
+                dropdown.innerHTML = '<div style="padding: 14px; color: #64748b; font-size: 13px; text-align: center;">No suspended operators found.</div>';
+            } else {
+                const cleanMob = (val) => {
+                    if (!val || val === '—' || val === 'None') return '—';
+                    let s = String(val).trim();
+                    if (s.endsWith('.0')) s = s.slice(0, -2);
+                    return s || '—';
+                };
+
+                operators.forEach(op => {
+                    const div = document.createElement('div');
+                    div.className = 'oa-search-result-card';
+                    div.onclick = () => selectSuspendedOperator(op);
+
+                    const cleanMobileVal = cleanMob(op.mobile);
+                    const highlightedName = highlightMatch(op.name, query);
+                    const nseitBadge = op.nseit_id ? `NSEIT: ${op.nseit_id}` : 'NSEIT: —';
+                    const userCodeBadge = op.user_code ? `<span style="background: rgba(99, 102, 241, 0.15); color: #818cf8; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-family: monospace; letter-spacing: 0.5px;">${escapeHtmlString(op.user_code)}</span>` : '';
+
+                    div.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <strong class="oa-search-result-name">${highlightedName}</strong>
+                            ${userCodeBadge}
+                        </div>
+                        <div class="oa-search-result-info">
+                            <span style="display: inline-flex; align-items: center; gap: 4px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                                ${escapeHtmlString(cleanMobileVal)}
+                            </span>
+                            <span class="oa-search-result-dot">·</span>
+                            <span style="display: inline-flex; align-items: center; gap: 4px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                ${escapeHtmlString(op.email)}
+                            </span>
+                            <span class="oa-search-result-dot">·</span>
+                            <span class="oa-search-result-badge">
+                                ${escapeHtmlString(nseitBadge)}
+                            </span>
+                        </div>
+                    `;
+                    dropdown.appendChild(div);
+                });
+            }
+            dropdown.style.display = 'block';
+            const chevron = document.getElementById('oa-chevron-icon');
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+        }
+    } catch (e) {
+        console.error("Suspended search failed", e);
+    } finally {
+        if (spinner) spinner.style.display = 'none';
+    }
+};
+
+function highlightMatch(text, query) {
+    if (!text) return '';
+    const safeText = escapeHtmlString(text);
+    if (!query || !query.trim()) return safeText;
+    const cleanQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${cleanQuery})`, 'gi');
+    return safeText.replace(regex, '<mark style="background-color: #fef08a; color: #854d0e; font-weight: 700; border-radius: 2px; padding: 0 2px;">$1</mark>');
+}
+
+window.selectSuspendedOperator = function (op) {
+    if (!op) return;
+    
+    const cleanMob = (val) => {
+        if (!val || val === '—' || val === 'None') return '';
+        let s = String(val).trim();
+        if (s.endsWith('.0')) s = s.slice(0, -2);
+        return s;
+    };
+    
+    // Auto-fill fields in Section 1 and Section 2
+    if (document.getElementById('op_name')) document.getElementById('op_name').value = op.name || '';
+    if (document.getElementById('op_mobile')) document.getElementById('op_mobile').value = cleanMob(op.mobile);
+    if (document.getElementById('op_email')) document.getElementById('op_email').value = (op.email && op.email !== '—' && op.email !== 'None') ? op.email : '';
+    if (document.getElementById('op_aadhaar') && op.aadhaar_last4) document.getElementById('op_aadhaar').value = op.aadhaar_last4;
+    
+    if (document.getElementById('op_role') && op.role) document.getElementById('op_role').value = op.role;
+    if (document.getElementById('op_reg') && op.registrar_code) document.getElementById('op_reg').value = op.registrar_code;
+    if (document.getElementById('op_ea') && op.ea_code) document.getElementById('op_ea').value = op.ea_code;
+    if (document.getElementById('user_code') && op.user_code) document.getElementById('user_code').value = op.user_code;
+    if (document.getElementById('op_cert') && op.nseit_id) document.getElementById('op_cert').value = op.nseit_id;
+
+    // Close dropdown
+    const dropdown = document.getElementById('suspended_search_results_dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    const chevron = document.getElementById('oa-chevron-icon');
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+    const input = document.getElementById('suspended_operator_search_input');
+    if (input) input.value = '';
+    const clearBtn = document.getElementById('oa-search-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+};
+
+// Outside click listener to hide suspended search dropdown
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('suspended_search_results_dropdown');
+    const searchPanel = document.getElementById('reactivation_search_panel');
+    if (dropdown && searchPanel && !searchPanel.contains(e.target)) {
+        dropdown.style.display = 'none';
+        const chevron = document.getElementById('oa-chevron-icon');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
+});

@@ -50,6 +50,7 @@
                     <option value="">Select Client Type</option>
                     <option value="ECMP">ECMP (In house)</option>
                     <option value="UCL">UCL</option>
+                    <option value="VLE">VLE</option>
                 </select>
             </div>
             <div class="input-group">
@@ -162,6 +163,9 @@
         </div>
     </div>
 </form>
+<script id="awaiting-l2-data" type="application/json">
+    {{ awaiting_l2 | default([]) | tojson | safe }}
+</script>
 <script>
     // Auto fill EA Code based on Client Type
     const clientTypeSelect = document.getElementById('l2-client-type');
@@ -195,8 +199,14 @@
 
         // Also re-append new_station_id if the select is disabled!
         const stationSelect = document.getElementById('l2-station-id-select');
-        if (stationSelect && stationSelect.disabled) {
-            formData.append('new_station_id', stationSelect.value);
+        if (stationSelect && stationSelect.value) {
+            formData.set('new_station_id', stationSelect.value);
+        }
+
+        // Also re-append client_type in case client_type select is disabled!
+        const clientTypeSelect = document.getElementById('l2-client-type');
+        if (clientTypeSelect && clientTypeSelect.value) {
+            formData.set('client_type', clientTypeSelect.value);
         }
 
         fetch(this.action, {
@@ -258,20 +268,45 @@
         btn.childNodes[2].textContent = ' Submit Request';
     }
 
-    const awaitingL2StationsData = [
-        {% for s in awaiting_l2 %}
-        {
-            station_id: "{{ s.station_id }}",
-            new_station_id: "{{ s.station_id }}",
-            model: "{{ s.model or s.model_type or 'ECMP' }}",
-            machine_id: "{{ s.machine_id or '' }}"
-        }{% if not loop.last %},{% endif %}
-        {% endfor %}
-    ];
+    const awaitingL2StationsData = (() => {
+        const el = document.getElementById('awaiting-l2-data');
+        if (!el) return [];
+        try {
+            const raw = JSON.parse(el.textContent || '[]');
+            return (raw || []).map(s => ({
+                station_id: s.station_id || '',
+                new_station_id: s.station_id || '',
+                model: s.model || s.model_type || 'ECMP',
+                machine_id: s.machine_id || ''
+            }));
+        } catch (e) {
+            return [];
+        }
+    })();
+
+    function lockL2ClientType(locked) {
+        const el = document.getElementById('l2-client-type');
+        if (!el) return;
+        if (locked) {
+            el.disabled = true;
+            el.style.backgroundColor = '#f1f5f9';
+            el.style.color = '#334155';
+            el.style.cursor = 'not-allowed';
+            el.classList.add('oa-readonly-input');
+        } else {
+            el.disabled = false;
+            el.style.backgroundColor = '';
+            el.style.color = '';
+            el.style.cursor = '';
+            el.classList.remove('oa-readonly-input');
+        }
+    }
+    window.lockL2ClientType = lockL2ClientType;
 
     function clearL2Form() {
         sessionStorage.removeItem('l2_request_draft');
         document.getElementById('l2-submit-form').reset();
+        lockL2ClientType(false);
         const eaInput = document.getElementById('l2-ea-code');
         if (eaInput) eaInput.value = '';
         if (window.l2StationCombobox) window.l2StationCombobox.clear();
@@ -290,6 +325,10 @@
         for (let [key, value] of formData.entries()) {
             if (value instanceof File) continue;
             draft[key] = value;
+        }
+        const clientTypeEl = document.getElementById('l2-client-type');
+        if (clientTypeEl && clientTypeEl.value) {
+            draft['client_type'] = clientTypeEl.value;
         }
         sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     };
@@ -311,6 +350,9 @@
                 const found = (awaitingL2StationsData || []).find(s => s.station_id === draft['new_station_id']);
                 if (found) window.l2StationCombobox.selectItem(found);
                 else window.l2StationCombobox.input.value = draft['new_station_id'];
+                if (draft['client_type']) {
+                    lockL2ClientType(true);
+                }
             }
         } catch (e) {
             console.error("Error loading draft", e);
@@ -348,8 +390,19 @@
                         hiddenInput.value = '';
                         hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
                     }
+                    lockL2ClientType(false);
                 }
             });
+
+            if (window.l2StationCombobox && window.l2StationCombobox.input) {
+                window.l2StationCombobox.input.addEventListener('input', (e) => {
+                    const typed = (e.target.value || '').trim();
+                    if (hiddenInput) {
+                        hiddenInput.value = typed;
+                    }
+                    if (typeof window.saveL2Draft === 'function') window.saveL2Draft();
+                });
+            }
         }
 
         const form = document.getElementById('l2-submit-form');
@@ -377,7 +430,10 @@
 
         // Define onL2StationSelected handler to prefill L2 form
         window.onL2StationSelected = function (stationId) {
-            if (!stationId) return;
+            if (!stationId) {
+                lockL2ClientType(false);
+                return;
+            }
 
             const fillable = ['new_machine_id', 'operator_name', 'operator_id', 'client_version', 'client_type'];
 
@@ -401,6 +457,9 @@
                             el.dispatchEvent(new Event('input', { bubbles: true }));
                         }
                     });
+                    if (data.client_type) {
+                        lockL2ClientType(true);
+                    }
                     if (typeof window.saveL2Draft === 'function') window.saveL2Draft();
                 })
                 .catch(() => { /* prefill is best-effort; leave blanks */ });
@@ -415,8 +474,7 @@
                 if (found) window.l2StationCombobox.selectItem(found);
                 else window.l2StationCombobox.input.value = presetStation;
                 window.l2StationCombobox.input.disabled = true;
-                window.l2StationCombobox.input.style.background = 'var(--bg-surface-secondary, #f1f5f9)';
-                window.l2StationCombobox.input.style.cursor = 'not-allowed';
+                window.l2StationCombobox.input.classList.add('oa-readonly-input');
             }
             if (typeof window.onL2StationSelected === 'function') {
                 window.onL2StationSelected(presetStation);

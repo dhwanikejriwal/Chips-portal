@@ -63,35 +63,37 @@
         {% set metric_source = requests_history if requests_history is defined and requests_history else requests %}
         {% if metric_source %}
         {% for req in metric_source %}
+        {% set req_st = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
         {% if req.operators and req.operators|length > 0 %}
         {% for op in req.operators %}
-        {% set s = (op.status or req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+        {% set raw_s = (op.status or 'PENDING') | string | upper | replace('_', ' ') %}
+        {% set s = 'SENT TO UIDAI' if 'UIDAI' in raw_s else ('APPROVED' if raw_s in ['APPROVED', 'ACTIVATED', 'ACTIVE'] else ('REAPPLIED' if raw_s == 'REAPPLIED' else ('REJECTED' if 'REJECT' in raw_s or ('REJECT' in req_st and raw_s not in ['APPROVED', 'ACTIVATED', 'ACTIVE', 'SENT TO UIDAI']) else ('REVERTED' if 'REVERT' in raw_s or ('REVERT' in req_st and raw_s not in ['APPROVED', 'ACTIVATED', 'ACTIVE', 'SENT TO UIDAI']) else 'PENDING')))) %}
         {% set ns_m.total = ns_m.total + 1 %}
-        {% if 'UIDAI' in s and 'REJECT' not in s %}
+        {% if s == 'SENT TO UIDAI' %}
         {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + 1 %}
-        {% elif s in ['APPROVED', 'ACTIVATED', 'ACTIVE'] %}
+        {% elif s == 'APPROVED' %}
         {% set ns_m.approved = ns_m.approved + 1 %}
-        {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+        {% elif s == 'REJECTED' %}
         {% set ns_m.rejected = ns_m.rejected + 1 %}
-        {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+        {% elif s == 'REVERTED' %}
         {% set ns_m.reverted = ns_m.reverted + 1 %}
-        {% elif s in ['REAPPLIED'] %}
+        {% elif s == 'REAPPLIED' %}
         {% set ns_m.reapplied = ns_m.reapplied + 1 %}
         {% else %}
         {% set ns_m.pending = ns_m.pending + 1 %}
         {% endif %}
         {% endfor %}
         {% else %}
-        {% set s = (req.status or 'PENDING') | string | upper | replace('_', ' ') %}
+        {% set s = req_st %}
         {% set cnt = req.operator_count or 1 %}
         {% set ns_m.total = ns_m.total + cnt %}
         {% if 'UIDAI' in s and 'REJECT' not in s %}
         {% set ns_m.sent_to_uidai = ns_m.sent_to_uidai + cnt %}
         {% elif s in ['APPROVED', 'ACTIVATED', 'ACTIVE'] %}
         {% set ns_m.approved = ns_m.approved + cnt %}
-        {% elif s in ['REJECTED', 'UIDAI REJECTED'] %}
+        {% elif 'REJECT' in s %}
         {% set ns_m.rejected = ns_m.rejected + cnt %}
-        {% elif s in ['REVERTED', 'REVERT BACK', 'REVERTED BY CHIPS'] %}
+        {% elif 'REVERT' in s %}
         {% set ns_m.reverted = ns_m.reverted + cnt %}
         {% elif s in ['REAPPLIED'] %}
         {% set ns_m.reapplied = ns_m.reapplied + cnt %}
@@ -105,44 +107,51 @@
             <div class="chips-metric-card">
                 <div id="metric-pending" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{
                     ns_m.pending }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Pending</div>
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.pending">Pending</div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-reapplied" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
                     {{ ns_m.reapplied }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reapplied
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.reapplied">Reapplied
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-sent-to-uidai"
                     style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.sent_to_uidai
                     }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Sent to UIDAI
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.sentToUidai">Sent to UIDAI
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-reverted" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
                     {{ ns_m.reverted }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Reverted
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.reverted">Reverted
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-rejected" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
                     {{ ns_m.rejected }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Rejected
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.rejected">Rejected
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-approved" style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">
                     {{ ns_m.approved }}</div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Approved
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.approved">Approved
                 </div>
             </div>
             <div class="chips-metric-card">
                 <div id="metric-total-requests"
                     style="font-size: 22px; font-weight: 700; color: white; margin-bottom: 2px;">{{ ns_m.total }}
                 </div>
-                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;">Total
+                <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; text-transform: uppercase;"
+                    data-i18n="stat.totalRequests">Total
                     Requests</div>
             </div>
         </div>
@@ -637,22 +646,21 @@
                 <div id="history-cards-container" class="rs-group-body" style="max-height: 550px;">
                     {% if requests %}
                     {% for req in requests %}
-                    {% set req_status_upper = req.status|upper %}
-                    {% set batch_status = 'SENT_TO_UIDAI' if 'UIDAI' in req_status_upper else ('PENDING' if
-                    req_status_upper == 'PENDING' else ('REAPPLIED' if req_status_upper == 'REAPPLIED' else ('APPROVED'
-                    if req_status_upper == 'APPROVED' else ('REJECTED' if req_status_upper ==
-                    'REJECTED' else 'REVERTED')))) %}
-                    {% set batch_variant = 'progress' if batch_status == 'SENT_TO_UIDAI' else ('done' if batch_status ==
-                    'APPROVED' else 'pending') %}
-                    {% set op_check = namespace(has_revert=false) %}
+                    {% set req_status_upper = (req.status or 'PENDING')|upper|replace(' ', '_') %}
+                    {% set op_check = namespace(has_revert=false, has_reject=false) %}
                     {% if req.operators %}
                     {% for op in req.operators %}
-                    {% set s = op.status|upper %}
-                    {% if s in ['REVERTED', 'REVERT BACK', 'REJECTED'] %}
+                    {% set s = (op.status or req.status or 'PENDING')|upper|replace(' ', '_') %}
+                    {% if 'REVERT' in s %}
                     {% set op_check.has_revert = true %}
+                    {% elif 'REJECT' in s %}
+                    {% set op_check.has_reject = true %}
                     {% endif %}
                     {% endfor %}
                     {% endif %}
+                    {% set batch_status = 'SENT_TO_UIDAI' if 'UIDAI' in req_status_upper else ('APPROVED' if req_status_upper in ['APPROVED', 'ACTIVATED', 'ACTIVE'] else ('REAPPLIED' if req_status_upper == 'REAPPLIED' else ('REJECTED' if ('REJECT' in req_status_upper or op_check.has_reject) else ('REVERTED' if ('REVERT' in req_status_upper or op_check.has_revert) else 'PENDING')))) %}
+                    {% set batch_variant = 'progress' if batch_status == 'SENT_TO_UIDAI' else ('done' if batch_status ==
+                    'APPROVED' else ('reverted' if batch_status == 'REVERTED' else ('rejected' if batch_status == 'REJECTED' else 'pending'))) %}
                     {% set batch_controls %}
                     <span class="rs-batch-dates">
                         <span>Submitted: <strong class="rs-batch-date-val">{{ req.created_at or "—" }}</strong></span>
@@ -664,7 +672,7 @@
                         onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#94a3b8';"
                         onmouseout="this.style.background='#ffffff'; this.style.borderColor='#cbd5e1';">View
                         Documents</button>
-                    {% if op_check.has_revert %}
+                    {% if op_check.has_revert or 'REVERT' in batch_status %}
                     <button type="button"
                         onclick="reapplyReactivatedBatch('{{ req.request_code }}', '{{ req.training_date }}')"
                         style="background-color: #f59e0b; color: white; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Reapply
@@ -674,8 +682,7 @@
                     {% call request_section(
                     variant=batch_variant,
                     title='Request ID: ' ~ req.request_code,
-                    count=(req.operator_count ~ ' operators in batch' if req.operator_count is not none else '0
-                    operators in batch'),
+                    count=((req.operators|length if req.operators is not none and req.operators|length > 0 else (req.operator_count or 0)) ~ ' operators in batch'),
                     card_classes='history-data-row request-card',
                     card_data={'request-id': req.request_code|upper, 'status': batch_status, 'training-date':
                     req.training_date, 'created': req.created_at or '', 'updated': req.updated_at or ''},
@@ -692,28 +699,29 @@
                     ]) %}
                     {% if req.operators and req.operators|length > 0 %}
                     {% for op in req.operators %}
-                    {% set op_status_upper = op.status|upper %}
-                    <tr class="op-row-item op-row-{{ req.request_code }} {% if op_status_upper == 'APPROVED' %}op-approved{% else %}op-other{% endif %}"
+                    {% set op_status_upper = (op.status or 'PENDING')|upper|replace(' ', '_') %}
+                    {% set effective_op_status = 'SENT_TO_UIDAI' if 'UIDAI' in op_status_upper else ('APPROVED' if op_status_upper in ['APPROVED', 'ACTIVATED', 'ACTIVE'] else ('REAPPLIED' if op_status_upper == 'REAPPLIED' else ('REJECTED' if 'REJECT' in op_status_upper or ('REJECT' in req_status_upper and op_status_upper not in ['APPROVED', 'ACTIVATED', 'ACTIVE', 'SENT_TO_UIDAI']) else ('REVERTED' if 'REVERT' in op_status_upper or ('REVERT' in req_status_upper and op_status_upper not in ['APPROVED', 'ACTIVATED', 'ACTIVE', 'SENT_TO_UIDAI']) else 'PENDING')))) %}
+                    <tr class="op-row-item op-row-{{ req.request_code }} {% if effective_op_status == 'APPROVED' %}op-approved{% else %}op-other{% endif %}"
                         data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                         data-mobile="{{ op.operator_mobile }}"
                         data-email="{{ op.email_id | lower | default('', true) }}"
                         data-created="{{ op.created_at or req.created_at or '' }}"
                         data-updated="{{ op.updated_at or req.updated_at or '' }}"
-                        data-status="{% if 'UIDAI' in op_status_upper %}SENT_TO_UIDAI{% elif op_status_upper == 'APPROVED' %}APPROVED{% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}REVERTED{% elif op_status_upper in ['REJECTED'] %}REJECTED{% elif op_status_upper in ['REAPPLIED'] %}REAPPLIED{% else %}PENDING{% endif %}">
+                        data-status="{{ effective_op_status }}">
                         <td>{{ loop.index }}</td>
                         <td>{{ op.operator_name }}</td>
                         <td>{{ op.operator_mobile }}</td>
                         <td>{{ op.email_id or '—' }}</td>
                         <td>
-                            {% if 'UIDAI' in op_status_upper %}
+                            {% if effective_op_status == 'SENT_TO_UIDAI' %}
                             <span class="badge badge-forwarded">Sent to UIDAI</span>
-                            {% elif op_status_upper == 'APPROVED' %}
+                            {% elif effective_op_status == 'APPROVED' %}
                             <span class="badge badge-approved">Approved</span>
-                            {% elif op_status_upper in ['REVERTED', 'REVERT BACK'] %}
+                            {% elif effective_op_status == 'REVERTED' %}
                             <span class="badge badge-reverted">Reverted</span>
-                            {% elif op_status_upper in ['REJECTED'] %}
+                            {% elif effective_op_status == 'REJECTED' %}
                             <span class="badge badge-rejected">Rejected</span>
-                            {% elif op_status_upper in ['REAPPLIED'] %}
+                            {% elif effective_op_status == 'REAPPLIED' %}
                             <span class="badge badge-reapplied">Reapplied</span>
                             {% else %}
                             <span class="badge badge-pending">Pending</span>
@@ -724,7 +732,14 @@
                                 data-operators="{{ req.operators | tojson | forceescape }}"
                                 data-request-code="{{ req.request_code }}" data-batch-status="{{ req.status }}"
                                 data-index="{{ loop.index0 }}"
-                                onclick='window.currentViewingOperators = JSON.parse(this.dataset.operators); window.currentViewingRequestCode = this.dataset.requestCode; window.currentViewingBatchStatus = this.dataset.batchStatus; openIndividualOperatorDetailCard(parseInt(this.dataset.index, 10));'>Details</button>
+                                onclick='window.currentViewingOperators = JSON.parse(this.dataset.operators); window.currentViewingRequestCode = this.dataset.requestCode; window.currentViewingBatchStatus = this.dataset.batchStatus; openIndividualOperatorDetailCard(parseInt(this.dataset.index, 10));'>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                                Details
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -779,7 +794,7 @@
             <tr class="flat-op-row" data-id="{{ op.id }}" data-name="{{ op.operator_name | lower }}"
                 data-mobile="{{ op.operator_mobile }}" data-email="{{ op.email_id | lower | default('', true) }}"
                 data-request-id="{{ op.request_code | upper }}"
-                data-created="{{ op.submitted_at or op.created_at or '' }}">
+                data-created="{{ op.created_at or '' }}">
                 <td>{{ loop.index }}</td>
                 <td>{{ op.operator_name }}</td>
                 <td>{{ op.operator_mobile }}</td>
@@ -803,6 +818,11 @@
                     <button type="button" class="btn-details" data-operator="{{ op | tojson | forceescape }}"
                         data-request-code="{{ op.request_code }}"
                         onclick="window.currentViewingOperators = [JSON.parse(this.getAttribute('data-operator'))]; window.currentViewingRequestCode = this.getAttribute('data-request-code'); openIndividualOperatorDetailCard(0)">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
                         Details
                     </button>
                 </td>

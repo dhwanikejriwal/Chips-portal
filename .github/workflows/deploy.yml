@@ -1,0 +1,72 @@
+name: Auto Deploy to SDC VM
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy Code & Smart Container Reload
+        run: |
+          TARGET_DIR="/home/aadhar/Aadhar-Project"
+          if [ ! -d "$TARGET_DIR" ]; then
+            TARGET_DIR="/root/Aadhar-Project"
+          fi
+
+          echo "Deploying to $TARGET_DIR..."
+
+          # 1. Check if dependencies changed in this commit before copying
+          REBUILD_NEEDED=0
+          if git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | grep -Eq 'requirements\.txt|Dockerfile'; then
+            echo "[!] Dependency changes detected (requirements.txt or Dockerfile)."
+            REBUILD_NEEDED=1
+          fi
+
+          # 2. Copy updated files to deployment directory while preserving .env and uploads
+          if command -v rsync >/dev/null 2>&1; then
+            rsync -av --exclude='.git' --exclude='.env' --exclude='uploads' ./ "$TARGET_DIR/"
+          else
+            cp -r . "$TARGET_DIR/"
+          fi
+
+          cd "$TARGET_DIR"
+
+          # 3. If images are missing on host, force initial build
+          if ! docker images --format '{{.Repository}}' | grep -Eq 'aadhar-project|chips'; then
+            REBUILD_NEEDED=1
+          fi
+
+          # 4. Conditional Fast-Reload vs Full Rebuild
+          if [ $REBUILD_NEEDED -eq 1 ]; then
+            echo "[*] Building Docker images using local cache..."
+            DOCKER_BUILDKIT=0 docker compose build
+            docker compose up -d --remove-orphans
+          else
+            echo "[*] Code-only change. Fast-reloading containers (zero build)..."
+            docker compose up -d --remove-orphans
+            docker compose restart backend frontend nginx
+          fi
+
+
+
+      - name: Verify Containers are Running
+        run: |
+          sleep 5
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+      - name: Setup Recurring Sync Crontab
+        run: |
+          TARGET_DIR="/home/aadhar/Aadhar-Project"
+          if [ ! -d "$TARGET_DIR" ]; then
+            TARGET_DIR="/root/Aadhar-Project"
+          fi
+          chmod +x "$TARGET_DIR/scripts/vm_setup_sync_cron.sh"
+          bash "$TARGET_DIR/scripts/vm_setup_sync_cron.sh" "$TARGET_DIR"
+

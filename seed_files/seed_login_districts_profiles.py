@@ -308,7 +308,7 @@ def seed_database():
 
         # 4. Parse and Seed Resource Contacts from CSV (EDM, DC, MTO, ADC)
         #original profiles
-        #resource_csv = os.path.join(BASE_DIR, "useful_files", "Aadhaar Dist Resources - updated (2).xlsx - All (1).csv")
+        #resource_csv = os.path.join(BASE_DIR, "sample reports", "Aadhaar Dist Resources - updated (2).xlsx - All (1).csv")
         
         #dummy profiles
         resource_csv = os.path.join(BASE_DIR, "useful_files", "Aadhaar_Dist_Resources_Dummy.csv")

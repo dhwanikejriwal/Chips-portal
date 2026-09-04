@@ -10,8 +10,13 @@ from flask import (
 )
 import requests as http
 
+from app.utils.backend_url import get_backend_base_url
+
 operator_activity_dashboard_bp = Blueprint("operator_activity_dashboard", __name__)
-BACKEND = "http://127.0.0.1:8000/operator-activity"
+
+def _backend():
+    return f"{get_backend_base_url()}/operator-activity"
+
 
 
 def _headers():
@@ -48,7 +53,7 @@ def api_list():
     if not _authed():
         return jsonify({"detail": "Session expired"}), 401
     try:
-        resp = http.get(f"{BACKEND}/", headers=_headers(),
+        resp = http.get(f"{_backend()}/", headers=_headers(),
                         params=_fwd_params(), timeout=30)
         return Response(resp.content, status=resp.status_code,
                         content_type=resp.headers.get("Content-Type", "application/json"))
@@ -65,7 +70,7 @@ def api_get(subpath):
     if not _authed():
         return jsonify({"detail": "Session expired"}), 401
     try:
-        resp = http.get(f"{BACKEND}/{subpath}", headers=_headers(),
+        resp = http.get(f"{_backend()}/{subpath}", headers=_headers(),
                         params=_fwd_params(), timeout=30)
         return Response(resp.content, status=resp.status_code,
                         content_type=resp.headers.get("Content-Type", "application/json"))
@@ -82,7 +87,7 @@ def api_export():
     if not _authed():
         return redirect(url_for("auth.login"))
     try:
-        resp = http.get(f"{BACKEND}/export", headers=_headers(),
+        resp = http.get(f"{_backend()}/export", headers=_headers(),
                         params=_fwd_params(), stream=True, timeout=120)
         return Response(
             resp.iter_content(chunk_size=8192), status=resp.status_code,
@@ -102,7 +107,7 @@ def api_export():
 def api_rejected(batch_id):
     if not _authed():
         return redirect(url_for("auth.login"))
-    resp = http.get(f"{BACKEND}/rejected/{batch_id}", headers=_headers(),
+    resp = http.get(f"{_backend()}/rejected/{batch_id}", headers=_headers(),
                     stream=True, timeout=60)
     return Response(
         resp.iter_content(chunk_size=8192), status=resp.status_code,
@@ -126,7 +131,7 @@ def api_upload():
         return jsonify({"detail": "No file provided"}), 400
     data = {k: v for k, v in request.form.items()}
     source = data.get("source", "registrar_ea")
-    target = f"{BACKEND}/kit-tracker/upload" if source == "kit_tracker" else f"{BACKEND}/upload"
+    target = f"{_backend()}/kit-tracker/upload" if source == "kit_tracker" else f"{_backend()}/upload"
     try:
         resp = http.post(
             target, headers=_headers(),
@@ -147,7 +152,7 @@ def api_delete(batch_id):
     if session.get("role") not in ["Admin", "chips_admin"]:
         return jsonify({"detail": "Forbidden: Admin access required"}), 403
     try:
-        resp = http.delete(f"{BACKEND}/uploads/{batch_id}", headers=_headers(), timeout=60)
+        resp = http.delete(f"{_backend()}/uploads/{batch_id}", headers=_headers(), timeout=60)
         return Response(resp.content, status=resp.status_code,
                         content_type=resp.headers.get("Content-Type", "application/json"))
     except Exception as e:

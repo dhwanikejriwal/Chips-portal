@@ -111,7 +111,8 @@
             </div>
             <div>
                 <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: white;">Operator Kit Mapping</h1>
-                <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Link Operators to Station IDs securely</p>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">Link Operators to Station IDs securely
+                </p>
             </div>
         </div>
     </div>
@@ -123,15 +124,13 @@
         <div class="form-row" style="display: flex; gap: 20px; align-items: flex-end;">
             <div class="form-group" style="flex: 1;">
                 <label>Station ID <span style="color: #dc2626;">*</span></label>
-                <select id="station_id" required>
-                    <option value="" disabled selected>--- Select Station Id ---</option>
-                </select>
+                <div id="station-combobox-container"></div>
+                <input type="hidden" id="station_id" name="station_id" required>
             </div>
             <div class="form-group" style="flex: 1;">
                 <label>Operator Details <span style="color: #dc2626;">*</span></label>
-                <select id="operator_id" required>
-                    <option value="" disabled selected>--- Select Operator ---</option>
-                </select>
+                <div id="operator-combobox-container"></div>
+                <input type="hidden" id="operator_id" name="operator_id" required>
             </div>
             <div style="flex: 0 0 auto;">
                 <button type="submit" class="btn-map" id="btn-submit">Map</button>
@@ -164,14 +163,63 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    let stationCombobox = null;
+    let operatorCombobox = null;
+
     document.addEventListener("DOMContentLoaded", function () {
+        const stationContainer = document.getElementById('station-combobox-container');
+        const stationHidden = document.getElementById('station_id');
+
+        if (stationContainer && typeof window.SearchableCombobox === 'function') {
+            stationCombobox = new SearchableCombobox({
+                container: stationContainer,
+                placeholder: 'Search or select Station ID...',
+                items: [],
+                onSelect: (item) => {
+                    const sid = typeof item === 'string' ? item : (item.station_id || item.text || '');
+                    stationHidden.value = sid;
+                    stationHidden.dispatchEvent(new Event('change', { bubbles: true }));
+                },
+                onClear: () => {
+                    stationHidden.value = '';
+                    stationHidden.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+
+            if (stationCombobox && stationCombobox.input) {
+                stationCombobox.input.addEventListener('input', (e) => {
+                    const typed = (e.target.value || '').trim();
+                    stationHidden.value = typed;
+                });
+            }
+        }
+
+        const operatorContainer = document.getElementById('operator-combobox-container');
+        const operatorHidden = document.getElementById('operator_id');
+
+        if (operatorContainer && typeof window.SearchableCombobox === 'function') {
+            operatorCombobox = new SearchableCombobox({
+                container: operatorContainer,
+                placeholder: 'Search operator by name, mobile, user code...',
+                items: [],
+                onSelect: (item) => {
+                    operatorHidden.value = item.id || '';
+                    operatorHidden.dispatchEvent(new Event('change', { bubbles: true }));
+                },
+                onClear: () => {
+                    operatorHidden.value = '';
+                    operatorHidden.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        }
+
         loadOptions();
         loadMappings();
 
         document.getElementById('mapping-form').addEventListener('submit', async function (e) {
             e.preventDefault();
-            const stationId = document.getElementById('station_id').value;
-            const operatorId = document.getElementById('operator_id').value;
+            const stationId = stationHidden.value;
+            const operatorId = operatorHidden.value;
 
             if (!stationId || !operatorId) {
                 Swal.fire({ icon: 'warning', title: 'Missing Fields', text: 'Please select both Station ID and Operator.' });
@@ -198,11 +246,12 @@
                         timer: 2000,
                         showConfirmButton: false
                     });
-                    // Reload data
-                    loadOptions();
-                    loadMappings();
-                    document.getElementById('station_id').value = '';
-                    document.getElementById('operator_id').value = '';
+                    if (stationCombobox) stationCombobox.clear();
+                    if (operatorCombobox) operatorCombobox.clear();
+                    stationHidden.value = '';
+                    operatorHidden.value = '';
+                    await loadOptions();
+                    await loadMappings();
                 } else {
                     Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'Could not map operator.' });
                 }
@@ -218,52 +267,20 @@
     async function loadOptions() {
         try {
             const res = await fetch('/auth/dc/operator-mapping/options');
-            if (!res.ok) return;
+            if (!res.ok) {
+                console.error("Options error HTTP status:", res.status);
+                return;
+            }
             const data = await res.json();
+            const stationIds = data.station_ids || [];
+            const operators = data.operators || [];
 
-            const stationSelect = document.getElementById('station_id');
-            // Clear all options safely
-            while (stationSelect.options.length > 0) {
-                stationSelect.remove(0);
+            if (stationCombobox) {
+                stationCombobox.setItems(stationIds);
             }
-            // Add default option
-            const defaultOpt = document.createElement('option');
-            defaultOpt.value = "";
-            defaultOpt.disabled = true;
-            defaultOpt.selected = true;
-            defaultOpt.textContent = "--- Select Station Id ---";
-            stationSelect.appendChild(defaultOpt);
-
-            data.station_ids.forEach(sid => {
-                const opt = document.createElement('option');
-                opt.value = sid;
-                opt.textContent = sid;
-                stationSelect.appendChild(opt);
-            });
-
-            const operatorSelect = document.getElementById('operator_id');
-            while (operatorSelect.options.length > 0) {
-                operatorSelect.remove(0);
+            if (operatorCombobox) {
+                operatorCombobox.setItems(operators);
             }
-            const defaultOpOpt = document.createElement('option');
-            defaultOpOpt.value = "";
-            defaultOpOpt.disabled = true;
-            defaultOpOpt.selected = true;
-            defaultOpOpt.textContent = "--- Select Operator ---";
-            operatorSelect.appendChild(defaultOpOpt);
-            
-            data.operators.forEach(op => {
-                const opt = document.createElement('option');
-                opt.value = op.id;
-                opt.textContent = op.text;
-                operatorSelect.appendChild(opt);
-            });
-            
-            // Force browser repaint just in case
-            stationSelect.style.display = 'none';
-            stationSelect.offsetHeight; // trigger reflow
-            stationSelect.style.display = 'block';
-
         } catch (e) {
             console.error("Failed to load options", e);
         }
@@ -278,7 +295,7 @@
             const tbody = document.getElementById('mapping-tbody');
             tbody.innerHTML = '';
 
-            if (mappings.length === 0) {
+            if (!mappings || mappings.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b; padding: 20px;">No operators mapped yet.</td></tr>';
                 return;
             }
@@ -325,12 +342,12 @@
 
         if (isConfirmed && reason) {
             try {
-                const res = await fetch(`/auth/dc/operator-mapping/${id}?reason=${reason}`, { method: 'DELETE' });
+                const res = await fetch(`/auth/dc/operator-mapping/${id}?reason=${encodeURIComponent(reason)}`, { method: 'DELETE' });
                 const data = await res.json();
                 if (res.ok) {
-                    Swal.fire({ icon: 'success', title: 'Removed', text: 'Operator status updated to ' + data.new_status, timer: 2000, showConfirmButton: false });
-                    loadOptions();
-                    loadMappings();
+                    Swal.fire({ icon: 'success', title: 'Removed', text: 'Operator status updated to ' + data.new_status, timer: 1500, showConfirmButton: false });
+                    await loadOptions();
+                    await loadMappings();
                 } else {
                     Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'Could not remove mapping.' });
                 }

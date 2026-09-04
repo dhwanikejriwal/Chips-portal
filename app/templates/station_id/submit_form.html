@@ -14,6 +14,162 @@
             transform: rotate(360deg);
         }
     }
+
+    .sid-custom-select-wrapper {
+        position: relative;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .sid-hidden-select {
+        position: absolute !important;
+        opacity: 0 !important;
+        width: 0 !important;
+        height: 0 !important;
+        pointer-events: none !important;
+        z-index: -1 !important;
+    }
+
+    .sid-custom-select-trigger {
+        width: 100%;
+        height: 42px;
+        box-sizing: border-box;
+        padding: 0 38px 0 14px;
+        background: #ffffff;
+        color: #1e293b;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 13.5px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        user-select: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .sid-custom-select-trigger:focus,
+    .sid-custom-select-wrapper.is-open .sid-custom-select-trigger {
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+        outline: none;
+    }
+
+    .sid-selected-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+    }
+
+    .sid-selected-text.is-placeholder {
+        color: #94a3b8;
+    }
+
+    .sid-custom-select-arrow {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+        color: #64748b;
+        transition: transform 0.2s ease;
+    }
+
+    .sid-custom-select-wrapper.is-open .sid-custom-select-arrow {
+        transform: translateY(-50%) rotate(180deg);
+        color: #4f46e5;
+    }
+
+    .sid-custom-select-dropdown {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-height: 220px;
+        overflow-y: auto;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        z-index: 999;
+        display: none;
+        box-sizing: border-box;
+        padding: 4px;
+    }
+
+    .sid-custom-select-wrapper.is-open .sid-custom-select-dropdown {
+        display: block;
+    }
+
+    .sid-custom-select-option {
+        padding: 9px 12px;
+        font-size: 13.5px;
+        font-weight: 500;
+        color: #1e293b;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-sizing: border-box;
+        width: 100%;
+    }
+
+    .sid-custom-select-option:hover {
+        background: rgba(79, 70, 229, 0.08);
+        color: #4f46e5;
+    }
+
+    .sid-custom-select-option.is-selected {
+        background: rgba(79, 70, 229, 0.12);
+        color: #4f46e5;
+        font-weight: 600;
+    }
+
+    /* Dark mode support */
+    html[data-theme="dark"] .sid-custom-select-trigger,
+    :root[data-theme="dark"] .sid-custom-select-trigger {
+        background: #1e293b;
+        color: #f8fafc;
+        border-color: #334155;
+    }
+
+    html[data-theme="dark"] .sid-selected-text.is-placeholder,
+    :root[data-theme="dark"] .sid-selected-text.is-placeholder {
+        color: #94a3b8;
+    }
+
+    html[data-theme="dark"] .sid-custom-select-arrow,
+    :root[data-theme="dark"] .sid-custom-select-arrow {
+        color: #94a3b8;
+    }
+
+    html[data-theme="dark"] .sid-custom-select-dropdown,
+    :root[data-theme="dark"] .sid-custom-select-dropdown {
+        background: #1e293b;
+        border-color: #334155;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    html[data-theme="dark"] .sid-custom-select-option,
+    :root[data-theme="dark"] .sid-custom-select-option {
+        color: #f1f5f9;
+    }
+
+    html[data-theme="dark"] .sid-custom-select-option:hover,
+    :root[data-theme="dark"] .sid-custom-select-option:hover {
+        background: rgba(99, 102, 241, 0.2);
+        color: #a5b4fc;
+    }
+
+    html[data-theme="dark"] .sid-custom-select-option.is-selected,
+    :root[data-theme="dark"] .sid-custom-select-option.is-selected {
+        background: rgba(99, 102, 241, 0.28);
+        color: #818cf8;
+    }
 </style>
 {% endblock %}
 
@@ -38,7 +194,7 @@
                     style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 8px; display: block;">District
                     <span class="required-star">*</span></label>
                 <select name="district" required disabled
-                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px; cursor:not-allowed;"
+                    style="height:42px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; cursor:not-allowed;"
                     class="form-control-input oa-readonly-input">
                     <option value="{{ session.get('district_id') }}" selected>{{ session.get('district_name', 'Select
                         District') }}</option>
@@ -47,18 +203,28 @@
                 <div style="font-size: 11px; color: #94a3b8; margin-top: 5px;">Pre-filled from your account</div>
             </div>
 
-
             <!-- Model Selection -->
             <div class="input-group">
                 <label
                     style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 8px; display: block;">Model
                     Selection <span class="required-star">*</span></label>
-                <select name="model" id="model-select" class="form-control-input" required
-                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;">
-                    <option value="" disabled selected>Select Model Type</option>
-                    <option value="ECMP">ECMP (In House)</option>
-                    <option value="UCL">UCL (External)</option>
-                </select>
+                <div class="sid-custom-select-wrapper" id="model-custom-wrapper">
+                    <select name="model" id="model-select" class="sid-hidden-select" required>
+                        <option value="" disabled selected>Select Model Type</option>
+                        <option value="ECMP">ECMP (In House)</option>
+                        <option value="UCL">UCL (External)</option>
+                        <option value="VLE">VLE</option>
+                    </select>
+                    <div class="sid-custom-select-trigger" tabindex="0">
+                        <span class="sid-selected-text is-placeholder">Select Model Type</span>
+                        <svg class="sid-custom-select-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="sid-custom-select-dropdown">
+                        <div class="sid-custom-select-option" data-value="ECMP">ECMP (In House)</div>
+                        <div class="sid-custom-select-option" data-value="UCL">UCL (External)</div>
+                        <div class="sid-custom-select-option" data-value="VLE">VLE</div>
+                    </div>
+                </div>
             </div>
 
             <!-- User Type -->
@@ -66,14 +232,23 @@
                 <label
                     style="font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 8px; display: block;">User
                     Type <span class="required-star">*</span></label>
-                <select name="user_type" id="user-type-select" class="form-control-input" required
-                    style="height:38px; width:100%; box-sizing:border-box; padding:6px 12px; border:1px solid #cbd5e1; border-radius:4px;"
-                    onchange="toggleCustomReason()">
-                    <option value="" disabled selected>Select User Type</option>
-                    <option value="new_user">New User (Fresh Assignment)</option>
-                    <option value="machine_id">Machine ID (Replace/Reset)</option>
-                    <option value="custom">Custom Reason</option>
-                </select>
+                <div class="sid-custom-select-wrapper" id="user-type-custom-wrapper">
+                    <select name="user_type" id="user-type-select" class="sid-hidden-select" required onchange="toggleCustomReason()">
+                        <option value="" disabled selected>Select User Type</option>
+                        <option value="new_user">New User (Fresh Assignment)</option>
+                        <option value="machine_id">Machine ID (Replace/Reset)</option>
+                        <option value="custom">Custom Reason</option>
+                    </select>
+                    <div class="sid-custom-select-trigger" tabindex="0">
+                        <span class="sid-selected-text is-placeholder">Select User Type</span>
+                        <svg class="sid-custom-select-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="sid-custom-select-dropdown">
+                        <div class="sid-custom-select-option" data-value="new_user">New User (Fresh Assignment)</div>
+                        <div class="sid-custom-select-option" data-value="machine_id">Machine ID (Replace/Reset)</div>
+                        <div class="sid-custom-select-option" data-value="custom">Custom Reason</div>
+                    </div>
+                </div>
             </div>
 
             <!-- Number of Kits -->
@@ -242,9 +417,78 @@
         btn.childNodes[2].textContent = ' Submit Request';
     }
 
+    // ── Custom Full-Width Select Component Logic ────────────────────
+    function initCustomSelect(wrapperId, selectId, placeholder) {
+        const wrapper = document.getElementById(wrapperId);
+        if (!wrapper) return;
+        const select = document.getElementById(selectId);
+        const trigger = wrapper.querySelector('.sid-custom-select-trigger');
+        const textSpan = wrapper.querySelector('.sid-selected-text');
+        const options = wrapper.querySelectorAll('.sid-custom-select-option');
+
+        function updateUIFromSelect() {
+            const val = select.value;
+            let matched = false;
+            options.forEach(opt => {
+                if (opt.dataset.value === val) {
+                    opt.classList.add('is-selected');
+                    textSpan.textContent = opt.textContent;
+                    textSpan.classList.remove('is-placeholder');
+                    matched = true;
+                } else {
+                    opt.classList.remove('is-selected');
+                }
+            });
+            if (!matched) {
+                textSpan.textContent = placeholder;
+                textSpan.classList.add('is-placeholder');
+            }
+        }
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = wrapper.classList.contains('is-open');
+            document.querySelectorAll('.sid-custom-select-wrapper').forEach(w => w.classList.remove('is-open'));
+            if (!isOpen) {
+                wrapper.classList.add('is-open');
+            }
+        });
+
+        trigger.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                trigger.click();
+            } else if (e.key === 'Escape') {
+                wrapper.classList.remove('is-open');
+            }
+        });
+
+        options.forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                select.value = opt.dataset.value;
+                updateUIFromSelect();
+                wrapper.classList.remove('is-open');
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                select.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+
+        select.addEventListener('change', updateUIFromSelect);
+        updateUIFromSelect();
+    }
+
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.sid-custom-select-wrapper').forEach(w => w.classList.remove('is-open'));
+    });
+
     function clearStationIdForm() {
         sessionStorage.removeItem('sid_request_draft');
         document.getElementById('sid-request-form').reset();
+        document.getElementById('model-select').value = '';
+        document.getElementById('user-type-select').value = '';
+        document.getElementById('model-select').dispatchEvent(new Event('change', { bubbles: true }));
+        document.getElementById('user-type-select').dispatchEvent(new Event('change', { bubbles: true }));
         document.getElementById('custom-reason-wrapper').style.display = 'none';
         document.getElementById('custom-reason-input').required = false;
         document.getElementById('number-of-kits').value = 1;
@@ -291,6 +535,9 @@
     };
 
     document.addEventListener('DOMContentLoaded', () => {
+        initCustomSelect('model-custom-wrapper', 'model-select', 'Select Model Type');
+        initCustomSelect('user-type-custom-wrapper', 'user-type-select', 'Select User Type');
+
         const form = document.getElementById('sid-request-form');
         if (form) {
             form.addEventListener('input', window.saveSidDraft);

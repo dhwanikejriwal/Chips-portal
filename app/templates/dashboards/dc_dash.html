@@ -105,15 +105,16 @@ endblock %}
             }, 0);
         };
 
-        // Sentence-case labels; the label block already says "action required".
+        // Each alert carries a direct URL to navigate to the respective page.
+        // Pending alerts → ?status=pending ; Reverted/rejected alerts → ?status=reverted
         var alerts = [
-            { label: "Pending LMS", count: pendingCred(stats.lms_requests), icon: "ti-id-badge-2", url: "/auth/dc/lms" },
-            { label: "Pending NSEIT", count: pendingCred(stats.nseit_requests), icon: "ti-award", url: "/auth/dc/nseit" },
-            { label: "Reverted Station ID", count: revRej(stats.station_id_requests).length, icon: "ti-device-desktop", url: "/auth/dc/station-id/list" },
-            { label: "Reverted L1", count: revRej(stats.l1_requests).length, icon: "ti-shield", url: "/auth/dc/l1-registration" },
-            { label: "Reverted L2", count: revRej(stats.l2_requests).length, icon: "ti-folder", url: "/auth/dc/l2-registration/list" },
-            { label: "Reverted operator activation", count: revRej(stats.activation_requests).length, icon: "ti-user-check", url: "/auth/dc/operator-activation/list" },
-            { label: "Reverted operator reactivation", count: revRejOps(stats.reactivation_requests), icon: "ti-refresh", url: "/auth/dc/reactivation" }
+            { label: "Pending LMS",                    count: pendingCred(stats.lms_requests),             icon: "ti-id-badge-2",    url: "/auth/dc/lms?status=pending" },
+            { label: "Pending NSEIT",                  count: pendingCred(stats.nseit_requests),           icon: "ti-award",         url: "/auth/dc/nseit?status=pending" },
+            { label: "Reverted Station ID",            count: revRej(stats.station_id_requests).length,   icon: "ti-device-desktop", url: "/auth/dc/station-id/list?status=reverted" },
+            { label: "Reverted L1",                    count: revRej(stats.l1_requests).length,           icon: "ti-shield",        url: "/auth/dc/l1-registration?status=reverted" },
+            { label: "Reverted L2",                    count: revRej(stats.l2_requests).length,           icon: "ti-folder",        url: "/auth/dc/l2-registration/list?status=reverted" },
+            { label: "Reverted operator activation",   count: revRej(stats.activation_requests).length,   icon: "ti-user-check",    url: "/auth/dc/operator-activation/list?status=reverted" },
+            { label: "Reverted operator reactivation", count: revRejOps(stats.reactivation_requests),     icon: "ti-refresh",       url: "/auth/dc/reactivation?status=reverted" }
         ];
 
         if (!alerts.length) return;
@@ -128,11 +129,12 @@ endblock %}
         var mk = function (a, dup) {
             var lbl = escapeHtml(a.label);
             return '<li class="pab-item"' + (dup ? ' aria-hidden="true"' : '') + '>'
-                + '<a href="' + a.url + '"' + (dup ? ' tabindex="-1"' : ' aria-label="' + lbl + ', ' + a.count + ' to action"') + '>'
+                + '<button type="button" class="pab-alert-btn" data-url="' + escapeHtml(a.url) + '"'
+                + (dup ? ' tabindex="-1"' : ' aria-label="' + lbl + ', ' + a.count + ' to action"') + '>'
                 + '<i class="ti ' + a.icon + ' pab-item-ico" aria-hidden="true"></i>'
                 + '<span class="pab-item-label">' + lbl + '</span>'
                 + '<span class="pab-badge" aria-hidden="true">' + a.count + '</span>'
-                + '</a></li>';
+                + '</button></li>';
         };
 
         var real = alerts.map(function (a) { return mk(a, false); }).join('');
@@ -143,6 +145,18 @@ endblock %}
 
         var halfWidth = track.scrollWidth / 2;
         track.style.setProperty("--pab-duration", Math.max(18, Math.round(halfWidth / 55)) + "s");
+
+        // ── Alert pill click → navigate directly to the respective page ──
+        track.addEventListener("click", function (e) {
+            var btn = e.target.closest(".pab-alert-btn");
+            if (!btn) return;
+            e.preventDefault();
+
+            var targetUrl = btn.getAttribute("data-url");
+            if (targetUrl) {
+                window.location.href = targetUrl;
+            }
+        });
     });
 </script>
 
@@ -184,10 +198,11 @@ endblock %}
     };
     const l2Status = (status) => {
         const s = (status || '').toString().trim().toLowerCase();
-        if (['approved', 'activated'].includes(s)) return { label: 'Approved' };
+        if (['approved', 'activated', 'l2_done', 'l2 done', 'done'].includes(s)) return { label: 'Approved' };
         if (['sent_to_uidai', 'sent to uidai'].includes(s)) return { label: 'Sent to UIDAI' };
-        if (s === 'rejected') return { label: 'Rejected' };
-        if (['reverted', 'reverted_by_chips'].includes(s)) return { label: 'Reverted' };
+        if (['rejected', 'rejected_by_uidai'].includes(s)) return { label: 'Rejected' };
+        if (['reverted', 'reverted_by_chips', 'revert_back'].includes(s)) return { label: 'Reverted' };
+        if (['awaiting_l2', 'awaiting l2'].includes(s)) return { label: 'Awaiting L2' };
         return { label: 'Pending' };
     };
 
@@ -473,18 +488,23 @@ endblock %}
             } else if (isKitDashboard) {
                 const c = { Total: 0, Pending: 0, AwaitingL1: 0, AwaitingL2: 0, SentToUidai: 0, Reverted: 0, Rejected: 0, Approved: 0 };
                 rows.forEach(x => {
-                    const w = tab.weightByOps ? (x.operator_count || 0) : 1;
+                    const w = (x.number_of_kits != null && x.number_of_kits > 0) ? x.number_of_kits : ((x.operator_count != null && x.operator_count > 0) ? x.operator_count : 1);
                     const status = (x.status || '').toString().trim().toLowerCase();
-                    if (status === 'awaiting_l1' || status === 'awaiting l1') c.AwaitingL1 += w;
-                    else if (status === 'awaiting_l2' || status === 'awaiting l2') c.AwaitingL2 += w;
-                    else {
-                        c.Total += w;
-                        if (status === 'pending' || status === 'reapplied') c.Pending += w;
-                        else if (status === 'sent_to_uidai' || status === 'sent to uidai') c.SentToUidai += w;
-                        else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'reverted by chips') c.Reverted += w;
-                        else if (status === 'rejected' || status === 'rejected' || status === 'rejected_by_uidai') c.Rejected += w;
-                        else if (['approved', 'approved', 'activated', 'allotted', 'done', 'l1_done'].includes(status)) c.Approved += w;
-                        else c.Pending += w;
+                    if (status === 'awaiting_l1' || status === 'awaiting l1') {
+                        c.AwaitingL1 += 1;
+                    } else if (status === 'awaiting_l2' || status === 'awaiting l2') {
+                        c.AwaitingL2 += 1;
+                    } else {
+                        const itemWeight = (tab.name === 'Station ID' || tab.name === 'Station ID Requests')
+                            ? (['approved', 'allotted', 'done', 'l1_done', 'l2_done', 'activated'].includes(status) ? 1 : w)
+                            : 1;
+                        c.Total += itemWeight;
+                        if (status === 'pending' || status === 'reapplied') c.Pending += itemWeight;
+                        else if (status === 'sent_to_uidai' || status === 'sent to uidai') c.SentToUidai += itemWeight;
+                        else if (status === 'reverted' || status === 'reverted_by_chips' || status === 'reverted by chips') c.Reverted += itemWeight;
+                        else if (status === 'rejected' || status === 'rejected_by_uidai') c.Rejected += itemWeight;
+                        else if (['approved', 'activated', 'allotted', 'done', 'l1_done', 'l2_done'].includes(status)) c.Approved += itemWeight;
+                        else c.Pending += itemWeight;
                     }
                 });
                 return c;
@@ -539,8 +559,8 @@ endblock %}
                     ];
                 } else if (tab.name === 'L2 Requests') {
                     return [
-                        { label: 'Awaiting L2', count: counts.AwaitingL2, key: 'AwaitingL2' },
                         { label: 'Pending', count: counts.Pending, key: 'Pending' },
+                        { label: 'Awaiting L2', count: counts.AwaitingL2, key: 'AwaitingL2' },
                         { label: 'Sent to UIDAI', count: counts.SentToUidai, key: 'SentToUidai' },
                         { label: 'Reverted', count: counts.Reverted, key: 'Reverted' },
                         { label: 'Rejected by UIDAI', count: counts.Rejected, key: 'Rejected' },

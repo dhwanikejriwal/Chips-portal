@@ -1,4 +1,5 @@
 <script>
+    const REPORT_PROXY_BASE = (window.location.pathname.startsWith('/auth') ? '/auth/reports/proxy' : '/reports/proxy');
 
     function getColumnHeaderTexts(table, numCols) {
         let colHeaders = new Array(numCols).fill('');
@@ -169,329 +170,334 @@
 
 
 
-        // Main Section Navigation
-        function switchMainSection(sectionId, element) {
-            document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
-
-            let targetPill = element;
-            if (!targetPill) {
-                if (sectionId === 'custom-datasets') {
-                    targetPill = document.querySelectorAll('.pill')[1];
-                } else {
-                    targetPill = document.querySelectorAll('.pill')[0];
-                }
-            }
-
-            if (targetPill) targetPill.classList.add('active');
-            const targetSec = document.getElementById(sectionId);
-            if (targetSec) targetSec.classList.add('active');
-
-            localStorage.setItem('activeReportSection', sectionId);
+    // Main Section Navigation
+    function switchMainSection(sectionId, element) {
+        let targetSec = document.getElementById(sectionId);
+        if (!targetSec) {
+            sectionId = 'system-requests';
+            targetSec = document.getElementById(sectionId);
         }
 
-        // Sub-tab Navigation (Custom Datasets)
-        function switchSubTab(tabId) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
 
-            if (tabId === 'history') {
-                const historyPill = document.querySelectorAll('.tab')[0];
-                if (historyPill) historyPill.classList.add('active');
-                const historyTab = document.getElementById('history-tab');
-                if (historyTab) historyTab.classList.add('active');
-                if (typeof refreshHistoryView === 'function') {
-                    refreshHistoryView();
-                }
+        let targetPill = element;
+        if (!targetPill) {
+            if (sectionId === 'custom-datasets') {
+                targetPill = document.querySelectorAll('.pill')[1];
             } else {
-                const genPill = document.querySelectorAll('.tab')[1];
-                if (genPill) genPill.classList.add('active');
-                const genTab = document.getElementById('generate-tab');
-                if (genTab) genTab.classList.add('active');
-                if (typeof resetGenerateForm === 'function') {
-                    resetGenerateForm();
-                }
+                targetPill = document.querySelectorAll('.pill')[0];
             }
-
-            localStorage.setItem('activeReportSubTab', tabId);
         }
 
-        // Modal Logic
-        function showTab(index) {
-            const btns = document.querySelectorAll('.preview-sub-bar .tab-btn, #previewBody .tab-btn');
-            btns.forEach((btn, i) => {
-                if (i === index) {
-                    btn.classList.add('active');
+        if (targetPill) targetPill.classList.add('active');
+        if (targetSec) targetSec.classList.add('active');
+
+        localStorage.setItem('activeReportSection', sectionId);
+    }
+
+    // Sub-tab Navigation (Custom Datasets)
+    function switchSubTab(tabId) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+        if (tabId === 'history') {
+            const historyPill = document.querySelectorAll('.tab')[0];
+            if (historyPill) historyPill.classList.add('active');
+            const historyTab = document.getElementById('history-tab');
+            if (historyTab) historyTab.classList.add('active');
+            if (typeof refreshHistoryView === 'function') {
+                refreshHistoryView();
+            }
+        } else {
+            const genPill = document.querySelectorAll('.tab')[1];
+            if (genPill) genPill.classList.add('active');
+            const genTab = document.getElementById('generate-tab');
+            if (genTab) genTab.classList.add('active');
+            if (typeof resetGenerateForm === 'function') {
+                resetGenerateForm();
+            }
+        }
+
+        localStorage.setItem('activeReportSubTab', tabId);
+    }
+
+    // Modal Logic
+    function showTab(index) {
+        const btns = document.querySelectorAll('.preview-sub-bar .tab-btn, #previewBody .tab-btn');
+        btns.forEach((btn, i) => {
+            if (i === index) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+            btn.style.background = '';
+            btn.style.color = '';
+        });
+        document.querySelectorAll('.tab-pane').forEach((pane, i) => {
+            pane.style.display = i === index ? 'block' : 'none';
+        });
+        if (currentPreviewMode === 'custom') {
+            currentReportPage = 1;
+            applyCustomModalFilters();
+        }
+    }
+
+
+    function openHistoryDetail(groupId, title) {
+        document.getElementById('history-main-view').style.display = 'none';
+        document.getElementById('history-detail-view').style.display = 'block';
+        document.getElementById('detail-title').innerText = title + " History";
+
+        document.querySelectorAll('.detail-list-container').forEach(c => c.style.display = 'none');
+        document.getElementById('detail-list-' + groupId).style.display = 'block';
+
+        document.getElementById('history-district-filter').value = 'all';
+        filterHistoryTable();
+    }
+
+    function filterHistoryTable() {
+        const filterValue = document.getElementById('history-district-filter').value.toLowerCase();
+        const activeContainer = Array.from(document.querySelectorAll('.detail-list-container')).find(c => c.style.display === 'block');
+
+        if (activeContainer) {
+            const rows = activeContainer.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const districtText = row.cells[1].innerText.trim().toLowerCase();
+                if (filterValue === 'all') {
+                    row.style.display = '';
                 } else {
-                    btn.classList.remove('active');
-                }
-                btn.style.background = '';
-                btn.style.color = '';
-            });
-            document.querySelectorAll('.tab-pane').forEach((pane, i) => {
-                pane.style.display = i === index ? 'block' : 'none';
-            });
-            if (currentPreviewMode === 'custom') {
-                currentReportPage = 1;
-                applyCustomModalFilters();
-            }
-        }
-
-
-        function openHistoryDetail(groupId, title) {
-            document.getElementById('history-main-view').style.display = 'none';
-            document.getElementById('history-detail-view').style.display = 'block';
-            document.getElementById('detail-title').innerText = title + " History";
-
-            document.querySelectorAll('.detail-list-container').forEach(c => c.style.display = 'none');
-            document.getElementById('detail-list-' + groupId).style.display = 'block';
-
-            document.getElementById('history-district-filter').value = 'all';
-            filterHistoryTable();
-        }
-
-        function filterHistoryTable() {
-            const filterValue = document.getElementById('history-district-filter').value.toLowerCase();
-            const activeContainer = Array.from(document.querySelectorAll('.detail-list-container')).find(c => c.style.display === 'block');
-
-            if (activeContainer) {
-                const rows = activeContainer.querySelectorAll('tbody tr');
-                rows.forEach(row => {
-                    const districtText = row.cells[1].innerText.trim().toLowerCase();
-                    if (filterValue === 'all') {
+                    if (districtText === filterValue || districtText.includes(filterValue)) {
                         row.style.display = '';
                     } else {
-                        if (districtText === filterValue || districtText.includes(filterValue)) {
-                            row.style.display = '';
-                        } else {
-                            row.style.display = 'none';
-                        }
-                    }
-                });
-            }
-        }
-
-        function closeHistoryDetail() {
-            document.getElementById('history-main-view').style.display = 'block';
-            document.getElementById('history-detail-view').style.display = 'none';
-        }
-
-        let currentPreviewMode = 'system';
-        let currentFilterType = 'combined';
-
-        let currentReportPage = 1;
-        let currentReportPageSize = 10;
-        let totalReportPages = 1;
-        let totalReportRows = 0;
-
-        function onModalDistrictChange() {
-            currentReportPage = 1;
-            if (currentPreviewMode === 'system') {
-                fetchSystemPreview(currentFilterType);
-            } else {
-                applyCustomModalFilters();
-            }
-        }
-
-        const isDc = "{{ 'true' if is_dc else 'false' }}" === 'true';
-        const userDistrict = "{{ user_district }}";
-
-        let currentSystemReport = null;
-        let currentSystemTitle = null;
-
-        let currentLmsNseitCode = null;
-        let currentLmsNseitName = null;
-
-        function resetAllReportFilters() {
-            currentFilterType = 'combined';
-            currentReportPage = 1;
-            currentReportPageSize = 10;
-            currentPreviewMode = 'system';
-            currentDistrictDetailName = null;
-            currentLmsNseitCode = null;
-            currentLmsNseitName = null;
-
-            const psSelect = document.getElementById('modalPageSizeSelect');
-            if (psSelect) psSelect.value = '10';
-
-            const distFilter = document.getElementById('modal-district-filter');
-            if (distFilter) {
-                distFilter.value = (isDc && userDistrict) ? userDistrict : '';
-            }
-
-            const mainSearch = document.getElementById('modal-search-input');
-            if (mainSearch) mainSearch.value = '';
-
-            ['filter-l1', 'filter-l2', 'filter-sd', 'filter-op', 'filter-st'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-        }
-
-        async function openSystemPreviewModal(reportName, friendlyTitle) {
-            resetAllReportFilters();
-            currentPreviewMode = 'system';
-            currentSystemReport = reportName;
-            currentSystemTitle = friendlyTitle;
-            currentReportPage = 1;
-            
-            const isSummaryReport = ['district_wise_kit_count', 'lms_summary', 'nseit_summary'].includes(reportName);
-            if (!isDc && isSummaryReport) {
-                currentReportPageSize = 50;
-            } else {
-                currentReportPageSize = 10;
-            }
-            
-            const psSelect = document.getElementById('modalPageSizeSelect');
-            if (psSelect) psSelect.value = String(currentReportPageSize);
-
-            document.getElementById('previewModal').style.display = 'flex';
-            document.getElementById('previewTitle').innerText = friendlyTitle;
-
-            const distContainer = document.getElementById('modal-district-container');
-            const distFilter = document.getElementById('modal-district-filter');
-            const mainSearch = document.getElementById('modal-search-input');
-            const clearBtn = document.getElementById('modal-clear-filter-btn') || document.getElementById('modal-search-btn');
-
-            if (distContainer) distContainer.style.display = 'flex';
-
-            // Unified search bar is available for ALL reports
-            if (mainSearch) { mainSearch.style.display = ''; mainSearch.value = ''; }
-
-            // Hide District Filter & Clear Button for district_wise_kit_count report (both CHiPS & DC panel)
-            if (reportName === 'district_wise_kit_count') {
-                if (distFilter) distFilter.style.display = 'none';
-                if (clearBtn) clearBtn.style.display = 'none';
-            } else {
-                if (isDc && userDistrict) {
-                    if (distFilter) {
-                        distFilter.value = userDistrict;
-                        distFilter.style.display = 'none';
-                    }
-                } else {
-                    if (distFilter) {
-                        distFilter.style.display = '';
-                        distFilter.value = '';
+                        row.style.display = 'none';
                     }
                 }
-                if (clearBtn) clearBtn.style.display = 'flex';
-            }
+            });
+        }
+    }
 
-            history.pushState({ modalOpen: true }, "", "#preview");
+    function closeHistoryDetail() {
+        document.getElementById('history-main-view').style.display = 'block';
+        document.getElementById('history-detail-view').style.display = 'none';
+    }
 
-            // Fetch Combined by default
-            await fetchSystemPreview('combined');
+    let currentPreviewMode = 'system';
+    let currentFilterType = 'combined';
+
+    let currentReportPage = 1;
+    let currentReportPageSize = 10;
+    let totalReportPages = 1;
+    let totalReportRows = 0;
+
+    function onModalDistrictChange() {
+        currentReportPage = 1;
+        if (currentPreviewMode === 'system') {
+            fetchSystemPreview(currentFilterType);
+        } else {
+            applyCustomModalFilters();
+        }
+    }
+
+    const isDc = "{{ 'true' if is_dc else 'false' }}" === 'true';
+    const userDistrict = "{{ user_district }}";
+
+    let currentSystemReport = null;
+    let currentSystemTitle = null;
+
+    let currentLmsNseitCode = null;
+    let currentLmsNseitName = null;
+
+    function resetAllReportFilters() {
+        currentFilterType = 'combined';
+        currentReportPage = 1;
+        currentReportPageSize = 10;
+        currentPreviewMode = 'system';
+        currentDistrictDetailName = null;
+        currentLmsNseitCode = null;
+        currentLmsNseitName = null;
+
+        const psSelect = document.getElementById('modalPageSizeSelect');
+        if (psSelect) psSelect.value = '10';
+
+        const distFilter = document.getElementById('modal-district-filter');
+        if (distFilter) {
+            distFilter.value = (isDc && userDistrict) ? userDistrict : '';
         }
 
-        function getDistrictParam() {
+        const mainSearch = document.getElementById('modal-search-input');
+        if (mainSearch) mainSearch.value = '';
+
+        ['filter-l1', 'filter-l2', 'filter-sd', 'filter-op', 'filter-st'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    }
+
+    async function openSystemPreviewModal(reportName, friendlyTitle) {
+        resetAllReportFilters();
+        currentPreviewMode = 'system';
+        currentSystemReport = reportName;
+        currentSystemTitle = friendlyTitle;
+        currentReportPage = 1;
+
+        const isSummaryReport = ['district_wise_kit_count', 'lms_summary', 'nseit_summary'].includes(reportName);
+        if (!isDc && isSummaryReport) {
+            currentReportPageSize = 50;
+        } else {
+            currentReportPageSize = 10;
+        }
+
+        const psSelect = document.getElementById('modalPageSizeSelect');
+        if (psSelect) psSelect.value = String(currentReportPageSize);
+
+        document.getElementById('previewModal').style.display = 'flex';
+        document.getElementById('previewTitle').innerText = friendlyTitle;
+
+        const distContainer = document.getElementById('modal-district-container');
+        const distFilter = document.getElementById('modal-district-filter');
+        const mainSearch = document.getElementById('modal-search-input');
+        const clearBtn = document.getElementById('modal-clear-filter-btn') || document.getElementById('modal-search-btn');
+
+        if (distContainer) distContainer.style.display = 'flex';
+
+        // Unified search bar is available for ALL reports
+        if (mainSearch) { mainSearch.style.display = ''; mainSearch.value = ''; }
+
+        // Hide District Filter & Clear Button for district_wise_kit_count report (both CHiPS & DC panel)
+        if (reportName === 'district_wise_kit_count') {
+            if (distFilter) distFilter.style.display = 'none';
+            if (clearBtn) clearBtn.style.display = 'none';
+        } else {
             if (isDc && userDistrict) {
-                return `&district=${encodeURIComponent(userDistrict)}`;
+                if (distFilter) {
+                    distFilter.value = userDistrict;
+                    distFilter.style.display = 'none';
+                }
+            } else {
+                if (distFilter) {
+                    distFilter.style.display = '';
+                    distFilter.value = '';
+                }
             }
-            const d = document.getElementById('modal-district-filter');
-            return (d && d.value) ? `&district=${encodeURIComponent(d.value)}` : '';
+            if (clearBtn) clearBtn.style.display = 'flex';
         }
 
-        function ensureSNoColumn(container) {
-            if (!container) return;
-            const tables = container.querySelectorAll('table');
-            tables.forEach(table => {
-                const theadRows = table.querySelectorAll('thead tr');
-                const tbody = table.querySelector('tbody');
-                if (!theadRows.length || !tbody) return;
+        history.pushState({ modalOpen: true }, "", "#preview");
 
-                const firstHeader = theadRows[0].querySelector('th');
-                if (!firstHeader) return;
+        // Fetch Combined by default
+        await fetchSystemPreview('combined');
+    }
 
-                let hasSNoHeader = false;
-                theadRows.forEach(tr => {
-                    const ths = tr.querySelectorAll('th');
-                    ths.forEach(th => {
-                        const rawTxt = th.innerText.trim().toLowerCase();
-                        const cleanTxt = rawTxt.replace(/[^a-z0-9]/g, '');
-                        if (
-                            cleanTxt === 'sno' ||
-                            cleanTxt === 'srno' ||
-                            cleanTxt === 'slno' ||
-                            cleanTxt.startsWith('sno') ||
-                            cleanTxt.startsWith('srno') ||
-                            cleanTxt.startsWith('slno') ||
-                            cleanTxt === 'serialno' ||
-                            rawTxt === '#' ||
-                            rawTxt.startsWith('#')
-                        ) {
-                            hasSNoHeader = true;
-                        }
-                    });
-                });
+    function getDistrictParam() {
+        if (isDc && userDistrict) {
+            return `&district=${encodeURIComponent(userDistrict)}`;
+        }
+        const d = document.getElementById('modal-district-filter');
+        return (d && d.value) ? `&district=${encodeURIComponent(d.value)}` : '';
+    }
 
-                if (hasSNoHeader) return;
+    function ensureSNoColumn(container) {
+        if (!container) return;
+        const tables = container.querySelectorAll('table');
+        tables.forEach(table => {
+            const theadRows = table.querySelectorAll('thead tr');
+            const tbody = table.querySelector('tbody');
+            if (!theadRows.length || !tbody) return;
 
-                const th = document.createElement('th');
-                th.innerText = 'S.No';
-                th.style.width = '60px';
-                th.style.textAlign = 'center';
-                theadRows[0].insertBefore(th, theadRows[0].firstChild);
+            const firstHeader = theadRows[0].querySelector('th');
+            if (!firstHeader) return;
 
-                const rows = tbody.querySelectorAll('tr');
-                rows.forEach((row, idx) => {
-                    if (row.dataset.originalIndex === undefined) {
-                        row.dataset.originalIndex = idx;
+            let hasSNoHeader = false;
+            theadRows.forEach(tr => {
+                const ths = tr.querySelectorAll('th');
+                ths.forEach(th => {
+                    const rawTxt = th.innerText.trim().toLowerCase();
+                    const cleanTxt = rawTxt.replace(/[^a-z0-9]/g, '');
+                    if (
+                        cleanTxt === 'sno' ||
+                        cleanTxt === 'srno' ||
+                        cleanTxt === 'slno' ||
+                        cleanTxt.startsWith('sno') ||
+                        cleanTxt.startsWith('srno') ||
+                        cleanTxt.startsWith('slno') ||
+                        cleanTxt === 'serialno' ||
+                        rawTxt === '#' ||
+                        rawTxt.startsWith('#')
+                    ) {
+                        hasSNoHeader = true;
                     }
-                    const td = document.createElement('td');
-                    td.innerText = idx + 1;
-                    td.style.padding = '16px 20px';
-                    td.style.color = '#334155';
-                    td.style.fontWeight = '500';
-                    row.insertBefore(td, row.firstChild);
-                });
-
-                const tfootRows = table.querySelectorAll('tfoot tr');
-                tfootRows.forEach(row => {
-                    const td = document.createElement('td');
-                    td.innerText = '';
-                    td.style.padding = '16px 20px';
-                    td.style.fontWeight = '700';
-                    row.insertBefore(td, row.firstChild);
                 });
             });
-        }
 
-        const userDivision = "{{ user_division or '' }}".toLowerCase();
-        const isUserLwe = "{{ 'true' if is_lwe else 'false' }}" === 'true';
+            if (hasSNoHeader) return;
 
-        function getDcAllowedTabIds(districtName) {
-            const allowed = ['combined'];
-            if (isUserLwe) allowed.push('lwe');
-            if (userDivision) {
-                const divKey = userDivision.replace('div', '').trim();
-                if (divKey) allowed.push(divKey);
-            }
-            return allowed;
-        }
+            const th = document.createElement('th');
+            th.innerText = 'S.No';
+            th.style.width = '60px';
+            th.style.textAlign = 'center';
+            theadRows[0].insertBefore(th, theadRows[0].firstChild);
 
-        async function fetchSystemPreview(filterType = 'combined') {
-            let tabs = [
-                { id: 'combined', label: 'Combined' },
-                { id: 'lwe', label: 'LWE' },
-                { id: 'bilaspur', label: 'Bilaspur Div' },
-                { id: 'raipur', label: 'Raipur Div' },
-                { id: 'durg', label: 'Durg Div' },
-                { id: 'bastar', label: 'Bastar Div' },
-                { id: 'surguja', label: 'Surguja Div' }
-            ];
-
-            if (isDc) {
-                tabs = [];
-            }
-            currentFilterType = filterType;
-
-            let tabButtonsHtml = '';
-            tabs.forEach(tab => {
-                const isActive = filterType === tab.id;
-                tabButtonsHtml += `<button onclick="currentReportPage=1; fetchSystemPreview('${tab.id}')" class="subtab-btn ${isActive ? 'active' : ''}">${tab.label}</button>`;
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach((row, idx) => {
+                if (row.dataset.originalIndex === undefined) {
+                    row.dataset.originalIndex = idx;
+                }
+                const td = document.createElement('td');
+                td.innerText = idx + 1;
+                td.style.padding = '16px 20px';
+                td.style.color = '#334155';
+                td.style.fontWeight = '500';
+                row.insertBefore(td, row.firstChild);
             });
 
-            const tabsContainerHtml = `
+            const tfootRows = table.querySelectorAll('tfoot tr');
+            tfootRows.forEach(row => {
+                const td = document.createElement('td');
+                td.innerText = '';
+                td.style.padding = '16px 20px';
+                td.style.fontWeight = '700';
+                row.insertBefore(td, row.firstChild);
+            });
+        });
+    }
+
+    const userDivision = "{{ user_division or '' }}".toLowerCase();
+    const isUserLwe = "{{ 'true' if is_lwe else 'false' }}" === 'true';
+
+    function getDcAllowedTabIds(districtName) {
+        const allowed = ['combined'];
+        if (isUserLwe) allowed.push('lwe');
+        if (userDivision) {
+            const divKey = userDivision.replace('div', '').trim();
+            if (divKey) allowed.push(divKey);
+        }
+        return allowed;
+    }
+
+    async function fetchSystemPreview(filterType = 'combined') {
+        let tabs = [
+            { id: 'combined', label: 'Combined' },
+            { id: 'lwe', label: 'LWE' },
+            { id: 'bilaspur', label: 'Bilaspur Div' },
+            { id: 'raipur', label: 'Raipur Div' },
+            { id: 'durg', label: 'Durg Div' },
+            { id: 'bastar', label: 'Bastar Div' },
+            { id: 'surguja', label: 'Surguja Div' }
+        ];
+
+        if (isDc) {
+            tabs = [];
+        }
+        currentFilterType = filterType;
+
+        let tabButtonsHtml = '';
+        tabs.forEach(tab => {
+            const isActive = filterType === tab.id;
+            tabButtonsHtml += `<button onclick="currentReportPage=1; fetchSystemPreview('${tab.id}')" class="subtab-btn ${isActive ? 'active' : ''}">${tab.label}</button>`;
+        });
+
+        const tabsContainerHtml = `
             <div class="preview-sub-bar">
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; width: 100%; align-items: center;">
                     ${tabButtonsHtml}
@@ -499,150 +505,150 @@
             </div>
         `;
 
-            const distParam = getDistrictParam();
-            let apiQuery = '';
-            if (filterType === 'lwe') {
-                apiQuery = '?lwe=true';
-            } else if (filterType !== 'combined') {
-                apiQuery = `?division=${filterType}`;
-            } else {
-                apiQuery = '?lwe=false';
-            }
+        const distParam = getDistrictParam();
+        let apiQuery = '';
+        if (filterType === 'lwe') {
+            apiQuery = '?lwe=true';
+        } else if (filterType !== 'combined') {
+            apiQuery = `?division=${filterType}`;
+        } else {
+            apiQuery = '?lwe=false';
+        }
 
-            const searchInput = document.getElementById('modal-search-input');
-            const searchVal = (searchInput && searchInput.value) ? encodeURIComponent(searchInput.value.trim()) : '';
+        const searchInput = document.getElementById('modal-search-input');
+        const searchVal = (searchInput && searchInput.value) ? encodeURIComponent(searchInput.value.trim()) : '';
 
-            let fetchQuery = apiQuery + (distParam ? '&' + distParam.substring(1) : '');
-            fetchQuery += `&page=${currentReportPage}&page_size=${currentReportPageSize}`;
-            if (searchVal) fetchQuery += `&search=${searchVal}`;
+        let fetchQuery = apiQuery + (distParam ? '&' + distParam.substring(1) : '');
+        fetchQuery += `&page=${currentReportPage}&page_size=${currentReportPageSize}`;
+        if (searchVal) fetchQuery += `&search=${searchVal}`;
 
-            document.getElementById('modalDownloadBtn').href = `{{ config['BACKEND_API_URL'] }}/reports/system/${currentSystemReport}/download${fetchQuery}`;
-            document.getElementById('previewBody').innerHTML = tabsContainerHtml + '<div style="padding: 40px; text-align: center;"><svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #3b82f6; margin-bottom: 10px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><p style="color: #64748b;">Generating report...</p></div>';
+        document.getElementById('modalDownloadBtn').href = `${REPORT_PROXY_BASE}/system/${currentSystemReport}/download${fetchQuery}`;
+        document.getElementById('previewBody').innerHTML = tabsContainerHtml + '<div style="padding: 40px; text-align: center;"><svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #3b82f6; margin-bottom: 10px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><p style="color: #64748b;">Generating report...</p></div>';
 
-            try {
-                const response = await fetch(`{{ config['BACKEND_API_URL'] }}/reports/system/${currentSystemReport}/preview${fetchQuery}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    document.getElementById('previewBody').innerHTML = tabsContainerHtml + `<div class="report-table-wrapper">${data.html}</div>`;
-                    if (isDc) {
-                        const tfoots = document.querySelectorAll('#previewBody tfoot, #previewBody .total-row');
-                        tfoots.forEach(tf => tf.remove());
-                    }
-                    ensureSNoColumn(document.getElementById('previewBody'));
-
-                    if (data.pagination) {
-                        renderModalPagination(data.pagination);
-                    }
-
-                    if (['district_wise_kit_count', 'lms_summary', 'nseit_summary'].includes(currentSystemReport)) {
-                        makeDistrictRowsClickable(currentSystemReport);
-                    }
-                } else {
-                    document.getElementById('previewBody').innerHTML = tabsContainerHtml + '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load preview.</p></div>';
+        try {
+            const response = await fetch(`${REPORT_PROXY_BASE}/system/${currentSystemReport}/preview${fetchQuery}`);
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('previewBody').innerHTML = tabsContainerHtml + `<div class="report-table-wrapper">${data.html}</div>`;
+                if (isDc) {
+                    const tfoots = document.querySelectorAll('#previewBody tfoot, #previewBody .total-row');
+                    tfoots.forEach(tf => tf.remove());
                 }
-            } catch (err) {
-                document.getElementById('previewBody').innerHTML = tabsContainerHtml + '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p></div>';
-            }
-        }
+                ensureSNoColumn(document.getElementById('previewBody'));
 
-        function makeDistrictRowsClickable(reportName) {
-            const modalBody = document.getElementById('previewBody');
-            if (!modalBody) return;
-            const tables = modalBody.querySelectorAll('table');
-            tables.forEach(table => {
-                const tbody = table.querySelector('tbody');
-                if (!tbody) return;
-                const rows = tbody.querySelectorAll('tr');
-                rows.forEach(row => {
-                    if (row.classList.contains('total-row') || row.innerText.toLowerCase().includes('total')) return;
-                    row.style.cursor = 'pointer';
-                    row.onmouseover = () => {
-                        if (!row.classList.contains('delayed-row')) {
-                            const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || document.body.classList.contains('dark-mode');
-                            row.style.backgroundColor = isDark ? '#1e293b' : '#f8fafc';
+                if (data.pagination) {
+                    renderModalPagination(data.pagination);
+                }
+
+                if (['district_wise_kit_count', 'lms_summary', 'nseit_summary'].includes(currentSystemReport)) {
+                    makeDistrictRowsClickable(currentSystemReport);
+                }
+            } else {
+                document.getElementById('previewBody').innerHTML = tabsContainerHtml + '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load preview.</p></div>';
+            }
+        } catch (err) {
+            document.getElementById('previewBody').innerHTML = tabsContainerHtml + '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p></div>';
+        }
+    }
+
+    function makeDistrictRowsClickable(reportName) {
+        const modalBody = document.getElementById('previewBody');
+        if (!modalBody) return;
+        const tables = modalBody.querySelectorAll('table');
+        tables.forEach(table => {
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach(row => {
+                if (row.classList.contains('total-row') || row.innerText.toLowerCase().includes('total')) return;
+                row.style.cursor = 'pointer';
+                row.onmouseover = () => {
+                    if (!row.classList.contains('delayed-row')) {
+                        const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || document.body.classList.contains('dark-mode');
+                        row.style.backgroundColor = isDark ? '#1e293b' : '#f8fafc';
+                    }
+                };
+                row.onmouseout = () => {
+                    if (!row.classList.contains('delayed-row')) {
+                        row.style.backgroundColor = '';
+                    }
+                };
+                row.onclick = () => {
+                    const cells = row.querySelectorAll('td');
+                    if (reportName === 'district_wise_kit_count') {
+                        if (cells.length > 1) {
+                            const distName = cells[1].innerText.trim();
+                            currentReportPage = 1;
+                            fetchDistrictStationDetails(distName);
                         }
-                    };
-                    row.onmouseout = () => {
-                        if (!row.classList.contains('delayed-row')) {
-                            row.style.backgroundColor = '';
+                    } else if (reportName === 'lms_summary' || reportName === 'nseit_summary') {
+                        if (cells.length > 2) {
+                            const distCode = cells[1].innerText.trim();
+                            const distName = cells[2].innerText.trim();
+                            fetchLmsNseitDetails(reportName, distCode, distName);
                         }
-                    };
-                    row.onclick = () => {
-                        const cells = row.querySelectorAll('td');
-                        if (reportName === 'district_wise_kit_count') {
-                            if (cells.length > 1) {
-                                const distName = cells[1].innerText.trim();
-                                currentReportPage = 1;
-                                fetchDistrictStationDetails(distName);
-                            }
-                        } else if (reportName === 'lms_summary' || reportName === 'nseit_summary') {
-                            if (cells.length > 2) {
-                                const distCode = cells[1].innerText.trim();
-                                const distName = cells[2].innerText.trim();
-                                fetchLmsNseitDetails(reportName, distCode, distName);
-                            }
-                        }
-                    };
-                });
+                    }
+                };
             });
+        });
+    }
+
+    let currentDistrictDetailName = null;
+
+    let currentDistrictFilterL1 = '';
+    let currentDistrictFilterL2 = '';
+    let currentDistrictFilterSd = '';
+    let currentDistrictFilterOp = '';
+    let currentDistrictFilterSt = '';
+
+    function backToDistrictList() {
+        currentPreviewMode = 'system';
+        currentDistrictDetailName = null;
+        currentDistrictFilterL1 = '';
+        currentDistrictFilterL2 = '';
+        currentDistrictFilterSd = '';
+        currentDistrictFilterOp = '';
+        currentDistrictFilterSt = '';
+        currentReportPage = 1;
+        const distFilter = document.getElementById('modal-district-filter');
+        if (distFilter && !isDc) distFilter.style.display = '';
+        fetchSystemPreview(currentFilterType);
+    }
+
+    async function fetchDistrictStationDetails(districtName) {
+        currentPreviewMode = 'district_details';
+        currentDistrictDetailName = districtName;
+
+        const distFilter = document.getElementById('modal-district-filter');
+        if (distFilter) distFilter.style.display = 'none';
+
+        if (document.getElementById('filter-l1')) currentDistrictFilterL1 = document.getElementById('filter-l1').value || '';
+        if (document.getElementById('filter-l2')) currentDistrictFilterL2 = document.getElementById('filter-l2').value || '';
+        if (document.getElementById('filter-sd')) currentDistrictFilterSd = document.getElementById('filter-sd').value || '';
+        if (document.getElementById('filter-op')) currentDistrictFilterOp = document.getElementById('filter-op').value || '';
+        if (document.getElementById('filter-st')) currentDistrictFilterSt = document.getElementById('filter-st').value || '';
+
+        const rawSearch = document.getElementById('modal-search-input')?.value || '';
+        const valSearchInput = (rawSearch && rawSearch.trim().toLowerCase() !== 'search ...' && rawSearch.trim().toLowerCase() !== 'search...') ? rawSearch.trim() : '';
+
+        let fetchQuery = `?page=${currentReportPage}&page_size=${currentReportPageSize}`;
+        if (currentDistrictFilterL1) fetchQuery += `&l1=${encodeURIComponent(currentDistrictFilterL1)}`;
+        if (currentDistrictFilterL2) fetchQuery += `&l2=${encodeURIComponent(currentDistrictFilterL2)}`;
+        if (currentDistrictFilterSd) fetchQuery += `&sd=${encodeURIComponent(currentDistrictFilterSd)}`;
+        if (currentDistrictFilterOp) fetchQuery += `&op=${encodeURIComponent(currentDistrictFilterOp)}`;
+        if (currentDistrictFilterSt) fetchQuery += `&st=${encodeURIComponent(currentDistrictFilterSt)}`;
+        if (valSearchInput) fetchQuery += `&search=${encodeURIComponent(valSearchInput)}`;
+
+        const dlBtn = document.getElementById('modalDownloadBtn');
+        if (dlBtn) {
+            dlBtn.href = `${REPORT_PROXY_BASE}/system/district_wise_kit_count/details/${encodeURIComponent(districtName)}/download${fetchQuery}`;
         }
 
-        let currentDistrictDetailName = null;
+        let headerContainer = document.getElementById('districtDetailHeaderContainer');
+        let tableContainer = document.getElementById('districtDetailTableContainer');
 
-        let currentDistrictFilterL1 = '';
-        let currentDistrictFilterL2 = '';
-        let currentDistrictFilterSd = '';
-        let currentDistrictFilterOp = '';
-        let currentDistrictFilterSt = '';
-
-        function backToDistrictList() {
-            currentPreviewMode = 'system';
-            currentDistrictDetailName = null;
-            currentDistrictFilterL1 = '';
-            currentDistrictFilterL2 = '';
-            currentDistrictFilterSd = '';
-            currentDistrictFilterOp = '';
-            currentDistrictFilterSt = '';
-            currentReportPage = 1;
-            const distFilter = document.getElementById('modal-district-filter');
-            if (distFilter && !isDc) distFilter.style.display = '';
-            fetchSystemPreview(currentFilterType);
-        }
-
-        async function fetchDistrictStationDetails(districtName) {
-            currentPreviewMode = 'district_details';
-            currentDistrictDetailName = districtName;
-
-            const distFilter = document.getElementById('modal-district-filter');
-            if (distFilter) distFilter.style.display = 'none';
-
-            if (document.getElementById('filter-l1')) currentDistrictFilterL1 = document.getElementById('filter-l1').value || '';
-            if (document.getElementById('filter-l2')) currentDistrictFilterL2 = document.getElementById('filter-l2').value || '';
-            if (document.getElementById('filter-sd')) currentDistrictFilterSd = document.getElementById('filter-sd').value || '';
-            if (document.getElementById('filter-op')) currentDistrictFilterOp = document.getElementById('filter-op').value || '';
-            if (document.getElementById('filter-st')) currentDistrictFilterSt = document.getElementById('filter-st').value || '';
-            
-            const rawSearch = document.getElementById('modal-search-input')?.value || '';
-            const valSearchInput = (rawSearch && rawSearch.trim().toLowerCase() !== 'search ...' && rawSearch.trim().toLowerCase() !== 'search...') ? rawSearch.trim() : '';
-
-            let fetchQuery = `?page=${currentReportPage}&page_size=${currentReportPageSize}`;
-            if (currentDistrictFilterL1) fetchQuery += `&l1=${encodeURIComponent(currentDistrictFilterL1)}`;
-            if (currentDistrictFilterL2) fetchQuery += `&l2=${encodeURIComponent(currentDistrictFilterL2)}`;
-            if (currentDistrictFilterSd) fetchQuery += `&sd=${encodeURIComponent(currentDistrictFilterSd)}`;
-            if (currentDistrictFilterOp) fetchQuery += `&op=${encodeURIComponent(currentDistrictFilterOp)}`;
-            if (currentDistrictFilterSt) fetchQuery += `&st=${encodeURIComponent(currentDistrictFilterSt)}`;
-            if (valSearchInput) fetchQuery += `&search=${encodeURIComponent(valSearchInput)}`;
-
-            const dlBtn = document.getElementById('modalDownloadBtn');
-            if (dlBtn) {
-                dlBtn.href = `{{ config['BACKEND_API_URL'] }}/reports/system/district_wise_kit_count/details/${encodeURIComponent(districtName)}/download${fetchQuery}`;
-            }
-
-            let headerContainer = document.getElementById('districtDetailHeaderContainer');
-            let tableContainer = document.getElementById('districtDetailTableContainer');
-
-            if (!headerContainer || !tableContainer) {
-                const fullHtml = `
+        if (!headerContainer || !tableContainer) {
+            const fullHtml = `
                 <div id="districtDetailHeaderContainer" class="district-detail-header"></div>
                 <div id="districtDetailTableContainer" class="report-table-wrapper" style="padding: 20px;">
                     <div style="padding: 40px; text-align: center;">
@@ -650,24 +656,24 @@
                         <p style="color: #64748b;">Loading station details for ${districtName}...</p>
                     </div>
                 </div>`;
-                document.getElementById('previewBody').innerHTML = fullHtml;
-                headerContainer = document.getElementById('districtDetailHeaderContainer');
-                tableContainer = document.getElementById('districtDetailTableContainer');
-            } else {
-                tableContainer.innerHTML = `
+            document.getElementById('previewBody').innerHTML = fullHtml;
+            headerContainer = document.getElementById('districtDetailHeaderContainer');
+            tableContainer = document.getElementById('districtDetailTableContainer');
+        } else {
+            tableContainer.innerHTML = `
                 <div style="padding: 40px; text-align: center;">
                     <svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #3b82f6; margin-bottom: 10px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
                     <p style="color: #64748b;">Loading station details for ${districtName}...</p>
                 </div>`;
-            }
+        }
 
-            try {
-                const response = await fetch(`{{ config['BACKEND_API_URL'] }}/reports/system/district_wise_kit_count/details/${encodeURIComponent(districtName)}${fetchQuery}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    const a = data.analytics || { pending_l1: 0, pending_l2: 0, pending_sd: 0, inactive_op: 0, inactive_st: 0 };
+        try {
+            const response = await fetch(`${REPORT_PROXY_BASE}/system/district_wise_kit_count/details/${encodeURIComponent(districtName)}${fetchQuery}`);
+            if (response.ok) {
+                const data = await response.json();
+                const a = data.analytics || { pending_l1: 0, pending_l2: 0, pending_sd: 0, inactive_op: 0, inactive_st: 0 };
 
-                    headerContainer.innerHTML = `
+                headerContainer.innerHTML = `
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                             <button onclick="backToDistrictList()" class="district-detail-back-btn">
@@ -736,87 +742,87 @@
                         </button>
                     </div>`;
 
-                    tableContainer.innerHTML = data.html;
+                tableContainer.innerHTML = data.html;
 
-                    if (data.pagination) {
-                        renderModalPagination(data.pagination);
-                    }
-                } else {
-                    tableContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load station details.</p><button onclick="backToDistrictList()" class="btn-modal-goback">Go Back</button></div>';
+                if (data.pagination) {
+                    renderModalPagination(data.pagination);
                 }
-            } catch (err) {
-                tableContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p><button onclick="backToDistrictList()" class="btn-modal-goback">Go Back</button></div>';
+            } else {
+                tableContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load station details.</p><button onclick="backToDistrictList()" class="btn-modal-goback">Go Back</button></div>';
             }
+        } catch (err) {
+            tableContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p><button onclick="backToDistrictList()" class="btn-modal-goback">Go Back</button></div>';
         }
+    }
 
-        function quickFilterDistrictDetail(filterType, filterVal) {
-            if (filterType === 'l1') currentDistrictFilterL1 = filterVal;
-            if (filterType === 'l2') currentDistrictFilterL2 = filterVal;
-            if (filterType === 'sd') currentDistrictFilterSd = filterVal;
-            if (filterType === 'op') currentDistrictFilterOp = filterVal;
-            if (filterType === 'st') currentDistrictFilterSt = filterVal;
-            
-            currentReportPage = 1;
-            if (currentDistrictDetailName) {
-                fetchDistrictStationDetails(currentDistrictDetailName);
-            }
+    function quickFilterDistrictDetail(filterType, filterVal) {
+        if (filterType === 'l1') currentDistrictFilterL1 = filterVal;
+        if (filterType === 'l2') currentDistrictFilterL2 = filterVal;
+        if (filterType === 'sd') currentDistrictFilterSd = filterVal;
+        if (filterType === 'op') currentDistrictFilterOp = filterVal;
+        if (filterType === 'st') currentDistrictFilterSt = filterVal;
+
+        currentReportPage = 1;
+        if (currentDistrictDetailName) {
+            fetchDistrictStationDetails(currentDistrictDetailName);
         }
+    }
 
-        function applyDistrictDetailsFilters() {
-            if (document.getElementById('filter-l1')) currentDistrictFilterL1 = document.getElementById('filter-l1').value || '';
-            if (document.getElementById('filter-l2')) currentDistrictFilterL2 = document.getElementById('filter-l2').value || '';
-            if (document.getElementById('filter-sd')) currentDistrictFilterSd = document.getElementById('filter-sd').value || '';
-            if (document.getElementById('filter-op')) currentDistrictFilterOp = document.getElementById('filter-op').value || '';
-            if (document.getElementById('filter-st')) currentDistrictFilterSt = document.getElementById('filter-st').value || '';
+    function applyDistrictDetailsFilters() {
+        if (document.getElementById('filter-l1')) currentDistrictFilterL1 = document.getElementById('filter-l1').value || '';
+        if (document.getElementById('filter-l2')) currentDistrictFilterL2 = document.getElementById('filter-l2').value || '';
+        if (document.getElementById('filter-sd')) currentDistrictFilterSd = document.getElementById('filter-sd').value || '';
+        if (document.getElementById('filter-op')) currentDistrictFilterOp = document.getElementById('filter-op').value || '';
+        if (document.getElementById('filter-st')) currentDistrictFilterSt = document.getElementById('filter-st').value || '';
 
-            currentReportPage = 1;
-            if (currentDistrictDetailName) {
-                fetchDistrictStationDetails(currentDistrictDetailName);
-            }
+        currentReportPage = 1;
+        if (currentDistrictDetailName) {
+            fetchDistrictStationDetails(currentDistrictDetailName);
         }
+    }
 
-        function clearDistrictDetailsFilters() {
-            currentDistrictFilterL1 = '';
-            currentDistrictFilterL2 = '';
-            currentDistrictFilterSd = '';
-            currentDistrictFilterOp = '';
-            currentDistrictFilterSt = '';
+    function clearDistrictDetailsFilters() {
+        currentDistrictFilterL1 = '';
+        currentDistrictFilterL2 = '';
+        currentDistrictFilterSd = '';
+        currentDistrictFilterOp = '';
+        currentDistrictFilterSt = '';
 
-            ['filter-l1', 'filter-l2', 'filter-sd', 'filter-op', 'filter-st'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-            const mainSearch = document.getElementById('modal-search-input');
-            if (mainSearch) mainSearch.value = '';
+        ['filter-l1', 'filter-l2', 'filter-sd', 'filter-op', 'filter-st'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        const mainSearch = document.getElementById('modal-search-input');
+        if (mainSearch) mainSearch.value = '';
 
-            currentReportPage = 1;
-            if (currentDistrictDetailName) {
-                fetchDistrictStationDetails(currentDistrictDetailName);
-            }
+        currentReportPage = 1;
+        if (currentDistrictDetailName) {
+            fetchDistrictStationDetails(currentDistrictDetailName);
         }
+    }
 
-        async function fetchLmsNseitDetails(reportName, distCode, distName) {
-            currentPreviewMode = 'lms_nseit_details';
-            currentSystemReport = reportName;
-            currentLmsNseitCode = distCode;
-            currentLmsNseitName = distName;
+    async function fetchLmsNseitDetails(reportName, distCode, distName) {
+        currentPreviewMode = 'lms_nseit_details';
+        currentSystemReport = reportName;
+        currentLmsNseitCode = distCode;
+        currentLmsNseitName = distName;
 
-            const rawSearch = document.getElementById('modal-search-input')?.value || '';
-            const valSearchInput = (rawSearch && rawSearch.trim().toLowerCase() !== 'search ...' && rawSearch.trim().toLowerCase() !== 'search...') ? rawSearch.trim() : '';
+        const rawSearch = document.getElementById('modal-search-input')?.value || '';
+        const valSearchInput = (rawSearch && rawSearch.trim().toLowerCase() !== 'search ...' && rawSearch.trim().toLowerCase() !== 'search...') ? rawSearch.trim() : '';
 
-            let fetchQuery = `?page=${currentReportPage}&page_size=${currentReportPageSize}`;
-            if (valSearchInput) fetchQuery += `&search=${encodeURIComponent(valSearchInput)}`;
+        let fetchQuery = `?page=${currentReportPage}&page_size=${currentReportPageSize}`;
+        if (valSearchInput) fetchQuery += `&search=${encodeURIComponent(valSearchInput)}`;
 
-            document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center;"><svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #3b82f6; margin-bottom: 10px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><p style="color: #64748b;">Loading details for ' + distName + '...</p></div>';
-            try {
-                const response = await fetch(`{{ config['BACKEND_API_URL'] }}/reports/system/${reportName}/details/${encodeURIComponent(distCode)}${fetchQuery}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    const a = data.analytics || { total: 0, approved: 0, pending: 0, rejected: 0 };
+        document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center;"><svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #3b82f6; margin-bottom: 10px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><p style="color: #64748b;">Loading details for ' + distName + '...</p></div>';
+        try {
+            const response = await fetch(`${REPORT_PROXY_BASE}/system/${reportName}/details/${encodeURIComponent(distCode)}${fetchQuery}`);
+            if (response.ok) {
+                const data = await response.json();
+                const a = data.analytics || { total: 0, approved: 0, pending: 0, rejected: 0 };
 
-                    const reportTitle = reportName === 'lms_summary' ? 'LMS Requests' : 'NSEIT Requests';
+                const reportTitle = reportName === 'lms_summary' ? 'LMS Requests' : 'NSEIT Requests';
 
-                    const backBtnHtml = `
+                const backBtnHtml = `
                 <div class="district-detail-header">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
@@ -854,582 +860,615 @@
                     </div>
                 </div>`;
 
-                    document.getElementById('previewBody').innerHTML = backBtnHtml + `<div class="report-table-wrapper" style="padding: 0 20px 20px 20px;">${data.html}</div>`;
-                    ensureSNoColumn(document.getElementById('previewBody'));
+                document.getElementById('previewBody').innerHTML = backBtnHtml + `<div class="report-table-wrapper" style="padding: 0 20px 20px 20px;">${data.html}</div>`;
+                ensureSNoColumn(document.getElementById('previewBody'));
 
-                    document.getElementById('modal-district-container').style.display = 'none';
+                document.getElementById('modal-district-container').style.display = 'none';
 
+            } else {
+                document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load details.</p></div>';
+            }
+        } catch (err) {
+            document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p></div>';
+        }
+    }
+
+    function applyLmsNseitFilters() {
+        const modalBody = document.getElementById('previewBody');
+        if (!modalBody) return;
+
+        const fStatus = document.getElementById('filter-status').value.toLowerCase();
+
+        const table = modalBody.querySelector('table');
+        if (!table) return;
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('tr');
+
+        let visibleCount = 0;
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 5) return;
+
+            const statusVal = cells[3].innerText.trim().toLowerCase();
+
+            let show = true;
+            if (fStatus && statusVal !== fStatus) show = false;
+
+            if (show) {
+                row.style.display = '';
+                visibleCount++;
+                cells[0].innerText = visibleCount;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+
+
+    function renderModalPagination(pg) {
+        currentReportPage = pg.page || 1;
+        totalReportPages = pg.pages || 1;
+        totalReportRows = pg.total || 0;
+        currentReportPageSize = pg.page_size || 10;
+        const start = pg.start || 0;
+        const end = pg.end || 0;
+        const totalUnfiltered = pg.total_unfiltered || totalReportRows;
+
+        const pagerWrap = document.getElementById('modalPaginationWrap');
+        if (pagerWrap) pagerWrap.style.display = 'flex';
+
+        // 1. Summary Info Text
+        const pagerInfo = document.getElementById('modalPagerInfo');
+        if (pagerInfo) {
+            let infoText = `Showing ${start.toLocaleString()} to ${end.toLocaleString()} of ${totalReportRows.toLocaleString()} entries`;
+            if (totalReportRows < totalUnfiltered) {
+                infoText += ` (filtered from ${totalUnfiltered.toLocaleString()} total entries)`;
+            }
+            pagerInfo.innerText = infoText;
+        }
+
+        // 2. Prev & Next buttons
+        const prevBtn = document.getElementById('modalPrevBtn');
+        if (prevBtn) prevBtn.disabled = currentReportPage <= 1;
+
+        const nextBtn = document.getElementById('modalNextBtn');
+        if (nextBtn) nextBtn.disabled = currentReportPage >= totalReportPages;
+
+        // 3. Numbered Page Buttons
+        const numbersContainer = document.getElementById('modalPagerNumbers');
+        if (numbersContainer) {
+            let numsHtml = '';
+            const totalPages = totalReportPages;
+            const page = currentReportPage;
+
+            let pageList = [];
+            if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) pageList.push(i);
+            } else {
+                if (page <= 4) {
+                    pageList = [1, 2, 3, 4, 5, '...', totalPages];
+                } else if (page >= totalPages - 3) {
+                    pageList = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
                 } else {
-                    document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load details.</p></div>';
+                    pageList = [1, '...', page - 1, page, page + 1, '...', totalPages];
                 }
-            } catch (err) {
-                document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p></div>';
+            }
+
+            pageList.forEach(p => {
+                if (p === '...') {
+                    numsHtml += `<span class="dt-pager-ellipsis">…</span>`;
+                } else {
+                    const isActive = p === page;
+                    numsHtml += `<button type="button" class="dt-pager-num ${isActive ? 'active' : ''}" onclick="goToModalPage(${p})">${p}</button>`;
+                }
+            });
+
+            numbersContainer.innerHTML = numsHtml;
+        }
+    }
+
+    function goToModalPage(p) {
+        if (p !== currentReportPage && p >= 1 && p <= totalReportPages) {
+            currentReportPage = p;
+            if (currentPreviewMode === 'custom') {
+                applyCustomModalFilters();
+            } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
+                fetchDistrictStationDetails(currentDistrictDetailName);
+            } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
+                fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
+            } else if (currentPreviewMode === 'system') {
+                fetchSystemPreview(currentFilterType);
+            }
+        }
+    }
+
+    function changeModalPage(delta) {
+        const newPage = currentReportPage + delta;
+        if (newPage >= 1 && newPage <= totalReportPages) {
+            currentReportPage = newPage;
+            if (currentPreviewMode === 'custom') {
+                applyCustomModalFilters();
+            } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
+                fetchDistrictStationDetails(currentDistrictDetailName);
+            } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
+                fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
+            } else if (currentPreviewMode === 'system') {
+                fetchSystemPreview(currentFilterType);
+            }
+        }
+    }
+
+    function changeModalPageSize(newSize) {
+        currentReportPageSize = parseInt(newSize, 10) || 10;
+        currentReportPage = 1;
+        const psSelect = document.getElementById('modalPageSizeSelect');
+        if (psSelect) psSelect.value = currentReportPageSize;
+        if (currentPreviewMode === 'custom') {
+            applyCustomModalFilters();
+        } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
+            fetchDistrictStationDetails(currentDistrictDetailName);
+        } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
+            fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
+        } else if (currentPreviewMode === 'system') {
+            fetchSystemPreview(currentFilterType);
+        }
+    }
+
+    function applyModalFilters() {
+        currentReportPage = 1;
+        if (currentPreviewMode === 'custom') {
+            applyCustomModalFilters();
+        } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
+            fetchDistrictStationDetails(currentDistrictDetailName);
+        } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
+            fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
+        } else if (currentPreviewMode === 'system') {
+            fetchSystemPreview(currentFilterType);
+        }
+    }
+
+    function resetTableSorting(container) {
+        container = container || document.getElementById('previewBody');
+        if (!container) return;
+
+        const tables = container.querySelectorAll('table');
+        tables.forEach(table => {
+            delete table.dataset.sortDir;
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const dataRows = rows.filter(row => !row.classList.contains('total-row') && !row.closest('tfoot'));
+            const totalRows = rows.filter(row => row.classList.contains('total-row') || row.closest('tfoot'));
+
+            dataRows.sort((a, b) => {
+                const idxA = a.dataset.originalIndex !== undefined ? parseInt(a.dataset.originalIndex, 10) : 0;
+                const idxB = b.dataset.originalIndex !== undefined ? parseInt(b.dataset.originalIndex, 10) : 0;
+                return idxA - idxB;
+            });
+
+            dataRows.forEach(row => tbody.appendChild(row));
+            totalRows.forEach(row => tbody.appendChild(row));
+
+            const headers = table.querySelectorAll('thead th');
+            headers.forEach(th => {
+                const icon = th.querySelector('.sort-icon');
+                if (icon) {
+                    icon.className = 'ti ti-arrows-sort sort-icon';
+                    icon.style.opacity = '0.5';
+                    icon.style.color = 'inherit';
+                }
+            });
+        });
+    }
+
+    function clearModalFilters() {
+        const distFilter = document.getElementById('modal-district-filter');
+        const mainSearch = document.getElementById('modal-search-input');
+
+        if (distFilter && !(isDc && userDistrict)) distFilter.value = '';
+        if (mainSearch) mainSearch.value = '';
+
+        ['filter-l1', 'filter-l2', 'filter-sd', 'filter-op', 'filter-st', 'modal-station-search', 'modal-operator-search'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+
+        resetTableSorting(document.getElementById('previewBody'));
+
+        currentReportPage = 1;
+        if (currentPreviewMode === 'custom') {
+            applyCustomModalFilters();
+        } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
+            fetchDistrictStationDetails(currentDistrictDetailName);
+        } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
+            fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
+        } else if (currentPreviewMode === 'system') {
+            fetchSystemPreview(currentFilterType);
+        }
+    }
+
+    async function openPreviewModal(reportId, filename) {
+        currentPreviewMode = 'custom';
+        currentReportPage = 1;
+        currentReportPageSize = 50;
+
+        const psSelect = document.getElementById('modalPageSizeSelect');
+        if (psSelect) psSelect.value = '50';
+
+        document.getElementById('previewModal').style.display = 'flex';
+        document.getElementById('previewTitle').innerText = filename;
+        document.getElementById('modal-district-container').style.display = 'flex';
+
+        const distFilter = document.getElementById('modal-district-filter');
+        if (isDc && userDistrict) {
+            if (distFilter) {
+                distFilter.value = userDistrict;
+                distFilter.style.display = 'none';
+            }
+        } else {
+            if (distFilter) {
+                distFilter.style.display = '';
+                distFilter.value = '';
             }
         }
 
-        function applyLmsNseitFilters() {
-            const modalBody = document.getElementById('previewBody');
-            if (!modalBody) return;
+        if (document.getElementById('modal-station-search')) document.getElementById('modal-station-search').value = '';
+        if (document.getElementById('modal-operator-search')) document.getElementById('modal-operator-search').value = '';
+        document.getElementById('modalDownloadBtn').href = `{{ url_for('report.download', report_id=0) }}`.replace('0', reportId);
+        document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center;"><svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #3b82f6; margin-bottom: 10px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><p style="color: #64748b;">Loading preview...</p></div>';
 
-            const fStatus = document.getElementById('filter-status').value.toLowerCase();
+        history.pushState({ modalOpen: true }, "", "#preview");
 
-            const table = modalBody.querySelector('table');
-            if (!table) return;
+        try {
+            const response = await fetch(`${REPORT_PROXY_BASE}/preview/${reportId}`);
+            if (response.ok) {
+                const data = await response.json();
+                let tabsHtml = '<div class="preview-sub-bar">';
+                tabsHtml += '<div style="display: flex; gap: 8px;">';
+                let contentHtml = '<div>';
+
+                if (data.multi_sheet && data.html_sheets) {
+                    let i = 0;
+                    let visibleCount = 0;
+                    const allowedIds = (isDc && userDistrict) ? getDcAllowedTabIds(userDistrict) : null;
+
+                    for (const [sheetName, html] of Object.entries(data.html_sheets)) {
+                        let showSheet = true;
+                        if (allowedIds) {
+                            const sLower = sheetName.toLowerCase();
+                            showSheet = false;
+
+                            if (sLower.includes('combined') || sLower.includes('all') || sLower.includes('summary') || sLower.includes('total') || sLower.includes('kit status') || sLower.includes('system report')) {
+                                showSheet = true;
+                            } else if (sLower.includes('lwe') && allowedIds.includes('lwe')) {
+                                showSheet = true;
+                            } else {
+                                for (const id of allowedIds) {
+                                    if (id !== 'combined' && id !== 'lwe' && sLower.includes(id)) {
+                                        showSheet = true;
+                                        break;
+                                    }
+                                }
+                                if (!showSheet && sLower.includes(userDistrict.toLowerCase())) {
+                                    showSheet = true;
+                                }
+                            }
+                        }
+
+                        if (showSheet) {
+                            tabsHtml += `<button class="tab-btn ${visibleCount === 0 ? 'active' : ''}" onclick="showTab(${i})">${sheetName}</button>`;
+                            contentHtml += `<div class="tab-pane" style="display: ${visibleCount === 0 ? 'block' : 'none'}; padding: 20px; overflow-x: auto;">${html}</div>`;
+                            visibleCount++;
+                        }
+                        i++;
+                    }
+                } else {
+                    tabsHtml += `<button class="tab-btn active">Combined</button>`;
+                    contentHtml += `<div class="tab-pane" style="display: block; padding: 20px; overflow-x: auto;">${data.html}</div>`;
+                }
+
+                tabsHtml += '</div>';
+                tabsHtml += `<button onclick="sortTableByTotalPending()" class="sort-pending-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"></path></svg> Sort by Requests</button>`;
+                tabsHtml += '</div>';
+
+                document.getElementById('previewBody').innerHTML = tabsHtml + contentHtml + '</div>';
+                ensureSNoColumn(document.getElementById('previewBody'));
+                applyCustomModalFilters();
+            } else {
+                document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load preview.</p></div>';
+            }
+        } catch (err) {
+            document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p></div>';
+        }
+    }
+    function applyCustomModalFilters() {
+        const distEl = document.getElementById('modal-district-filter');
+        const rawDistVal = distEl ? distEl.value.trim() : '';
+        const cleanDistVal = rawDistVal.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        const searchInput = document.getElementById('modal-search-input');
+        const rawSearchVal = searchInput ? searchInput.value.trim() : '';
+        const searchVal = (rawSearchVal && rawSearchVal.toLowerCase() !== 'search ...' && rawSearchVal.toLowerCase() !== 'search...') ? rawSearchVal.toLowerCase() : '';
+
+        const stationVal = (document.getElementById('modal-station-search')?.value || '').toLowerCase().trim();
+        const operatorVal = (document.getElementById('modal-operator-search')?.value || '').toLowerCase().trim();
+
+        const modalBody = document.getElementById('previewBody');
+        if (!modalBody) return;
+
+        let activePane = modalBody.querySelector('.tab-pane[style*="display: block"]') || modalBody.querySelector('.tab-pane') || modalBody;
+        const table = activePane.querySelector('table');
+        if (!table) return;
+
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        const allRows = Array.from(tbody.querySelectorAll('tr'));
+        const dataRows = allRows.filter(r => !r.classList.contains('total-row') && !r.closest('tfoot'));
+        const totalRows = allRows.filter(r => r.classList.contains('total-row') || r.closest('tfoot'));
+
+        const totalUnfiltered = dataRows.length;
+        const matchingRows = [];
+
+        dataRows.forEach(row => {
+            let show = true;
+            const rowText = row.innerText.toLowerCase();
+
+            // 1. District filter check
+            if (cleanDistVal && !isDc) {
+                const cells = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+                const distMatch = cells.some(c => c === cleanDistVal);
+                if (!distMatch) show = false;
+            }
+
+            // 2. Search bar filter check
+            if (show && searchVal) {
+                if (!rowText.includes(searchVal)) show = false;
+            }
+
+            // 3. Station ID filter check
+            if (show && stationVal) {
+                if (!rowText.includes(stationVal)) show = false;
+            }
+
+            // 4. Operator Name filter check
+            if (show && operatorVal) {
+                if (!rowText.includes(operatorVal)) show = false;
+            }
+
+            if (show) {
+                matchingRows.push(row);
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const totalMatching = matchingRows.length;
+        const pageSize = currentReportPageSize || 10;
+        const totalPages = Math.max(1, Math.ceil(totalMatching / pageSize));
+
+        if (currentReportPage > totalPages) {
+            currentReportPage = 1;
+        }
+
+        const startIdx = (currentReportPage - 1) * pageSize;
+        const endIdx = startIdx + pageSize;
+
+        matchingRows.forEach((row, idx) => {
+            if (idx >= startIdx && idx < endIdx) {
+                row.style.display = '';
+                const firstCell = row.querySelector('td');
+                if (firstCell && !isNaN(parseInt(firstCell.innerText.trim(), 10))) {
+                    firstCell.innerText = idx + 1;
+                }
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        totalRows.forEach(tr => tr.style.display = '');
+
+        renderModalPagination({
+            page: currentReportPage,
+            page_size: pageSize,
+            total: totalMatching,
+            total_unfiltered: totalUnfiltered,
+            pages: totalPages,
+            start: totalMatching > 0 ? startIdx + 1 : 0,
+            end: Math.min(endIdx, totalMatching)
+        });
+
+        highlightDelayedRows();
+    }
+
+    function clearCustomModalFilters() {
+        const stSearch = document.getElementById('modal-station-search');
+        const opSearch = document.getElementById('modal-operator-search');
+        const distFilter = document.getElementById('modal-district-filter');
+
+        if (stSearch) stSearch.value = '';
+        if (opSearch) opSearch.value = '';
+        if (distFilter && !isDc) distFilter.value = '';
+
+        applyCustomModalFilters();
+    }
+
+    function highlightDelayedRows() {
+        const modalBody = document.getElementById('previewBody');
+        if (!modalBody) return;
+        const tables = modalBody.querySelectorAll('table');
+        tables.forEach(table => {
             const tbody = table.querySelector('tbody');
             if (!tbody) return;
             const rows = tbody.querySelectorAll('tr');
-
-            let visibleCount = 0;
             rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (cells.length < 5) return;
-
-                const statusVal = cells[3].innerText.trim().toLowerCase();
-
-                let show = true;
-                if (fStatus && statusVal !== fStatus) show = false;
-
-                if (show) {
-                    row.style.display = '';
-                    visibleCount++;
-                    cells[0].innerText = visibleCount;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        }
-
-
-
-        function renderModalPagination(pg) {
-            currentReportPage = pg.page || 1;
-            totalReportPages = pg.pages || 1;
-            totalReportRows = pg.total || 0;
-            currentReportPageSize = pg.page_size || 10;
-            const start = pg.start || 0;
-            const end = pg.end || 0;
-            const totalUnfiltered = pg.total_unfiltered || totalReportRows;
-
-            const pagerWrap = document.getElementById('modalPaginationWrap');
-            if (pagerWrap) pagerWrap.style.display = 'flex';
-
-            // 1. Summary Info Text
-            const pagerInfo = document.getElementById('modalPagerInfo');
-            if (pagerInfo) {
-                let infoText = `Showing ${start.toLocaleString()} to ${end.toLocaleString()} of ${totalReportRows.toLocaleString()} entries`;
-                if (totalReportRows < totalUnfiltered) {
-                    infoText += ` (filtered from ${totalUnfiltered.toLocaleString()} total entries)`;
-                }
-                pagerInfo.innerText = infoText;
-            }
-
-            // 2. Prev & Next buttons
-            const prevBtn = document.getElementById('modalPrevBtn');
-            if (prevBtn) prevBtn.disabled = currentReportPage <= 1;
-
-            const nextBtn = document.getElementById('modalNextBtn');
-            if (nextBtn) nextBtn.disabled = currentReportPage >= totalReportPages;
-
-            // 3. Numbered Page Buttons
-            const numbersContainer = document.getElementById('modalPagerNumbers');
-            if (numbersContainer) {
-                let numsHtml = '';
-                const totalPages = totalReportPages;
-                const page = currentReportPage;
-
-                let pageList = [];
-                if (totalPages <= 7) {
-                    for (let i = 1; i <= totalPages; i++) pageList.push(i);
-                } else {
-                    if (page <= 4) {
-                        pageList = [1, 2, 3, 4, 5, '...', totalPages];
-                    } else if (page >= totalPages - 3) {
-                        pageList = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-                    } else {
-                        pageList = [1, '...', page - 1, page, page + 1, '...', totalPages];
-                    }
-                }
-
-                pageList.forEach(p => {
-                    if (p === '...') {
-                        numsHtml += `<span class="dt-pager-ellipsis">…</span>`;
-                    } else {
-                        const isActive = p === page;
-                        numsHtml += `<button type="button" class="dt-pager-num ${isActive ? 'active' : ''}" onclick="goToModalPage(${p})">${p}</button>`;
-                    }
-                });
-
-                numbersContainer.innerHTML = numsHtml;
-            }
-        }
-
-        function goToModalPage(p) {
-            if (p !== currentReportPage && p >= 1 && p <= totalReportPages) {
-                currentReportPage = p;
-                if (currentPreviewMode === 'custom') {
-                    applyCustomModalFilters();
-                } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
-                    fetchDistrictStationDetails(currentDistrictDetailName);
-                } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
-                    fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
-                } else if (currentPreviewMode === 'system') {
-                    fetchSystemPreview(currentFilterType);
-                }
-            }
-        }
-
-        function changeModalPage(delta) {
-            const newPage = currentReportPage + delta;
-            if (newPage >= 1 && newPage <= totalReportPages) {
-                currentReportPage = newPage;
-                if (currentPreviewMode === 'custom') {
-                    applyCustomModalFilters();
-                } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
-                    fetchDistrictStationDetails(currentDistrictDetailName);
-                } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
-                    fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
-                } else if (currentPreviewMode === 'system') {
-                    fetchSystemPreview(currentFilterType);
-                }
-            }
-        }
-
-        function changeModalPageSize(newSize) {
-            currentReportPageSize = parseInt(newSize, 10) || 10;
-            currentReportPage = 1;
-            const psSelect = document.getElementById('modalPageSizeSelect');
-            if (psSelect) psSelect.value = currentReportPageSize;
-            if (currentPreviewMode === 'custom') {
-                applyCustomModalFilters();
-            } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
-                fetchDistrictStationDetails(currentDistrictDetailName);
-            } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
-                fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
-            } else if (currentPreviewMode === 'system') {
-                fetchSystemPreview(currentFilterType);
-            }
-        }
-
-        function applyModalFilters() {
-            currentReportPage = 1;
-            if (currentPreviewMode === 'custom') {
-                applyCustomModalFilters();
-            } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
-                fetchDistrictStationDetails(currentDistrictDetailName);
-            } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
-                fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
-            } else if (currentPreviewMode === 'system') {
-                fetchSystemPreview(currentFilterType);
-            }
-        }
-
-        function resetTableSorting(container) {
-            container = container || document.getElementById('previewBody');
-            if (!container) return;
-
-            const tables = container.querySelectorAll('table');
-            tables.forEach(table => {
-                delete table.dataset.sortDir;
-                const tbody = table.querySelector('tbody');
-                if (!tbody) return;
-
-                const rows = Array.from(tbody.querySelectorAll('tr'));
-                const dataRows = rows.filter(row => !row.classList.contains('total-row') && !row.closest('tfoot'));
-                const totalRows = rows.filter(row => row.classList.contains('total-row') || row.closest('tfoot'));
-
-                dataRows.sort((a, b) => {
-                    const idxA = a.dataset.originalIndex !== undefined ? parseInt(a.dataset.originalIndex, 10) : 0;
-                    const idxB = b.dataset.originalIndex !== undefined ? parseInt(b.dataset.originalIndex, 10) : 0;
-                    return idxA - idxB;
-                });
-
-                dataRows.forEach(row => tbody.appendChild(row));
-                totalRows.forEach(row => tbody.appendChild(row));
-
-                const headers = table.querySelectorAll('thead th');
-                headers.forEach(th => {
-                    const icon = th.querySelector('.sort-icon');
-                    if (icon) {
-                        icon.className = 'ti ti-arrows-sort sort-icon';
-                        icon.style.opacity = '0.5';
-                        icon.style.color = 'inherit';
-                    }
-                });
-            });
-        }
-
-        function clearModalFilters() {
-            const distFilter = document.getElementById('modal-district-filter');
-            const mainSearch = document.getElementById('modal-search-input');
-
-            if (distFilter && !(isDc && userDistrict)) distFilter.value = '';
-            if (mainSearch) mainSearch.value = '';
-
-            ['filter-l1', 'filter-l2', 'filter-sd', 'filter-op', 'filter-st', 'modal-station-search', 'modal-operator-search'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-
-            resetTableSorting(document.getElementById('previewBody'));
-
-            currentReportPage = 1;
-            if (currentPreviewMode === 'custom') {
-                applyCustomModalFilters();
-            } else if (currentPreviewMode === 'district_details' && currentDistrictDetailName) {
-                fetchDistrictStationDetails(currentDistrictDetailName);
-            } else if (currentPreviewMode === 'lms_nseit_details' && currentLmsNseitCode) {
-                fetchLmsNseitDetails(currentSystemReport, currentLmsNseitCode, currentLmsNseitName);
-            } else if (currentPreviewMode === 'system') {
-                fetchSystemPreview(currentFilterType);
-            }
-        }
-
-        async function openPreviewModal(reportId, filename) {
-            currentPreviewMode = 'custom';
-            currentReportPage = 1;
-            currentReportPageSize = 50;
-
-            const psSelect = document.getElementById('modalPageSizeSelect');
-            if (psSelect) psSelect.value = '50';
-
-            document.getElementById('previewModal').style.display = 'flex';
-            document.getElementById('previewTitle').innerText = filename;
-            document.getElementById('modal-district-container').style.display = 'flex';
-
-            const distFilter = document.getElementById('modal-district-filter');
-            if (isDc && userDistrict) {
-                if (distFilter) {
-                    distFilter.value = userDistrict;
-                    distFilter.style.display = 'none';
-                }
-            } else {
-                if (distFilter) {
-                    distFilter.style.display = '';
-                    distFilter.value = '';
-                }
-            }
-
-            if (document.getElementById('modal-station-search')) document.getElementById('modal-station-search').value = '';
-            if (document.getElementById('modal-operator-search')) document.getElementById('modal-operator-search').value = '';
-            document.getElementById('modalDownloadBtn').href = `{{ url_for('report.download', report_id=0) }}`.replace('0', reportId);
-            document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center;"><svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #3b82f6; margin-bottom: 10px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><p style="color: #64748b;">Loading preview...</p></div>';
-
-            history.pushState({ modalOpen: true }, "", "#preview");
-
-            try {
-                const response = await fetch(`{{ config['BACKEND_API_URL'] }}/reports/preview/${reportId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    let tabsHtml = '<div class="preview-sub-bar">';
-                    tabsHtml += '<div style="display: flex; gap: 8px;">';
-                    let contentHtml = '<div>';
-
-                    if (data.multi_sheet && data.html_sheets) {
-                        let i = 0;
-                        let visibleCount = 0;
-                        const allowedIds = (isDc && userDistrict) ? getDcAllowedTabIds(userDistrict) : null;
-
-                        for (const [sheetName, html] of Object.entries(data.html_sheets)) {
-                            let showSheet = true;
-                            if (allowedIds) {
-                                const sLower = sheetName.toLowerCase();
-                                showSheet = false;
-
-                                if (sLower.includes('combined') || sLower.includes('all') || sLower.includes('summary') || sLower.includes('total') || sLower.includes('kit status') || sLower.includes('system report')) {
-                                    showSheet = true;
-                                } else if (sLower.includes('lwe') && allowedIds.includes('lwe')) {
-                                    showSheet = true;
-                                } else {
-                                    for (const id of allowedIds) {
-                                        if (id !== 'combined' && id !== 'lwe' && sLower.includes(id)) {
-                                            showSheet = true;
-                                            break;
-                                        }
-                                    }
-                                    if (!showSheet && sLower.includes(userDistrict.toLowerCase())) {
-                                        showSheet = true;
-                                    }
-                                }
-                            }
-
-                            if (showSheet) {
-                                tabsHtml += `<button class="tab-btn ${visibleCount === 0 ? 'active' : ''}" onclick="showTab(${i})">${sheetName}</button>`;
-                                contentHtml += `<div class="tab-pane" style="display: ${visibleCount === 0 ? 'block' : 'none'}; padding: 20px; overflow-x: auto;">${html}</div>`;
-                                visibleCount++;
-                            }
-                            i++;
-                        }
-                    } else {
-                        tabsHtml += `<button class="tab-btn active">Combined</button>`;
-                        contentHtml += `<div class="tab-pane" style="display: block; padding: 20px; overflow-x: auto;">${data.html}</div>`;
-                    }
-
-                    tabsHtml += '</div>';
-                    tabsHtml += `<button onclick="sortTableByTotalPending()" class="sort-pending-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"></path></svg> Sort by Requests</button>`;
-                    tabsHtml += '</div>';
-
-                    document.getElementById('previewBody').innerHTML = tabsHtml + contentHtml + '</div>';
-                    ensureSNoColumn(document.getElementById('previewBody'));
-                    applyCustomModalFilters();
-                } else {
-                    document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Failed to load preview.</p></div>';
-                }
-            } catch (err) {
-                document.getElementById('previewBody').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;"><p>Error connecting to server.</p></div>';
-            }
-        }
-        function applyCustomModalFilters() {
-            const distEl = document.getElementById('modal-district-filter');
-            const rawDistVal = distEl ? distEl.value.trim() : '';
-            const cleanDistVal = rawDistVal.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-            const searchInput = document.getElementById('modal-search-input');
-            const rawSearchVal = searchInput ? searchInput.value.trim() : '';
-            const searchVal = (rawSearchVal && rawSearchVal.toLowerCase() !== 'search ...' && rawSearchVal.toLowerCase() !== 'search...') ? rawSearchVal.toLowerCase() : '';
-
-            const stationVal = (document.getElementById('modal-station-search')?.value || '').toLowerCase().trim();
-            const operatorVal = (document.getElementById('modal-operator-search')?.value || '').toLowerCase().trim();
-
-            const modalBody = document.getElementById('previewBody');
-            if (!modalBody) return;
-
-            let activePane = modalBody.querySelector('.tab-pane[style*="display: block"]') || modalBody.querySelector('.tab-pane') || modalBody;
-            const table = activePane.querySelector('table');
-            if (!table) return;
-
-            const tbody = table.querySelector('tbody');
-            if (!tbody) return;
-
-            const allRows = Array.from(tbody.querySelectorAll('tr'));
-            const dataRows = allRows.filter(r => !r.classList.contains('total-row') && !r.closest('tfoot'));
-            const totalRows = allRows.filter(r => r.classList.contains('total-row') || r.closest('tfoot'));
-
-            const totalUnfiltered = dataRows.length;
-            const matchingRows = [];
-
-            dataRows.forEach(row => {
-                let show = true;
-                const rowText = row.innerText.toLowerCase();
-
-                // 1. District filter check
-                if (cleanDistVal && !isDc) {
-                    const cells = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
-                    const distMatch = cells.some(c => c === cleanDistVal);
-                    if (!distMatch) show = false;
-                }
-
-                // 2. Search bar filter check
-                if (show && searchVal) {
-                    if (!rowText.includes(searchVal)) show = false;
-                }
-
-                // 3. Station ID filter check
-                if (show && stationVal) {
-                    if (!rowText.includes(stationVal)) show = false;
-                }
-
-                // 4. Operator Name filter check
-                if (show && operatorVal) {
-                    if (!rowText.includes(operatorVal)) show = false;
-                }
-
-                if (show) {
-                    matchingRows.push(row);
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            const totalMatching = matchingRows.length;
-            const pageSize = currentReportPageSize || 10;
-            const totalPages = Math.max(1, Math.ceil(totalMatching / pageSize));
-
-            if (currentReportPage > totalPages) {
-                currentReportPage = 1;
-            }
-
-            const startIdx = (currentReportPage - 1) * pageSize;
-            const endIdx = startIdx + pageSize;
-
-            matchingRows.forEach((row, idx) => {
-                if (idx >= startIdx && idx < endIdx) {
-                    row.style.display = '';
-                    const firstCell = row.querySelector('td');
-                    if (firstCell && !isNaN(parseInt(firstCell.innerText.trim(), 10))) {
-                        firstCell.innerText = idx + 1;
-                    }
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            totalRows.forEach(tr => tr.style.display = '');
-
-            renderModalPagination({
-                page: currentReportPage,
-                page_size: pageSize,
-                total: totalMatching,
-                total_unfiltered: totalUnfiltered,
-                pages: totalPages,
-                start: totalMatching > 0 ? startIdx + 1 : 0,
-                end: Math.min(endIdx, totalMatching)
-            });
-
-            highlightDelayedRows();
-        }
-
-        function clearCustomModalFilters() {
-            const stSearch = document.getElementById('modal-station-search');
-            const opSearch = document.getElementById('modal-operator-search');
-            const distFilter = document.getElementById('modal-district-filter');
-
-            if (stSearch) stSearch.value = '';
-            if (opSearch) opSearch.value = '';
-            if (distFilter && !isDc) distFilter.value = '';
-
-            applyCustomModalFilters();
-        }
-
-        function highlightDelayedRows() {
-            const modalBody = document.getElementById('previewBody');
-            if (!modalBody) return;
-            const tables = modalBody.querySelectorAll('table');
-            tables.forEach(table => {
-                const tbody = table.querySelector('tbody');
-                if (!tbody) return;
-                const rows = tbody.querySelectorAll('tr');
-                rows.forEach(row => {
-                    const cells = Array.from(row.querySelectorAll('td'));
-                    let isDelayed = false;
-                    cells.forEach(cell => {
-                        const text = cell.innerText.toLowerCase();
-                        if (text.includes('days pending')) {
-                            const daysMatch = text.match(/(\d+)\s+days\s+pending/);
-                            if (daysMatch && daysMatch[1]) {
-                                const days = parseInt(daysMatch[1]);
-                                if (days > 7) {
-                                    isDelayed = true;
-                                }
+                const cells = Array.from(row.querySelectorAll('td'));
+                let isDelayed = false;
+                cells.forEach(cell => {
+                    const text = cell.innerText.toLowerCase();
+                    if (text.includes('days pending')) {
+                        const daysMatch = text.match(/(\d+)\s+days\s+pending/);
+                        if (daysMatch && daysMatch[1]) {
+                            const days = parseInt(daysMatch[1]);
+                            if (days > 7) {
+                                isDelayed = true;
                             }
                         }
-                    });
-                    if (isDelayed) {
-                        row.style.backgroundColor = '#fee2e2'; // Darker red background
-                        row.style.transition = 'background-color 0.2s';
                     }
                 });
+                if (isDelayed) {
+                    row.style.backgroundColor = '#fee2e2'; // Darker red background
+                    row.style.transition = 'background-color 0.2s';
+                }
             });
-        }
+        });
+    }
 
-        function filterCustomPreviewTable() {
-            applyModalFilters();
-        }
+    function filterCustomPreviewTable() {
+        applyModalFilters();
+    }
 
-        window.addEventListener('popstate', function (event) {
-            if (document.getElementById('previewModal').style.display === 'flex') {
-                document.getElementById('previewModal').style.display = 'none';
+    window.addEventListener('popstate', function (event) {
+        if (document.getElementById('previewModal').style.display === 'flex') {
+            document.getElementById('previewModal').style.display = 'none';
+        }
+        resetAllReportFilters();
+    });
+
+    function toggleModalFullscreen() {
+        const modal = document.getElementById('previewModal');
+        if (!document.fullscreenElement) {
+            if (modal && modal.requestFullscreen) {
+                modal.requestFullscreen().catch(err => {
+                    document.documentElement.requestFullscreen();
+                });
+            } else if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
             }
-            resetAllReportFilters();
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    }
+
+    function updateFullscreenBtnState() {
+        const expandIcon = document.getElementById('fullscreen-expand-icon');
+        const compressIcon = document.getElementById('fullscreen-compress-icon');
+        const btnText = document.getElementById('fullscreen-btn-text');
+        const isFull = !!document.fullscreenElement;
+
+        if (expandIcon) expandIcon.style.display = isFull ? 'none' : 'inline-block';
+        if (compressIcon) compressIcon.style.display = isFull ? 'inline-block' : 'none';
+        if (btnText) btnText.textContent = isFull ? 'Exit Fullscreen' : 'Fullscreen';
+    }
+
+    document.addEventListener('fullscreenchange', updateFullscreenBtnState);
+
+    function closePreviewModal(fromHistory = false) {
+        if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => { });
+        }
+        document.getElementById('previewModal').style.display = 'none';
+        resetAllReportFilters();
+        if (!fromHistory && window.location.hash === "#preview") {
+            history.back();
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', resetAllReportFilters);
+    window.addEventListener('pageshow', resetAllReportFilters);
+    window.addEventListener('load', resetAllReportFilters);
+
+    // Close modal when clicking outside
+    window.onclick = function (event) {
+        const modal = document.getElementById('previewModal');
+        if (event.target == modal) {
+            closePreviewModal();
+        }
+    }
+
+    const rawHistoryData = JSON.parse(document.getElementById('uploaded-history-data')?.textContent || '[]');
+    const uploadedFilenames = rawHistoryData.flatMap(r => [r?.filename, r?.original_filename]).filter(Boolean);
+    const uploadedFileNamesSet = new Set(uploadedFilenames.map(f => f.toLowerCase().trim()));
+
+    function checkDuplicateAndAlert(fileName) {
+        if (!fileName) return false;
+        const cleanName = fileName.trim();
+        if (uploadedFileNamesSet.has(cleanName.toLowerCase())) {
+            const fileInput = document.getElementById('file');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+            Swal.fire({
+                icon: 'warning',
+                title: 'Already Uploaded',
+                text: `A report with the filename "${cleanName}" is already uploaded. Please select a different dataset file.`,
+                confirmButtonColor: '#2563eb',
+                confirmButtonText: 'OK'
+            });
+            return true;
+        }
+        return false;
+    }
+
+    async function refreshHistoryView() {
+        try {
+            const response = await fetch(`${REPORT_PROXY_BASE}/history`);
+            if (!response.ok) return;
+            const reports = await response.json();
+            renderHistoryDOM(reports);
+        } catch (err) {
+            console.error("Failed to refresh history view:", err);
+        }
+    }
+
+    function renderHistoryDOM(reports) {
+        if (!reports) reports = [];
+
+        uploadedFileNamesSet.clear();
+        reports.forEach(r => {
+            if (r.filename) uploadedFileNamesSet.add(r.filename.toLowerCase().trim());
+            if (r.original_filename) uploadedFileNamesSet.add(r.original_filename.toLowerCase().trim());
         });
 
-        function closePreviewModal(fromHistory = false) {
-            document.getElementById('previewModal').style.display = 'none';
-            resetAllReportFilters();
-            if (!fromHistory && window.location.hash === "#preview") {
-                history.back();
-            }
-        }
+        const mainContainer = document.getElementById('history-main-view');
+        if (!mainContainer) return;
 
-        window.addEventListener('DOMContentLoaded', resetAllReportFilters);
-        window.addEventListener('pageshow', resetAllReportFilters);
-        window.addEventListener('load', resetAllReportFilters);
-
-        // Close modal when clicking outside
-        window.onclick = function (event) {
-            const modal = document.getElementById('previewModal');
-            if (event.target == modal) {
-                closePreviewModal();
-            }
-        }
-
-        const rawHistoryData = JSON.parse(document.getElementById('uploaded-history-data')?.textContent || '[]');
-        const uploadedFilenames = rawHistoryData.flatMap(r => [r?.filename, r?.original_filename]).filter(Boolean);
-        const uploadedFileNamesSet = new Set(uploadedFilenames.map(f => f.toLowerCase().trim()));
-
-        function checkDuplicateAndAlert(fileName) {
-            if (!fileName) return false;
-            const cleanName = fileName.trim();
-            if (uploadedFileNamesSet.has(cleanName.toLowerCase())) {
-                const fileInput = document.getElementById('file');
-                if (fileInput) {
-                    fileInput.value = '';
-                }
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Already Uploaded',
-                    text: `A report with the filename "${cleanName}" is already uploaded. Please select a different dataset file.`,
-                    confirmButtonColor: '#2563eb',
-                    confirmButtonText: 'OK'
-                });
-                return true;
-            }
-            return false;
-        }
-
-        async function refreshHistoryView() {
-            try {
-                const response = await fetch("{{ config['BACKEND_API_URL'] }}/reports/history");
-                if (!response.ok) return;
-                const reports = await response.json();
-                renderHistoryDOM(reports);
-            } catch (err) {
-                console.error("Failed to refresh history view:", err);
-            }
-        }
-
-        function renderHistoryDOM(reports) {
-            if (!reports) reports = [];
-
-            uploadedFileNamesSet.clear();
-            reports.forEach(r => {
-                if (r.filename) uploadedFileNamesSet.add(r.filename.toLowerCase().trim());
-                if (r.original_filename) uploadedFileNamesSet.add(r.original_filename.toLowerCase().trim());
-            });
-
-            const mainContainer = document.getElementById('history-main-view');
-            if (!mainContainer) return;
-
-            if (reports.length === 0) {
-                mainContainer.innerHTML = `
-                    <h2 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: #1e293b;">Past Uploaded Dataset Reports</h2>
-                    <div style="text-align: center; padding: 40px 20px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
+        if (reports.length === 0) {
+            mainContainer.innerHTML = `
+                    <h2 class="rpt-subheading" style="margin-top: 0; margin-bottom: 20px; font-size: 18px;">Past Uploaded Dataset Reports</h2>
+                    <div class="rpt-empty-box">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: #94a3b8; margin-bottom: 10px;">
                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                             <line x1="3" y1="9" x2="21" y2="9"></line>
                             <line x1="9" y1="21" x2="9" y2="9"></line>
                         </svg>
-                        <h3 style="margin: 0 0 5px 0; color: #475569; font-size: 16px;">No reports generated yet</h3>
-                        <p style="margin: 0; color: #64748b; font-size: 14px;">Switch to the 'Generate New Report' tab to create your first report.</p>
+                        <h3 style="margin: 0 0 5px 0; font-size: 16px;">No reports generated yet</h3>
+                        <p style="margin: 0; font-size: 14px;">Switch to the 'Generate New Report' tab to create your first report.</p>
                     </div>
                 `;
-                closeHistoryDetail();
-                return;
-            }
+            closeHistoryDetail();
+            return;
+        }
 
-            const groups = {};
-            reports.forEach(r => {
-                if (!groups[r.report_type]) groups[r.report_type] = [];
-                groups[r.report_type].push(r);
-            });
+        const groups = {};
+        reports.forEach(r => {
+            if (!groups[r.report_type]) groups[r.report_type] = [];
+            groups[r.report_type].push(r);
+        });
 
-            let mainCardsHtml = `
-                <h2 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: #1e293b;">Past Uploaded Dataset Reports</h2>
+        let mainCardsHtml = `
+                <h2 class="rpt-subheading" style="margin-top: 0; margin-bottom: 20px; font-size: 18px;">Past Uploaded Dataset Reports</h2>
                 <div class="system-report-list">
             `;
 
-            for (const [groupKey, groupList] of Object.entries(groups)) {
-                const title = groupKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                mainCardsHtml += `
+        for (const [groupKey, groupList] of Object.entries(groups)) {
+            const title = groupKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            mainCardsHtml += `
                     <div class="list-item" onclick="openHistoryDetail('${groupKey}', '${title}')" style="cursor: pointer; padding: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <h3 style="margin: 0; color: #0f172a; font-size: 16px;">${title}</h3>
@@ -1443,38 +1482,38 @@
                         </div>
                     </div>
                 `;
-            }
-            mainCardsHtml += `</div>`;
-            mainContainer.innerHTML = mainCardsHtml;
+        }
+        mainCardsHtml += `</div>`;
+        mainContainer.innerHTML = mainCardsHtml;
 
-            let detailWrapper = document.querySelector('#history-detail-view > div');
-            if (detailWrapper) {
-                detailWrapper.querySelectorAll('.detail-list-container').forEach(c => {
-                    const idKey = c.id.replace('detail-list-', '');
-                    if (!groups[idKey]) {
-                        c.remove();
-                    }
-                });
+        let detailWrapper = document.querySelector('#history-detail-view > div');
+        if (detailWrapper) {
+            detailWrapper.querySelectorAll('.detail-list-container').forEach(c => {
+                const idKey = c.id.replace('detail-list-', '');
+                if (!groups[idKey]) {
+                    c.remove();
+                }
+            });
 
-                for (const [groupKey, groupList] of Object.entries(groups)) {
-                    let listContainer = document.getElementById('detail-list-' + groupKey);
-                    if (!listContainer) {
-                        listContainer = document.createElement('div');
-                        listContainer.id = 'detail-list-' + groupKey;
-                        listContainer.className = 'detail-list-container';
-                        listContainer.style.display = 'none';
-                        listContainer.style.padding = '0';
-                        detailWrapper.appendChild(listContainer);
-                    }
+            for (const [groupKey, groupList] of Object.entries(groups)) {
+                let listContainer = document.getElementById('detail-list-' + groupKey);
+                if (!listContainer) {
+                    listContainer = document.createElement('div');
+                    listContainer.id = 'detail-list-' + groupKey;
+                    listContainer.className = 'detail-list-container';
+                    listContainer.style.display = 'none';
+                    listContainer.style.padding = '0';
+                    detailWrapper.appendChild(listContainer);
+                }
 
-                    let rowsHtml = '';
-                    groupList.forEach(report => {
-                        const dateStr = report.created_at ? report.created_at.split('T')[0] : '';
-                        const timeStr = (report.created_at && report.created_at.includes('T')) ? report.created_at.split('T')[1].substring(0, 5) : '';
-                        const distBadge = report.district ? `<span style="background: #eff6ff; color: #2563eb; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">${report.district}</span>` : `<span style="color: #94a3b8; font-size: 13px;">All Districts</span>`;
-                        const downloadUrl = `{{ url_for('report.download', report_id=0) }}`.replace('0', report.id);
+                let rowsHtml = '';
+                groupList.forEach(report => {
+                    const dateStr = report.created_at ? report.created_at.split('T')[0] : '';
+                    const timeStr = (report.created_at && report.created_at.includes('T')) ? report.created_at.split('T')[1].substring(0, 5) : '';
+                    const distBadge = report.district ? `<span style="background: #eff6ff; color: #2563eb; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500;">${report.district}</span>` : `<span style="color: #94a3b8; font-size: 13px;">All Districts</span>`;
+                    const downloadUrl = `{{ url_for('report.download', report_id=0) }}`.replace('0', report.id);
 
-                        rowsHtml += `
+                    rowsHtml += `
                             <tr id="report-row-${report.id}" style="background: white; border-bottom: 1px solid #f1f5f9; transition: background 0.2s;">
                                 <td style="padding: 16px 20px; color: #334155; font-weight: 500;">
                                     ${dateStr} <span style="color: #94a3b8; font-size: 12px; margin-left: 6px;">${timeStr}</span>
@@ -1491,9 +1530,9 @@
                                 </td>
                             </tr>
                         `;
-                    });
+                });
 
-                    listContainer.innerHTML = `
+                listContainer.innerHTML = `
                         <table class="preview-table" style="width: 100%; border-collapse: collapse; margin: 0;">
                             <thead>
                                 <tr>
@@ -1507,232 +1546,725 @@
                             </tbody>
                         </table>
                     `;
-                }
-            }
-
-            // Check if active detail container became empty after deletion
-            const activeDetail = Array.from(document.querySelectorAll('.detail-list-container')).find(c => c.style.display === 'block');
-            if (activeDetail) {
-                const rows = activeDetail.querySelectorAll('tbody tr');
-                if (rows.length === 0) {
-                    closeHistoryDetail();
-                } else {
-                    filterHistoryTable();
-                }
             }
         }
 
-        async function generateReport(action) {
-            const fileInput = document.getElementById('file');
-            const typeInput = document.getElementById('report_type');
-
-            if (!fileInput.files.length || !typeInput.value) {
-                Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please select a report type and upload a dataset.' });
-                return;
-            }
-
-            const uploadedFile = fileInput.files[0];
-            const uploadedFileName = uploadedFile ? uploadedFile.name : '';
-
-            if (checkDuplicateAndAlert(uploadedFileName)) {
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', uploadedFile);
-            formData.append('report_type', typeInput.value);
-
-            const districtSelect = document.getElementById('custom-district-filter');
-            if (districtSelect && districtSelect.value) {
-                formData.append('district', districtSelect.value);
-            }
-
-            Swal.fire({
-                title: 'Generating Report...',
-                text: 'Please wait while we process the dataset.',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
-
-            try {
-                const response = await fetch("{{ config['BACKEND_API_URL'] }}/reports/generate", {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await response.json();
-
-                if (response.ok) {
-                    if (uploadedFileName) {
-                        uploadedFileNamesSet.add(uploadedFileName.toLowerCase().trim());
-                    }
-                    fileInput.value = '';
-
-                    await refreshHistoryView();
-
-                    if (action === 'preview') {
-                        Swal.close();
-                        openPreviewModal(data.report_id, data.filename);
-                    } else {
-                        Swal.fire({ icon: 'success', title: 'Success!', text: 'Report generated successfully.' });
-                        window.location.href = "{{ url_for('report.download', report_id=0) }}".replace('0', data.report_id);
-                    }
-                } else {
-                    fileInput.value = '';
-                    Swal.fire({ icon: 'error', title: 'Error', text: data.detail || 'Failed to generate report.' });
-                }
-            } catch (err) {
-                fileInput.value = '';
-                Swal.fire({ icon: 'error', title: 'Error', text: 'Connection failed.' });
-            }
-        }
-
-        async function deleteReport(reportId) {
-            Swal.fire({
-                title: 'Are you sure?',
-                text: "This report will be permanently deleted.",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#94a3b8',
-                confirmButtonText: 'Delete'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    try {
-                        const response = await fetch(`{{ config['BACKEND_API_URL'] }}/reports/${reportId}`, {
-                            method: 'DELETE'
-                        });
-
-                        if (response.ok) {
-                            await refreshHistoryView();
-                            Swal.fire('Deleted!', 'Report deleted successfully.', 'success');
-                        } else {
-                            const data = await response.json();
-                            Swal.fire('Error', data.detail || 'Could not delete report.', 'error');
-                        }
-                    } catch (err) {
-                        Swal.fire('Error', 'Connection failed.', 'error');
-                    }
-                }
-            });
-        }
-
-        function toggleViewMode(mode) {
-            const container = document.getElementById('system-reports-container');
-            const gridBtn = document.getElementById('btn-grid-view');
-            const listBtn = document.getElementById('btn-list-view');
-
-            if (mode === 'list') {
-                container.classList.add('list-view');
-                listBtn.classList.add('active');
-                gridBtn.classList.remove('active');
-                localStorage.setItem('reportViewMode', 'list');
+        // Check if active detail container became empty after deletion
+        const activeDetail = Array.from(document.querySelectorAll('.detail-list-container')).find(c => c.style.display === 'block');
+        if (activeDetail) {
+            const rows = activeDetail.querySelectorAll('tbody tr');
+            if (rows.length === 0) {
+                closeHistoryDetail();
             } else {
-                container.classList.remove('list-view');
-                gridBtn.classList.add('active');
-                listBtn.classList.remove('active');
-                localStorage.setItem('reportViewMode', 'grid');
+                filterHistoryTable();
+            }
+        } else {
+            const detailView = document.getElementById('history-detail-view');
+            if (detailView && detailView.style.display === 'block') {
+                closeHistoryDetail();
             }
         }
+    }
 
-        function resetGenerateForm() {
-            const form = document.getElementById('generateForm');
-            if (form) {
-                form.reset();
-            }
-            const reportTypeSelect = document.getElementById('report_type');
-            if (reportTypeSelect) {
-                reportTypeSelect.selectedIndex = 0;
-            }
-            const distSelect = document.getElementById('custom-district-filter');
-            if (distSelect) {
-                distSelect.selectedIndex = 0;
-            }
-            const fileInput = document.getElementById('file');
-            if (fileInput) {
+    async function generateReport(action) {
+        const fileInput = document.getElementById('file');
+        const typeInput = document.getElementById('report_type');
+
+        if (!fileInput.files.length || !typeInput.value) {
+            Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Please select a report type and upload a dataset.' });
+            return;
+        }
+
+        const uploadedFile = fileInput.files[0];
+        const uploadedFileName = uploadedFile ? uploadedFile.name : '';
+
+        if (checkDuplicateAndAlert(uploadedFileName)) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', uploadedFile);
+        formData.append('report_type', typeInput.value);
+
+        const districtSelect = document.getElementById('custom-district-filter');
+        if (districtSelect && districtSelect.value) {
+            formData.append('district', districtSelect.value);
+        }
+
+        Swal.fire({
+            title: 'Generating Report...',
+            text: 'Please wait while we process the dataset.',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        try {
+            const response = await fetch(`${REPORT_PROXY_BASE}/generate`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                if (uploadedFileName) {
+                    uploadedFileNamesSet.add(uploadedFileName.toLowerCase().trim());
+                }
                 fileInput.value = '';
+
+                await refreshHistoryView();
+
+                if (action === 'preview') {
+                    Swal.close();
+                    openPreviewModal(data.report_id, data.filename);
+                } else {
+                    Swal.fire({ icon: 'success', title: 'Success!', text: 'Report generated successfully.' });
+                    window.location.href = "{{ url_for('report.download', report_id=0) }}".replace('0', data.report_id);
+                }
+            } else {
+                fileInput.value = '';
+                let errMsg = data.detail || data.message || data.error || 'Failed to generate report.';
+                if (typeof errMsg === 'object') {
+                    errMsg = errMsg.msg || JSON.stringify(errMsg);
+                }
+                if (typeof errMsg === 'string') {
+                    // Strip raw technical HTTP status prefixes like "400:", "Error 400:", "HTTP 400 - "
+                    errMsg = errMsg.replace(/^\s*(error\s*:?\s*)?(\d{3}\s*:?\s*-?\s*)?/i, '').trim();
+                }
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid Dataset',
+                    text: errMsg,
+                    confirmButtonColor: '#4f46e5'
+                });
             }
+        } catch (err) {
+            fileInput.value = '';
+            Swal.fire({
+                icon: 'error',
+                title: 'Connection Error',
+                text: 'Failed to communicate with the server. Please try again.',
+                confirmButtonColor: '#4f46e5'
+            });
+        }
+    }
+
+    async function deleteReport(reportId) {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This report will be permanently deleted from the database and project directory.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Delete'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    let response = await fetch(`${REPORT_PROXY_BASE}/${reportId}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!response.ok && (response.status === 404 || response.status === 405)) {
+                        // Fallback direct delete route
+                        const directDeleteUrl = (window.location.pathname.startsWith('/auth') ? '/auth/reports/delete' : '/reports/delete');
+                        response = await fetch(`${directDeleteUrl}/${reportId}`, { method: 'DELETE' });
+                    }
+
+                    if (response.ok) {
+                        // Immediately remove row from DOM
+                        const row = document.getElementById(`report-row-${reportId}`);
+                        if (row) {
+                            const tbody = row.closest('tbody');
+                            row.remove();
+                            if (tbody && tbody.querySelectorAll('tr').length === 0) {
+                                closeHistoryDetail();
+                            }
+                        }
+                        await refreshHistoryView();
+                        Swal.fire('Deleted!', 'Report deleted successfully from database and project directory.', 'success');
+                    } else {
+                        const data = await response.json();
+                        Swal.fire('Error', data.detail || 'Could not delete report.', 'error');
+                    }
+                } catch (err) {
+                    Swal.fire('Error', 'Connection failed.', 'error');
+                }
+            }
+        });
+    }
+
+    function toggleViewMode(mode) {
+        const container = document.getElementById('system-reports-container');
+        const gridBtn = document.getElementById('btn-grid-view');
+        const listBtn = document.getElementById('btn-list-view');
+
+        if (mode === 'list') {
+            container.classList.add('list-view');
+            listBtn.classList.add('active');
+            gridBtn.classList.remove('active');
+            localStorage.setItem('reportViewMode', 'list');
+        } else {
+            container.classList.remove('list-view');
+            gridBtn.classList.add('active');
+            listBtn.classList.remove('active');
+            localStorage.setItem('reportViewMode', 'grid');
+        }
+    }
+
+    function resetGenerateForm() {
+        const form = document.getElementById('generateForm');
+        if (form) {
+            form.reset();
+        }
+        const reportTypeSelect = document.getElementById('report_type');
+        if (reportTypeSelect) {
+            reportTypeSelect.selectedIndex = 0;
+        }
+        const distSelect = document.getElementById('custom-district-filter');
+        if (distSelect) {
+            distSelect.selectedIndex = 0;
+        }
+        const fileInput = document.getElementById('file');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        resetGenerateForm();
+        refreshHistoryView();
+
+        const savedSection = localStorage.getItem('activeReportSection');
+        if (savedSection && document.getElementById(savedSection)) {
+            switchMainSection(savedSection, null);
+        } else {
+            switchMainSection('system-requests', null);
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            resetGenerateForm();
-            refreshHistoryView();
+        const savedSubTab = localStorage.getItem('activeReportSubTab');
+        if (savedSubTab) {
+            switchSubTab(savedSubTab);
+        }
 
-            const savedSection = localStorage.getItem('activeReportSection');
-            if (savedSection && document.getElementById(savedSection)) {
-                switchMainSection(savedSection, null);
-            }
-
-            const savedSubTab = localStorage.getItem('activeReportSubTab');
-            if (savedSubTab) {
-                switchSubTab(savedSubTab);
-            }
-
-            const fileInput = document.getElementById('file');
-            if (fileInput) {
-                fileInput.addEventListener('change', function () {
-                    if (this.files && this.files.length > 0) {
-                        checkDuplicateAndAlert(this.files[0].name);
-                    }
-                });
-            }
-
-            if (localStorage.getItem('reportViewMode') === 'list') {
-                toggleViewMode('list');
-            }
-            if (isDc && userDistrict) {
-                document.querySelectorAll('.system-download-link').forEach(link => {
-                    const baseUrl = link.getAttribute('data-base-url') || link.href;
-                    link.href = `${baseUrl}?district=${encodeURIComponent(userDistrict)}`;
-                });
-            }
-        });
-
-        window.addEventListener('pageshow', () => {
-            resetGenerateForm();
-        });
-
-
-
-        function filterCustomPreviewTable() {
-            const distEl = document.getElementById('modal-district-filter');
-            const filterVal = (distEl && distEl.value) ? distEl.value.toLowerCase() : '';
-            const panes = document.querySelectorAll('.tab-pane');
-            panes.forEach(pane => {
-                const rows = pane.querySelectorAll('tbody tr');
-                rows.forEach(row => {
-                    let match = false;
-                    if (!filterVal) {
-                        match = true;
-                    } else {
-                        const cells = Array.from(row.querySelectorAll('td'));
-                        // District is usually column 1 if S.No is column 0, but we can just check if any cell matches the district name
-                        const text = row.innerText.toLowerCase();
-                        if (text.includes(filterVal)) match = true;
-                    }
-                    row.style.display = match ? '' : 'none';
-                });
-
-                // Re-number S.No for visible rows
-                let idx = 1;
-                rows.forEach(row => {
-                    if (row.style.display !== 'none') {
-                        const firstCell = row.querySelector('td');
-                        if (firstCell && !isNaN(parseInt(firstCell.innerText))) {
-                            firstCell.innerText = idx++;
-                        }
-                    }
-                });
+        const fileInput = document.getElementById('file');
+        if (fileInput) {
+            fileInput.addEventListener('change', function () {
+                if (this.files && this.files.length > 0) {
+                    checkDuplicateAndAlert(this.files[0].name);
+                }
             });
         }
 
-        // Auto-open Kit Tracker system report modal if requested via URL param ?preview=kit_tracker
-        document.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const preview = urlParams.get('preview') || urlParams.get('report');
-            if (preview === 'kit_tracker') {
-                setTimeout(() => {
-                    openSystemPreviewModal('kit_tracker', 'Kit Tracker');
-                }, 150);
-            }
+        if (localStorage.getItem('reportViewMode') === 'list') {
+            toggleViewMode('list');
+        }
+        if (isDc && userDistrict) {
+            document.querySelectorAll('.system-download-link').forEach(link => {
+                const baseUrl = link.getAttribute('data-base-url') || link.href;
+                link.href = `${baseUrl}?district=${encodeURIComponent(userDistrict)}`;
+            });
+        }
+    });
+
+    window.addEventListener('pageshow', () => {
+        resetGenerateForm();
+    });
+
+
+
+    function filterCustomPreviewTable() {
+        const distEl = document.getElementById('modal-district-filter');
+        const filterVal = (distEl && distEl.value) ? distEl.value.toLowerCase() : '';
+        const panes = document.querySelectorAll('.tab-pane');
+        panes.forEach(pane => {
+            const rows = pane.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                let match = false;
+                if (!filterVal) {
+                    match = true;
+                } else {
+                    const cells = Array.from(row.querySelectorAll('td'));
+                    // District is usually column 1 if S.No is column 0, but we can just check if any cell matches the district name
+                    const text = row.innerText.toLowerCase();
+                    if (text.includes(filterVal)) match = true;
+                }
+                row.style.display = match ? '' : 'none';
+            });
+
+            // Re-number S.No for visible rows
+            let idx = 1;
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const firstCell = row.querySelector('td');
+                    if (firstCell && !isNaN(parseInt(firstCell.innerText))) {
+                        firstCell.innerText = idx++;
+                    }
+                }
+            });
         });
+    }
+
+    // Auto-open Kit Tracker system report modal if requested via URL param ?preview=kit_tracker
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const preview = urlParams.get('preview') || urlParams.get('report');
+        if (preview === 'kit_tracker') {
+            setTimeout(() => {
+                openSystemPreviewModal('kit_tracker', 'Kit Tracker');
+            }, 150);
+        }
+    });
+
+    window.toggleAnomaliesPanel = function (e, summaryEl) {
+        if (e) e.preventDefault();
+        const details = summaryEl.closest('.anomalies-details');
+        if (!details) return;
+        const isOpening = !details.classList.contains('is-open');
+
+        if (isOpening) {
+            details.setAttribute('open', '');
+            requestAnimationFrame(() => {
+                details.classList.add('is-open');
+            });
+        } else {
+            details.classList.remove('is-open');
+            setTimeout(() => {
+                if (!details.classList.contains('is-open')) {
+                    details.removeAttribute('open');
+                }
+            }, 350);
+        }
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // Live External Portal Sync Trigger
+    // ─────────────────────────────────────────────────────────────
+    async function triggerLiveReportsSync() {
+        const btn = document.getElementById('btn-sync-live-data');
+        const icon = document.getElementById('sync-icon');
+        const textSpan = document.getElementById('sync-btn-text');
+
+        const confirmRes = await Swal.fire({
+            title: 'Synchronize Live Data?',
+            text: 'This will pull the latest Kit, Operator, and Onboarding records from the State Government portal and update your local database.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#0284c7',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Sync Now',
+            cancelButtonText: 'Cancel'
+        });
+
+        if (!confirmRes.isConfirmed) return;
+
+        // Set loading state
+        if (btn) btn.classList.add('loading');
+        if (icon) icon.classList.add('spin-anim');
+        if (textSpan) textSpan.innerText = 'Syncing...';
+
+        try {
+            const syncUrl = (window.location.pathname.startsWith('/auth') ? '/auth/reports/sync-live' : '/reports/sync-live');
+            const resp = await fetch(syncUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await resp.json();
+
+            if (resp.ok && (data.success || data.stats)) {
+                const stats = data.stats || data.data || {};
+                const kitsCreated = stats.kits_created || 0;
+                const kitsUpdated = stats.kits_updated || 0;
+                const kitsTotal = kitsCreated + kitsUpdated;
+
+                const opsCreated = stats.operators_created || 0;
+                const opsUpdated = stats.operators_updated || 0;
+                const opsTotal = opsCreated + opsUpdated;
+
+                const onbCreated = stats.onboarding_created || 0;
+                const onbUpdated = stats.onboarding_updated || 0;
+                const onbTotal = onbCreated + onbUpdated;
+
+                const kitsPruned = stats.kits_pruned || 0;
+                const opsPruned = stats.operators_pruned || 0;
+                const totalChanges = kitsTotal + opsTotal + onbTotal + kitsPruned + opsPruned;
+
+                const anomalies = stats.anomalies || {};
+                const dupStations = anomalies.duplicate_stations || [];
+                const sharedMachines = anomalies.shared_machines || [];
+                const sharedLaptops = anomalies.shared_laptops || [];
+                const sharedMobiles = anomalies.shared_mobiles || [];
+                const totalAnomalies = dupStations.length + sharedMachines.length + sharedLaptops.length + sharedMobiles.length;
+
+                let anomaliesHtml = '';
+                if (totalAnomalies > 0) {
+                    let summaryTags = [];
+                    if (dupStations.length > 0) summaryTags.push(`<strong>${dupStations.length}</strong> duplicate station ID(s)`);
+                    if (sharedMachines.length > 0) summaryTags.push(`<strong>${sharedMachines.length}</strong> shared machine(s)`);
+                    if (sharedLaptops.length > 0) summaryTags.push(`<strong>${sharedLaptops.length}</strong> shared laptop(s)`);
+                    if (sharedMobiles.length > 0) summaryTags.push(`<strong>${sharedMobiles.length}</strong> shared mobile(s)`);
+
+                    let detailsContent = '';
+
+                    // 1. Duplicate Stations: Visual Comparison Table
+                    if (dupStations.length > 0) {
+                        dupStations.forEach(ds => {
+                            let rowsHtml = (ds.rows || []).map((r, idx, arr) => {
+                                const isLatest = idx === arr.length - 1;
+                                return `
+                                    <tr style="border-bottom: 1px solid var(--border-subtle, #f1f5f9); ${isLatest ? 'background: rgba(34, 197, 94, 0.08);' : 'opacity: 0.8;'}">
+                                        <td style="padding: 7px 10px; font-weight: 600; color: var(--text-primary, #1e293b);">Row ${r.row}</td>
+                                        <td style="padding: 7px 10px; font-family: ui-monospace, SFMono-Regular, monospace; ${isLatest ? 'font-weight: 700; color: var(--remark-approved-title, #15803d);' : 'color: var(--text-primary, #1e293b);'}">${r.provided_date}</td>
+                                        <td style="padding: 7px 10px; color: var(--text-primary, #1e293b);">${r.status === 'A' ? 'Active (A)' : r.status}</td>
+                                        <td style="padding: 7px 10px; color: var(--text-secondary, #64748b);">${r.district}</td>
+                                        <td style="padding: 7px 10px; text-align: right;">
+                                            ${isLatest
+                                        ? '<span style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; background: rgba(34, 197, 94, 0.18); color: #16a34a; border: 1px solid rgba(34, 197, 94, 0.35);">✓ Kept (Latest)</span>'
+                                        : '<span style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: rgba(148, 163, 184, 0.18); color: var(--text-secondary, #64748b);">Overwritten</span>'
+                                    }
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('');
+
+                            let diffBanner = '';
+                            if (ds.diffs && ds.diffs.length > 0) {
+                                diffBanner = `
+                                    <div style="padding: 8px 12px; background: rgba(245, 158, 11, 0.08); border-top: 1px dashed var(--border-subtle, #e2e8f0); font-size: 11px; color: var(--candidate-rerequest-title, #b45309);">
+                                        <strong>↳ Detected Change:</strong> ${ds.diffs.join(', ')}
+                                    </div>
+                                `;
+                            }
+
+                            detailsContent += `
+                                <div style="background: var(--surface-card, #ffffff); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; margin-bottom: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+                                    <div style="background: rgba(239, 68, 68, 0.08); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(239, 68, 68, 0.18);">
+                                        <span style="font-weight: 700; font-size: 12px; color: var(--stat-rejected-fg, #dc2626); display: flex; align-items: center; gap: 6px;">
+                                            Duplicate Station ID: <code style="background: rgba(239, 68, 68, 0.15); color: var(--stat-rejected-fg, #dc2626); padding: 2px 7px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; font-weight: 700;">${ds.station_id}</code>
+                                        </span>
+                                        <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(239, 68, 68, 0.15); color: var(--stat-rejected-fg, #dc2626); font-weight: 600;">
+                                            Appears ${ds.count} times in API
+                                        </span>
+                                    </div>
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+                                        <thead>
+                                            <tr style="background: var(--surface-subtle, #f8fafc); border-bottom: 1px solid var(--border-subtle, #e2e8f0); color: var(--text-secondary, #64748b);">
+                                                <th style="padding: 6px 10px;">Payload Row</th>
+                                                <th style="padding: 6px 10px;">Provided Date</th>
+                                                <th style="padding: 6px 10px;">Status</th>
+                                                <th style="padding: 6px 10px;">District</th>
+                                                <th style="padding: 6px 10px; text-align: right;">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${rowsHtml}
+                                        </tbody>
+                                    </table>
+                                    ${diffBanner}
+                                </div>
+                            `;
+                        });
+                    }
+
+                    // 2. Shared Machines: Clean Table with Station Chips
+                    if (sharedMachines.length > 0) {
+                        let machineRows = sharedMachines.map(sm => {
+                            let chipHtml = sm.station_ids.map(sid =>
+                                `<span style="display: inline-block; padding: 2px 7px; margin: 2px; font-size: 11px; font-weight: 600; border-radius: 4px; background: rgba(59, 130, 246, 0.12); color: var(--action, #3b82f6); border: 1px solid rgba(59, 130, 246, 0.25); font-family: ui-monospace, SFMono-Regular, monospace;">${sid}</span>`
+                            ).join('');
+
+                            return `
+                                <tr style="border-bottom: 1px solid var(--border-subtle, #f1f5f9);">
+                                    <td style="padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; word-break: break-all; color: var(--text-primary, #1e293b);">
+                                        ${sm.machine_id}
+                                    </td>
+                                    <td style="padding: 8px 10px; vertical-align: middle;">
+                                        ${chipHtml}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('');
+
+                        detailsContent += `
+                            <div style="background: var(--surface-card, #ffffff); border: 1px solid var(--border-subtle, #e2e8f0); border-radius: 8px; margin-bottom: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+                                <div style="background: var(--surface-subtle, #f8fafc); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle, #e2e8f0);">
+                                    <span style="font-weight: 700; font-size: 12px; color: var(--text-primary, #1e293b);">
+                                        Shared Machine IDs
+                                    </span>
+                                    <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(59, 130, 246, 0.12); color: var(--action, #3b82f6); font-weight: 600;">
+                                        ${sharedMachines.length} machine(s)
+                                    </span>
+                                </div>
+                                <div style="max-height: 180px; overflow-y: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+                                        <thead>
+                                            <tr style="position: sticky; top: 0; background: var(--surface-subtle, #f8fafc); border-bottom: 1px solid var(--border-subtle, #e2e8f0); color: var(--text-secondary, #64748b);">
+                                                <th style="padding: 6px 10px;">Machine ID</th>
+                                                <th style="padding: 6px 10px; width: 160px;">Shared By Station IDs</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${machineRows}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // 3. Shared Laptops: Clean Table with Station Chips
+                    if (sharedLaptops.length > 0) {
+                        let laptopRows = sharedLaptops.map(sl => {
+                            let chipHtml = sl.station_ids.map(sid =>
+                                `<span style="display: inline-block; padding: 2px 7px; margin: 2px; font-size: 11px; font-weight: 600; border-radius: 4px; background: rgba(59, 130, 246, 0.12); color: var(--action, #3b82f6); border: 1px solid rgba(59, 130, 246, 0.25); font-family: ui-monospace, SFMono-Regular, monospace;">${sid}</span>`
+                            ).join('');
+
+                            return `
+                                <tr style="border-bottom: 1px solid var(--border-subtle, #f1f5f9);">
+                                    <td style="padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; word-break: break-all; color: var(--text-primary, #1e293b);">
+                                        ${sl.laptop_serial_no}
+                                    </td>
+                                    <td style="padding: 8px 10px; vertical-align: middle;">
+                                        ${chipHtml}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('');
+
+                        detailsContent += `
+                            <div style="background: var(--surface-card, #ffffff); border: 1px solid var(--border-subtle, #e2e8f0); border-radius: 8px; margin-bottom: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+                                <div style="background: var(--surface-subtle, #f8fafc); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle, #e2e8f0);">
+                                    <span style="font-weight: 700; font-size: 12px; color: var(--text-primary, #1e293b);">
+                                        Shared Laptop Serials
+                                    </span>
+                                    <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(59, 130, 246, 0.12); color: var(--action, #3b82f6); font-weight: 600;">
+                                        ${sharedLaptops.length} serial(s)
+                                    </span>
+                                </div>
+                                <div style="max-height: 180px; overflow-y: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+                                        <thead>
+                                            <tr style="position: sticky; top: 0; background: var(--surface-subtle, #f8fafc); border-bottom: 1px solid var(--border-subtle, #e2e8f0); color: var(--text-secondary, #64748b);">
+                                                <th style="padding: 6px 10px;">Laptop Serial No</th>
+                                                <th style="padding: 6px 10px; width: 160px;">Shared By Station IDs</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${laptopRows}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // 4. Shared Mobiles: Clean Table with Operator Chips
+                    if (sharedMobiles.length > 0) {
+                        let mobileRows = sharedMobiles.map(sm => {
+                            let opChips = sm.operators.map(op =>
+                                `<span style="display: inline-block; padding: 2px 8px; margin: 2px; font-size: 11px; font-weight: 500; border-radius: 4px; background: rgba(16, 185, 129, 0.12); color: #059669; border: 1px solid rgba(16, 185, 129, 0.25);">${op}</span>`
+                            ).join('');
+
+                            return `
+                                <tr style="border-bottom: 1px solid var(--border-subtle, #f1f5f9);">
+                                    <td style="padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; font-weight: 700; color: var(--text-primary, #1e293b); white-space: nowrap;">
+                                        ${sm.mobile}
+                                    </td>
+                                    <td style="padding: 8px 10px; vertical-align: middle;">
+                                        ${opChips}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('');
+
+                        detailsContent += `
+                            <div style="background: var(--surface-card, #ffffff); border: 1px solid var(--border-subtle, #e2e8f0); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+                                <div style="background: var(--surface-subtle, #f8fafc); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle, #e2e8f0);">
+                                    <span style="font-weight: 700; font-size: 12px; color: var(--text-primary, #1e293b);">
+                                        Shared Mobile Numbers
+                                    </span>
+                                    <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(16, 185, 129, 0.12); color: #10b981; font-weight: 600;">
+                                        ${sharedMobiles.length} number(s)
+                                    </span>
+                                </div>
+                                <div style="max-height: 180px; overflow-y: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: left;">
+                                        <thead>
+                                            <tr style="position: sticky; top: 0; background: var(--surface-subtle, #f8fafc); border-bottom: 1px solid var(--border-subtle, #e2e8f0); color: var(--text-secondary, #64748b);">
+                                                <th style="padding: 6px 10px; width: 140px;">Mobile Number</th>
+                                                <th style="padding: 6px 10px;">Associated Operators</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${mobileRows}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    anomaliesHtml = `
+                            <div style="margin-top: 14px; text-align: left;">
+                                <div style="background: var(--candidate-rerequest-bg, #fffbeb); border: 1px solid var(--candidate-rerequest-border, #fde68a); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--candidate-rerequest-title, #92400e); line-height: 1.5;">
+                                    <div style="font-weight: 700; margin-bottom: 2px;">API Data Notice:</div>
+                                    <div style="color: var(--candidate-rerequest-text, #78350f);">Found ${summaryTags.join(', ')} in the live external payload.</div>
+                                </div>
+
+                                <style>
+                                    .anomalies-details summary::-webkit-details-marker { display: none; }
+                                    .anomalies-details summary {
+                                        list-style: none;
+                                        transition: background-color 0.2s ease;
+                                    }
+                                    .anomalies-details summary:hover {
+                                        background-color: var(--surface-hover, #f1f5f9) !important;
+                                    }
+                                    .anomalies-arrow {
+                                        display: inline-block;
+                                        font-size: 10px;
+                                        line-height: 1;
+                                        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                                        transform-origin: center;
+                                        color: var(--action, #0284c7) !important;
+                                    }
+                                    .anomalies-arrow::before {
+                                        content: '▶';
+                                    }
+                                    .anomalies-details.is-open .anomalies-arrow {
+                                        transform: rotate(90deg);
+                                    }
+                                    .anomalies-body-wrapper {
+                                        max-height: 0;
+                                        opacity: 0;
+                                        overflow: hidden;
+                                        padding: 0 12px;
+                                        border-top: 1px solid transparent;
+                                        transition: max-height 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.25s ease, padding 0.35s ease, border-color 0.25s ease;
+                                        line-height: 1.5;
+                                        color: var(--text-primary, #1e293b);
+                                        background: var(--surface-input, #fdfdfd);
+                                        font-size: 12px;
+                                    }
+                                    .anomalies-details.is-open .anomalies-body-wrapper {
+                                        max-height: 320px;
+                                        opacity: 1;
+                                        overflow-y: auto;
+                                        padding: 12px;
+                                        border-top: 1px solid var(--border-subtle, #e2e8f0);
+                                    }
+                                </style>
+                                <details class="anomalies-details" style="margin-top: 10px; border: 1px solid var(--border-strong, #cbd5e1); border-radius: 8px; background: var(--surface-card, #ffffff); overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: box-shadow 0.2s ease;">
+                                    <summary onclick="toggleAnomaliesPanel(event, this)" style="padding: 10px 14px; font-weight: 600; font-size: 13px; color: var(--action, #0284c7); cursor: pointer; background: var(--surface-subtle, #f8fafc); outline: none; user-select: none; display: flex; align-items: center; justify-content: space-between;">
+                                        <span style="display: inline-flex; align-items: center; gap: 7px; color: var(--action, #0284c7) !important;">
+                                            <span class="anomalies-arrow" style="color: var(--action, #0284c7) !important;"></span>
+                                            <span style="color: var(--action, #0284c7) !important;">Click to View Details</span>
+                                        </span>
+                                        <span style="font-size: 11px; padding: 2px 9px; border-radius: 12px; font-weight: 600; background: rgba(59, 130, 246, 0.12); color: var(--action, #0284c7) !important; border: 1px solid rgba(59, 130, 246, 0.25);">
+                                            ${totalAnomalies} items detected
+                                        </span>
+                                    </summary>
+                                    <div class="anomalies-body-wrapper">
+                                        ${detailsContent}
+                                    </div>
+                                </details>
+                            </div>
+                        `;
+                }
+
+                const confirmBtnColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#3B82E8' : '#378ADD';
+
+                if (totalChanges === 0) {
+                    await Swal.fire({
+                        title: 'Already Up to Date',
+                        html: `
+                                <div style="text-align: left; font-size: 14px; color: var(--text-primary, #334155); line-height: 1.6;">
+                                    <div style="text-align: center; background: var(--remark-approved-bg, #f0fdf4); border: 1px solid var(--remark-approved-border, #bbf7d0); padding: 14px; border-radius: 8px;">
+                                        <p style="margin: 0 0 4px 0; font-weight: 700; font-size: 15px; color: var(--remark-approved-title, #166534);">✓ All Records Synchronized</p>
+                                        <p style="margin: 0; color: var(--remark-approved-text, #475569); font-size: 13px;">No new updates, changes, or obsolete records were found in the live portal. Local database is completely up to date.</p>
+                                    </div>
+                                    ${anomaliesHtml}
+                                </div>
+                            `,
+                        icon: 'info',
+                        confirmButtonColor: confirmBtnColor,
+                        width: totalAnomalies > 0 ? '660px' : '480px'
+                    });
+                } else {
+                    let detailsHtml = '';
+
+                    if (kitsTotal > 0) {
+                        let parts = [];
+                        if (kitsCreated > 0) parts.push(`${kitsCreated} added`);
+                        if (kitsUpdated > 0) parts.push(`${kitsUpdated} updated`);
+                        detailsHtml += `<p style="margin: 0 0 8px 0; color: var(--text-primary, #1e293b);"><strong>Kits:</strong> ${kitsTotal} changed <span style="color: var(--text-secondary, #64748b); font-size: 13px;">(${parts.join(', ')})</span></p>`;
+                    }
+
+                    if (opsTotal > 0) {
+                        let parts = [];
+                        if (opsCreated > 0) parts.push(`${opsCreated} added`);
+                        if (opsUpdated > 0) parts.push(`${opsUpdated} updated`);
+                        detailsHtml += `<p style="margin: 0 0 8px 0; color: var(--text-primary, #1e293b);"><strong>Operators:</strong> ${opsTotal} changed <span style="color: var(--text-secondary, #64748b); font-size: 13px;">(${parts.join(', ')})</span></p>`;
+                    }
+
+                    if (onbTotal > 0) {
+                        let parts = [];
+                        if (onbCreated > 0) parts.push(`${onbCreated} added`);
+                        if (onbUpdated > 0) parts.push(`${onbUpdated} updated`);
+                        detailsHtml += `<p style="margin: 0 0 8px 0; color: var(--text-primary, #1e293b);"><strong>Onboarding Details:</strong> ${onbTotal} changed <span style="color: var(--text-secondary, #64748b); font-size: 13px;">(${parts.join(', ')})</span></p>`;
+                    }
+
+                    if (kitsPruned > 0 || opsPruned > 0) {
+                        let pruneParts = [];
+                        if (kitsPruned > 0) pruneParts.push(`${kitsPruned} old kits`);
+                        if (opsPruned > 0) pruneParts.push(`${opsPruned} old operators`);
+                        detailsHtml += `<p style="margin: 8px 0 0 0; color: var(--stat-rejected-fg, #dc2626); font-size: 13px; border-top: 1px solid var(--border-subtle, #e2e8f0); padding-top: 8px;"><strong>Removed Old Records:</strong> ${pruneParts.join(', ')} pruned</p>`;
+                    }
+
+                    await Swal.fire({
+                        title: 'Sync Completed Successfully!',
+                        html: `
+                                <div style="text-align: left; font-size: 14px; color: var(--text-primary, #334155); line-height: 1.7;">
+                                    <div style="background: var(--surface-subtle, #f8fafc); padding: 14px; border-radius: 8px; border: 1px solid var(--border-strong, #e2e8f0); color: var(--text-primary, #334155);">
+                                        ${detailsHtml}
+                                    </div>
+                                    ${anomaliesHtml}
+                                </div>
+                            `,
+                        icon: 'success',
+                        confirmButtonColor: confirmBtnColor,
+                        width: totalAnomalies > 0 ? '660px' : '480px'
+                    });
+                }
+
+                // Refresh preview modal if currently open
+                const activeModal = document.getElementById('system-preview-modal');
+                if (activeModal && activeModal.style.display !== 'none' && window.currentSystemReport) {
+                    openSystemPreviewModal(window.currentSystemReport, window.currentSystemReportTitle || 'Report Preview');
+                }
+            } else {
+                const errMsg = data.message || data.detail || data.error || 'Failed to sync with external portal.';
+                Swal.fire({
+                    title: 'Sync Failed',
+                    text: errMsg,
+                    icon: 'error',
+                    confirmButtonColor: '#ef4444'
+                });
+            }
+        } catch (err) {
+            Swal.fire({
+                title: 'Connection Error',
+                text: 'Could not connect to the sync endpoint: ' + err.message,
+                icon: 'error',
+                confirmButtonColor: '#ef4444'
+            });
+        } finally {
+            if (btn) btn.classList.remove('loading');
+            if (icon) icon.classList.remove('spin-anim');
+            if (textSpan) textSpan.innerText = 'Sync Live Data';
+        }
+    }
 </script>

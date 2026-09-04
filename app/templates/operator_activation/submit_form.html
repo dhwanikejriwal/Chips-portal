@@ -14,7 +14,8 @@
     {% if revert_log %}
     <div class="revert-reason-box" style="margin-bottom: 0;">
         <div class="revert-reason-header">
-            <span class="revert-reason-title">{{ 'Rejection Remark:' if is_rejected else 'Revert Reason / Remarks:' }}</span>
+            <span class="revert-reason-title">{{ 'Rejection Remark:' if is_rejected else 'Revert Reason / Remarks:'
+                }}</span>
         </div>
         <div class="revert-reason-text">
             {{ revert_log.remark | trim }}
@@ -52,15 +53,53 @@
         <div class="oa-form-step active" id="step-1-panel">
 
             {% if not reapply_id %}
-            <div class="oa-search-panel"
-                style="margin-bottom: 30px; background: var(--bg-surface-secondary, #f8fafc); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color, #e2e8f0); position: relative;">
+            <div class="oa-search-panel" style="margin-bottom: 28px; position: relative;">
                 <h2 class="container-sub-title"
-                    style="text-transform: uppercase; font-size: 14px; letter-spacing: 0.5px; margin-bottom: 10px;">
-                    Search Eligible Operator
+                    style="text-transform: uppercase; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 12px;">
+                    SEARCH ELIGIBLE OPERATOR
                 </h2>
-                <div id="oa-combobox-container" style="width: 100%;"></div>
-                <div style="font-size: 11.5px; color: var(--text-muted, #64748b); margin-top: 8px;">
-                    Click the arrow to browse all eligible operators or type to filter.
+                <div class="oa-search-bar-wrapper"
+                    style="position: relative; display: flex; align-items: center; width: 100%;">
+                    <span class="oa-search-icon"
+                        style="position: absolute; left: 14px; color: #64748b; pointer-events: none; display: flex; align-items: center;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </span>
+
+                    <input type="text" id="operator_search_input" class="form-control-input oa-search-input"
+                        placeholder="Search eligible operator by Name, Mobile, Email, or Request Code..."
+                        style="width: 100%; padding: 12px 44px 12px 42px; border-radius: 8px; font-size: 14px;"
+                        oninput="debounceSearch(this.value)" onclick="toggleOperatorDropdown(true)"
+                        onfocus="toggleOperatorDropdown(true)">
+
+                    <button type="button" id="oa-search-dropdown-toggle" onclick="toggleOperatorDropdown()"
+                        style="position: absolute; right: 10px; background: transparent; border: none; color: #64748b; cursor: pointer; padding: 6px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                        <svg id="oa-chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            style="transition: transform 0.2s ease;">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+
+                    <div id="search_spinner" style="position: absolute; right: 40px; display: none;">
+                        <svg class="animate-spin" style="width:18px;height:18px;color:#3b82f6;"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                            </circle>
+                            <path class="opacity-75" fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                            </path>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Dropdown for Search Results -->
+                <div id="search_results_dropdown" class="oa-search-dropdown"
+                    style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1000; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); max-height: 320px; overflow-y: auto;">
+                    <!-- Results populated by JS -->
                 </div>
             </div>
             {% endif %}
@@ -190,7 +229,8 @@
                             placeholder="Auto-generated: EACode_Name_DistrictCode"
                             oninput="this.dataset.userEdited = 'true';"
                             value="{{ request_data.user_code if request_data else '' }}">
-                        <span style="font-size: 11px; color: #94a3b8; margin-top: 4px; display: block;" class="field-subtext-hint">Auto-filled —
+                        <span style="font-size: 11px; color: #94a3b8; margin-top: 4px; display: block;"
+                            class="field-subtext-hint">Auto-filled —
                             you may edit if needed</span>
                     </div>
                 </div>
@@ -224,7 +264,8 @@
                             required readonly class="form-control-input"
                             style="background-color: #f8fafc; color: #64748b; cursor: not-allowed;"
                             value="{{ request_data.nseit_certificate_expiry_date if request_data else '' }}">
-                        <span style="font-size: 11px; color: #94a3b8; margin-top: 4px; display: block;" class="field-subtext-hint">Auto-set to 3
+                        <span style="font-size: 11px; color: #94a3b8; margin-top: 4px; display: block;"
+                            class="field-subtext-hint">Auto-set to 3
                             years from Issue Date</span>
                         <span class="oa-input-hint" id="expiry-error"
                             style="display: none; color: #dc3545; font-size: 11px; margin-top: 4px; font-weight: 600;">Certificate
@@ -244,7 +285,8 @@
                         <label>District <span class="required-star">*</span></label>
                         <input type="text" name="district" value="{{ session.get('district_name', 'Raipur') }}" readonly
                             class="form-control-input oa-readonly-input" style="cursor: not-allowed;">
-                        <span style="font-size: 11px; margin-top: 4px; display: block;" class="field-subtext-hint">Auto-filled from
+                        <span style="font-size: 11px; margin-top: 4px; display: block;"
+                            class="field-subtext-hint">Auto-filled from
                             your DC profile</span>
                     </div>
                     <div class="input-group">
@@ -482,6 +524,12 @@
                 const name = nameEl ? nameEl.value.trim() : '';
                 const pan = panEl ? panEl.value.trim() : '';
                 if (!name || !pan) fieldsFilled = false;
+            } else if (inputName === 'excel_sheet') {
+                const nameEl = document.getElementById('name_as_per_aadhaar');
+                const mobEl = document.getElementById('operator_mobile');
+                const name = nameEl ? nameEl.value.trim() : '';
+                const mob = mobEl ? mobEl.value.trim() : '';
+                if (!name || !mob) fieldsFilled = false;
             }
 
             if (file && fieldsFilled) {
@@ -1014,21 +1062,14 @@
         }
     };
 
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.oa-file-input').forEach(input => {
-            input.addEventListener('change', function () {
-                if (this.files && this.files.length > 0) {
-                    performOcrValidation(this);
-                } else {
-                    this.dataset.isValid = 'false';
-                    window.checkFormValidity();
-                }
-            });
-        });
-        window.checkFormValidity();
-    });
+    // File input change is handled by the single DOMContentLoaded listener below (lines ~1232+)
+    // which also enforces file size limits. No duplicate listener needed here.
+
+    // Per-input AbortController map — cancels previous pending request for same input
+    const _ocrControllers = {};
 
     async function performOcrValidation(input) {
+        if (window.isAutofilling) return;
         const parent = input.closest('.oa-doc-card');
         if (!parent) return;
 
@@ -1043,6 +1084,12 @@
         const file = input.files[0];
         if (!file) return;
 
+        // Silently cancel any previous in-flight OCR request for this same input
+        if (_ocrControllers[input.name]) {
+            _ocrControllers[input.name]._superseded = true;
+            _ocrControllers[input.name].abort();
+        }
+
         // Create status element
         const ocrEl = document.createElement('div');
         ocrEl.className = 'ocr-validation-msg';
@@ -1056,6 +1103,11 @@
         activeOcrValidations++;
         window.checkFormValidity();
 
+        const controller = new AbortController();
+        controller._superseded = false;
+        _ocrControllers[input.name] = controller;
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
         try {
             const formData = new FormData();
             formData.append('file', file);
@@ -1068,26 +1120,44 @@
 
             const response = await fetch('/auth/dc/operator-activation/validate-document', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
-            const data = await response.json();
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (jsonErr) {
+                data = { message: "Server communication error." };
+            }
+
             if (response.ok && data.status === 'success') {
                 ocrEl.style.color = '#10b981'; // Green for success
-                ocrEl.innerText = '✓ Document validated successfully.';
+                ocrEl.innerText = data.warning ? `✓ ${data.warning}` : '✓ Document validated successfully.';
                 input.dataset.isValid = 'true';
             } else {
                 ocrEl.style.color = '#ef4444'; // Red for error
-                ocrEl.innerText = `✗ ${data.message || 'Validation failed. Please verify the document matches Step 1 details.'}`;
+                const msg = data.message || data.detail || 'Validation failed. Please verify the document matches Step 1 details.';
+                ocrEl.innerText = `✗ ${msg}`;
                 input.dataset.isValid = 'false';
-                input.value = ''; // Clear input on failure to prevent submission
             }
         } catch (e) {
+            clearTimeout(timeoutId);
+            // If this request was silently superseded by a newer one, don't show an error
+            if (controller._superseded) {
+                activeOcrValidations--;
+                window.checkFormValidity();
+                return;
+            }
             console.error("OCR validation error", e);
             ocrEl.style.color = '#ef4444';
-            ocrEl.innerText = '✗ Network error occurred during validation.';
+            if (e.name === 'AbortError') {
+                ocrEl.innerText = '✗ Validation timed out. Please check file quality or re-upload.';
+            } else {
+                ocrEl.innerText = '✗ Connection error during validation. Please try again.';
+            }
             input.dataset.isValid = 'false';
-            input.value = '';
         } finally {
             activeOcrValidations--;
             window.checkFormValidity();
@@ -1280,6 +1350,7 @@
                 window.triggerRevalidation('aadhaar_photo');
                 window.triggerRevalidation('pan_card');
                 window.triggerRevalidation('nseit_certificate');
+                window.triggerRevalidation('excel_sheet');
             });
         }
         const aadhaarEl = document.getElementById('operator_aadhaar');
@@ -1294,6 +1365,12 @@
                 window.triggerRevalidation('pan_card');
             });
         }
+        const mobEl = document.getElementById('operator_mobile');
+        if (mobEl) {
+            mobEl.addEventListener('input', () => {
+                window.triggerRevalidation('excel_sheet');
+            });
+        }
         window.checkFormValidity();
     });
 
@@ -1303,37 +1380,89 @@
     function debounceSearch(query) {
         clearTimeout(searchTimeout);
         const spinner = document.getElementById('search_spinner');
-        const dropdown = document.getElementById('search_results_dropdown');
-
-        if (!query || query.length < 3) {
-            dropdown.style.display = 'none';
-            if (spinner) spinner.style.display = 'none';
-            return;
-        }
 
         if (spinner) spinner.style.display = 'block';
 
         searchTimeout = setTimeout(() => {
             fetchCandidates(query);
-        }, 500);
+        }, 300);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const comboboxContainer = document.getElementById('oa-combobox-container');
-        if (comboboxContainer && typeof window.SearchableCombobox === 'function') {
-            window.oaCombobox = new SearchableCombobox({
-                container: comboboxContainer,
-                placeholder: 'Search eligible operator by Name, Mobile, Email, or Request Code...',
-                endpoint: '/auth/dc/operator-activation/search',
-                onSelect: (c) => {
-                    selectCandidate(c);
-                },
-                onClear: () => {
-                    clearOperatorFields();
-                }
-            });
+    async function toggleOperatorDropdown(forceOpen = null) {
+        const dropdown = document.getElementById('search_results_dropdown');
+        const chevron = document.getElementById('oa-chevron-icon');
+        if (!dropdown) return;
+
+        const isCurrentlyOpen = dropdown.style.display === 'block';
+        const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
+
+        if (shouldOpen) {
+            dropdown.style.display = 'block';
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+            const input = document.getElementById('operator_search_input');
+            const q = input ? input.value : '';
+            await fetchCandidates(q);
+        } else {
+            dropdown.style.display = 'none';
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
         }
-    });
+    }
+
+    async function fetchCandidates(query = '') {
+        const spinner = document.getElementById('search_spinner');
+        const dropdown = document.getElementById('search_results_dropdown');
+
+        try {
+            const res = await fetch(`/auth/dc/operator-activation/search?q=${encodeURIComponent(query || '')}`);
+            if (res.ok) {
+                const candidates = await res.json();
+                dropdown.innerHTML = '';
+
+                if (candidates.length === 0) {
+                    dropdown.innerHTML = '<div style="padding: 14px; color: #64748b; font-size: 13px; text-align: center;">No eligible operators found.</div>';
+                } else {
+                    candidates.forEach(c => {
+                        const div = document.createElement('div');
+                        div.className = 'oa-search-result-card';
+                        div.onclick = () => selectCandidate(c);
+
+                        const nseitBadge = c.nseit_id ? `NSEIT: ${c.nseit_id}` : 'NSEIT: —';
+                        const reqBadge = c.request_code ? `<span style="background: rgba(99, 102, 241, 0.15); color: #818cf8; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-family: monospace; letter-spacing: 0.5px;">${c.request_code}</span>` : '';
+
+                        div.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                <strong class="oa-search-result-name">${c.name}</strong>
+                                ${reqBadge}
+                            </div>
+                            <div class="oa-search-result-info">
+                                <span style="display: inline-flex; align-items: center; gap: 4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                                    ${c.mobile}
+                                </span>
+                                <span class="oa-search-result-dot">·</span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                    ${c.email}
+                                </span>
+                                <span class="oa-search-result-dot">·</span>
+                                <span class="oa-search-result-badge">
+                                    ${nseitBadge}
+                                </span>
+                            </div>
+                        `;
+                        dropdown.appendChild(div);
+                    });
+                }
+                dropdown.style.display = 'block';
+                const chevron = document.getElementById('oa-chevron-icon');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+            }
+        } catch (e) {
+            console.error("Search failed", e);
+        } finally {
+            if (spinner) spinner.style.display = 'none';
+        }
+    }
 
     function clearOperatorFields() {
         const nameEl = document.getElementById('name_as_per_aadhaar');
@@ -1406,14 +1535,26 @@
 
         // Trigger user code autofill logic
         if (typeof autoFillUserCode === 'function') autoFillUserCode();
+
+        // Close dropdown & clear input
+        const dropdown = document.getElementById('search_results_dropdown');
+        if (dropdown) dropdown.style.display = 'none';
+        const chevron = document.getElementById('oa-chevron-icon');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+        const searchInput = document.getElementById('operator_search_input');
+        if (searchInput) {
+            searchInput.value = '';
+        }
     }
 
     // Hide dropdown on outside click
     document.addEventListener('click', (e) => {
         const dropdown = document.getElementById('search_results_dropdown');
-        const input = document.getElementById('operator_search_input');
-        if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
+        const searchPanel = document.querySelector('.oa-search-panel');
+        if (dropdown && searchPanel && !searchPanel.contains(e.target)) {
             dropdown.style.display = 'none';
+            const chevron = document.getElementById('oa-chevron-icon');
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
         }
     });
 
@@ -1429,38 +1570,11 @@
         window.isAutofilling = true;
 
         const mainNseitInput = document.querySelector('input[name="nseit_certificate"]');
-        if (mainNseitInput) {
-            try {
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                mainNseitInput.files = dt.files;
 
-                // Add visual feedback
-                const parent = mainNseitInput.closest('.oa-doc-card');
-                if (parent) {
-                    let existingMsg = parent.querySelector('.auto-upload-msg');
-                    if (!existingMsg) {
-                        existingMsg = document.createElement('div');
-                        existingMsg.className = 'auto-upload-msg';
-                        existingMsg.style.fontSize = '11px';
-                        existingMsg.style.color = '#059669';
-                        existingMsg.style.marginTop = '4px';
-                        parent.appendChild(existingMsg);
-                    }
-                    existingMsg.innerHTML = `✓ Auto-attached from autofill: ${file.name}`;
-                }
-
-                // Dispatch change event to trigger any listeners like file size validation
-                mainNseitInput.dispatchEvent(new Event('change', { bubbles: true }));
-            } catch (e) {
-                console.warn("Could not copy file to main input automatically.", e);
-            }
-        }
-
-        // Show inline loading text ins        // Show inline loading status badge
+        // Show inline loading status badge
         const statusEl = document.getElementById('nseit-autofill-status');
         if (statusEl) {
-            statusEl.innerHTML = `<span class="ocr-status-badge info">⚡ Validating certificate authenticity...</span>`;
+            statusEl.innerHTML = `<span class="ocr-status-badge info">⚡ Reading and validating certificate...</span>`;
         }
 
         const formData = new FormData();
@@ -1472,68 +1586,87 @@
             formData.append('operator_name', operatorNameInput.value.trim());
         }
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 75000);
+
         try {
             const response = await fetch('/auth/dc/operator-activation/autofill-nseit', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
             if (response.ok) {
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    if (data.match_type === 'database') {
-                        // Found a matching candidate in DB! Fill everything.
-                        selectCandidate(data.candidate);
-                        if (statusEl) {
-                            statusEl.innerHTML = `<span class="ocr-status-badge success">✓ Certificate read successfully and details auto-filled.</span>`;
-                            setTimeout(() => {
-                                if (statusEl.innerText.includes('✓')) statusEl.innerHTML = '';
-                            }, 4000);
-                        }
-                    } else if (data.match_type === 'parsed_only') {
-                        // Fill what we found
-                        let filled = false;
-                        if (data.parsed_data.name && document.getElementById('name_as_per_aadhaar')) {
-                            const nameInputEl = document.getElementById('name_as_per_aadhaar');
-                            nameInputEl.value = data.parsed_data.name;
-                            nameInputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                            filled = true;
-                        }
-                        if (data.parsed_data.cert_no && document.getElementById('nseit_certificate_number')) {
-                            document.getElementById('nseit_certificate_number').value = data.parsed_data.cert_no;
-                            filled = true;
-                            const autofillNote = document.getElementById('nseit-autofill-note');
-                            if (autofillNote) {
-                                autofillNote.style.display = 'block';
-                            }
-                        }
-                        if (data.parsed_data.issue_date && document.getElementById('nseit_certification_date')) {
-                            document.getElementById('nseit_certification_date').value = data.parsed_data.issue_date;
-                            if (typeof autoFillExpiryDate === 'function') autoFillExpiryDate();
-                            filled = true;
-                        }
+                    const parsed = data.parsed_data || (data.candidate ? {
+                        name: data.candidate.name,
+                        cert_no: data.candidate.nseit_id,
+                        issue_date: ''
+                    } : {});
 
-                        if (typeof autoFillUserCode === 'function') autoFillUserCode();
-
-                        if (statusEl) {
-                            if (filled) {
-                                statusEl.innerHTML = `<span class="ocr-status-badge success">✓ Certificate read successfully and details auto-filled.</span>`;
-                                setTimeout(() => {
-                                    if (statusEl.innerText.includes('✓')) statusEl.innerHTML = '';
-                                }, 4000);
-                            } else {
-                                statusEl.innerHTML = `<span class="ocr-status-badge error">✕ No details could be extracted. Please enter manually.</span>`;
-                            }
+                    // Fill ONLY name, cert_no, and issue_date parsed directly from the certificate
+                    let filled = false;
+                    if (parsed.name && document.getElementById('name_as_per_aadhaar')) {
+                        const nameInputEl = document.getElementById('name_as_per_aadhaar');
+                        nameInputEl.value = parsed.name;
+                        nameInputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        filled = true;
+                    }
+                    if (parsed.cert_no && document.getElementById('nseit_certificate_number')) {
+                        document.getElementById('nseit_certificate_number').value = parsed.cert_no;
+                        filled = true;
+                        const autofillNote = document.getElementById('nseit-autofill-note');
+                        if (autofillNote) {
+                            autofillNote.style.display = 'block';
                         }
                     }
-                    // Fields are now filled! Perform OCR validation on the main document input.
-                    window.isAutofilling = false;
+                    if (parsed.issue_date && document.getElementById('nseit_certification_date')) {
+                        document.getElementById('nseit_certification_date').value = parsed.issue_date;
+                        if (typeof autoFillExpiryDate === 'function') autoFillExpiryDate();
+                        filled = true;
+                    }
+
+                    if (typeof autoFillUserCode === 'function') autoFillUserCode();
+
+                    if (statusEl) {
+                        if (filled) {
+                            statusEl.innerHTML = `<span class="ocr-status-badge success">✓ Certificate read successfully: Name, NSEIT ID and Issue Date auto-filled.</span>`;
+                            setTimeout(() => {
+                                if (statusEl && statusEl.innerText.includes('✓')) statusEl.innerHTML = '';
+                            }, 5000);
+                        } else {
+                            statusEl.innerHTML = `<span class="ocr-status-badge error">✕ No details could be extracted. Please enter manually.</span>`;
+                        }
+                    }
+
+                    // Attach file to Section 4 input and mark as valid
                     if (mainNseitInput) {
-                        performOcrValidation(mainNseitInput);
+                        try {
+                            const dt = new DataTransfer();
+                            dt.items.add(file);
+                            mainNseitInput.files = dt.files;
+                            mainNseitInput.dataset.isValid = 'true';
+
+                            const parent = mainNseitInput.closest('.oa-doc-card');
+                            if (parent) {
+                                parent.querySelectorAll('.ocr-validation-msg, .error-msg-file, .auto-upload-msg, .oa-field-error').forEach(el => el.remove());
+                                let existingMsg = document.createElement('div');
+                                existingMsg.className = 'ocr-validation-msg';
+                                existingMsg.style.fontSize = '12px';
+                                existingMsg.style.marginTop = '6px';
+                                existingMsg.style.fontWeight = '600';
+                                existingMsg.style.color = '#10b981';
+                                existingMsg.innerText = `✓ Certificate verified and attached: ${file.name}`;
+                                parent.appendChild(existingMsg);
+                            }
+                        } catch (e) {
+                            console.warn("Could not copy file to main input.", e);
+                        }
                     }
                 } else {
-                    window.isAutofilling = false;
                     if (statusEl) {
                         let cleanMsg = (data.message || 'Could not parse the certificate.')
                             .replace(/(?:Extraction Failed|Validation Error|Invalid Document)\s*[:\-]\s*/gi, '')
@@ -1542,31 +1675,40 @@
                     }
                     if (mainNseitInput) {
                         mainNseitInput.value = '';
-                        mainNseitInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        mainNseitInput.dataset.isValid = 'false';
                     }
                 }
             } else {
-                window.isAutofilling = false;
+                let errMsg = 'Could not validate certificate.';
+                try {
+                    const errData = await response.json();
+                    if (errData && errData.message) errMsg = errData.message;
+                } catch (_) { }
                 if (statusEl) {
-                    statusEl.innerHTML = `<span class="ocr-status-badge error">✕ Server Error: Could not validate certificate.</span>`;
+                    statusEl.innerHTML = `<span class="ocr-status-badge error">✕ ${errMsg}</span>`;
                 }
                 if (mainNseitInput) {
                     mainNseitInput.value = '';
-                    mainNseitInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    mainNseitInput.dataset.isValid = 'false';
                 }
             }
         } catch (e) {
-            window.isAutofilling = false;
+            clearTimeout(timeoutId);
             console.error("Upload error", e);
             if (statusEl) {
-                statusEl.innerHTML = `<span class="ocr-status-badge error">✕ Network Error: Connection failed.</span>`;
+                if (e.name === 'AbortError') {
+                    statusEl.innerHTML = `<span class="ocr-status-badge error">✕ Verification timed out. You may re-upload or enter details manually.</span>`;
+                } else {
+                    statusEl.innerHTML = `<span class="ocr-status-badge error">✕ Connection failed. Please check network.</span>`;
+                }
             }
             if (mainNseitInput) {
                 mainNseitInput.value = '';
-                mainNseitInput.dispatchEvent(new Event('change', { bubbles: true }));
+                mainNseitInput.dataset.isValid = 'false';
             }
         } finally {
             window.isAutofilling = false;
+            window.checkFormValidity();
             // Reset file input so same file can be uploaded again if needed
             event.target.value = '';
         }
